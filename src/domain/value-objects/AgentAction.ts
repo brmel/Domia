@@ -1,0 +1,63 @@
+import type { ElementId } from './Brand';
+
+/**
+ * AgentAction Value Object
+ * Discriminated union of all possible agent actions
+ */
+export type AgentAction =
+    | ClickAction
+    | TypeAction
+    | ScrollAction
+    | WaitAction
+    | ExtractAction
+    | PassAction
+    | FailAction;
+
+export interface ClickAction {
+    readonly type: 'click';
+    readonly elementId: ElementId;
+    readonly thought: string;
+}
+
+export interface TypeAction {
+    readonly type: 'type';
+    readonly elementId: ElementId;
+    readonly text: string;
+    readonly thought: string;
+}
+
+export interface ScrollAction {
+    readonly type: 'scroll';
+    readonly direction: 'up' | 'down';
+    readonly thought: string;
+}
+
+export interface WaitAction {
+    readonly type: 'wait';
+    readonly durationMs: number;
+    readonly thought: string;
+}
+
+export interface ExtractAction {
+    readonly type: 'extract';
+    readonly key: string;
+    readonly value: string;
+    readonly thought: string;
+}
+
+export interface PassAction {
+    readonly type: 'pass';
+    readonly summary: string;
+}
+
+export interface FailAction {
+    readonly type: 'fail';
+    readonly reason: string;
+}
+
+/**
+ * Type guard for terminal actions
+ */
+export function isTerminalAction(action: AgentAction): action is PassAction | FailAction {
+    return action.type === 'pass' || action.type === 'fail';
+}

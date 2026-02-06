@@ -1,0 +1,64 @@
+# Auto-QA Electron Builder Configuration
+# https://www.electron.build/configuration/configuration
+
+appId: com.auto-qa.app
+productName: Auto-QA
+copyright: Copyright © 2026
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist
+  - dist-electron
+  - "!node_modules/**/*"
+  - node_modules/playwright-core/**/*
+
+# macOS configuration
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  icon: public/icon.png
+
+# Windows configuration
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: public/icon.png
+
+# Linux configuration
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
+  icon: public/icon.png
+
+# NSIS installer config for Windows
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+
+# DMG config for macOS
+dmg:
+  title: "${productName} ${version}"
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+# Auto-update configuration
+publish:
+  provider: github
+  releaseType: draft

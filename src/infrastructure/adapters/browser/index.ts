@@ -1,0 +1,1 @@
+export { PlaywrightAdapter } from './PlaywrightAdapter';

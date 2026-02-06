@@ -1,0 +1,127 @@
+.screenshot-viewer {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--bg-secondary, #1e1e2e);
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #313244);
+}
+
+.screenshot-viewer.empty {
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary, #a6adc8);
+}
+
+.empty-state .icon {
+    font-size: 2.5rem;
+}
+
+/* Latest Screenshot */
+.latest-screenshot {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.screenshot-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.screenshot-header .label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary, #a6adc8);
+}
+
+.live-badge {
+    padding: 0.25rem 0.5rem;
+    background: #f38ba820;
+    border: 1px solid #f38ba8;
+    border-radius: 4px;
+    color: #f38ba8;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.screenshot-image {
+    max-width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #313244);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Screenshot History */
+.screenshot-history {
+    font-size: 0.875rem;
+}
+
+.screenshot-history summary {
+    cursor: pointer;
+    color: var(--text-secondary, #a6adc8);
+    padding: 0.5rem;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.screenshot-history summary:hover {
+    background: var(--bg-primary, #11111b);
+}
+
+.history-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem;
+}
+
+.history-item {
+    position: relative;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border-color, #313244);
+}
+
+.history-item img {
+    width: 100%;
+    aspect-ratio: 16/9;
+    object-fit: cover;
+}
+
+.history-number {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    padding: 0.125rem 0.375rem;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 4px;
+    font-size: 0.625rem;
+    color: var(--text-primary, #cdd6f4);
+}
