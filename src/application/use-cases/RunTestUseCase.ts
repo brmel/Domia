@@ -132,6 +132,10 @@ export class RunTestUseCase {
                         yield { type: 'error', error: performResult.error };
                         break;
                     }
+
+                    // Wait for DOM to stabilize after action
+                    this.logger.debug('Waiting for DOM to stabilize');
+                    await this.browser.waitForDOMStable();
                 }
 
                 // Create step record using factory

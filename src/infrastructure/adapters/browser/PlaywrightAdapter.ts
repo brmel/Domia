@@ -117,6 +117,26 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         ).map((data) => ({ data, timestamp: new Date() }));
     }
 
+    /**
+     * Wait for DOM to stabilize after an action
+     * Uses network idle detection and a small delay for JS execution
+     */
+    async waitForDOMStable(timeout: number = 2000): Promise<void> {
+        if (!this.page) {
+            return;
+        }
+
+        try {
+            // Wait for network to be idle (no requests for 500ms)
+            await this.page.waitForLoadState('networkidle', { timeout });
+        } catch {
+            // Timeout is ok - some pages have persistent connections
+        }
+
+        // Small delay to allow any JS to finish executing
+        await this.page.waitForTimeout(100);
+    }
+
     async close(): Promise<void> {
         if (this.context) {
             await this.context.close();

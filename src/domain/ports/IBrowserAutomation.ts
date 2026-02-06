@@ -31,5 +31,6 @@ export interface IBrowserAutomation {
     wait(durationMs: number): ResultAsync<void, InteractionError>;
     snapshot(): ResultAsync<DOMSnapshot, SnapshotError>;
     screenshot(): ResultAsync<Screenshot, CaptureError>;
+    waitForDOMStable(timeout?: number): Promise<void>;
     close(): Promise<void>;
 }
