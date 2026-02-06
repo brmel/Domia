@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { ILLMProvider, LLMContext } from '@domain/ports';
+import type { ILLMProvider, LLMContext, ILogger } from '@domain/ports';
 import type { AgentAction, ElementId } from '@domain/value-objects';
 import { LLMError } from '@domain/errors';
 import type { LLMConfig } from './VercelAIAdapter';
@@ -17,7 +17,10 @@ export class GeminiAdapter implements ILLMProvider {
     private readonly genAI: GoogleGenerativeAI;
     private readonly modelName: string;
 
-    constructor(@inject('LLMConfig') config: LLMConfig) {
+    constructor(
+        @inject('LLMConfig') config: LLMConfig,
+        @inject('ILogger') private readonly logger: ILogger
+    ) {
         this.genAI = new GoogleGenerativeAI(config.apiKey);
         this.modelName = config.model;
         this.providerName = `google/${config.model}`;
@@ -34,14 +37,14 @@ export class GeminiAdapter implements ILLMProvider {
         const model = this.genAI.getGenerativeModel({ model: this.modelName });
         const prompt = this.buildFullPrompt(context);
 
-        console.log('[GeminiAdapter] Sending prompt, length:', prompt.length, 'characters');
+        this.logger.debug(`[GeminiAdapter] Sending prompt, length: ${prompt.length} characters`);
 
         const result = await model.generateContent(prompt);
         const response = result.response;
         const text = response.text();
 
-        console.log('[GeminiAdapter] Response length:', text?.length ?? 0);
-        console.log('[GeminiAdapter] Response text:', text?.substring(0, 500));
+        this.logger.debug(`[GeminiAdapter] Response length: ${text?.length ?? 0}`);
+        this.logger.debug(`[GeminiAdapter] Response text preview: ${text?.substring(0, 100)}...`);
 
         return text;
     }
@@ -55,6 +58,11 @@ RULES:
 3. Be precise and deliberate with each action
 4. If the goal is achieved, respond with a "pass" action
 5. If the goal cannot be achieved, respond with a "fail" action
+
+CRITICAL VALIDATION RULE: 
+If the user asks to "verify" or "check" something, and the condition is FALSE or elements are MISSING, you MUST use the "fail" action.
+Example: User asks "Verify 3 links exist". You find only 1. Action MUST be "fail" with reason "Found only 1 link".
+Do NOT use "pass" just because you successfully finished counting. "Pass" means the *user's requirement* was satisfied.
 
 RESPONSE FORMAT (JSON only, no markdown):
 {
@@ -116,7 +124,7 @@ Respond with a single JSON action (no markdown, just the JSON object):`;
     }
 
     private doParseAction(text: string): AgentAction {
-        console.log('[GeminiAdapter] Parsing response:', text.substring(0, 300));
+        this.logger.debug(`[GeminiAdapter] Parsing response starting...`);
 
         if (!text || text.trim().length === 0) {
             throw new Error('LLM returned empty response');

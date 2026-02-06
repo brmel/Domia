@@ -2,7 +2,7 @@ import { injectable, inject } from 'tsyringe';
 import type { IInputPort } from '@domain/ports';
 import type { IOutputPort } from '@domain/ports';
 import type { IBrowserAutomation } from '@domain/ports';
-import type { ILLMProvider, LLMContext } from '@domain/ports';
+import type { ILLMProvider, LLMContext, ILogger } from '@domain/ports';
 import type { ITestRunStorage, IArtifactStorage } from '@domain/ports';
 import type { TestRunEvent, CancellationToken } from '@domain/events';
 import type { AgentAction, Url } from '@domain/value-objects';
@@ -27,7 +27,8 @@ export class RunTestUseCase {
         @inject('ILLMProvider') private readonly llm: ILLMProvider,
         // @ts-expect-error - Will be used for test run persistence in future
         @inject('ITestRunStorage') private readonly _storage: ITestRunStorage,
-        @inject('IArtifactStorage') private readonly artifacts: IArtifactStorage
+        @inject('IArtifactStorage') private readonly artifacts: IArtifactStorage,
+        @inject('ILogger') private readonly logger: ILogger
     ) { }
 
     /**
@@ -39,9 +40,12 @@ export class RunTestUseCase {
         raw: unknown,
         cancellation: CancellationToken
     ): AsyncGenerator<TestRunEvent, void, undefined> {
+        this.logger.info('Starting test run execution');
+
         // Parse and validate input
         const parseResult = this.input.parse(raw);
         if (parseResult.isErr()) {
+            this.logger.error('Input validation failed', parseResult.error);
             yield { type: 'error', error: parseResult.error };
             return;
         }
@@ -50,22 +54,27 @@ export class RunTestUseCase {
 
         // Create test run ID
         const testRunId = TestRunIdFactory.create();
+        this.logger.info(`Test run initialized`, { testRunId, url: testInput.url });
 
         yield { type: 'started', testRunId };
 
         // Launch browser
+        this.logger.debug('Launching browser');
         const launchResult = await this.browser.launch({
             headless: testInput.options?.headless ?? true,
         });
         if (launchResult.isErr()) {
+            this.logger.error('Browser launch failed', launchResult.error);
             yield { type: 'error', error: launchResult.error };
             return;
         }
 
         try {
             // Navigate to URL
+            this.logger.debug(`Navigating to ${testInput.url}`);
             const navResult = await this.browser.navigateTo(testInput.url as Url);
             if (navResult.isErr()) {
+                this.logger.error('Navigation failed', navResult.error);
                 yield { type: 'error', error: navResult.error };
                 return;
             }
@@ -79,16 +88,19 @@ export class RunTestUseCase {
             while (stepNumber < maxSteps && !completed) {
                 // Cooperative cancellation check
                 if (cancellation.requested) {
+                    this.logger.info('Test run cancelled by user');
                     yield { type: 'cancelled' };
                     return;
                 }
 
                 stepNumber++;
+                this.logger.info(`Starting step ${stepNumber}`);
 
                 // OBSERVE
                 yield { type: 'observing' };
                 const snapshotResult = await this.browser.snapshot();
                 if (snapshotResult.isErr()) {
+                    this.logger.error('Snapshot failed', snapshotResult.error);
                     yield { type: 'error', error: snapshotResult.error };
                     break;
                 }
@@ -114,12 +126,15 @@ export class RunTestUseCase {
 
                 // THINK
                 yield { type: 'thinking' };
+                this.logger.debug('Generating action from LLM');
                 const actionResult = await this.llm.generateAction(context);
                 if (actionResult.isErr()) {
+                    this.logger.error('LLM generation failed', actionResult.error);
                     yield { type: 'error', error: actionResult.error };
                     break;
                 }
                 const action = actionResult.value;
+                this.logger.info('Agent decided action', { action: action.type });
                 previousActions.push(action);
 
                 // ACT
@@ -129,10 +144,13 @@ export class RunTestUseCase {
                 if (isTerminalAction(action)) {
                     completed = true;
                     finalSummary = action.type === 'pass' ? action.summary : action.reason;
+                    this.logger.info(`Terminal action reached: ${action.type}`, { summary: finalSummary });
                 } else {
                     // Perform browser action
+                    this.logger.debug('Performing browser action', { action });
                     const performResult = await this.performAction(action);
                     if (performResult.isErr()) {
+                        this.logger.error('Action execution failed', performResult.error);
                         yield { type: 'error', error: performResult.error };
                         break;
                     }
@@ -151,14 +169,17 @@ export class RunTestUseCase {
 
             // Build final output
             const success = completed && previousActions.some(a => a.type === 'pass');
+            this.logger.info(`Test run complete. Success: ${success}`);
+
             yield {
                 type: 'completed',
                 success,
-                summary: finalSummary || (success ? 'Test completed successfully' : 'Test did not complete goal'),
+                summary: finalSummary || (success ? 'Test completed successfully' : 'Agent stopped without reaching a conclusion (Max steps reached or manual stop)'),
             };
 
         } finally {
             // Close browser
+            this.logger.debug('Closing browser');
             await this.browser.close();
         }
     }

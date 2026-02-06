@@ -31,7 +31,14 @@ export class UIInputAdapter implements IInputPort {
         if (typeof url !== 'string') {
             return err(new InputError('URL must be a string'));
         }
-        const urlResult = UrlFactory.create(url);
+
+        // Normalize URL: Add https:// if protocol is missing
+        let processedUrl = url.trim();
+        if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
+            processedUrl = `https://${processedUrl}`;
+        }
+
+        const urlResult = UrlFactory.create(processedUrl);
         if (urlResult.isErr()) {
             return err(new InputError(urlResult.error.message));
         }

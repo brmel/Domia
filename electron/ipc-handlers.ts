@@ -19,8 +19,18 @@ export function registerTestHandlers(win: BrowserWindow): void {
             const generator = useCase.execute(input, currentCancellation.token);
 
             for await (const event of generator) {
-                // Send each event to renderer
-                win.webContents.send('test:update', event);
+                // Intercept screenshot events to convert Buffer to Base64
+                // This prevents Electron from serializing Buffer as { type: 'Buffer', data: [...] }
+                if (event.type === 'screenshot') {
+                    const base64Data = event.data.toString('base64');
+                    // Send as a modified object where data is a string
+                    win.webContents.send('test:update', {
+                        ...event,
+                        data: base64Data
+                    });
+                } else {
+                    win.webContents.send('test:update', event);
+                }
             }
 
             return { success: true };

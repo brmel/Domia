@@ -1,10 +1,17 @@
 import 'reflect-metadata';
+import 'dotenv/config'; // Load env vars first
 import { app, BrowserWindow } from 'electron';
-import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { registerTestHandlers, registerSettingsHandlers } from './ipc-handlers';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Explicitly load .env from project root
+dotenv.config({ path: path.join(__dirname, '../.env') });
+
+console.log('[Main] API Key loaded:', process.env['GOOGLE_API_KEY'] ? 'Yes (Starts with ' + process.env['GOOGLE_API_KEY'].substring(0, 4) + ')' : 'No');
 
 process.env.APP_ROOT = path.join(__dirname, '..');
 

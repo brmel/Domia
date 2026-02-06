@@ -24,6 +24,10 @@ container.register('IBrowserAutomation', { useClass: PlaywrightAdapter });
 container.register('ITestRunStorage', { useClass: SQLiteAdapter });
 container.register('IArtifactStorage', { useClass: FileSystemAdapter });
 
+// Logger
+import { ConsoleLogger } from './infrastructure/adapters/logger/ConsoleLogger';
+container.register('ILogger', { useClass: ConsoleLogger });
+
 // I/O Ports
 container.register('IInputPort', { useClass: UIInputAdapter });
 container.register('IOutputPort', { useClass: FileOutputAdapter });

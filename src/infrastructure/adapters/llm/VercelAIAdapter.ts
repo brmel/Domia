@@ -52,7 +52,7 @@ export class VercelAIAdapter implements ILLMProvider {
 
         const result = await generateText({
             model,
-            system: this.config.provider === 'google' ? undefined : systemPrompt,
+            ...(this.config.provider !== 'google' && systemPrompt ? { system: systemPrompt } : {}),
             prompt: fullPrompt,
             maxTokens: 1024,
             temperature: 0.7, // Add some creativity

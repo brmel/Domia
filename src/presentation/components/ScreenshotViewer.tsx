@@ -1,7 +1,6 @@
 import React from 'react';
 import { useTestRunStore } from '../stores';
 
-
 /**
  * ScreenshotViewer Component
  * Displays screenshots from the agent loop
@@ -9,49 +8,96 @@ import { useTestRunStore } from '../stores';
 export function ScreenshotViewer(): React.ReactElement {
     const { screenshots, latestScreenshot, status } = useTestRunStore();
 
-    // Convert Buffer to data URL for display
-    const getImageSrc = (buffer: Buffer): string => {
-        const base64 = buffer.toString('base64');
-        return `data:image/png;base64,${base64}`;
+    // Convert Buffer/Uint8Array/Base64 to Blob URL for display
+    const getImageSrc = (data: any): string => {
+        if (!data) return '';
+
+        console.log('[ScreenshotViewer] Data type:', typeof data, Array.isArray(data) ? 'Array' : 'Object');
+
+        // If data is already a base64 string (from IPC fix), use it directly
+        if (typeof data === 'string') {
+            return `data:image/png;base64,${data}`;
+        }
+
+        let bytes: Uint8Array;
+
+        // Handle Electron IPC serialization (Buffer becomes { type: 'Buffer', data: [...] })
+        if (data && typeof data === 'object' && 'data' in data && Array.isArray(data.data)) {
+            bytes = new Uint8Array(data.data);
+        } else if (data instanceof Uint8Array) {
+            bytes = data;
+        } else if (Buffer.isBuffer(data)) {
+            bytes = new Uint8Array(data);
+        } else {
+            // Fallback for raw array
+            if (Array.isArray(data)) {
+                bytes = new Uint8Array(data);
+            } else {
+                console.warn('Unknown screenshot data format', data);
+                return '';
+            }
+        }
+
+        const blob = new Blob([bytes as any], { type: 'image/png' });
+        return URL.createObjectURL(blob);
     };
 
     if (screenshots.length === 0 && !latestScreenshot) {
         return (
-            <div className="minimal-card flex items-center justify-center min-h-[400px] h-full bg-gray-50 border-dashed">
-                <div className="text-center text-gray-400">
-                    <span className="text-4xl block mb-2 opacity-50">📷</span>
-                    <p>Live view will appear here</p>
+            <div className="flex flex-col h-full bg-gray-50/50 items-center justify-center border-b border-gray-200">
+                <div className="text-center space-y-3">
+                    <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center mx-auto">
+                        <span className="text-2xl opacity-50">📷</span>
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-semibold text-gray-900">Live View</h3>
+                        <p className="text-sm text-gray-500">Agent activity will appear here</p>
+                    </div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="minimal-card overflow-hidden flex flex-col h-full min-h-[400px]">
-            {/* Header */}
-            <div className="px-4 py-2 border-b bg-gray-50 flex justify-between items-center text-xs font-semibold text-gray-500 uppercase tracking-widest">
-                <span>Live View</span>
+        <div className="flex flex-col h-full bg-gray-900 overflow-hidden relative group rounded-xl shadow-2xl border border-gray-800 ring-1 ring-white/10">
+            {/* Header Overlay */}
+            <div className="absolute top-0 left-0 right-0 p-4 z-10 flex justify-between items-start pointer-events-none">
+                <span className="inline-block px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-[10px] font-bold text-white/70 border border-white/10 tracking-widest uppercase shadow-sm">
+                    LIVE VIEW
+                </span>
+
                 {status === 'running' && (
-                    <span className="flex items-center gap-1 text-red-500">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                        </span>
-                        LIVE
-                    </span>
+                    <div className="flex items-center gap-2 bg-red-500/90 backdrop-blur-md px-3 py-1 rounded-full shadow-lg shadow-red-500/20 animate-pulse border border-red-400/50">
+                        <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                        <span className="text-[10px] font-bold text-white tracking-widest uppercase">ON AIR</span>
+                    </div>
                 )}
             </div>
 
-            {/* Main Image */}
-            <div className="flex-1 bg-gray-100 flex items-center justify-center p-4">
+            {/* Main Image Container */}
+            <div className="flex-1 flex items-center justify-center relative w-full h-full bg-black overflow-hidden">
+                {/* Tech Grid Background */}
+                <div className="absolute inset-0 opacity-[0.05]"
+                    style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }}>
+                </div>
+
+                {/* Radial Gradient Glow */}
+                <div className="absolute inset-0 bg-radial-at-c from-gray-800/20 to-transparent pointer-events-none"></div>
+
                 {latestScreenshot ? (
                     <img
                         src={getImageSrc(latestScreenshot)}
-                        alt="Latest screenshot"
-                        className="max-w-full max-h-full object-contain shadow-sm rounded border border-gray-200"
+                        alt="Live Agent View"
+                        className="max-w-full max-h-full object-contain shadow-2xl transition-opacity duration-200 z-0"
                     />
                 ) : (
-                    <div className="text-gray-400 text-sm">Waiting for screenshot...</div>
+                    <div className="text-gray-600 font-mono text-sm flex flex-col items-center gap-4 z-0">
+                        <div className="w-16 h-16 rounded-full border border-gray-800 bg-gray-900/50 flex items-center justify-center relative">
+                            <div className="absolute inset-0 rounded-full border border-white/5 animate-ping"></div>
+                            <div className="w-2 h-2 bg-gray-700 rounded-full"></div>
+                        </div>
+                        <span className="text-xs uppercase tracking-[0.2em] font-medium text-gray-700">Awaiting Signal</span>
+                    </div>
                 )}
             </div>
         </div>
