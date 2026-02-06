@@ -1,7 +1,6 @@
 import { TestForm } from './presentation/components/TestForm';
 import { TestRunner } from './presentation/components/TestRunner';
-import { ScreenshotViewer } from './presentation/components/ScreenshotViewer';
-import './App.css';
+import { LiveView } from './presentation/components/LiveView';
 
 function App() {
     return (
@@ -21,7 +20,7 @@ function App() {
             <main className="flex flex-col h-screen overflow-hidden bg-gray-50/50">
                 {/* Top: Cinema Mode Viewport (60% height) */}
                 <section className="flex-[3] relative border-b border-gray-200 bg-gray-100/50 p-6 overflow-hidden flex flex-col">
-                    <ScreenshotViewer />
+                    <LiveView />
                 </section>
 
                 {/* Bottom: Terminal Logs (40% height) */}

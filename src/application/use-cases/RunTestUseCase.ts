@@ -1,55 +1,33 @@
 import { injectable, inject } from 'tsyringe';
-import type { IInputPort } from '@domain/ports';
-import type { IOutputPort } from '@domain/ports';
 import type { IBrowserAutomation } from '@domain/ports';
 import type { ILLMProvider, LLMContext, ILogger } from '@domain/ports';
-import type { ITestRunStorage, IArtifactStorage } from '@domain/ports';
+import type { IArtifactStorage } from '@domain/ports';
 import type { TestRunEvent, CancellationToken } from '@domain/events';
 import type { AgentAction, Url } from '@domain/value-objects';
 import type { TestStep } from '@domain/entities';
 import { TestStepFactory } from '@domain/entities';
 import { isTerminalAction } from '@domain/value-objects/AgentAction';
 import { TestRunIdFactory } from '@domain/value-objects';
+import type { TestInput } from '../../shared/validation';
 
 const DEFAULT_MAX_STEPS = 20;
 
-/**
- * RunTestUseCase
- * Orchestrates the agent loop with AsyncGenerator for streaming events
- */
 @injectable()
 export class RunTestUseCase {
     constructor(
-        @inject('IInputPort') private readonly input: IInputPort,
-        // @ts-expect-error - Will be used for output formatting in future
-        @inject('IOutputPort') private readonly _output: IOutputPort,
         @inject('IBrowserAutomation') private readonly browser: IBrowserAutomation,
         @inject('ILLMProvider') private readonly llm: ILLMProvider,
-        // @ts-expect-error - Will be used for test run persistence in future
-        @inject('ITestRunStorage') private readonly _storage: ITestRunStorage,
         @inject('IArtifactStorage') private readonly artifacts: IArtifactStorage,
         @inject('ILogger') private readonly logger: ILogger
     ) { }
 
-    /**
-     * Execute the agent loop
-     * Yields TestRunEvent for real-time UI updates
-     * Returns final output when complete
-     */
     async *execute(
-        raw: unknown,
+        input: TestInput,
         cancellation: CancellationToken
     ): AsyncGenerator<TestRunEvent, void, undefined> {
         this.logger.info('Starting test run execution');
 
-        // Parse and validate input
-        const parseResult = this.input.parse(raw);
-        if (parseResult.isErr()) {
-            this.logger.error('Input validation failed', parseResult.error);
-            yield { type: 'error', error: parseResult.error };
-            return;
-        }
-        const testInput = parseResult.value;
+        const testInput = input;
         const maxSteps = testInput.options?.maxSteps ?? DEFAULT_MAX_STEPS;
 
         // Create test run ID

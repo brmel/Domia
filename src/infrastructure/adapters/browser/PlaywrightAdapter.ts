@@ -40,6 +40,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
     private async doLaunch(options: LaunchOptions): Promise<void> {
         this.browser = await chromium.launch({
             headless: options.headless,
+            args: ['--window-name=Agent Browser', '--window-size=1280,720'],
         });
         this.context = await this.browser.newContext({
             recordVideo: { dir: '/tmp/auto-qa-videos' },

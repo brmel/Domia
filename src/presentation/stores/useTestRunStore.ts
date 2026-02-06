@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import type { TestRunEvent } from '@domain/events';
 import type { AgentAction, TestRunId } from '@domain/value-objects';
 import type { TestStep } from '@domain/entities';
+import { trpc } from '../../lib/trpc';
+import type { TestInput } from '../../shared/validation';
 
 /**
  * Test run state for UI
@@ -24,23 +26,11 @@ export interface TestRunState {
     // Screenshots
     screenshots: Buffer[];
     latestScreenshot: Buffer | null;
-
-    // Form state
-    url: string;
-    prompt: string;
-    headless: boolean;
-    maxSteps: number;
 }
 
 interface TestRunActions {
-    // Form actions
-    setUrl: (url: string) => void;
-    setPrompt: (prompt: string) => void;
-    setHeadless: (headless: boolean) => void;
-    setMaxSteps: (maxSteps: number) => void;
-
     // Test actions
-    startTest: () => Promise<void>;
+    startTest: (input: TestInput) => Promise<void>;
     cancelTest: () => Promise<void>;
     reset: () => void;
 
@@ -61,25 +51,13 @@ const initialState: TestRunState = {
     errorMessage: null,
     screenshots: [],
     latestScreenshot: null,
-    url: '',
-    prompt: '',
-    headless: true,
-    maxSteps: 20,
 };
 
-export const useTestRunStore = create<TestRunStore>((set, get) => ({
+export const useTestRunStore = create<TestRunStore>((set) => ({
     ...initialState,
 
-    // Form actions
-    setUrl: (url) => set({ url }),
-    setPrompt: (prompt) => set({ prompt }),
-    setHeadless: (headless) => set({ headless }),
-    setMaxSteps: (maxSteps) => set({ maxSteps }),
-
     // Test actions
-    startTest: async () => {
-        const { url, prompt, headless, maxSteps } = get();
-
+    startTest: async (input: TestInput) => {
         // Reset state for new run
         set({
             status: 'running',
@@ -94,22 +72,19 @@ export const useTestRunStore = create<TestRunStore>((set, get) => ({
             latestScreenshot: null,
         });
 
-        // Call IPC (only in Electron environment)
-        if (window.api) {
-            await window.api.test.run({
-                url,
-                prompt,
-                options: { headless, maxSteps },
-            });
-        } else {
-            console.warn('Electron API not available - cannot run test');
-            set({ status: 'error', errorMessage: 'Electron API not available. Please run in Electron app.' });
+        try {
+            await trpc.test.run.mutate(input);
+        } catch (err) {
+            console.error('Failed to run test:', err);
+            set({ status: 'error', errorMessage: String(err) });
         }
     },
 
     cancelTest: async () => {
-        if (window.api) {
-            await window.api.test.cancel();
+        try {
+            await trpc.test.cancel.mutate();
+        } catch (err) {
+            console.error('Failed to cancel test:', err);
         }
         set({ status: 'cancelled' });
     },

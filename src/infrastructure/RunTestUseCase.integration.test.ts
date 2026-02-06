@@ -15,8 +15,9 @@ import { container } from 'tsyringe';
 import { PlaywrightAdapter } from '@infrastructure/adapters/browser/PlaywrightAdapter';
 import { GeminiAdapter } from '@infrastructure/adapters/llm/GeminiAdapter';
 import type { LLMConfig } from '@infrastructure/adapters/llm';
-import { SQLiteAdapter, FileSystemAdapter } from '@infrastructure/adapters/storage';
-import { UIInputAdapter, FileOutputAdapter } from '@infrastructure/adapters/io';
+import { FileSystemAdapter } from '@infrastructure/adapters/storage';
+import { FileOutputAdapter } from '@infrastructure/adapters/io';
+import { ConsoleLogger } from '@infrastructure/adapters/logger/ConsoleLogger';
 
 // Import use case
 import { RunTestUseCase } from '@application/use-cases';
@@ -26,10 +27,18 @@ describe('RunTestUseCase Integration', () => {
     beforeAll(() => {
         // Register all dependencies
         container.register('IBrowserAutomation', { useClass: PlaywrightAdapter });
-        container.register('ITestRunStorage', { useClass: SQLiteAdapter });
+        // Mock Storage to avoid native module issues during Node-based testing
+        const mockStorage = {
+            createTestRun: async () => { },
+            updateTestRun: async () => { },
+            getTestRun: async () => null,
+            addStep: async () => { },
+        };
+        container.register('ITestRunStorage', { useValue: mockStorage });
+
         container.register('IArtifactStorage', { useClass: FileSystemAdapter });
-        container.register('IInputPort', { useClass: UIInputAdapter });
         container.register('IOutputPort', { useClass: FileOutputAdapter });
+        container.register('ILogger', { useClass: ConsoleLogger });
 
         // LLM Configuration - use Gemini
         const llmConfig: LLMConfig = {

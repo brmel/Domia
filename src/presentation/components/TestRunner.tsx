@@ -1,24 +1,34 @@
 import React, { useEffect } from 'react';
 import { useTestRunStore } from '../stores';
 import type { AgentAction } from '@domain/value-objects';
+import { cn } from '../../lib/utils';
+import { trpc } from '../../lib/trpc';
 
-/**
- * TestRunner Component
- * Displays live agent loop progress and results
- */
 export function TestRunner(): React.ReactElement {
     const { status, currentAction, steps, success, summary, errorMessage, handleEvent, cancelTest } =
         useTestRunStore();
 
-    // Subscribe to IPC events (only in Electron environment)
     useEffect(() => {
-        if (window.api) {
-            const cleanup = window.api.onTestUpdate((event) => {
-                handleEvent(event as Parameters<typeof handleEvent>[0]);
-            });
-            return cleanup;
+        const isElectron = typeof window !== 'undefined' && 'electronTRPC' in window;
+        if (!isElectron) {
+            return;
         }
-        return undefined;
+
+        try {
+            const subscription = trpc.test.onUpdate.subscribe(undefined, {
+                onData: (event) => {
+                    handleEvent(event as Parameters<typeof handleEvent>[0]);
+                },
+                onError: (err) => {
+                    console.error('Subscription error:', err);
+                }
+            });
+            return () => {
+                subscription.unsubscribe();
+            };
+        } catch (err) {
+            console.error('Failed to subscribe to test updates:', err);
+        }
     }, [handleEvent]);
 
 
@@ -35,9 +45,13 @@ export function TestRunner(): React.ReactElement {
                 <div className="flex justify-between items-center px-4 py-3 border-b border-gray-100 bg-gray-50/50">
                     <div>
                         <h3 className="font-semibold text-gray-700 text-sm flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${status === 'running' ? 'bg-blue-500 animate-pulse' :
-                                status === 'completed' ? 'bg-green-500' :
-                                    status === 'cancelled' ? 'bg-yellow-500' : 'bg-red-500'}`}></span>
+                            <span className={cn(
+                                "w-2 h-2 rounded-full transition-all duration-300",
+                                status === 'running' && "bg-blue-500 animate-pulse ring-2 ring-blue-500/30",
+                                status === 'completed' && "bg-green-500 ring-2 ring-green-500/30",
+                                status === 'cancelled' && "bg-yellow-500",
+                                status === 'error' && "bg-red-500"
+                            )}></span>
                             Activity Log
                         </h3>
                         <div className="text-xs text-gray-400 font-mono mt-0.5">
@@ -80,10 +94,10 @@ export function TestRunner(): React.ReactElement {
 
                     {/* Result Card (Inlined if completed) */}
                     {(status === 'completed' || status === 'error') && (
-                        <div className={`p-4 rounded-xl border-l-4 shadow-sm mb-4 ${success
-                            ? 'bg-green-50 border-green-500 text-green-900'
-                            : 'bg-red-50 border-red-500 text-red-900'
-                            }`}>
+                        <div className={cn(
+                            "p-4 rounded-xl border-l-4 shadow-sm mb-4 bg-white",
+                            success ? "bg-green-50/50 border-green-500 text-green-900" : "bg-red-50/50 border-red-500 text-red-900"
+                        )}>
                             <div className="flex items-start gap-4">
                                 <div className={`p-2 rounded-full ${success ? 'bg-green-100' : 'bg-red-100'}`}>
                                     <span className="text-2xl">{success ? '🎉' : '❌'}</span>

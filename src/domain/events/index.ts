@@ -1,4 +1,3 @@
-// Events
 export type {
     TestRunEvent,
     StartedEvent,
@@ -12,6 +11,5 @@ export type {
     CompletedEvent,
 } from './TestRunEvent';
 
-// Cancellation
 export type { CancellationToken } from './CancellationToken';
 export { CancellationTokenSource } from './CancellationToken';

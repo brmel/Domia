@@ -1,41 +1,28 @@
 import React from 'react';
 import { useTestRunStore } from '../stores';
 
-/**
- * ScreenshotViewer Component
- * Displays screenshots from the agent loop
- */
 export function ScreenshotViewer(): React.ReactElement {
     const { screenshots, latestScreenshot, status } = useTestRunStore();
 
-    // Convert Buffer/Uint8Array/Base64 to Blob URL for display
     const getImageSrc = (data: any): string => {
         if (!data) return '';
 
-        console.log('[ScreenshotViewer] Data type:', typeof data, Array.isArray(data) ? 'Array' : 'Object');
-
-        // If data is already a base64 string (from IPC fix), use it directly
         if (typeof data === 'string') {
             return `data:image/png;base64,${data}`;
         }
 
         let bytes: Uint8Array;
 
-        // Handle Electron IPC serialization (Buffer becomes { type: 'Buffer', data: [...] })
         if (data && typeof data === 'object' && 'data' in data && Array.isArray(data.data)) {
             bytes = new Uint8Array(data.data);
         } else if (data instanceof Uint8Array) {
             bytes = data;
         } else if (Buffer.isBuffer(data)) {
             bytes = new Uint8Array(data);
+        } else if (Array.isArray(data)) {
+            bytes = new Uint8Array(data);
         } else {
-            // Fallback for raw array
-            if (Array.isArray(data)) {
-                bytes = new Uint8Array(data);
-            } else {
-                console.warn('Unknown screenshot data format', data);
-                return '';
-            }
+            return '';
         }
 
         const blob = new Blob([bytes as any], { type: 'image/png' });
@@ -60,7 +47,6 @@ export function ScreenshotViewer(): React.ReactElement {
 
     return (
         <div className="flex flex-col h-full bg-gray-900 overflow-hidden relative group rounded-xl shadow-2xl border border-gray-800 ring-1 ring-white/10">
-            {/* Header Overlay */}
             <div className="absolute top-0 left-0 right-0 p-4 z-10 flex justify-between items-start pointer-events-none">
                 <span className="inline-block px-3 py-1 bg-black/60 backdrop-blur-md rounded-full text-[10px] font-bold text-white/70 border border-white/10 tracking-widest uppercase shadow-sm">
                     LIVE VIEW

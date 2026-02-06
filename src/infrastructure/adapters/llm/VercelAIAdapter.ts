@@ -41,11 +41,6 @@ export class VercelAIAdapter implements ILLMProvider {
         const prompt = this.buildPrompt(context);
         const systemPrompt = this.getSystemPrompt();
 
-        console.log('[LLM] Provider:', this.providerName);
-        console.log('[LLM] Prompt length:', prompt.length, 'characters');
-        console.log('[LLM] System prompt length:', systemPrompt.length, 'characters');
-
-        // For Gemini, combine system and user prompt since it handles system prompts differently
         const fullPrompt = this.config.provider === 'google'
             ? `${systemPrompt}\n\n---\n\n${prompt}`
             : prompt;
@@ -55,17 +50,8 @@ export class VercelAIAdapter implements ILLMProvider {
             ...(this.config.provider !== 'google' && systemPrompt ? { system: systemPrompt } : {}),
             prompt: fullPrompt,
             maxTokens: 1024,
-            temperature: 0.7, // Add some creativity
+            temperature: 0.7,
         });
-
-        console.log('[LLM] Response text length:', result.text?.length ?? 0);
-        console.log('[LLM] Usage:', result.usage);
-        console.log('[LLM] Finish reason:', result.finishReason);
-
-        // If text is empty, check for experimental_providerMetadata
-        if (!result.text && result.response) {
-            console.log('[LLM] Response body:', JSON.stringify(result.response, null, 2).substring(0, 1000));
-        }
 
         return result.text;
     }
@@ -154,18 +140,13 @@ Respond with a single JSON action:`;
     }
 
     private doParseAction(text: string): AgentAction {
-        // Log raw LLM response for debugging
-        console.log('[LLM] Raw response:', text.substring(0, 500));
-
         if (!text || text.trim().length === 0) {
             throw new Error('LLM returned empty response');
         }
 
-        // Extract JSON from response (handle markdown code blocks)
         const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
         let jsonStr = jsonMatch ? jsonMatch[1]?.trim() : text.trim();
 
-        // Try to find JSON object if not in code block
         if (!jsonStr || !jsonStr.startsWith('{')) {
             const jsonObjMatch = text.match(/\{[\s\S]*\}/);
             if (jsonObjMatch) {
@@ -176,8 +157,6 @@ Respond with a single JSON action:`;
         if (!jsonStr || jsonStr.length === 0) {
             throw new Error(`Could not extract JSON from response: ${text.substring(0, 200)}`);
         }
-
-        console.log('[LLM] Parsed JSON string:', jsonStr.substring(0, 200));
 
         const parsed = JSON.parse(jsonStr) as {
             thought?: string;

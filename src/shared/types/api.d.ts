@@ -40,6 +40,9 @@ export interface API {
         set: (settings: Settings) => Promise<void>;
     };
     onTestUpdate: (callback: (data: unknown) => void) => () => void;
+    desktop: {
+        getSources: () => Promise<Array<{ id: string; name: string; thumbnail: string }>>;
+    };
 }
 
 declare global {

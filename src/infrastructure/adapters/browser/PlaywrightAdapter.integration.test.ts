@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { PlaywrightAdapter } from './PlaywrightAdapter';
 
