@@ -1,32 +1,26 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
-import { generateText } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { ILLMProvider, LLMContext } from '@domain/ports';
 import type { AgentAction, ElementId } from '@domain/value-objects';
 import { LLMError } from '@domain/errors';
-
-export interface LLMConfig {
-    readonly provider: 'openai' | 'anthropic' | 'google';
-    readonly model: string;
-    readonly apiKey: string;
-}
+import type { LLMConfig } from './VercelAIAdapter';
 
 /**
- * VercelAIAdapter
- * Implements ILLMProvider port using @vercel/ai SDK
- * Supports OpenAI and Anthropic providers
+ * GeminiAdapter
+ * Native implementation using @google/generative-ai SDK
+ * Use this if the Vercel AI SDK has issues with Gemini
  */
 @injectable()
-export class VercelAIAdapter implements ILLMProvider {
+export class GeminiAdapter implements ILLMProvider {
     readonly providerName: string;
-    private readonly config: LLMConfig;
+    private readonly genAI: GoogleGenerativeAI;
+    private readonly modelName: string;
 
     constructor(@inject('LLMConfig') config: LLMConfig) {
-        this.config = config;
-        this.providerName = `${config.provider}/${config.model}`;
+        this.genAI = new GoogleGenerativeAI(config.apiKey);
+        this.modelName = config.model;
+        this.providerName = `google/${config.model}`;
     }
 
     generateAction(context: LLMContext): ResultAsync<AgentAction, LLMError> {
@@ -37,55 +31,23 @@ export class VercelAIAdapter implements ILLMProvider {
     }
 
     private async doGenerateAction(context: LLMContext): Promise<string> {
-        const model = this.getModel();
-        const prompt = this.buildPrompt(context);
-        const systemPrompt = this.getSystemPrompt();
+        const model = this.genAI.getGenerativeModel({ model: this.modelName });
+        const prompt = this.buildFullPrompt(context);
 
-        console.log('[LLM] Provider:', this.providerName);
-        console.log('[LLM] Prompt length:', prompt.length, 'characters');
-        console.log('[LLM] System prompt length:', systemPrompt.length, 'characters');
+        console.log('[GeminiAdapter] Sending prompt, length:', prompt.length, 'characters');
 
-        // For Gemini, combine system and user prompt since it handles system prompts differently
-        const fullPrompt = this.config.provider === 'google'
-            ? `${systemPrompt}\n\n---\n\n${prompt}`
-            : prompt;
+        const result = await model.generateContent(prompt);
+        const response = result.response;
+        const text = response.text();
 
-        const result = await generateText({
-            model,
-            system: this.config.provider === 'google' ? undefined : systemPrompt,
-            prompt: fullPrompt,
-            maxTokens: 1024,
-            temperature: 0.7, // Add some creativity
-        });
+        console.log('[GeminiAdapter] Response length:', text?.length ?? 0);
+        console.log('[GeminiAdapter] Response text:', text?.substring(0, 500));
 
-        console.log('[LLM] Response text length:', result.text?.length ?? 0);
-        console.log('[LLM] Usage:', result.usage);
-        console.log('[LLM] Finish reason:', result.finishReason);
-
-        // If text is empty, check for experimental_providerMetadata
-        if (!result.text && result.response) {
-            console.log('[LLM] Response body:', JSON.stringify(result.response, null, 2).substring(0, 1000));
-        }
-
-        return result.text;
+        return text;
     }
 
-    private getModel() {
-        switch (this.config.provider) {
-            case 'openai':
-                return createOpenAI({ apiKey: this.config.apiKey })(this.config.model);
-            case 'anthropic':
-                return createAnthropic({ apiKey: this.config.apiKey })(this.config.model);
-            case 'google':
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                return createGoogleGenerativeAI({ apiKey: this.config.apiKey })(this.config.model) as any;
-            default:
-                throw new Error(`Unsupported provider: ${this.config.provider}`);
-        }
-    }
-
-    private getSystemPrompt(): string {
-        return `You are an autonomous web testing agent. Your task is to interact with web pages to achieve a goal.
+    private buildFullPrompt(context: LLMContext): string {
+        const systemPrompt = `You are an autonomous web testing agent. Your task is to interact with web pages to achieve a goal.
 
 RULES:
 1. Analyze the DOM elements and decide on ONE action to take
@@ -94,7 +56,7 @@ RULES:
 4. If the goal is achieved, respond with a "pass" action
 5. If the goal cannot be achieved, respond with a "fail" action
 
-RESPONSE FORMAT (JSON only):
+RESPONSE FORMAT (JSON only, no markdown):
 {
   "thought": "Your reasoning for this action",
   "action": {
@@ -111,11 +73,9 @@ ACTION TYPES:
 - extract: { "type": "extract", "key": "<key>", "value": "<value>" }
 - pass: { "type": "pass", "summary": "<success summary>" }
 - fail: { "type": "fail", "reason": "<failure reason>" }`;
-    }
 
-    private buildPrompt(context: LLMContext): string {
         const elementsStr = context.snapshot.elements
-            .slice(0, 50) // Limit to 50 elements
+            .slice(0, 50)
             .map((el) => {
                 const attrs = Object.entries(el.attributes)
                     .map(([k, v]) => `${k}="${v}"`)
@@ -125,11 +85,11 @@ ACTION TYPES:
             .join('\n');
 
         const previousActionsStr = context.previousActions
-            .slice(-5) // Last 5 actions
+            .slice(-5)
             .map((a, i) => `${i + 1}. ${a.type}`)
             .join('\n');
 
-        return `GOAL: ${context.goal}
+        const userPrompt = `GOAL: ${context.goal}
 
 CURRENT PAGE:
 URL: ${context.currentUrl}
@@ -143,7 +103,9 @@ ${previousActionsStr || 'None yet'}
 
 STEPS REMAINING: ${context.stepsRemaining}
 
-Respond with a single JSON action:`;
+Respond with a single JSON action (no markdown, just the JSON object):`;
+
+        return `${systemPrompt}\n\n---\n\n${userPrompt}`;
     }
 
     private parseAction(text: string): ResultAsync<AgentAction, LLMError> {
@@ -154,8 +116,7 @@ Respond with a single JSON action:`;
     }
 
     private doParseAction(text: string): AgentAction {
-        // Log raw LLM response for debugging
-        console.log('[LLM] Raw response:', text.substring(0, 500));
+        console.log('[GeminiAdapter] Parsing response:', text.substring(0, 300));
 
         if (!text || text.trim().length === 0) {
             throw new Error('LLM returned empty response');
@@ -176,8 +137,6 @@ Respond with a single JSON action:`;
         if (!jsonStr || jsonStr.length === 0) {
             throw new Error(`Could not extract JSON from response: ${text.substring(0, 200)}`);
         }
-
-        console.log('[LLM] Parsed JSON string:', jsonStr.substring(0, 200));
 
         const parsed = JSON.parse(jsonStr) as {
             thought?: string;

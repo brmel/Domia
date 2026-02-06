@@ -7,7 +7,7 @@ import './TestForm.css';
  * Input form for URL and test prompt
  */
 export function TestForm(): React.ReactElement {
-    const { url, prompt, headless, maxSteps, status, setUrl, setPrompt, setHeadless, setMaxSteps, startTest } =
+    const { url, prompt, maxSteps, status, setUrl, setPrompt, setMaxSteps, startTest } =
         useTestRunStore();
 
     const isRunning = status === 'running';
@@ -20,11 +20,10 @@ export function TestForm(): React.ReactElement {
     };
 
     return (
-        <form className="test-form" onSubmit={handleSubmit}>
-            <div className="form-group">
-                <label htmlFor="url">Target URL</label>
+        <form className="minimal-card p-4 flex flex-col gap-4" onSubmit={handleSubmit}>
+            <div className="flex flex-col gap-2">
                 <input
-                    id="url"
+                    className="minimal-input"
                     type="url"
                     placeholder="https://example.com"
                     value={url}
@@ -32,36 +31,20 @@ export function TestForm(): React.ReactElement {
                     disabled={isRunning}
                     required
                 />
-            </div>
 
-            <div className="form-group">
-                <label htmlFor="prompt">Test Goal</label>
                 <textarea
-                    id="prompt"
+                    className="minimal-input min-h-[80px]"
                     placeholder="Describe what you want to test..."
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     disabled={isRunning}
-                    rows={3}
                     required
                 />
             </div>
 
-            <div className="form-row">
-                <div className="form-group checkbox-group">
-                    <label>
-                        <input
-                            type="checkbox"
-                            checked={headless}
-                            onChange={(e) => setHeadless(e.target.checked)}
-                            disabled={isRunning}
-                        />
-                        Headless Mode
-                    </label>
-                </div>
-
-                <div className="form-group">
-                    <label htmlFor="maxSteps">Max Steps</label>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <label htmlFor="maxSteps">Max Steps:</label>
                     <input
                         id="maxSteps"
                         type="number"
@@ -69,14 +52,19 @@ export function TestForm(): React.ReactElement {
                         max={50}
                         value={maxSteps}
                         onChange={(e) => setMaxSteps(Number(e.target.value))}
+                        className="minimal-input w-16 !p-1 text-center"
                         disabled={isRunning}
                     />
                 </div>
-            </div>
 
-            <button type="submit" className="submit-btn" disabled={isRunning || !url || !prompt}>
-                {isRunning ? 'Running...' : 'Start Test'}
-            </button>
+                <button
+                    type="submit"
+                    className="minimal-button"
+                    disabled={isRunning || !url || !prompt}
+                >
+                    {isRunning ? 'Running...' : 'Start Test'}
+                </button>
+            </div>
         </form>
     );
 }

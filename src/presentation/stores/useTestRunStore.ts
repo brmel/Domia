@@ -94,16 +94,23 @@ export const useTestRunStore = create<TestRunStore>((set, get) => ({
             latestScreenshot: null,
         });
 
-        // Call IPC
-        await window.api.test.run({
-            url,
-            prompt,
-            options: { headless, maxSteps },
-        });
+        // Call IPC (only in Electron environment)
+        if (window.api) {
+            await window.api.test.run({
+                url,
+                prompt,
+                options: { headless, maxSteps },
+            });
+        } else {
+            console.warn('Electron API not available - cannot run test');
+            set({ status: 'error', errorMessage: 'Electron API not available. Please run in Electron app.' });
+        }
     },
 
     cancelTest: async () => {
-        await window.api.test.cancel();
+        if (window.api) {
+            await window.api.test.cancel();
+        }
         set({ status: 'cancelled' });
     },
 

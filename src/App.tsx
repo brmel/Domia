@@ -7,7 +7,6 @@ export function App(): React.ReactElement {
         <div className="app">
             <header className="app-header">
                 <h1>🤖 Auto-QA</h1>
-                <p>Autonomous Web Testing Agent</p>
             </header>
 
             <main className="app-main">
@@ -16,11 +15,12 @@ export function App(): React.ReactElement {
                 </section>
 
                 <section className="output-section">
-                    <div className="runner-panel">
-                        <TestRunner />
-                    </div>
                     <div className="screenshot-panel">
                         <ScreenshotViewer />
+                    </div>
+
+                    <div className="runner-panel">
+                        <TestRunner />
                     </div>
                 </section>
             </main>
