@@ -12,19 +12,25 @@ import type { TestInput } from '../../shared/validation';
 
 const DEFAULT_MAX_STEPS = 20;
 
+import { ActionHandlerRegistry } from '../../application/action-handlers/ActionHandlerRegistry';
+import { InteractionError } from '@domain/errors';
+
 @injectable()
 export class RunTestUseCase {
     constructor(
         @inject('IBrowserAutomation') private readonly browser: IBrowserAutomation,
         @inject('ILLMProvider') private readonly llm: ILLMProvider,
         @inject('IArtifactStorage') private readonly artifacts: IArtifactStorage,
-        @inject('ILogger') private readonly logger: ILogger
+        @inject('ILogger') private readonly logger: ILogger,
+        @inject(ActionHandlerRegistry) private readonly actionRegistry: ActionHandlerRegistry
     ) { }
 
     async *execute(
         input: TestInput,
         cancellation: CancellationToken
     ): AsyncGenerator<TestRunEvent, void, undefined> {
+        // ... (Keep existing setup code)
+
         this.logger.info('Starting test run execution');
 
         const testInput = input;
@@ -129,9 +135,18 @@ export class RunTestUseCase {
                     finalSummary = action.type === 'pass' ? action.summary : action.reason;
                     this.logger.info(`Terminal action reached: ${action.type}`, { summary: finalSummary });
                 } else {
-                    // Perform browser action
+                    // Perform browser action using registry
                     this.logger.debug('Performing browser action', { action });
-                    const performResult = await this.performAction(action);
+
+                    const handler = this.actionRegistry.get(action.type);
+                    if (!handler) {
+                        const error = new InteractionError(`No handler found for action type: ${action.type}`);
+                        this.logger.error('Action execution failed', error);
+                        yield { type: 'error', error };
+                        break;
+                    }
+
+                    const performResult = await handler.execute(action, this.browser);
                     if (performResult.isErr()) {
                         this.logger.error('Action execution failed', performResult.error);
                         yield { type: 'error', error: performResult.error };
@@ -168,25 +183,6 @@ export class RunTestUseCase {
             // Close browser
             this.logger.debug('Closing browser');
             await this.browser.close();
-        }
-    }
-
-    private async performAction(action: AgentAction) {
-        switch (action.type) {
-            case 'click':
-                return this.browser.click(action.elementId);
-            case 'type':
-                return this.browser.type(action.elementId, action.text);
-            case 'scroll':
-                return this.browser.scroll(action.direction);
-            case 'wait':
-                return this.browser.wait(action.durationMs);
-            case 'extract':
-                // Extract doesn't require browser action
-                return { isErr: () => false, isOk: () => true } as never;
-            default:
-                // Terminal actions handled separately
-                return { isErr: () => false, isOk: () => true } as never;
         }
     }
 }

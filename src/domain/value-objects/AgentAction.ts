@@ -9,6 +9,7 @@ export type AgentAction =
     | TypeAction
     | ScrollAction
     | WaitAction
+    | PressKeyAction
     | ExtractAction
     | PassAction
     | FailAction;
@@ -23,6 +24,7 @@ export interface TypeAction {
     readonly type: 'type';
     readonly elementId: ElementId;
     readonly text: string;
+    readonly submit?: boolean;
     readonly thought: string;
 }
 
@@ -35,6 +37,12 @@ export interface ScrollAction {
 export interface WaitAction {
     readonly type: 'wait';
     readonly durationMs: number;
+    readonly thought: string;
+}
+
+export interface PressKeyAction {
+    readonly type: 'pressKey';
+    readonly key: string;
     readonly thought: string;
 }
 

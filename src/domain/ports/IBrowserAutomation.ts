@@ -27,6 +27,7 @@ export interface IBrowserAutomation {
     navigateTo(url: Url): ResultAsync<void, NavigationError>;
     click(elementId: ElementId): ResultAsync<void, InteractionError>;
     type(elementId: ElementId, text: string): ResultAsync<void, InteractionError>;
+    pressKey(key: string): ResultAsync<void, InteractionError>;
     scroll(direction: 'up' | 'down'): ResultAsync<void, InteractionError>;
     wait(durationMs: number): ResultAsync<void, InteractionError>;
     snapshot(): ResultAsync<DOMSnapshot, SnapshotError>;

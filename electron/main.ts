@@ -25,6 +25,7 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   : RENDERER_DIST;
 
 app.commandLine.appendSwitch('remote-debugging-port', '21222');
+app.commandLine.appendSwitch('ignore-certificate-errors');
 
 let win: BrowserWindow | null;
 

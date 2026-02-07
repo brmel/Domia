@@ -51,8 +51,22 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         const wsEndpoint = await this.agentViewService.getCDPWebSocketURL();
         this.logger.debug(`[PlaywrightAdapter] Connecting to: ${wsEndpoint}`);
 
-        this.browser = await chromium.connectOverCDP({ endpointURL: wsEndpoint });
+        this.browser = await chromium.connectOverCDP({
+            endpointURL: wsEndpoint,
+            headers: { 'Upgrade': 'websocket' }
+        });
 
+        // Create a new context with ignoreHTTPSErrors if not already set by the main process
+        // However, connectOverCDP connects to existing browser/contexts.
+        // We might need to ensure the main process launches with ignore-certificate-errors
+        // OR we can create a new context here if the design allows.
+        // But the agent reuses the main window.
+
+        // Actually, for connectOverCDP, we can't easily set ignoreHTTPSErrors for the *existing* context unless the browser was launched with checking disabled.
+        // But we can try to use browser.newContext if we were managing our own context.
+        // Since we attach to existing pages, the main process (Electron) controls this.
+
+        // Let's check successful connection first.
         const contexts = this.browser.contexts();
         this.logger.debug(`[PlaywrightAdapter] Found ${contexts.length} contexts`);
 
@@ -110,6 +124,17 @@ export class PlaywrightAdapter implements IBrowserAutomation {
                 el.fill(text),
                 (e) => new InteractionError(`Type failed: ${String(e)}`, elementId)
             )
+        );
+    }
+
+    pressKey(key: string): ResultAsync<void, InteractionError> {
+        if (!this.page) {
+            return errAsync(new InteractionError('Browser not launched'));
+        }
+        this.logger.debug(`[PlaywrightAdapter] Pressing key: ${key}`);
+        return ResultAsync.fromPromise(
+            this.page.keyboard.press(key),
+            (e) => new InteractionError(`Press key failed: ${String(e)}`)
         );
     }
 
@@ -200,10 +225,13 @@ export class PlaywrightAdapter implements IBrowserAutomation {
 
         const url = this.page.url();
         const title = await this.page.title();
+        const rootClasses = await this.page.evaluate(() => {
+            return `html: ${document.documentElement.className} | body: ${document.body.className}`;
+        });
         const elements = await this.extractInteractiveElements();
 
         this.logger.debug(`[PlaywrightAdapter] Snapshot: ${elements.length} elements on ${url}`);
-        return { url, title, elements: Object.freeze(elements), timestamp: new Date() };
+        return { url, title, rootClasses, elements: Object.freeze(elements), timestamp: new Date() };
     }
 
     private async extractInteractiveElements(): Promise<DOMElement[]> {

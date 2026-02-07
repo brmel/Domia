@@ -8,7 +8,7 @@ export const LLMPromptUtils = {
     systemPrompt: `You are an autonomous web testing agent. You interact with web pages to verify conditions and achieve goals.
 
 CAPABILITIES:
-- You can click, type, scroll, wait, and extract data
+- You can click, type, press keys, scroll, wait, and extract data
 - You receive bounding box coordinates (x, y, width, height) for every element
 - You receive the viewport dimensions to calculate positions and layouts
 - You can verify visual layout properties using math on bounding boxes
@@ -28,6 +28,7 @@ RULES:
 3. If the goal requires layout verification, calculate positions using bounding boxes
 4. Respond with PASS if the goal is satisfied
 5. Respond with FAIL if the goal cannot be achieved or conditions are not met
+6. to Submit a form, use the 'type' action with "submit": true.
 
 CRITICAL: When asked to verify something:
 - If the condition is FALSE, you MUST fail with a reason
@@ -38,14 +39,15 @@ RESPONSE FORMAT (JSON only, no markdown):
 {
   "thought": "Your reasoning, include calculations if verifying layout",
   "action": {
-    "type": "click|type|scroll|wait|extract|pass|fail",
+    "type": "click|type|pressKey|scroll|wait|extract|pass|fail",
     ...action-specific fields
   }
 }
 
 ACTION TYPES:
 - click: { "type": "click", "elementId": <number> }
-- type: { "type": "type", "elementId": <number>, "text": "<text>" }
+- type: { "type": "type", "elementId": <number>, "text": "<text>", "submit": <boolean> }
+- pressKey: { "type": "pressKey", "key": "<Enter|Tab|Escape|...>" }
 - scroll: { "type": "scroll", "direction": "up|down" }
 - wait: { "type": "wait", "durationMs": <number> }
 - extract: { "type": "extract", "key": "<key>", "value": "<value>" }
@@ -68,7 +70,10 @@ ACTION TYPES:
 
         const previousActionsStr = context.previousActions
             .slice(-5)
-            .map((a, i) => `${i + 1}. ${a.type}`)
+            .map((a, i) => {
+                if (a.type === 'pressKey') return `${i + 1}. pressKey(${a.key})`;
+                return `${i + 1}. ${a.type}`;
+            })
             .join('\n');
 
         return `GOAL: ${context.goal}
@@ -78,6 +83,7 @@ VIEWPORT: ${context.viewport.width}x${context.viewport.height} pixels
 CURRENT PAGE:
 URL: ${context.currentUrl}
 Title: ${context.pageTitle}
+Root Classes: ${context.snapshot.rootClasses}
 
 INTERACTIVE ELEMENTS (with bounding boxes [x,y,w,h]):
 ${elementsStr}
@@ -120,15 +126,24 @@ Analyze the elements and their positions, then respond with a single JSON action
             throw new LLMError(`Could not extract JSON from response: ${text.substring(0, 200)}`);
         }
 
+        // Sanitize JSON string: escape unescaped control characters
+        jsonStr = jsonStr.replace(/[\u0000-\u001F]+/g, (match) => {
+            // Allow standard whitespace
+            if (match === '\n' || match === '\r' || match === '\t') return match;
+            return '';
+        });
+
         const parsed = JSON.parse(jsonStr) as {
             thought?: string;
             action: {
                 type: string;
                 elementId?: number;
                 text?: string;
+                submit?: boolean;
+                key?: string;
                 direction?: string;
                 durationMs?: number;
-                key?: string;
+                keyName?: string;
                 value?: string;
                 summary?: string;
                 reason?: string;
@@ -141,13 +156,15 @@ Analyze the elements and their positions, then respond with a single JSON action
             case 'click':
                 return { type: 'click', elementId: ElementIdFactory.unsafe(action.elementId!), thought };
             case 'type':
-                return { type: 'type', elementId: ElementIdFactory.unsafe(action.elementId!), text: action.text ?? '', thought };
+                return { type: 'type', elementId: ElementIdFactory.unsafe(action.elementId!), text: action.text ?? '', submit: action.submit ?? false, thought };
+            case 'pressKey':
+                return { type: 'pressKey', key: action.key ?? 'Enter', thought };
             case 'scroll':
                 return { type: 'scroll', direction: action.direction === 'up' ? 'up' : 'down', thought };
             case 'wait':
                 return { type: 'wait', durationMs: action.durationMs ?? 1000, thought };
             case 'extract':
-                return { type: 'extract', key: action.key ?? '', value: action.value ?? '', thought };
+                return { type: 'extract', key: action.keyName ?? action.key ?? '', value: action.value ?? '', thought };
             case 'pass':
                 return { type: 'pass', summary: action.summary ?? 'Test passed', thought };
             case 'fail':
