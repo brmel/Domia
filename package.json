@@ -21,6 +21,8 @@
     "@ai-sdk/openai": "^0.0.60",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^5.2.2",
+    "@langchain/core": "^1.1.19",
+    "@langchain/google-genai": "^2.1.15",
     "@trpc/client": "^11.9.0",
     "@trpc/server": "^11.9.0",
     "ai": "^3.0.0",

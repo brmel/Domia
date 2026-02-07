@@ -4,16 +4,10 @@ import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import type { ILLMProvider, LLMContext } from '@domain/ports';
+import type { ILLMProvider, LLMContext, LLMConfig } from '@domain/ports';
 import type { AgentAction } from '@domain/value-objects';
 import { LLMError } from '@domain/errors';
 import { LLMPromptUtils } from './LLMPromptUtils';
-
-export interface LLMConfig {
-    readonly provider: 'openai' | 'anthropic' | 'google';
-    readonly model: string;
-    readonly apiKey: string;
-}
 
 /**
  * VercelAIAdapter - Implements ILLMProvider using @vercel/ai SDK

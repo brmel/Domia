@@ -1,22 +1,12 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync, okAsync, errAsync } from 'neverthrow';
 import { chromium, Browser, Page, ElementHandle } from 'playwright';
-import { AgentViewService } from '../../electron/AgentViewService';
-import type { IBrowserAutomation, LaunchOptions, Screenshot, ILogger } from '@domain/ports';
-import type { Url, ElementId, DOMSnapshot, DOMElement } from '@domain/value-objects';
-import { ElementIdFactory } from '@domain/value-objects';
+import type { IBrowserAutomation, LaunchOptions, Screenshot, ILogger, IViewHost } from '@domain/ports';
+import type { Url, ElementId, DOMSnapshot } from '@domain/value-objects';
 import { NavigationError, InteractionError, SnapshotError, CaptureError } from '@domain/errors';
 import { AGENT_VIEW_CONFIG } from '../../../shared/config';
 
-interface RawElement {
-    id: number;
-    tag: string;
-    role: string | null;
-    text: string;
-    attributes: Record<string, string>;
-    isInteractive: boolean;
-    boundingBox: { x: number; y: number; width: number; height: number } | null;
-}
+import { ContextBuilder } from '../../../application/parsers/ContextBuilder';
 
 @injectable()
 export class PlaywrightAdapter implements IBrowserAutomation {
@@ -24,7 +14,8 @@ export class PlaywrightAdapter implements IBrowserAutomation {
     private page: Page | null = null;
 
     constructor(
-        @inject(AgentViewService) private agentViewService: AgentViewService,
+        @inject('IViewHost') private viewHost: IViewHost,
+        @inject(ContextBuilder) private contextBuilder: ContextBuilder,
         @inject('ILogger') private logger: ILogger
     ) { }
 
@@ -39,7 +30,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         this.logger.debug('[PlaywrightAdapter] Starting browser launch');
 
         if (!options.headless) {
-            this.agentViewService.show({
+            this.viewHost.show({
                 x: 0,
                 y: 0,
                 width: AGENT_VIEW_CONFIG.DEFAULT_WIDTH,
@@ -48,7 +39,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
             this.logger.debug('[PlaywrightAdapter] AgentView shown');
         }
 
-        const wsEndpoint = await this.agentViewService.getCDPWebSocketURL();
+        const wsEndpoint = await this.viewHost.getCDPWebSocketURL();
         this.logger.debug(`[PlaywrightAdapter] Connecting to: ${wsEndpoint}`);
 
         this.browser = await chromium.connectOverCDP({
@@ -200,7 +191,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
 
     async close(): Promise<void> {
         this.logger.debug('[PlaywrightAdapter] Closing browser');
-        this.agentViewService.hide();
+        this.viewHost.hide();
         if (this.browser) {
             await this.browser.close();
             this.browser = null;
@@ -222,78 +213,6 @@ export class PlaywrightAdapter implements IBrowserAutomation {
 
     private async extractSnapshot(): Promise<DOMSnapshot> {
         if (!this.page) throw new SnapshotError('Page not available');
-
-        const url = this.page.url();
-        const title = await this.page.title();
-        const rootClasses = await this.page.evaluate(() => {
-            return `html: ${document.documentElement.className} | body: ${document.body.className}`;
-        });
-        const elements = await this.extractInteractiveElements();
-
-        this.logger.debug(`[PlaywrightAdapter] Snapshot: ${elements.length} elements on ${url}`);
-        return { url, title, rootClasses, elements: Object.freeze(elements), timestamp: new Date() };
-    }
-
-    private async extractInteractiveElements(): Promise<DOMElement[]> {
-        if (!this.page) return [];
-
-        const raw = await this.page.evaluate((): RawElement[] => {
-            const selectors = [
-                'a', 'button', 'input', 'textarea', 'select',
-                '[role="button"]', '[role="link"]', '[role="checkbox"]',
-                '[role="radio"]', '[role="textbox"]', '[onclick]',
-            ];
-
-            const elements: RawElement[] = [];
-            let idCounter = 0;
-
-            function isVisible(el: HTMLElement): boolean {
-                const style = getComputedStyle(el);
-                return style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity) > 0;
-            }
-
-            function getTextContent(el: HTMLElement): string {
-                return (el.textContent?.trim() || '').slice(0, 100);
-            }
-
-            function extractAttrs(el: HTMLElement): Record<string, string> {
-                const attrs: Record<string, string> = {};
-                ['id', 'name', 'type', 'placeholder', 'aria-label', 'href', 'value'].forEach((attr) => {
-                    const val = el.getAttribute(attr);
-                    if (val) attrs[attr] = val;
-                });
-                return attrs;
-            }
-
-            for (const selector of selectors) {
-                document.querySelectorAll(selector).forEach((node) => {
-                    if (!(node instanceof HTMLElement) || !isVisible(node)) return;
-                    const id = idCounter++;
-                    node.setAttribute('data-autoqa-id', String(id));
-                    const rect = node.getBoundingClientRect();
-                    elements.push({
-                        id,
-                        tag: node.tagName.toLowerCase(),
-                        role: node.getAttribute('role'),
-                        text: getTextContent(node),
-                        attributes: extractAttrs(node),
-                        isInteractive: true,
-                        boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-                    });
-                });
-            }
-
-            return elements;
-        });
-
-        return raw.map((el): DOMElement => ({
-            id: ElementIdFactory.unsafe(el.id),
-            tag: el.tag,
-            role: el.role,
-            text: el.text,
-            attributes: el.attributes,
-            isInteractive: el.isInteractive,
-            boundingBox: el.boundingBox,
-        }));
+        return this.contextBuilder.buildSnapshot(this.page);
     }
 }

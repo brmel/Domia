@@ -12,10 +12,11 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { container } from 'tsyringe';
 
 import { PlaywrightAdapter } from '@infrastructure/adapters/browser/PlaywrightAdapter';
-import { GeminiAdapter } from '@infrastructure/adapters/llm/GeminiAdapter';
-import type { LLMConfig } from '@infrastructure/adapters/llm';
+import { LangChainAdapter } from '@infrastructure/adapters/llm/LangChainAdapter';
+import type { LLMConfig } from '@domain/ports';
 import { FileSystemAdapter } from '@infrastructure/adapters/storage';
 import { ConsoleLogger } from '@infrastructure/adapters/logger/ConsoleLogger';
+import { AgentViewService } from '@infrastructure/electron/AgentViewService';
 import { RunTestUseCase } from '@application/use-cases';
 import { ActionHandlerRegistry } from '@application/action-handlers/ActionHandlerRegistry';
 import { ClickActionHandler } from '@application/action-handlers/ClickActionHandler';
@@ -27,18 +28,21 @@ import { ExtractActionHandler } from '@application/action-handlers/ExtractAction
 import { CancellationTokenSource } from '@domain/events';
 
 describe('RunTestUseCase Integration', () => {
-    beforeAll(() => {
-        container.register('IBrowserAutomation', { useClass: PlaywrightAdapter });
-        container.register('IArtifactStorage', { useClass: FileSystemAdapter });
-        container.register('ILogger', { useClass: ConsoleLogger });
 
-        const llmConfig: LLMConfig = {
+
+    beforeAll(() => {
+        const config: LLMConfig = {
             provider: 'google',
             model: 'gemini-2.0-flash',
-            apiKey: process.env['GOOGLE_API_KEY'] ?? process.env['GEMINI_API_KEY'] ?? '',
+            apiKey: process.env['GOOGLE_API_KEY'] || 'test-key'
         };
-        container.register('LLMConfig', { useValue: llmConfig });
-        container.register('ILLMProvider', { useClass: GeminiAdapter });
+
+        container.register('LLMConfig', { useValue: config });
+        container.register('ILogger', { useClass: ConsoleLogger });
+        container.register('IArtifactStorage', { useClass: FileSystemAdapter });
+        container.register(AgentViewService, { useClass: AgentViewService });
+        container.register('IBrowserAutomation', { useClass: PlaywrightAdapter });
+        container.register('ILLMProvider', { useClass: LangChainAdapter });
 
         // Register Action Handlers
         container.register(ClickActionHandler, { useClass: ClickActionHandler });

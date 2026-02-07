@@ -19,6 +19,12 @@ export interface LLMContext {
  * ILLMProvider Port
  * Abstracts LLM capabilities for agent reasoning
  */
+export interface LLMConfig {
+    readonly provider: 'openai' | 'anthropic' | 'google';
+    readonly model: string;
+    readonly apiKey: string;
+}
+
 export interface ILLMProvider {
     readonly providerName: string;
     generateAction(context: LLMContext): ResultAsync<AgentAction, LLMError>;
