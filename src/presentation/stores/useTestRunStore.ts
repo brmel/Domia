@@ -23,9 +23,9 @@ export interface TestRunState {
     summary: string | null;
     errorMessage: string | null;
 
-    // Screenshots
-    screenshots: Buffer[];
-    latestScreenshot: Buffer | null;
+    // Screenshots (base64 encoded strings received over IPC)
+    screenshots: string[];
+    latestScreenshot: string | null;
 }
 
 interface TestRunActions {
@@ -122,8 +122,8 @@ export const useTestRunStore = create<TestRunStore>((set) => ({
             case 'screenshot':
                 console.log('[Store] Received screenshot data length:', event.data.length);
                 set((state) => ({
-                    screenshots: [...state.screenshots, event.data as any], // Cast because event says Buffer but we receive string
-                    latestScreenshot: event.data as any,
+                    screenshots: [...state.screenshots, event.data as unknown as string],
+                    latestScreenshot: event.data as unknown as string,
                 }));
                 break;
 

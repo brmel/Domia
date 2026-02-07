@@ -1,1 +1,0 @@
-export { FileOutputAdapter } from './FileOutputAdapter';

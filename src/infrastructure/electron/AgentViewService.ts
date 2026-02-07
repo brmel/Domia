@@ -94,9 +94,10 @@ export class AgentViewService {
             if (!view.webContents.debugger.isAttached()) {
                 view.webContents.debugger.attach('1.3');
             }
-        } catch (err: any) {
-            // Ignore "Allready attached" or similar if race condition
-            console.warn('Debugger attach warning:', err.message);
+        } catch (err: unknown) {
+            // Ignore "Already attached" or similar if race condition
+            const message = err instanceof Error ? err.message : String(err);
+            console.warn('Debugger attach warning:', message);
         }
 
         // Wait, Playwright needs the WESSOCKET URL, usually from --remote-debugging-port

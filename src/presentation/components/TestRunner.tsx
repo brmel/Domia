@@ -138,10 +138,10 @@ export function TestRunner(): React.ReactElement {
                                     </div>
                                 )}
 
-                                {/* Show thought for history items too if available (optional, checking type) */}
-                                {'thought' in step.action && (step.action as any).thought && (
+                                {/* Show thought for history items too if available */}
+                                {getThought(step.action) && (
                                     <p className="text-gray-500 text-xs mt-1 line-clamp-2 italic group-hover:line-clamp-none">
-                                        "{(step.action as any).thought}"
+                                        "{getThought(step.action)}"
                                     </p>
                                 )}
                             </div>
