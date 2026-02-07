@@ -9,12 +9,14 @@ import { GeminiAdapter } from './infrastructure/adapters/llm/GeminiAdapter';
 import type { LLMConfig } from './infrastructure/adapters/llm';
 import { RunTestUseCase } from './application/use-cases';
 import { ConsoleLogger } from './infrastructure/adapters/logger/ConsoleLogger';
+import { AgentViewService } from './infrastructure/electron/AgentViewService';
 
 container.register('IBrowserAutomation', { useClass: PlaywrightAdapter });
 container.register('ITestRunStorage', { useClass: SQLiteAdapter });
 container.register('IArtifactStorage', { useClass: FileSystemAdapter });
 container.register('ILogger', { useClass: ConsoleLogger });
 container.register('IOutputPort', { useClass: FileOutputAdapter });
+container.register(AgentViewService, { useClass: AgentViewService });
 
 const defaultLLMConfig: LLMConfig = {
     provider: 'google',

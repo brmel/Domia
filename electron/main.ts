@@ -21,6 +21,13 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   ? path.join(process.env.APP_ROOT, 'public')
   : RENDERER_DIST;
 
+import { AgentViewService } from '../src/infrastructure/electron/AgentViewService';
+import { ipcMain } from 'electron';
+import { container } from 'tsyringe';
+
+// Enable remote debugging for Playwright
+app.commandLine.appendSwitch('remote-debugging-port', '21222');
+
 let win: BrowserWindow | null;
 
 function createWindow(): void {
@@ -35,6 +42,23 @@ function createWindow(): void {
       sandbox: false,
       webSecurity: true,
     },
+  });
+
+  // Initialize Agent View Service
+  const agentViewService = container.resolve(AgentViewService);
+  agentViewService.initialize(win);
+
+  // Register Agent View IPC handlers
+  ipcMain.on('agent-view:resize', (_, bounds) => {
+    agentViewService.updateBounds(bounds);
+  });
+
+  ipcMain.on('agent-view:show', (_, bounds) => {
+    agentViewService.show(bounds);
+  });
+
+  ipcMain.on('agent-view:hide', () => {
+    agentViewService.hide();
   });
 
   createIPCHandler({ router: appRouter, windows: [win] });

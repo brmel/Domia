@@ -29,6 +29,7 @@ export function TestRunner(): React.ReactElement {
         } catch (err) {
             console.error('Failed to subscribe to test updates:', err);
         }
+        return undefined;
     }, [handleEvent]);
 
 

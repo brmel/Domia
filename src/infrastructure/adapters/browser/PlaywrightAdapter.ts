@@ -1,4 +1,4 @@
-import { injectable } from 'tsyringe';
+import { injectable, inject } from 'tsyringe';
 import { ResultAsync, okAsync, errAsync } from 'neverthrow';
 import {
     chromium,
@@ -7,6 +7,7 @@ import {
     Page,
     ElementHandle,
 } from 'playwright';
+import { AgentViewService } from '../../electron/AgentViewService';
 import type {
     IBrowserAutomation,
     LaunchOptions,
@@ -30,6 +31,10 @@ export class PlaywrightAdapter implements IBrowserAutomation {
     private context: BrowserContext | null = null;
     private page: Page | null = null;
 
+    constructor(
+        @inject(AgentViewService) private agentViewService: AgentViewService
+    ) { }
+
     launch(options: LaunchOptions): ResultAsync<void, NavigationError> {
         return ResultAsync.fromPromise(
             this.doLaunch(options),
@@ -38,14 +43,33 @@ export class PlaywrightAdapter implements IBrowserAutomation {
     }
 
     private async doLaunch(options: LaunchOptions): Promise<void> {
-        this.browser = await chromium.launch({
-            headless: options.headless,
-            args: ['--window-name=Agent Browser', '--window-size=1280,720'],
+        // Show the native view
+        // Default bounds, will be resized by UI later
+        if (!options.headless) {
+            this.agentViewService.show({ x: 0, y: 0, width: 1200, height: 800 });
+        }
+
+        // Connect via CDP
+        const wsEndpoint = await this.agentViewService.getCDPWebSocketURL();
+        this.browser = await chromium.connectOverCDP({
+            endpointURL: wsEndpoint,
         });
-        this.context = await this.browser.newContext({
-            recordVideo: { dir: '/tmp/auto-qa-videos' },
-        });
-        this.page = await this.context.newPage();
+
+        // When connecting over CDP to an Electron WebContents, 
+        // the browser context is already there (default context).
+        this.context = this.browser.contexts()[0] || null;
+
+        // We need to find the page. WebContentsView creates a page.
+        // If there are multiple, we might need logic to pick the right one.
+        // Usually the first one or we can filter.
+        this.page = this.context?.pages()[0] || null;
+
+        if (!this.page) {
+            // New context might not have a page yet? 
+            // WebContentsView definitely has one.
+            // Maybe wait a bit?
+            throw new Error('No page found in connected context');
+        }
     }
 
     navigateTo(url: Url): ResultAsync<void, NavigationError> {
@@ -138,14 +162,20 @@ export class PlaywrightAdapter implements IBrowserAutomation {
     }
 
     async close(): Promise<void> {
+        this.agentViewService.hide();
+
         if (this.context) {
-            await this.context.close();
-            this.context = null;
+            // Closing context might detach the debugger or close pages
+            // But for AgentView, we just want to disconnect CDP?
+            // browser.close() disconnects CDP.
         }
+
         if (this.browser) {
-            await this.browser.close();
+            await this.browser.close(); // Disconnects CDP
             this.browser = null;
         }
+
+        this.context = null;
         this.page = null;
     }
 
