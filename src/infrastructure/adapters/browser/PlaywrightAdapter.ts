@@ -39,49 +39,49 @@ export class PlaywrightAdapter implements IBrowserAutomation {
             this.logger.debug('[PlaywrightAdapter] AgentView shown');
         }
 
-        const wsEndpoint = await this.viewHost.getCDPWebSocketURL();
-        this.logger.debug(`[PlaywrightAdapter] Connecting to: ${wsEndpoint}`);
-
-        this.browser = await chromium.connectOverCDP({
-            endpointURL: wsEndpoint,
-            headers: { 'Upgrade': 'websocket' }
-        });
-
-        // Create a new context with ignoreHTTPSErrors if not already set by the main process
-        // However, connectOverCDP connects to existing browser/contexts.
-        // We might need to ensure the main process launches with ignore-certificate-errors
-        // OR we can create a new context here if the design allows.
-        // But the agent reuses the main window.
-
-        // Actually, for connectOverCDP, we can't easily set ignoreHTTPSErrors for the *existing* context unless the browser was launched with checking disabled.
-        // But we can try to use browser.newContext if we were managing our own context.
-        // Since we attach to existing pages, the main process (Electron) controls this.
-
-        // Let's check successful connection first.
-        const contexts = this.browser.contexts();
-        this.logger.debug(`[PlaywrightAdapter] Found ${contexts.length} contexts`);
-
-        for (const ctx of contexts) {
-            const pages = ctx.pages();
-            this.logger.debug(`[PlaywrightAdapter] Context has ${pages.length} pages`);
-
-            for (const p of pages) {
-                const url = p.url();
-                this.logger.debug(`[PlaywrightAdapter] Page URL: ${url}`);
-
-                const isMainWindow = url.includes('localhost:') || url.includes('127.0.0.1:5173');
-                const isDevTools = url.startsWith('devtools://');
-                const isExtension = url.startsWith('chrome-extension://');
-
-                if (!isMainWindow && !isDevTools && !isExtension) {
-                    this.page = p;
-                    this.logger.info(`[PlaywrightAdapter] Found agent page at: ${url}`);
-                    return;
-                }
-            }
+        let wsEndpoint: string | null = null;
+        try {
+            wsEndpoint = await this.viewHost.getCDPWebSocketURL();
+        } catch (error) {
+            this.logger.debug('[PlaywrightAdapter] ViewHost does not support CDP, falling back to standalone launch');
         }
 
-        throw new NavigationError('Could not find agent WebContentsView page');
+        if (wsEndpoint) {
+            this.logger.debug(`[PlaywrightAdapter] Connecting to: ${wsEndpoint}`);
+            this.browser = await chromium.connectOverCDP({
+                endpointURL: wsEndpoint,
+                headers: { 'Upgrade': 'websocket' }
+            });
+
+            // Find existing page in Electron
+            const contexts = this.browser.contexts();
+            for (const ctx of contexts) {
+                const pages = ctx.pages();
+                for (const p of pages) {
+                    const url = p.url();
+                    const isMainWindow = url.includes('localhost:') || url.includes('127.0.0.1:5173');
+                    const isDevTools = url.startsWith('devtools://');
+                    const isExtension = url.startsWith('chrome-extension://');
+
+                    if (!isMainWindow && !isDevTools && !isExtension) {
+                        this.page = p;
+                        this.logger.info(`[PlaywrightAdapter] Found agent page at: ${url}`);
+                        return;
+                    }
+                }
+            }
+            throw new NavigationError('Could not find agent WebContentsView page');
+        } else {
+            // Standalone Launch (CLI / Headless)
+            this.logger.info('[PlaywrightAdapter] Launching standalone browser');
+            this.browser = await chromium.launch({
+                headless: options.headless,
+                args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
+            const context = await this.browser.newContext();
+            this.page = await context.newPage();
+            this.logger.info('[PlaywrightAdapter] Created new page');
+        }
     }
 
     navigateTo(url: Url): ResultAsync<void, NavigationError> {

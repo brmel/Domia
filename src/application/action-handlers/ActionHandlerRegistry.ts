@@ -7,6 +7,7 @@ import { PressKeyActionHandler } from './PressKeyActionHandler';
 import { ScrollActionHandler } from './ScrollActionHandler';
 import { WaitActionHandler } from './WaitActionHandler';
 import { ExtractActionHandler } from './ExtractActionHandler';
+import { NavigateActionHandler } from './NavigateActionHandler';
 
 @injectable()
 export class ActionHandlerRegistry {
@@ -18,7 +19,8 @@ export class ActionHandlerRegistry {
         @inject(PressKeyActionHandler) pressKeyHandler: PressKeyActionHandler,
         @inject(ScrollActionHandler) scrollHandler: ScrollActionHandler,
         @inject(WaitActionHandler) waitHandler: WaitActionHandler,
-        @inject(ExtractActionHandler) extractHandler: ExtractActionHandler
+        @inject(ExtractActionHandler) extractHandler: ExtractActionHandler,
+        @inject(NavigateActionHandler) navigateHandler: NavigateActionHandler
     ) {
         this.register(clickHandler);
         this.register(typeHandler);
@@ -26,6 +28,7 @@ export class ActionHandlerRegistry {
         this.register(scrollHandler);
         this.register(waitHandler);
         this.register(extractHandler);
+        this.register(navigateHandler);
     }
 
     register(handler: ActionHandler<any>) {

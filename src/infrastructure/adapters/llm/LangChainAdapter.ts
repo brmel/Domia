@@ -36,8 +36,12 @@ export class LangChainAdapter implements ILLMProvider {
     private async doGenerateAction(context: LLMContext): Promise<string> {
         // Construct the prompt using LangChain's template structure
         // We reuse LLMPromptUtils for the content to ensure zero regression in behavior
+
+        // Escape braces in system prompt because LangChain treats them as variables
+        const systemPrompt = LLMPromptUtils.systemPrompt.replace(/{/g, '{{').replace(/}/g, '}}');
+
         const prompt = ChatPromptTemplate.fromMessages([
-            ["system", LLMPromptUtils.systemPrompt],
+            ["system", systemPrompt],
             ["user", "{user_context}"]
         ]);
 

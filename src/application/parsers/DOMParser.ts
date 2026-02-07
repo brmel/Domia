@@ -21,54 +21,63 @@ export class DOMParser implements IContextParser<DOMElement[]> {
     async parse(page: Page): Promise<DOMElement[]> {
         this.logger.debug('[DOMParser] Extracting interactive elements');
 
-        const raw = await page.evaluate((): RawElement[] => {
-            const selectors = [
-                'a', 'button', 'input', 'textarea', 'select',
-                '[role="button"]', '[role="link"]', '[role="checkbox"]',
-                '[role="radio"]', '[role="textbox"]', '[onclick]',
-            ];
+        // We use a string function to avoid 'tsx' adding helper code (like __name) that breaks in the browser
+        const extractionScript = `
+            (() => {
+                const selectors = [
+                    'a', 'button', 'input', 'textarea', 'select',
+                    '[role="button"]', '[role="link"]', '[role="checkbox"]',
+                    '[role="radio"]', '[role="textbox"]', '[onclick]',
+                ];
 
-            const elements: RawElement[] = [];
-            let idCounter = 0;
+                const elements = [];
+                let idCounter = 0;
 
-            function isVisible(el: HTMLElement): boolean {
-                const style = getComputedStyle(el);
-                return style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity) > 0;
-            }
+                function isVisible(el) {
+                    const style = getComputedStyle(el);
+                    return style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity) > 0;
+                }
 
-            function getTextContent(el: HTMLElement): string {
-                return (el.textContent?.trim() || '').slice(0, 100);
-            }
+                function getTextContent(el) {
+                    return (el.textContent?.trim() || '').slice(0, 100);
+                }
 
-            function extractAttrs(el: HTMLElement): Record<string, string> {
-                const attrs: Record<string, string> = {};
-                ['id', 'name', 'type', 'placeholder', 'aria-label', 'href', 'value'].forEach((attr) => {
-                    const val = el.getAttribute(attr);
-                    if (val) attrs[attr] = val;
-                });
-                return attrs;
-            }
-
-            for (const selector of selectors) {
-                document.querySelectorAll(selector).forEach((node) => {
-                    if (!(node instanceof HTMLElement) || !isVisible(node)) return;
-                    const id = idCounter++;
-                    node.setAttribute('data-autoqa-id', String(id));
-                    const rect = node.getBoundingClientRect();
-                    elements.push({
-                        id,
-                        tag: node.tagName.toLowerCase(),
-                        role: node.getAttribute('role'),
-                        text: getTextContent(node),
-                        attributes: extractAttrs(node),
-                        isInteractive: true,
-                        boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+                function extractAttrs(el) {
+                    const attrs = {};
+                    ['id', 'name', 'type', 'placeholder', 'aria-label', 'href', 'value', 'title', 'checked', 'aria-invalid'].forEach((attr) => {
+                        let val = el.getAttribute(attr);
+                        if (attr === 'value' && el.value) val = el.value;
+                        if (attr === 'checked' && el.checked) val = 'true';
+                        if (val) attrs[attr] = val;
                     });
-                });
-            }
+                    return attrs;
+                }
 
-            return elements;
-        });
+                for (const selector of selectors) {
+                    document.querySelectorAll(selector).forEach((node) => {
+                        if (!(node instanceof HTMLElement) || !isVisible(node)) return;
+                        if (node.hasAttribute('data-autoqa-id')) return;
+
+                        const id = idCounter++;
+                        node.setAttribute('data-autoqa-id', String(id));
+                        const rect = node.getBoundingClientRect();
+                        elements.push({
+                            id,
+                            tag: node.tagName.toLowerCase(),
+                            role: node.getAttribute('role'),
+                            text: getTextContent(node),
+                            attributes: extractAttrs(node),
+                            isInteractive: true,
+                            boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+                        });
+                    });
+                }
+
+                return elements;
+            })()
+        `;
+
+        const raw = await page.evaluate(extractionScript) as RawElement[];
 
         const elements = raw.map((el): DOMElement => ({
             id: ElementIdFactory.unsafe(el.id),
@@ -77,7 +86,7 @@ export class DOMParser implements IContextParser<DOMElement[]> {
             text: el.text,
             attributes: el.attributes,
             isInteractive: el.isInteractive,
-            boundingBox: el.boundingBox,
+            boundingBox: el.boundingBox || null,
         }));
 
         this.logger.debug(`[DOMParser] Extracted ${elements.length} elements`);

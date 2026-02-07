@@ -51,6 +51,7 @@ ACTION TYPES:
 - scroll: { "type": "scroll", "direction": "up|down" }
 - wait: { "type": "wait", "durationMs": <number> }
 - extract: { "type": "extract", "key": "<key>", "value": "<value>" }
+- navigate: { "type": "navigate", "url": "<url>" }
 - pass: { "type": "pass", "summary": "<success summary with evidence>" }
 - fail: { "type": "fail", "reason": "<failure reason with evidence>" }`,
 
@@ -145,6 +146,7 @@ Analyze the elements and their positions, then respond with a single JSON action
                 durationMs?: number;
                 keyName?: string;
                 value?: string;
+                url?: string;
                 summary?: string;
                 reason?: string;
             };
@@ -165,6 +167,8 @@ Analyze the elements and their positions, then respond with a single JSON action
                 return { type: 'wait', durationMs: action.durationMs ?? 1000, thought };
             case 'extract':
                 return { type: 'extract', key: action.keyName ?? action.key ?? '', value: action.value ?? '', thought };
+            case 'navigate':
+                return { type: 'navigate', url: action.url ?? '', thought };
             case 'pass':
                 return { type: 'pass', summary: action.summary ?? 'Test passed', thought };
             case 'fail':

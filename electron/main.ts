@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import 'dotenv/config';
-import '../src/composition-root';
+import { registerCoreServices, container } from '../src/composition-root';
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import dotenv from 'dotenv';
@@ -8,7 +8,11 @@ import { fileURLToPath } from 'node:url';
 import { createIPCHandler } from 'trpc-electron/main';
 import { appRouter } from './router';
 import { AgentViewService } from '../src/infrastructure/electron/AgentViewService';
-import { container } from 'tsyringe';
+import { ElectronViewHost } from '../src/infrastructure/adapters/view/ElectronViewHost';
+
+registerCoreServices();
+container.register(AgentViewService, { useClass: AgentViewService });
+container.register('IViewHost', { useClass: ElectronViewHost });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

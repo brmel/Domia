@@ -11,6 +11,7 @@ export type AgentAction =
     | WaitAction
     | PressKeyAction
     | ExtractAction
+    | NavigateAction
     | PassAction
     | FailAction;
 
@@ -50,6 +51,12 @@ export interface ExtractAction {
     readonly type: 'extract';
     readonly key: string;
     readonly value: string;
+    readonly thought: string;
+}
+
+export interface NavigateAction {
+    readonly type: 'navigate';
+    readonly url: string;
     readonly thought: string;
 }
 
