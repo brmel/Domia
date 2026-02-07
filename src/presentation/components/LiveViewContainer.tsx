@@ -7,18 +7,11 @@ export const LiveViewContainer: React.FC = () => {
     const isRunning = status === 'running';
 
     useEffect(() => {
-        if (!containerRef.current || !isRunning) {
-            // If not running, make sure to hide it
-            if (!isRunning) {
-                window.electron?.agentView?.hide();
-            }
-            return;
-        }
+        if (!containerRef.current) return;
 
         const container = containerRef.current;
 
-        // Initial show
-        const updateBounds = () => {
+        const updateBounds = (): void => {
             const rect = container.getBoundingClientRect();
             const bounds = {
                 x: Math.round(rect.x),
@@ -27,37 +20,43 @@ export const LiveViewContainer: React.FC = () => {
                 height: Math.round(rect.height)
             };
 
-            // Only update if dimensions are valid
             if (bounds.width > 0 && bounds.height > 0) {
-                window.electron?.agentView?.show(bounds);
+                if (isRunning) {
+                    window.electron?.agentView?.show(bounds);
+                } else {
+                    window.electron?.agentView?.resize(bounds);
+                }
             }
         };
 
-        // Update immediately
-        updateBounds();
-
-        // Observe resizes
-        const observer = new ResizeObserver(() => {
+        if (isRunning) {
             updateBounds();
-        });
+        }
 
+        const observer = new ResizeObserver(updateBounds);
         observer.observe(container);
-        window.addEventListener('resize', updateBounds); // Handle window resize too
+        window.addEventListener('resize', updateBounds);
 
         return () => {
             observer.disconnect();
             window.removeEventListener('resize', updateBounds);
-            window.electron?.agentView?.hide();
+            if (!isRunning) {
+                window.electron?.agentView?.hide();
+            }
         };
     }, [isRunning]);
 
-    if (!isRunning) return null;
+    useEffect(() => {
+        return () => {
+            window.electron?.agentView?.hide();
+        };
+    }, []);
 
     return (
         <div
             ref={containerRef}
-            className="w-full h-full bg-transparent"
-            style={{ minHeight: '100px' }}
+            className="w-full h-full bg-transparent absolute inset-0"
+            style={{ minHeight: '100px', zIndex: isRunning ? 10 : -1 }}
         />
     );
 };

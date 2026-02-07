@@ -1,38 +1,31 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync, okAsync, errAsync } from 'neverthrow';
-import {
-    chromium,
-    Browser,
-    BrowserContext,
-    Page,
-    ElementHandle,
-} from 'playwright';
+import { chromium, Browser, Page, ElementHandle } from 'playwright';
 import { AgentViewService } from '../../electron/AgentViewService';
-import type {
-    IBrowserAutomation,
-    LaunchOptions,
-    Screenshot,
-} from '@domain/ports';
+import type { IBrowserAutomation, LaunchOptions, Screenshot, ILogger } from '@domain/ports';
 import type { Url, ElementId, DOMSnapshot, DOMElement } from '@domain/value-objects';
-import {
-    NavigationError,
-    InteractionError,
-    SnapshotError,
-    CaptureError,
-} from '@domain/errors';
+import { ElementIdFactory } from '@domain/value-objects';
+import { NavigationError, InteractionError, SnapshotError, CaptureError } from '@domain/errors';
+import { AGENT_VIEW_CONFIG } from '../../../shared/config';
 
-/**
- * PlaywrightAdapter
- * Implements IBrowserAutomation port using Playwright
- */
+interface RawElement {
+    id: number;
+    tag: string;
+    role: string | null;
+    text: string;
+    attributes: Record<string, string>;
+    isInteractive: boolean;
+    boundingBox: { x: number; y: number; width: number; height: number } | null;
+}
+
 @injectable()
 export class PlaywrightAdapter implements IBrowserAutomation {
     private browser: Browser | null = null;
-    private context: BrowserContext | null = null;
     private page: Page | null = null;
 
     constructor(
-        @inject(AgentViewService) private agentViewService: AgentViewService
+        @inject(AgentViewService) private agentViewService: AgentViewService,
+        @inject('ILogger') private logger: ILogger
     ) { }
 
     launch(options: LaunchOptions): ResultAsync<void, NavigationError> {
@@ -43,46 +36,65 @@ export class PlaywrightAdapter implements IBrowserAutomation {
     }
 
     private async doLaunch(options: LaunchOptions): Promise<void> {
-        // Show the native view
-        // Default bounds, will be resized by UI later
+        this.logger.debug('[PlaywrightAdapter] Starting browser launch');
+
         if (!options.headless) {
-            this.agentViewService.show({ x: 0, y: 0, width: 1200, height: 800 });
+            this.agentViewService.show({
+                x: 0,
+                y: 0,
+                width: AGENT_VIEW_CONFIG.DEFAULT_WIDTH,
+                height: AGENT_VIEW_CONFIG.DEFAULT_HEIGHT
+            });
+            this.logger.debug('[PlaywrightAdapter] AgentView shown');
         }
 
-        // Connect via CDP
         const wsEndpoint = await this.agentViewService.getCDPWebSocketURL();
-        this.browser = await chromium.connectOverCDP({
-            endpointURL: wsEndpoint,
-        });
+        this.logger.debug(`[PlaywrightAdapter] Connecting to: ${wsEndpoint}`);
 
-        // When connecting over CDP to an Electron WebContents, 
-        // the browser context is already there (default context).
-        this.context = this.browser.contexts()[0] || null;
+        this.browser = await chromium.connectOverCDP({ endpointURL: wsEndpoint });
 
-        // We need to find the page. WebContentsView creates a page.
-        // If there are multiple, we might need logic to pick the right one.
-        // Usually the first one or we can filter.
-        this.page = this.context?.pages()[0] || null;
+        const contexts = this.browser.contexts();
+        this.logger.debug(`[PlaywrightAdapter] Found ${contexts.length} contexts`);
 
-        if (!this.page) {
-            // New context might not have a page yet? 
-            // WebContentsView definitely has one.
-            // Maybe wait a bit?
-            throw new Error('No page found in connected context');
+        for (const ctx of contexts) {
+            const pages = ctx.pages();
+            this.logger.debug(`[PlaywrightAdapter] Context has ${pages.length} pages`);
+
+            for (const p of pages) {
+                const url = p.url();
+                this.logger.debug(`[PlaywrightAdapter] Page URL: ${url}`);
+
+                const isMainWindow = url.includes('localhost:') || url.includes('127.0.0.1:5173');
+                const isDevTools = url.startsWith('devtools://');
+                const isExtension = url.startsWith('chrome-extension://');
+
+                if (!isMainWindow && !isDevTools && !isExtension) {
+                    this.page = p;
+                    this.logger.info(`[PlaywrightAdapter] Found agent page at: ${url}`);
+                    return;
+                }
+            }
         }
+
+        throw new NavigationError('Could not find agent WebContentsView page');
     }
 
     navigateTo(url: Url): ResultAsync<void, NavigationError> {
         if (!this.page) {
             return errAsync(new NavigationError('Browser not launched'));
         }
+        this.logger.debug(`[PlaywrightAdapter] Navigating to: ${url}`);
         return ResultAsync.fromPromise(
             this.page.goto(url, { waitUntil: 'domcontentloaded' }),
             (e) => new NavigationError(`Navigation failed: ${String(e)}`)
-        ).map(() => undefined);
+        ).map(() => {
+            this.logger.debug('[PlaywrightAdapter] Navigation complete');
+            return undefined;
+        });
     }
 
     click(elementId: ElementId): ResultAsync<void, InteractionError> {
+        this.logger.debug(`[PlaywrightAdapter] Clicking element: ${elementId}`);
         return this.findElement(elementId).andThen((el) =>
             ResultAsync.fromPromise(
                 el.click(),
@@ -92,6 +104,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
     }
 
     type(elementId: ElementId, text: string): ResultAsync<void, InteractionError> {
+        this.logger.debug(`[PlaywrightAdapter] Typing into element: ${elementId}`);
         return this.findElement(elementId).andThen((el) =>
             ResultAsync.fromPromise(
                 el.fill(text),
@@ -104,6 +117,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         if (!this.page) {
             return errAsync(new InteractionError('Browser not launched'));
         }
+        this.logger.debug(`[PlaywrightAdapter] Scrolling: ${direction}`);
         const delta = direction === 'down' ? 500 : -500;
         return ResultAsync.fromPromise(
             this.page.mouse.wheel(0, delta),
@@ -141,41 +155,31 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         ).map((data) => ({ data, timestamp: new Date() }));
     }
 
-    /**
-     * Wait for DOM to stabilize after an action
-     * Uses network idle detection and a small delay for JS execution
-     */
-    async waitForDOMStable(timeout: number = 2000): Promise<void> {
+    async getViewportSize(): Promise<{ width: number; height: number }> {
         if (!this.page) {
-            return;
+            return { width: AGENT_VIEW_CONFIG.DEFAULT_WIDTH, height: AGENT_VIEW_CONFIG.DEFAULT_HEIGHT };
         }
+        const size = this.page.viewportSize();
+        return size ?? { width: AGENT_VIEW_CONFIG.DEFAULT_WIDTH, height: AGENT_VIEW_CONFIG.DEFAULT_HEIGHT };
+    }
 
+    async waitForDOMStable(timeout: number = 2000): Promise<void> {
+        if (!this.page) return;
         try {
-            // Wait for network to be idle (no requests for 500ms)
             await this.page.waitForLoadState('networkidle', { timeout });
         } catch {
-            // Timeout is ok - some pages have persistent connections
+            // Timeout acceptable
         }
-
-        // Small delay to allow any JS to finish executing
         await this.page.waitForTimeout(100);
     }
 
     async close(): Promise<void> {
+        this.logger.debug('[PlaywrightAdapter] Closing browser');
         this.agentViewService.hide();
-
-        if (this.context) {
-            // Closing context might detach the debugger or close pages
-            // But for AgentView, we just want to disconnect CDP?
-            // browser.close() disconnects CDP.
-        }
-
         if (this.browser) {
-            await this.browser.close(); // Disconnects CDP
+            await this.browser.close();
             this.browser = null;
         }
-
-        this.context = null;
         this.page = null;
     }
 
@@ -192,36 +196,21 @@ export class PlaywrightAdapter implements IBrowserAutomation {
     }
 
     private async extractSnapshot(): Promise<DOMSnapshot> {
-        if (!this.page) throw new Error('Page not available');
+        if (!this.page) throw new SnapshotError('Page not available');
 
         const url = this.page.url();
         const title = await this.page.title();
         const elements = await this.extractInteractiveElements();
 
-        return {
-            url,
-            title,
-            elements: Object.freeze(elements),
-            timestamp: new Date(),
-        };
+        this.logger.debug(`[PlaywrightAdapter] Snapshot: ${elements.length} elements on ${url}`);
+        return { url, title, elements: Object.freeze(elements), timestamp: new Date() };
     }
 
     private async extractInteractiveElements(): Promise<DOMElement[]> {
         if (!this.page) return [];
 
-        // Raw type returned from browser context (no branded types)
-        interface RawElement {
-            id: number;
-            tag: string;
-            role: string | null;
-            text: string;
-            attributes: Record<string, string>;
-            isInteractive: boolean;
-            boundingBox: { x: number; y: number; width: number; height: number } | null;
-        }
-
         const raw = await this.page.evaluate((): RawElement[] => {
-            const interactiveSelectors = [
+            const selectors = [
                 'a', 'button', 'input', 'textarea', 'select',
                 '[role="button"]', '[role="link"]', '[role="checkbox"]',
                 '[role="radio"]', '[role="textbox"]', '[onclick]',
@@ -230,47 +219,13 @@ export class PlaywrightAdapter implements IBrowserAutomation {
             const elements: RawElement[] = [];
             let idCounter = 0;
 
-            for (const selector of interactiveSelectors) {
-                const nodeList = document.querySelectorAll(selector);
-                nodeList.forEach((node) => {
-                    if (!(node instanceof HTMLElement)) return;
-                    if (!isVisible(node)) return;
-
-                    const id = idCounter++;
-                    node.setAttribute('data-autoqa-id', String(id));
-
-                    const rect = node.getBoundingClientRect();
-                    elements.push({
-                        id,
-                        tag: node.tagName.toLowerCase(),
-                        role: node.getAttribute('role'),
-                        text: getTextContent(node),
-                        attributes: extractAttrs(node),
-                        isInteractive: true,
-                        boundingBox: {
-                            x: rect.x,
-                            y: rect.y,
-                            width: rect.width,
-                            height: rect.height,
-                        },
-                    });
-                });
-            }
-
-            return elements;
-
             function isVisible(el: HTMLElement): boolean {
                 const style = getComputedStyle(el);
-                return (
-                    style.display !== 'none' &&
-                    style.visibility !== 'hidden' &&
-                    parseFloat(style.opacity) > 0
-                );
+                return style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity) > 0;
             }
 
             function getTextContent(el: HTMLElement): string {
-                const text = el.textContent?.trim() || '';
-                return text.slice(0, 100);
+                return (el.textContent?.trim() || '').slice(0, 100);
             }
 
             function extractAttrs(el: HTMLElement): Record<string, string> {
@@ -281,11 +236,30 @@ export class PlaywrightAdapter implements IBrowserAutomation {
                 });
                 return attrs;
             }
+
+            for (const selector of selectors) {
+                document.querySelectorAll(selector).forEach((node) => {
+                    if (!(node instanceof HTMLElement) || !isVisible(node)) return;
+                    const id = idCounter++;
+                    node.setAttribute('data-autoqa-id', String(id));
+                    const rect = node.getBoundingClientRect();
+                    elements.push({
+                        id,
+                        tag: node.tagName.toLowerCase(),
+                        role: node.getAttribute('role'),
+                        text: getTextContent(node),
+                        attributes: extractAttrs(node),
+                        isInteractive: true,
+                        boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+                    });
+                });
+            }
+
+            return elements;
         });
 
-        // Map raw browser data to domain DOMElement with branded ElementId
         return raw.map((el): DOMElement => ({
-            id: el.id as unknown as ElementId,
+            id: ElementIdFactory.unsafe(el.id),
             tag: el.tag,
             role: el.role,
             text: el.text,

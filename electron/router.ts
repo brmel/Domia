@@ -34,12 +34,7 @@ export const appRouter = t.router({
 
                     (async () => {
                         for await (const event of generator) {
-                            if (event.type === 'screenshot') {
-                                const base64Data = event.data.toString('base64');
-                                eventEmitter.emit('test:update', { ...event, data: base64Data });
-                            } else {
-                                eventEmitter.emit('test:update', event);
-                            }
+                            eventEmitter.emit('test:update', event);
                         }
                     })().catch(err => {
                         eventEmitter.emit('test:update', {

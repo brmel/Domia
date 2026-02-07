@@ -48,11 +48,13 @@ export interface ExtractAction {
 export interface PassAction {
     readonly type: 'pass';
     readonly summary: string;
+    readonly thought?: string;
 }
 
 export interface FailAction {
     readonly type: 'fail';
     readonly reason: string;
+    readonly thought?: string;
 }
 
 /**

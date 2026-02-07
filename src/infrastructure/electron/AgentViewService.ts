@@ -1,153 +1,116 @@
 import { BrowserWindow, WebContentsView, Rectangle, app } from 'electron';
-import { singleton } from 'tsyringe';
+import { singleton, inject } from 'tsyringe';
+import type { ILogger } from '@domain/ports';
+import { ConfigurationError } from '@domain/errors';
 
-/**
- * Service to manage the native WebContentsView for the agent
- */
+interface CDPVersion {
+    webSocketDebuggerUrl?: string;
+}
+
 @singleton()
 export class AgentViewService {
     private view: WebContentsView | null = null;
     private mainWindow: BrowserWindow | null = null;
     private isVisible: boolean = false;
+    private isReady: boolean = false;
+    private readyPromise: Promise<void> | null = null;
 
-    /**
-     * Initialize the service with the main window
-     */
+    constructor(@inject('ILogger') private logger: ILogger) { }
+
     initialize(mainWindow: BrowserWindow): void {
         this.mainWindow = mainWindow;
+        this.logger.debug('[AgentViewService] Initializing with main window');
+        this.prepareView();
     }
 
-    /**
-     * Create or retrieve the existing WebContentsView
-     */
+    private prepareView(): void {
+        this.view = new WebContentsView({
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                sandbox: false,
+                backgroundThrottling: false,
+            }
+        });
+
+        this.view.webContents.setUserAgent(
+            app.userAgentFallback.replace('Electron/' + process.versions.electron, '')
+        );
+
+        this.readyPromise = new Promise<void>((resolve) => {
+            this.view!.webContents.once('did-finish-load', () => {
+                this.isReady = true;
+                this.logger.debug('[AgentViewService] WebContentsView ready');
+                resolve();
+            });
+        });
+
+        this.view.webContents.loadURL('about:blank');
+        this.logger.debug('[AgentViewService] Loading about:blank');
+    }
+
     getView(): WebContentsView {
         if (!this.view) {
-            this.view = new WebContentsView({
-                webPreferences: {
-                    nodeIntegration: false,
-                    contextIsolation: true,
-                    sandbox: false, // Required for some automation tasks, check security implications
-                    backgroundThrottling: false, // Keep running when hidden
-                }
-            });
-
-            // Set a default user agent to look like a real browser
-            this.view.webContents.setUserAgent(app.userAgentFallback.replace('Electron/' + process.versions.electron, ''));
+            throw new ConfigurationError('AgentViewService not initialized');
         }
         return this.view;
     }
 
-    /**
-     * Show the view at specific bounds
-     */
-    show(bounds: Rectangle): void {
-        if (!this.mainWindow || !this.view) {
-            this.getView(); // Ensure view exists
-        }
+    getViewWebContentsId(): number {
+        return this.view?.webContents.id ?? -1;
+    }
 
-        if (this.mainWindow && this.view) {
-            // If completely new or re-attaching
-            if (this.mainWindow.contentView.children.indexOf(this.view) === -1) {
-                this.mainWindow.contentView.addChildView(this.view);
-            }
-
-            this.view.setBounds(bounds);
-            this.isVisible = true;
+    async waitUntilReady(): Promise<void> {
+        if (this.isReady) return;
+        if (this.readyPromise) {
+            await this.readyPromise;
         }
     }
 
-    /**
-     * Update bounds of the view
-     */
+    show(bounds: Rectangle): void {
+        if (!this.mainWindow || !this.view) return;
+
+        if (this.mainWindow.contentView.children.indexOf(this.view) === -1) {
+            this.mainWindow.contentView.addChildView(this.view);
+        }
+        this.view.setBounds(bounds);
+        this.isVisible = true;
+        this.logger.debug(`[AgentViewService] View shown at: ${JSON.stringify(bounds)}`);
+    }
+
     updateBounds(bounds: Rectangle): void {
         if (this.isVisible && this.view) {
             this.view.setBounds(bounds);
         }
     }
 
-    /**
-     * Hide the view
-     */
     hide(): void {
         if (this.mainWindow && this.view) {
-            // We can either removeChildView or move it offscreen. 
-            // Removing is cleaner but might reload page? No, WebContentsView persists.
-            // Let's remove it from visual tree but keep the object.
-
-            // Actually, keep it attached but broken? Or just remove.
-            // Let's try removing it for now.
             if (this.mainWindow.contentView.children.indexOf(this.view) !== -1) {
                 this.mainWindow.contentView.removeChildView(this.view);
             }
             this.isVisible = false;
+            this.logger.debug('[AgentViewService] View hidden');
         }
     }
 
-    /**
-     * Get the CDP WebSocket URL for Playwright connection
-     */
     async getCDPWebSocketURL(): Promise<string> {
-        const view = this.getView();
-
-        // Ensure debugger is started
-        try {
-            if (!view.webContents.debugger.isAttached()) {
-                view.webContents.debugger.attach('1.3');
-            }
-        } catch (err: unknown) {
-            // Ignore "Already attached" or similar if race condition
-            const message = err instanceof Error ? err.message : String(err);
-            console.warn('Debugger attach warning:', message);
-        }
-
-        // Wait, Playwright needs the WESSOCKET URL, usually from --remote-debugging-port
-        // Electron's `webContents.debugger` is an internal CDP client, not a WebSocket server.
-
-        // To control via Playwright `connectOverCDP`, we need an actual WebSocket URL.
-        // Option 1: Launch Electron with `--remote-debugging-port=9222`.
-        // Then query http://localhost:9222/json/list to find the view's ws URL.
-
-        // Let's implement that logic.
-        return this.findWebSocketUrlForView();
+        await this.waitUntilReady();
+        return this.getBrowserEndpoint();
     }
 
-    private async findWebSocketUrlForView(): Promise<string> {
-        // We assume Electron was launched with --remote-debugging-port
+    private async getBrowserEndpoint(): Promise<string> {
         const port = process.env['ELECTRON_REMOTE_DEBUGGING_PORT'] || '21222';
+        this.logger.debug(`[AgentViewService] Getting browser endpoint from port ${port}`);
 
-        // Retry loop because targets might not be available immediately
-        for (let i = 0; i < 5; i++) {
-            try {
-                const response = await fetch(`http://127.0.0.1:${port}/json/list`);
-                const targets = await response.json();
+        const response = await fetch(`http://127.0.0.1:${port}/json/version`);
+        const version = await response.json() as CDPVersion;
 
-                // Find target matching our webContents
-                // Electron targets usually have type 'page' or 'webview'
-                // But matching by ID is tricky via /json/list alone unless we check title or url
-
-                // For now, let's filter for the one that is NOT the main window.
-                // Main window has the devtools visible mostly, or we can check URL.
-
-                // Better approach: Since we are inside the main process, maybe we can't easily map 
-                // webContentsId to the target ID returned by local CDP API.
-
-                // Let's assume the view has a specific dummy URL initially?
-
-                for (const target of targets) {
-                    // We can try to identify our view. 
-                    // Let's check if we can query by url if we set one.
-                    if (this.view?.webContents.getURL() === target.url) {
-                        if (target.webSocketDebuggerUrl) {
-                            return target.webSocketDebuggerUrl;
-                        }
-                    }
-                }
-            } catch (e) {
-                // ignore
-            }
-            await new Promise(r => setTimeout(r, 200));
+        if (!version.webSocketDebuggerUrl) {
+            throw new ConfigurationError('Browser WebSocket URL not available');
         }
 
-        throw new Error('Could not find CDP endpoint for Agent View. Ensure Electron is running with --remote-debugging-port.');
+        this.logger.debug(`[AgentViewService] Browser endpoint: ${version.webSocketDebuggerUrl}`);
+        return version.webSocketDebuggerUrl;
     }
 }

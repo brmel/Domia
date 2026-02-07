@@ -1,30 +1,42 @@
 import { ResultAsync } from 'neverthrow';
 import type { LLMContext } from '@domain/ports';
-import type { AgentAction, ElementId } from '@domain/value-objects';
+import type { AgentAction } from '@domain/value-objects';
+import { ElementIdFactory } from '@domain/value-objects';
 import { LLMError } from '@domain/errors';
 
-/**
- * Shared LLM prompt building and response parsing logic.
- * Used by both GeminiAdapter and VercelAIAdapter.
- */
 export const LLMPromptUtils = {
-    systemPrompt: `You are an autonomous web testing agent. Your task is to interact with web pages to achieve a goal.
+    systemPrompt: `You are an autonomous web testing agent. You interact with web pages to verify conditions and achieve goals.
+
+CAPABILITIES:
+- You can click, type, scroll, wait, and extract data
+- You receive bounding box coordinates (x, y, width, height) for every element
+- You receive the viewport dimensions to calculate positions and layouts
+- You can verify visual layout properties using math on bounding boxes
+
+LAYOUT ANALYSIS:
+To check if an element is horizontally centered:
+  - Element center: elementX + (elementWidth / 2)
+  - Page center: viewportWidth / 2
+  - Centered if: |elementCenter - pageCenter| < 50 pixels
+
+To check vertical centering, alignment, or spacing:
+  - Use the y, height values and viewportHeight similarly
 
 RULES:
-1. Analyze the DOM elements and decide on ONE action to take
+1. Analyze elements and their positions before deciding
 2. Use element IDs from the snapshot to target elements
-3. Be precise and deliberate with each action
-4. If the goal is achieved, respond with a "pass" action
-5. If the goal cannot be achieved, respond with a "fail" action
+3. If the goal requires layout verification, calculate positions using bounding boxes
+4. Respond with PASS if the goal is satisfied
+5. Respond with FAIL if the goal cannot be achieved or conditions are not met
 
-CRITICAL VALIDATION RULE: 
-If the user asks to "verify" or "check" something, and the condition is FALSE or elements are MISSING, you MUST use the "fail" action.
-Example: User asks "Verify 3 links exist". You find only 1. Action MUST be "fail" with reason "Found only 1 link".
-Do NOT use "pass" just because you successfully finished counting. "Pass" means the *user's requirement* was satisfied.
+CRITICAL: When asked to verify something:
+- If the condition is FALSE, you MUST fail with a reason
+- "Pass" means the user's requirement IS satisfied
+- Calculate and verify, don't guess
 
 RESPONSE FORMAT (JSON only, no markdown):
 {
-  "thought": "Your reasoning for this action",
+  "thought": "Your reasoning, include calculations if verifying layout",
   "action": {
     "type": "click|type|scroll|wait|extract|pass|fail",
     ...action-specific fields
@@ -37,8 +49,8 @@ ACTION TYPES:
 - scroll: { "type": "scroll", "direction": "up|down" }
 - wait: { "type": "wait", "durationMs": <number> }
 - extract: { "type": "extract", "key": "<key>", "value": "<value>" }
-- pass: { "type": "pass", "summary": "<success summary>" }
-- fail: { "type": "fail", "reason": "<failure reason>" }`,
+- pass: { "type": "pass", "summary": "<success summary with evidence>" }
+- fail: { "type": "fail", "reason": "<failure reason with evidence>" }`,
 
     buildUserPrompt(context: LLMContext): string {
         const elementsStr = context.snapshot.elements
@@ -47,7 +59,10 @@ ACTION TYPES:
                 const attrs = Object.entries(el.attributes)
                     .map(([k, v]) => `${k}="${v}"`)
                     .join(' ');
-                return `[${el.id}] <${el.tag} ${attrs}>${el.text.slice(0, 50)}</${el.tag}>`;
+                const bbox = el.boundingBox
+                    ? `[x:${Math.round(el.boundingBox.x)},y:${Math.round(el.boundingBox.y)},w:${Math.round(el.boundingBox.width)},h:${Math.round(el.boundingBox.height)}]`
+                    : '';
+                return `[${el.id}] <${el.tag} ${attrs}>${el.text.slice(0, 50)}</${el.tag}> ${bbox}`;
             })
             .join('\n');
 
@@ -58,11 +73,13 @@ ACTION TYPES:
 
         return `GOAL: ${context.goal}
 
+VIEWPORT: ${context.viewport.width}x${context.viewport.height} pixels
+
 CURRENT PAGE:
 URL: ${context.currentUrl}
 Title: ${context.pageTitle}
 
-INTERACTIVE ELEMENTS:
+INTERACTIVE ELEMENTS (with bounding boxes [x,y,w,h]):
 ${elementsStr}
 
 PREVIOUS ACTIONS:
@@ -70,7 +87,7 @@ ${previousActionsStr || 'None yet'}
 
 STEPS REMAINING: ${context.stepsRemaining}
 
-Respond with a single JSON action (no markdown, just the JSON object):`;
+Analyze the elements and their positions, then respond with a single JSON action:`;
     },
 
     buildFullPrompt(context: LLMContext): string {
@@ -86,7 +103,7 @@ Respond with a single JSON action (no markdown, just the JSON object):`;
 
     doParseAction(text: string): AgentAction {
         if (!text || text.trim().length === 0) {
-            throw new Error('LLM returned empty response');
+            throw new LLMError('LLM returned empty response');
         }
 
         const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -100,7 +117,7 @@ Respond with a single JSON action (no markdown, just the JSON object):`;
         }
 
         if (!jsonStr || jsonStr.length === 0) {
-            throw new Error(`Could not extract JSON from response: ${text.substring(0, 200)}`);
+            throw new LLMError(`Could not extract JSON from response: ${text.substring(0, 200)}`);
         }
 
         const parsed = JSON.parse(jsonStr) as {
@@ -122,9 +139,9 @@ Respond with a single JSON action (no markdown, just the JSON object):`;
 
         switch (action.type) {
             case 'click':
-                return { type: 'click', elementId: action.elementId as unknown as ElementId, thought };
+                return { type: 'click', elementId: ElementIdFactory.unsafe(action.elementId!), thought };
             case 'type':
-                return { type: 'type', elementId: action.elementId as unknown as ElementId, text: action.text ?? '', thought };
+                return { type: 'type', elementId: ElementIdFactory.unsafe(action.elementId!), text: action.text ?? '', thought };
             case 'scroll':
                 return { type: 'scroll', direction: action.direction === 'up' ? 'up' : 'down', thought };
             case 'wait':
@@ -132,11 +149,11 @@ Respond with a single JSON action (no markdown, just the JSON object):`;
             case 'extract':
                 return { type: 'extract', key: action.key ?? '', value: action.value ?? '', thought };
             case 'pass':
-                return { type: 'pass', summary: action.summary ?? 'Test passed' };
+                return { type: 'pass', summary: action.summary ?? 'Test passed', thought };
             case 'fail':
-                return { type: 'fail', reason: action.reason ?? 'Test failed' };
+                return { type: 'fail', reason: action.reason ?? 'Test failed', thought };
             default:
-                throw new Error(`Unknown action type: ${action.type}`);
+                throw new LLMError(`Unknown action type: ${action.type}`);
         }
     },
 };

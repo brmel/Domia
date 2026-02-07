@@ -43,7 +43,7 @@ export interface StepCompleteEvent {
 
 export interface ScreenshotEvent {
     readonly type: 'screenshot';
-    readonly data: Buffer;
+    readonly data: string; // base64 encoded
 }
 
 export interface ErrorEvent {

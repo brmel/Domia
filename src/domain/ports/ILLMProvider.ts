@@ -12,6 +12,7 @@ export interface LLMContext {
     readonly snapshot: DOMSnapshot;
     readonly previousActions: readonly AgentAction[];
     readonly stepsRemaining: number;
+    readonly viewport: { readonly width: number; readonly height: number };
 }
 
 /**

@@ -87,19 +87,24 @@ export class RunTestUseCase {
                 // Take screenshot
                 const screenshotResult = await this.browser.screenshot();
                 if (screenshotResult.isOk()) {
-                    yield { type: 'screenshot', data: screenshotResult.value.data };
+                    const base64 = screenshotResult.value.data.toString('base64');
+                    yield { type: 'screenshot', data: base64 };
                     // Save screenshot artifact
                     await this.artifacts.saveScreenshot(testRunId, stepNumber, screenshotResult.value.data);
                 }
 
+                // Get viewport size for layout analysis
+                const viewport = await this.browser.getViewportSize();
+
                 // Build LLM context
                 const context: LLMContext = {
                     goal: testInput.prompt,
-                    currentUrl: 'unknown', // Browser adapter should expose this
+                    currentUrl: snapshot.url,
                     pageTitle: snapshot.title,
                     snapshot,
                     previousActions,
                     stepsRemaining: maxSteps - stepNumber,
+                    viewport,
                 };
 
                 // THINK

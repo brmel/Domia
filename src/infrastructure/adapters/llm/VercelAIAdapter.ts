@@ -65,7 +65,7 @@ export class VercelAIAdapter implements ILLMProvider {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 return createGoogleGenerativeAI({ apiKey: this.config.apiKey })(this.config.model) as any;
             default:
-                throw new Error(`Unsupported provider: ${this.config.provider}`);
+                throw new LLMError(`Unsupported provider: ${this.config.provider}`);
         }
     }
 }

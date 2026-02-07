@@ -31,6 +31,7 @@ export interface IBrowserAutomation {
     wait(durationMs: number): ResultAsync<void, InteractionError>;
     snapshot(): ResultAsync<DOMSnapshot, SnapshotError>;
     screenshot(): ResultAsync<Screenshot, CaptureError>;
+    getViewportSize(): Promise<{ width: number; height: number }>;
     waitForDOMStable(timeout?: number): Promise<void>;
     close(): Promise<void>;
 }

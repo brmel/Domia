@@ -1,11 +1,14 @@
 import 'reflect-metadata';
 import 'dotenv/config';
-import { app, BrowserWindow } from 'electron';
+import '../src/composition-root';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { createIPCHandler } from 'trpc-electron/main';
 import { appRouter } from './router';
+import { AgentViewService } from '../src/infrastructure/electron/AgentViewService';
+import { container } from 'tsyringe';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -21,11 +24,6 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   ? path.join(process.env.APP_ROOT, 'public')
   : RENDERER_DIST;
 
-import { AgentViewService } from '../src/infrastructure/electron/AgentViewService';
-import { ipcMain } from 'electron';
-import { container } from 'tsyringe';
-
-// Enable remote debugging for Playwright
 app.commandLine.appendSwitch('remote-debugging-port', '21222');
 
 let win: BrowserWindow | null;
@@ -44,11 +42,9 @@ function createWindow(): void {
     },
   });
 
-  // Initialize Agent View Service
   const agentViewService = container.resolve(AgentViewService);
   agentViewService.initialize(win);
 
-  // Register Agent View IPC handlers
   ipcMain.on('agent-view:resize', (_, bounds) => {
     agentViewService.updateBounds(bounds);
   });

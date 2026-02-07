@@ -93,7 +93,6 @@ export const useTestRunStore = create<TestRunStore>((set) => ({
 
     // Event handling from IPC
     handleEvent: (event) => {
-        console.log('[Store] Received event:', event.type);
         switch (event.type) {
             case 'started':
                 set({ testRunId: event.testRunId, status: 'running' });
@@ -120,10 +119,9 @@ export const useTestRunStore = create<TestRunStore>((set) => ({
                 break;
 
             case 'screenshot':
-                console.log('[Store] Received screenshot data length:', event.data.length);
                 set((state) => ({
-                    screenshots: [...state.screenshots, event.data as unknown as string],
-                    latestScreenshot: event.data as unknown as string,
+                    screenshots: [...state.screenshots, event.data],
+                    latestScreenshot: event.data,
                 }));
                 break;
 
