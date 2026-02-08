@@ -6,7 +6,7 @@ import type { Url, ElementId, DOMSnapshot } from '@domain/value-objects';
 import { NavigationError, InteractionError, SnapshotError, CaptureError } from '@domain/errors';
 import { AGENT_VIEW_CONFIG } from '../../../shared/config';
 
-import { ContextBuilder } from '../../../application/parsers/ContextBuilder';
+import { ContextBuilder } from '../../parsers/ContextBuilder';
 
 @injectable()
 export class PlaywrightAdapter implements IBrowserAutomation {

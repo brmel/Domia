@@ -9,11 +9,12 @@
 import 'dotenv/config';
 import 'reflect-metadata';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { container } from 'tsyringe';
+import { container, Lifecycle } from 'tsyringe';
+import { ResultAsync, okAsync } from 'neverthrow';
 
 import { PlaywrightAdapter } from '@infrastructure/adapters/browser/PlaywrightAdapter';
 import { LangChainAdapter } from '@infrastructure/adapters/llm/LangChainAdapter';
-import type { LLMConfig } from '@domain/ports';
+import type { LLMConfig, IPersistenceAdapter } from '@domain/ports';
 import { FileSystemAdapter } from '@infrastructure/adapters/storage';
 import { ConsoleLogger } from '@infrastructure/adapters/logger/ConsoleLogger';
 import { AgentViewService } from '@infrastructure/electron/AgentViewService';
@@ -32,6 +33,23 @@ import { ExecutionController } from '@application/controllers/ExecutionControlle
 describe('RunTestUseCase Integration', () => {
 
 
+    class MockViewHost {
+        show() { }
+        hide() { }
+        async getCDPWebSocketURL() { throw new Error('Not implemented'); }
+    }
+
+    class MockPersistenceAdapter implements IPersistenceAdapter {
+        saveTestRun() { return okAsync(undefined); }
+        updateTestRun() { return okAsync(undefined); }
+        saveTestStep() { return okAsync(undefined); }
+        saveLog() { return okAsync(undefined); }
+        getTestRuns() { return okAsync([]); }
+        getTestRun() { return okAsync(null); }
+        getTestSteps() { return okAsync([]); }
+        clearHistory() { return okAsync(undefined); }
+    }
+
     beforeAll(() => {
         const config: LLMConfig = {
             provider: 'google',
@@ -42,9 +60,19 @@ describe('RunTestUseCase Integration', () => {
         container.register('LLMConfig', { useValue: config });
         container.register('ILogger', { useClass: ConsoleLogger });
         container.register('IArtifactStorage', { useClass: FileSystemAdapter });
-        container.register(AgentViewService, { useClass: AgentViewService });
-        container.register('IBrowserAutomation', { useClass: PlaywrightAdapter });
+        container.register('IViewHost', { useClass: MockViewHost });
+        container.register('IPersistenceAdapter', { useClass: MockPersistenceAdapter });
+        container.register('IBrowserAutomation', { useClass: PlaywrightAdapter }, { lifecycle: Lifecycle.Singleton });
         container.register('ILLMProvider', { useClass: LangChainAdapter });
+
+        // Register ContextBuilder dependencies for PlaywrightAdapter
+        // They were previously implicitly registered or available, but now PlaywrightAdapter imports ContextBuilder
+        // which needs DOMParser and MetadataParser.
+        // We need to ensure they are registered if they are not auto-resolved. 
+        // tsyringe auto-resolves if they have @injectable() and no circular deps.
+        // But let's check if we need to register them.
+        // ContextBuilder is a concrete class. PlaywrightAdapter injects it by class.
+        // So tsyringe should handle it.
 
         // Register Tools
         const toolRegistry = new ToolRegistry();

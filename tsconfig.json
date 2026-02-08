@@ -52,7 +52,8 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "electron/**/*.ts",
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "tests/**/*.ts"
   ],
   "references": [
     {

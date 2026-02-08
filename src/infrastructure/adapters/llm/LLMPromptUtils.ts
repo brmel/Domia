@@ -128,12 +128,51 @@ Analyze the elements and their positions, then respond with a single JSON action
         }
 
         // Sanitize JSON string: escape unescaped control characters
-        // eslint-disable-next-line no-control-regex
-        jsonStr = jsonStr.replace(/[\u0000-\u001F]+/g, (match) => {
-            // Allow standard whitespace
-            if (match === '\n' || match === '\r' || match === '\t') return match;
-            return '';
-        });
+        // We use a simple state machine to escape newlines inside strings
+        let sanitized = '';
+        let inString = false;
+        let isEscaped = false;
+
+        for (let i = 0; i < jsonStr.length; i++) {
+            const char = jsonStr[i];
+
+            if (inString) {
+                if (char === '\\') {
+                    isEscaped = !isEscaped;
+                    sanitized += char;
+                } else if (char === '"' && !isEscaped) {
+                    inString = false;
+                    sanitized += char;
+                } else if (char === '\n') {
+                    // Escape newline inside string
+                    sanitized += '\\n';
+                    isEscaped = false; // Reset escape state
+                } else if (char === '\r') {
+                    // Ignore CR inside string or escape it? Better to ignore or convert to \r
+                    sanitized += '\\r';
+                    isEscaped = false;
+                } else if (char === '\t') {
+                    // Tab is allowed in string? Actually tab in string MUST be escaped in JSON
+                    sanitized += '\\t';
+                    isEscaped = false;
+                } else if (char && char.charCodeAt(0) < 0x20) {
+                    // Other control chars - ignore
+                    isEscaped = false;
+                } else {
+                    sanitized += char;
+                    isEscaped = false;
+                }
+            } else {
+                // Not in string - preserve structural chars, ignore whitespace/control if needed or keep for formatting
+                if (char === '"') {
+                    inString = true;
+                    sanitized += char;
+                } else {
+                    sanitized += char;
+                }
+            }
+        }
+        jsonStr = sanitized;
 
         const parsed = JSON.parse(jsonStr) as {
             thought?: string;
