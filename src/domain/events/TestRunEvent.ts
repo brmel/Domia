@@ -16,11 +16,21 @@ export type TestRunEvent =
     | ScreenshotEvent
     | ErrorEvent
     | CancelledEvent
+    | ResumedEvent
+    | PausedEvent
     | CompletedEvent;
 
 export interface StartedEvent {
     readonly type: 'started';
     readonly testRunId: TestRunId;
+}
+
+export interface PausedEvent {
+    readonly type: 'paused';
+}
+
+export interface ResumedEvent {
+    readonly type: 'resumed';
 }
 
 export interface ObservingEvent {

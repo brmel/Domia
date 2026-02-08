@@ -31,7 +31,15 @@ export interface IBrowserAutomation {
     scroll(direction: 'up' | 'down'): ResultAsync<void, InteractionError>;
     wait(durationMs: number): ResultAsync<void, InteractionError>;
     extractText(elementId: ElementId): ResultAsync<string, InteractionError>;
+    /**
+     * Highlights an element on the page for visual feedback.
+     * @param elementId The internal ID of the element to highlight
+     */
+    highlight(elementId: ElementId): ResultAsync<void, InteractionError>;
     snapshot(): ResultAsync<DOMSnapshot, SnapshotError>;
+    /**
+     * Takes a screenshot of the current page.
+     */
     screenshot(): ResultAsync<Screenshot, CaptureError>;
     getViewportSize(): Promise<{ width: number; height: number }>;
     waitForDOMStable(timeout?: number): Promise<void>;

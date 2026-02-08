@@ -151,6 +151,42 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         );
     }
 
+    highlight(elementId: ElementId): ResultAsync<void, InteractionError> {
+        return this.findElement(elementId).andThen((el) =>
+            ResultAsync.fromPromise(
+                (async () => {
+                    // Scroll into view first
+                    await el.scrollIntoViewIfNeeded();
+
+                    // Simple, robust highlighting using outline
+                    // We use evaluate to run code in the browser context
+                    await el.evaluate((node) => {
+                        const element = node as HTMLElement;
+                        const originalOutline = element.style.outline;
+                        const originalTransition = element.style.transition;
+
+                        element.style.transition = 'outline 0.1s ease-in-out';
+                        element.style.outline = '3px solid #ff0000';
+                        element.style.outlineOffset = '2px';
+
+                        // Remove highlight after a short delay
+                        setTimeout(() => {
+                            element.style.outline = originalOutline;
+                            element.style.transition = originalTransition;
+                        }, 1000); // Keep variable visible for 1s
+                    });
+
+                    // Wait a bit on the node side too so execution doesn't race ahead instantly
+                    // This is "visual" wait, not logic wait. 
+                    if (this.page) {
+                        await this.page.waitForTimeout(500);
+                    }
+                })(),
+                (e) => new InteractionError(`Highlight failed: ${String(e)}`, elementId)
+            )
+        );
+    }
+
     extractText(elementId: ElementId): ResultAsync<string, InteractionError> {
         this.logger.debug(`[PlaywrightAdapter] Extracting text from: ${elementId}`);
         return this.findElement(elementId).andThen((el) =>

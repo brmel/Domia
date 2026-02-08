@@ -1,17 +1,16 @@
 
 import { ZodSchema } from 'zod';
 import { ResultAsync } from 'neverthrow';
-import { IBrowserAutomation, ILogger } from '../ports';
+import { IBrowserAutomation, ILogger, IExecutionController } from '../ports';
 
 /**
  * Context passed to every tool execution.
- * Provides access to agent capabilities (Browser, FileSystem, etc.)
+ * Allows tools to access shared resources like the browser, logger, etc.
  */
 export interface ToolContext {
     browser?: IBrowserAutomation;
     logger?: ILogger;
-    workspaceRoot?: string;
-    [key: string]: unknown;
+    controller?: IExecutionController;
 }
 
 export interface Tool<TParams = unknown, TResult = unknown> {

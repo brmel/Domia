@@ -3,7 +3,7 @@ import { injectable, inject } from 'tsyringe';
 import type { IBrowserAutomation } from '@domain/ports';
 import type { ILLMProvider, LLMContext, ILogger } from '@domain/ports';
 import type { IArtifactStorage } from '@domain/ports';
-import type { TestRunEvent, CancellationToken } from '@domain/events';
+import type { TestRunEvent } from '@domain/events';
 import type { AgentAction, Url } from '@domain/value-objects';
 import type { TestStep } from '@domain/entities';
 import { TestStepFactory } from '@domain/entities';
@@ -11,6 +11,8 @@ import { isTerminalAction } from '@domain/value-objects/AgentAction';
 import { TestRunIdFactory, ArtifactPathFactory } from '@domain/value-objects';
 import type { TestInput } from '../../shared/validation';
 import type { IPersistenceAdapter, TestStep as PersistenceTestStep } from '@domain/ports';
+import { ExecutionController } from '../controllers/ExecutionController';
+import { TestRunState } from '../../domain/enums/TestRunState';
 
 import { ToolRegistry } from '../../application/registries/ToolRegistry';
 import { ToolContext } from '../../domain/tools/Tool';
@@ -31,7 +33,7 @@ export class RunTestUseCase {
 
     async *execute(
         input: TestInput,
-        cancellation: CancellationToken
+        controller: ExecutionController
     ): AsyncGenerator<TestRunEvent, void, undefined> {
         this.logger.info('Starting test run execution');
 
@@ -50,6 +52,8 @@ export class RunTestUseCase {
             goal: testInput.prompt
         });
 
+        // Start the controller
+        controller.start();
         yield { type: 'started', testRunId };
 
         this.logger.debug('Launching browser');
@@ -90,20 +94,32 @@ export class RunTestUseCase {
 
             // Agent loop
             while (stepNumber < maxSteps && !completed) {
-                if (cancellation.requested) {
+                // Check State Machine
+                if (controller.state === TestRunState.CANCELLED) {
                     this.logger.info('Test run cancelled by user');
                     yield { type: 'cancelled' };
-                    // PERSISTENCE: Update run as failed/cancelled
                     await this.persistence.updateTestRun(testRunId, {
-                        status: 'fail', // or 'cancelled' if we add that status
+                        status: 'fail',
                         completedAt: new Date().toISOString(),
                         summary: 'Test run cancelled by user'
                     });
                     return;
                 }
 
+                if (controller.state === TestRunState.PAUSED) {
+                    this.logger.info('Test run paused');
+                    yield { type: 'paused' };
+                    await controller.waitForResume();
+
+                    // TS Narrowing bypass: state changed during await
+                    if ((controller.state as TestRunState) === TestRunState.CANCELLED) continue;
+
+                    this.logger.info('Test run resumed');
+                    yield { type: 'resumed' };
+                }
+
                 stepNumber++;
-                stepNumber++;
+                // stepNumber++; // Removed double increment bug
                 this.logger.info(`Starting step ${stepNumber}`);
 
                 yield { type: 'observing' };
@@ -183,7 +199,8 @@ export class RunTestUseCase {
 
                     const toolContext: ToolContext = {
                         browser: this.browser,
-                        logger: this.logger
+                        logger: this.logger,
+                        controller
                     };
 
                     const result = await tool.execute(action, toolContext);
@@ -226,6 +243,7 @@ export class RunTestUseCase {
         } finally {
             this.logger.debug('Closing browser');
             await this.browser.close();
+            controller.stop(); // Ensure controller state is cleaned up
         }
     }
 }

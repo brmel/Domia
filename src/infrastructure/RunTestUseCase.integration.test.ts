@@ -26,7 +26,8 @@ import { ScrollTool } from '@application/tools/browser/ScrollTool';
 import { WaitTool } from '@application/tools/browser/WaitTool';
 import { ExtractTool } from '@application/tools/browser/ExtractTool';
 import { NavigateTool } from '@application/tools/browser/NavigateTool';
-import { CancellationTokenSource } from '@domain/events';
+import { AskUserTool } from '@application/tools/general/AskUserTool';
+import { ExecutionController } from '@application/controllers/ExecutionController';
 
 describe('RunTestUseCase Integration', () => {
 
@@ -54,6 +55,7 @@ describe('RunTestUseCase Integration', () => {
         toolRegistry.register(new WaitTool());
         toolRegistry.register(new ExtractTool());
         toolRegistry.register(new NavigateTool());
+        toolRegistry.register(new AskUserTool());
 
         container.register(ToolRegistry, { useValue: toolRegistry });
 
@@ -72,7 +74,7 @@ describe('RunTestUseCase Integration', () => {
         }
 
         const useCase = container.resolve<RunTestUseCase>('RunTestUseCase');
-        const cancellation = new CancellationTokenSource();
+        const controller = new ExecutionController();
 
         const input = {
             url: 'https://www.google.com' as const,
@@ -84,7 +86,7 @@ describe('RunTestUseCase Integration', () => {
         let finalResult: unknown = null;
 
         try {
-            const generator = useCase.execute(input, cancellation.token);
+            const generator = useCase.execute(input, controller);
             for await (const event of generator) {
                 console.log(`Event: ${event.type}`);
                 events.push({ type: event.type });
@@ -111,7 +113,7 @@ describe('RunTestUseCase Integration', () => {
         }
 
         const useCase = container.resolve<RunTestUseCase>('RunTestUseCase');
-        const cancellation = new CancellationTokenSource();
+        const controller = new ExecutionController();
 
         const input = {
             url: 'https://www.google.com' as const,
@@ -123,7 +125,7 @@ describe('RunTestUseCase Integration', () => {
         let finalResult: any = null;
 
         try {
-            const generator = useCase.execute(input, cancellation.token);
+            const generator = useCase.execute(input, controller);
             for await (const event of generator) {
                 console.log(`Event: ${event.type}`);
                 events.push({ type: event.type });

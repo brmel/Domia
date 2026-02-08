@@ -22,6 +22,7 @@ import { WaitTool } from './application/tools/browser/WaitTool';
 import { NavigateTool } from './application/tools/browser/NavigateTool';
 import { ExtractTool } from './application/tools/browser/ExtractTool';
 import { PressKeyTool } from './application/tools/browser/PressKeyTool';
+import { AskUserTool } from './application/tools/general/AskUserTool';
 
 export function registerCoreServices() {
     // 1. Core Services (Config & Persistence)
@@ -55,6 +56,7 @@ export function registerCoreServices() {
     toolRegistry.register(new NavigateTool());
     toolRegistry.register(new ExtractTool());
     toolRegistry.register(new PressKeyTool());
+    toolRegistry.register(new AskUserTool());
 
     container.register(ToolRegistry, { useValue: toolRegistry });
 }

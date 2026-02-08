@@ -6,7 +6,7 @@ import ora from 'ora';
 import chalk from 'chalk';
 import figlet from 'figlet';
 import { RunTestUseCase } from '../application/use-cases';
-import { CancellationTokenSource } from '../domain/events';
+import { ExecutionController } from '../application/controllers/ExecutionController';
 import { ConsoleViewHost } from '../infrastructure/adapters/view/ConsoleViewHost';
 
 export class RunCommand {
@@ -61,13 +61,13 @@ export class RunCommand {
 
                 try {
                     const useCase = container.resolve(RunTestUseCase);
-                    const cancellation = new CancellationTokenSource();
+                    const controller = new ExecutionController();
 
                     // Handle Ctrl+C
                     process.on('SIGINT', () => {
                         spinner.stop();
                         console.log(chalk.yellow('\nStopping agent...'));
-                        cancellation.cancel();
+                        controller.stop();
                         process.exit(0);
                     });
 
@@ -83,7 +83,7 @@ export class RunCommand {
                     spinner.succeed(`Starting session on ${chalk.green(url)}`);
                     console.log(chalk.gray(`Goal: ${prompt}\n`));
 
-                    const generator = useCase.execute(input, cancellation.token);
+                    const generator = useCase.execute(input, controller);
 
                     for await (const event of generator) {
                         switch (event.type) {
