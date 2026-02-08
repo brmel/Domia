@@ -33,13 +33,8 @@ export function registerCoreServices() {
     container.register('ILogger', { useClass: ConsoleLogger });
     // AgentViewService is Electron-specific, so it's registered in electron/main.ts
 
-    // IViewHost is NOT registered here anymore.
-    // Electron/CLI entry points must register their own.
-
-    // ConfigService now handles LLM config, but we keep this for backward compat if needed or refactor later
-    // For now, let's keep LLMConfig as a simple value provider for adapters that might still use it directly
-    // apart from ConfigService. 
-    // actually, let's update LLMConfig to use ConfigService if possible, or just leave it for now.
+    // LLM Configuration
+    // We register LLMConfig for adapters that require it directly
     const defaultLLMConfig: LLMConfig = {
         provider: 'google',
         model: 'gemini-2.0-flash',

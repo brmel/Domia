@@ -21,24 +21,8 @@ declare namespace NodeJS {
   }
 }
 
-// API exposed via preload.ts
-interface ElectronAPI {
-  test: {
-    run: (input: unknown) => Promise<unknown>;
-    cancel: () => Promise<unknown>;
-    get: (id: string) => Promise<unknown>;
-    list: () => Promise<unknown>;
-  };
-  settings: {
-    get: () => Promise<unknown>;
-    set: (settings: unknown) => Promise<unknown>;
-  };
-  onTestUpdate: (callback: (data: unknown) => void) => () => void;
-}
-
 // Used in Renderer process, expose in `preload.ts`
 interface Window {
   ipcRenderer: import('electron').IpcRenderer;
-  api: ElectronAPI;
 }
 

@@ -41,26 +41,12 @@ export class ConfigService {
             loadedConfig = result.config;
         }
 
-        // Environment variable strict override 
-        // We only allow API Key to come from env because it's a secret
-        // Other settings like 'HEADLESS' env var support are removed as per new architecture
-        const envOverrides = {
-            ai: {
-                apiKey: process.env['GOOGLE_API_KEY'] ?? process.env['GEMINI_API_KEY'] ?? process.env['OPENAI_API_KEY'] ?? undefined
-            }
-        };
-
-        // Deep merge logic simplified: 
-        // 1. Zod defaults 
-        // 2. File config 
-        // 3. Essential Env Secrets
-
-        // We parse the file config first to let Zod handle defaults
+        // 1. Zod defaults -> 2. File config -> 3. Env overrides
         const parsedFile = DomiaConfigSchema.parse(loadedConfig);
 
-        // Then apply env overrides (secrets)
-        if (envOverrides.ai.apiKey) {
-            parsedFile.ai.apiKey = envOverrides.ai.apiKey;
+        const envApiKey = process.env['GOOGLE_API_KEY'] ?? process.env['GEMINI_API_KEY'] ?? process.env['OPENAI_API_KEY'];
+        if (envApiKey) {
+            parsedFile.ai.apiKey = envApiKey;
         }
 
         this.config = parsedFile;
