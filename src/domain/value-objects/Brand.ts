@@ -14,7 +14,6 @@ export { ElementIdFactory } from './ElementId';
 // Other Branded types (not yet migrated to Zod)
 export type TestRunId = Brand<string, 'TestRunId'>;
 export type Selector = Brand<string, 'Selector'>;
-export type ArtifactPath = Brand<string, 'ArtifactPath'>;
 
 // TestRunId factory
 import { nanoid } from 'nanoid';
@@ -28,9 +27,3 @@ export const TestRunIdFactory = {
     },
 };
 
-// ArtifactPath factory
-export const ArtifactPathFactory = {
-    create(value: string): ArtifactPath {
-        return value as ArtifactPath;
-    },
-};

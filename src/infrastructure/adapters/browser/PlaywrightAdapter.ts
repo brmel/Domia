@@ -1,9 +1,9 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync, okAsync, errAsync } from 'neverthrow';
 import { chromium, Browser, Page, ElementHandle } from 'playwright';
-import type { IBrowserAutomation, LaunchOptions, Screenshot, ILogger, IViewHost } from '@domain/ports';
+import type { IBrowserAutomation, LaunchOptions, ILogger, IViewHost } from '@domain/ports';
 import type { Url, ElementId, DOMSnapshot } from '@domain/value-objects';
-import { NavigationError, InteractionError, SnapshotError, CaptureError } from '@domain/errors';
+import { NavigationError, InteractionError, SnapshotError } from '@domain/errors';
 import { AGENT_VIEW_CONFIG } from '../../../shared/config';
 
 import { ContextBuilder } from '../../parsers/ContextBuilder';
@@ -224,15 +224,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         );
     }
 
-    screenshot(): ResultAsync<Screenshot, CaptureError> {
-        if (!this.page) {
-            return errAsync(new CaptureError('Browser not launched'));
-        }
-        return ResultAsync.fromPromise(
-            this.page.screenshot({ fullPage: false }),
-            (e) => new CaptureError(`Screenshot failed: ${String(e)}`)
-        ).map((data) => ({ data, timestamp: new Date() }));
-    }
+
 
     async getViewportSize(): Promise<{ width: number; height: number }> {
         if (!this.page) {

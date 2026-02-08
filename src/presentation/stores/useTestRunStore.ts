@@ -11,8 +11,6 @@ import type { TestInput } from '../../shared/validation';
  */
 interface BaseState {
     steps: TestStep[];
-    screenshots: string[];
-    latestScreenshot: string | null;
 }
 
 export type IdleState = BaseState & { status: 'idle' };
@@ -50,8 +48,6 @@ type TestRunStore = TestRunState & TestRunActions;
 
 const initialBaseState: BaseState = {
     steps: [],
-    screenshots: [],
-    latestScreenshot: null,
 };
 
 const initialState: IdleState = {
@@ -96,7 +92,7 @@ export const useTestRunStore = create<TestRunStore>((set) => ({
 
     handleEvent: (event) => {
         set((state) => {
-            // Common updates (steps, screenshots) apply to all states effectively
+            // Common updates (steps) apply to all states effectively
             // But we need to be careful with transitions.
 
             switch (event.type) {
@@ -129,12 +125,7 @@ export const useTestRunStore = create<TestRunStore>((set) => ({
                         ...(state.status === 'running' ? { currentPhase: null, currentAction: null } : {})
                     } as TestRunState; // generic cast due to complex conditional
 
-                case 'screenshot':
-                    return {
-                        ...state,
-                        screenshots: [...state.screenshots, event.data],
-                        latestScreenshot: event.data,
-                    };
+
 
                 case 'completed':
                     return {

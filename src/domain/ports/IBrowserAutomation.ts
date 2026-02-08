@@ -1,5 +1,5 @@
 import { ResultAsync } from 'neverthrow';
-import { NavigationError, InteractionError, SnapshotError, CaptureError } from '../errors';
+import { NavigationError, InteractionError, SnapshotError } from '../errors';
 import { Url, ElementId, DOMSnapshot } from '../value-objects';
 
 /**
@@ -8,14 +8,6 @@ import { Url, ElementId, DOMSnapshot } from '../value-objects';
 export interface LaunchOptions {
     readonly headless: boolean;
     readonly timeout?: number;
-}
-
-/**
- * Screenshot data
- */
-export interface Screenshot {
-    readonly data: Buffer;
-    readonly timestamp: Date;
 }
 
 /**
@@ -37,10 +29,7 @@ export interface IBrowserAutomation {
      */
     highlight(elementId: ElementId): ResultAsync<void, InteractionError>;
     snapshot(): ResultAsync<DOMSnapshot, SnapshotError>;
-    /**
-     * Takes a screenshot of the current page.
-     */
-    screenshot(): ResultAsync<Screenshot, CaptureError>;
+
     getViewportSize(): Promise<{ width: number; height: number }>;
     waitForDOMStable(timeout?: number): Promise<void>;
     close(): Promise<void>;

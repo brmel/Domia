@@ -2,7 +2,6 @@ import 'reflect-metadata';
 import { container } from 'tsyringe';
 
 import { PlaywrightAdapter } from './infrastructure/adapters/browser';
-import { FileSystemAdapter } from './infrastructure/adapters/storage';
 
 import type { LLMConfig } from '@domain/ports';
 import { RunTestUseCase } from './application/use-cases';
@@ -31,7 +30,6 @@ export function registerCoreServices() {
     container.registerSingleton('IPersistenceAdapter', SQLiteAdapter);
 
     container.registerSingleton('IBrowserAutomation', PlaywrightAdapter);
-    container.registerSingleton('IArtifactStorage', FileSystemAdapter);
     container.registerSingleton('ILogger', ConsoleLogger);
 
     // Decoupled Helper Services

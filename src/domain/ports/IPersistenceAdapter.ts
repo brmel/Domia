@@ -19,7 +19,6 @@ export interface TestStep {
     stepNumber: number;
     actionType: string;
     actionPayload: AgentAction;
-    screenshotPath?: string;
     timestamp: string;
 }
 

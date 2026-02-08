@@ -158,12 +158,11 @@ export class RunTestUseCase {
     }
 
     private createFinalStep(step: TestStep, completed: boolean, action: AgentAction, summary?: string): TestStep {
-        const artifact = null;
         if (completed) {
             return action.type === 'pass'
-                ? TestStepFactory.markSuccess(step, artifact, 0)
+                ? TestStepFactory.markSuccess(step, 0)
                 : TestStepFactory.markFailed(step, summary || 'Failed', 0);
         }
-        return TestStepFactory.markSuccess(step, artifact, 0);
+        return TestStepFactory.markSuccess(step, 0);
     }
 }

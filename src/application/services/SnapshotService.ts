@@ -6,7 +6,6 @@ import { DomainError } from '@domain/errors';
 
 export interface SnapshotResult {
     context: LLMContext;
-    screenshotBuffer?: Buffer;
 }
 
 @injectable()
@@ -29,15 +28,6 @@ export class SnapshotService {
         }
         const snapshot = snapshotResult.value;
 
-        const screenshotResult = await this.browser.screenshot();
-        let screenshotBuffer: Buffer | undefined;
-
-        if (screenshotResult.isOk()) {
-            screenshotBuffer = screenshotResult.value.data;
-        } else {
-            this.logger.warn('Screenshot failed, proceeding without it', { error: screenshotResult.error });
-        }
-
         const viewport = await this.browser.getViewportSize();
 
         const context: LLMContext = {
@@ -51,9 +41,6 @@ export class SnapshotService {
         };
 
         const result: SnapshotResult = { context };
-        if (screenshotBuffer) {
-            result.screenshotBuffer = screenshotBuffer;
-        }
 
         return ok(result);
     }

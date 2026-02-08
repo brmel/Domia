@@ -13,7 +13,6 @@ export type TestRunEvent =
     | ThinkingEvent
     | ActingEvent
     | StepCompleteEvent
-    | ScreenshotEvent
     | ErrorEvent
     | CancelledEvent
     | ResumedEvent
@@ -51,10 +50,7 @@ export interface StepCompleteEvent {
     readonly step: TestStep;
 }
 
-export interface ScreenshotEvent {
-    readonly type: 'screenshot';
-    readonly data: string; // base64 encoded
-}
+
 
 export interface ErrorEvent {
     readonly type: 'error';
