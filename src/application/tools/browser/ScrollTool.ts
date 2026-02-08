@@ -1,15 +1,17 @@
-
+import { injectable } from 'tsyringe';
 import { z } from 'zod';
-import { ResultAsync } from 'neverthrow';
+import { AgentActionType } from '@domain/enums/AgentActionType';
 import { BrowserTool } from './BrowserTool';
 import { IBrowserAutomation } from '../../../domain/ports';
+import { ResultAsync } from 'neverthrow';
 
 const ScrollSchema = z.object({
     direction: z.enum(['up', 'down']).describe('Direction to scroll'),
 });
 
+@injectable()
 export class ScrollTool extends BrowserTool<z.infer<typeof ScrollSchema>> {
-    readonly name = 'scroll';
+    readonly name = AgentActionType.SCROLL;
     readonly description = 'Scroll the page up or down';
     readonly schema = ScrollSchema;
 

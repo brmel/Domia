@@ -1,7 +1,9 @@
 
+import { injectable } from 'tsyringe';
 import { z } from 'zod';
 import { ResultAsync, okAsync } from 'neverthrow';
 import { BrowserTool } from './BrowserTool';
+import { AgentActionType } from '@domain/enums/AgentActionType';
 import { IBrowserAutomation } from '../../../domain/ports';
 import { ElementIdFactory } from '../../../domain/value-objects';
 
@@ -11,9 +13,12 @@ const TypeSchema = z.object({
     submit: z.boolean().optional().describe('Whether to press Enter after typing'),
 });
 
-export class TypeTool extends BrowserTool<z.infer<typeof TypeSchema>> {
-    readonly name = 'type';
-    readonly description = 'Type text into an input element';
+type TypeParams = z.infer<typeof TypeSchema>;
+
+@injectable()
+export class TypeTool extends BrowserTool<TypeParams> {
+    readonly name = AgentActionType.TYPE;
+    readonly description = 'Types text into an element';
     readonly schema = TypeSchema;
 
     protected perform(browser: IBrowserAutomation, params: z.infer<typeof TypeSchema>): ResultAsync<void, Error> {

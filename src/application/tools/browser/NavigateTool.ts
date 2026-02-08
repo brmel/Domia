@@ -1,20 +1,23 @@
-
+import { injectable } from 'tsyringe';
 import { z } from 'zod';
-import { ResultAsync } from 'neverthrow';
+import { AgentActionType } from '@domain/enums/AgentActionType';
 import { BrowserTool } from './BrowserTool';
 import { IBrowserAutomation } from '../../../domain/ports';
-import { Url } from '../../../domain/value-objects';
+import { UrlFactory } from '../../../domain/value-objects';
+import { ResultAsync } from 'neverthrow';
 
 const NavigateSchema = z.object({
     url: z.string().url().describe('The URL to navigate to'),
 });
 
+@injectable()
 export class NavigateTool extends BrowserTool<z.infer<typeof NavigateSchema>> {
-    readonly name = 'navigate';
-    readonly description = 'Navigate to a new URL';
+    readonly name = AgentActionType.NAVIGATE;
+    readonly description = 'Navigate to a specific URL';
     readonly schema = NavigateSchema;
 
     protected perform(browser: IBrowserAutomation, params: z.infer<typeof NavigateSchema>): ResultAsync<void, Error> {
-        return browser.navigateTo(params.url as Url);
+        // Zod has already validated that it is a URL string
+        return browser.navigateTo(UrlFactory.unsafe(params.url));
     }
 }

@@ -18,6 +18,7 @@ export class ActionPerformer {
     async perform(action: AgentAction, controller: ExecutionController): Promise<Result<void, DomainError>> {
         this.logger.debug('Looking up tool for action', { actionType: action.type });
 
+        // action.type is already AgentActionType here because AgentAction was updated
         const tool = this.toolRegistry.get(action.type);
         if (!tool) {
             return err(new InteractionError(`No tool found for action type: ${action.type}`));

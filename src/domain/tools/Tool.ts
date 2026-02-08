@@ -13,8 +13,12 @@ export interface ToolContext {
     controller?: IExecutionController;
 }
 
+import { AgentActionType } from '../enums/AgentActionType';
+
+// ...
+
 export interface Tool<TParams = unknown, TResult = unknown> {
-    readonly name: string;
+    readonly name: AgentActionType;
     readonly description: string;
     readonly schema: ZodSchema<TParams>;
 

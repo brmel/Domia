@@ -3,13 +3,14 @@ import { ResultAsync, errAsync } from 'neverthrow';
 import { Tool, ToolContext } from '../../../domain/tools/Tool';
 import { IBrowserAutomation } from '../../../domain/ports';
 import { ElementIdFactory } from '../../../domain/value-objects';
+import { AgentActionType } from '@domain/enums/AgentActionType';
 
 /**
  * Abstract base class for tools that require browser automation.
  * Handles the common logic of validating the browser instance in the context.
  */
 export abstract class BrowserTool<TParams, TResult = void> implements Tool<TParams, TResult> {
-    abstract readonly name: string;
+    abstract readonly name: AgentActionType;
     abstract readonly description: string;
     abstract readonly schema: ZodSchema<TParams>;
 

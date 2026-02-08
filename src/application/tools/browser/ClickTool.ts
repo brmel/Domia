@@ -4,13 +4,14 @@ import { ResultAsync } from 'neverthrow';
 import { BrowserTool } from './BrowserTool';
 import { IBrowserAutomation } from '../../../domain/ports';
 import { ElementIdFactory } from '../../../domain/value-objects';
+import { AgentActionType } from '@domain/enums/AgentActionType';
 
 const ClickSchema = z.object({
     elementId: z.number().describe('The ID of the interactive element to click'),
 });
 
 export class ClickTool extends BrowserTool<z.infer<typeof ClickSchema>> {
-    readonly name = 'click';
+    readonly name = AgentActionType.CLICK;
     readonly description = 'Click on an interactive element on the page';
     readonly schema = ClickSchema;
 

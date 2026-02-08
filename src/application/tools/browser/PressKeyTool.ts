@@ -1,6 +1,6 @@
-
 import { z } from 'zod';
 import { ResultAsync } from 'neverthrow';
+import { AgentActionType } from '@domain/enums/AgentActionType';
 import { BrowserTool } from './BrowserTool';
 import { IBrowserAutomation } from '../../../domain/ports';
 
@@ -9,7 +9,7 @@ const PressKeySchema = z.object({
 });
 
 export class PressKeyTool extends BrowserTool<z.infer<typeof PressKeySchema>> {
-    readonly name = 'pressKey';
+    readonly name = AgentActionType.PRESS_KEY;
     readonly description = 'Press a specific key on the keyboard';
     readonly schema = PressKeySchema;
 

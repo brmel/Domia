@@ -1,10 +1,11 @@
 
 import { injectable } from 'tsyringe';
 import { Tool } from '../../domain/tools/Tool';
+import { AgentActionType } from '../../domain/enums/AgentActionType';
 
 @injectable()
 export class ToolRegistry {
-    private tools = new Map<string, Tool>();
+    private tools = new Map<AgentActionType, Tool>();
 
     register(tool: Tool) {
         if (this.tools.has(tool.name)) {
@@ -13,7 +14,7 @@ export class ToolRegistry {
         this.tools.set(tool.name, tool);
     }
 
-    get(name: string): Tool | undefined {
+    get(name: AgentActionType): Tool | undefined {
         return this.tools.get(name);
     }
 

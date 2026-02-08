@@ -2,6 +2,7 @@ import { ResultAsync } from 'neverthrow';
 import type { LLMContext } from '@domain/ports';
 import type { AgentAction } from '@domain/value-objects';
 import { ElementIdFactory } from '@domain/value-objects';
+import { AgentActionType } from '@domain/enums/AgentActionType';
 import { LLMError } from '@domain/errors';
 
 export const LLMPromptUtils = {
@@ -52,6 +53,7 @@ ACTION TYPES:
 - wait: { "type": "wait", "durationMs": <number> }
 - extract: { "type": "extract", "elementId": <number> }
 - navigate: { "type": "navigate", "url": "<url>" }
+- ask_user: { "type": "ask_user", "question": "<question>" }
 - pass: { "type": "pass", "summary": "<success summary with evidence>" }
 - fail: { "type": "fail", "reason": "<failure reason with evidence>" }`,
 
@@ -187,6 +189,7 @@ Analyze the elements and their positions, then respond with a single JSON action
                 keyName?: string;
                 value?: string;
                 url?: string;
+                question?: string;
                 summary?: string;
                 reason?: string;
             };
@@ -195,24 +198,26 @@ Analyze the elements and their positions, then respond with a single JSON action
         const { action, thought = '' } = parsed;
 
         switch (action.type) {
-            case 'click':
-                return { type: 'click', elementId: ElementIdFactory.unsafe(action.elementId!), thought };
-            case 'type':
-                return { type: 'type', elementId: ElementIdFactory.unsafe(action.elementId!), text: action.text ?? '', submit: action.submit ?? false, thought };
-            case 'pressKey':
-                return { type: 'pressKey', key: action.key ?? 'Enter', thought };
-            case 'scroll':
-                return { type: 'scroll', direction: action.direction === 'up' ? 'up' : 'down', thought };
-            case 'wait':
-                return { type: 'wait', durationMs: action.durationMs ?? 1000, thought };
-            case 'extract':
-                return { type: 'extract', elementId: ElementIdFactory.unsafe(action.elementId!), thought };
-            case 'navigate':
-                return { type: 'navigate', url: action.url ?? '', thought };
-            case 'pass':
-                return { type: 'pass', summary: action.summary ?? 'Test passed', thought };
-            case 'fail':
-                return { type: 'fail', reason: action.reason ?? 'Test failed', thought };
+            case AgentActionType.CLICK:
+                return { type: AgentActionType.CLICK, elementId: ElementIdFactory.unsafe(action.elementId!), thought };
+            case AgentActionType.TYPE:
+                return { type: AgentActionType.TYPE, elementId: ElementIdFactory.unsafe(action.elementId!), text: action.text ?? '', submit: action.submit ?? false, thought };
+            case AgentActionType.PRESS_KEY:
+                return { type: AgentActionType.PRESS_KEY, key: action.key ?? 'Enter', thought };
+            case AgentActionType.SCROLL:
+                return { type: AgentActionType.SCROLL, direction: action.direction === 'up' ? 'up' : 'down', thought };
+            case AgentActionType.WAIT:
+                return { type: AgentActionType.WAIT, durationMs: action.durationMs ?? 1000, thought };
+            case AgentActionType.EXTRACT:
+                return { type: AgentActionType.EXTRACT, elementId: ElementIdFactory.unsafe(action.elementId!), thought };
+            case AgentActionType.NAVIGATE:
+                return { type: AgentActionType.NAVIGATE, url: action.url ?? '', thought };
+            case AgentActionType.ASK_USER:
+                return { type: AgentActionType.ASK_USER, question: action.question ?? '', thought };
+            case AgentActionType.PASS:
+                return { type: AgentActionType.PASS, summary: action.summary ?? 'Test passed', thought };
+            case AgentActionType.FAIL:
+                return { type: AgentActionType.FAIL, reason: action.reason ?? 'Test failed', thought };
             default:
                 throw new LLMError(`Unknown action type: ${action.type}`);
         }
