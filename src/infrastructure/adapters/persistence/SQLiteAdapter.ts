@@ -1,0 +1,252 @@
+import { injectable, inject } from 'tsyringe';
+import { ResultAsync } from 'neverthrow';
+import Database from 'better-sqlite3';
+import { Kysely, SqliteDialect, Generated } from 'kysely';
+import fs from 'fs-extra';
+import path from 'path';
+import { IPersistenceAdapter, TestRun, TestStep, LogEntry } from '@domain/ports';
+import { PersistenceError } from '@domain/errors';
+import { ConfigService } from '../../config/ConfigService';
+
+interface TestRunTable {
+    id: string;
+    url: string;
+    status: string;
+    started_at: string;
+    completed_at: string | null;
+    duration_ms: number | null;
+    goal: string | null;
+    summary: string | null;
+}
+
+interface TestStepTable {
+    id: string;
+    test_run_id: string;
+    step_number: number;
+    action_type: string;
+    action_payload: string; // JSON string
+    screenshot_path: string | null;
+    timestamp: string;
+}
+
+interface LogTable {
+    id: Generated<number>;
+    test_run_id: string;
+    level: string;
+    message: string;
+    metadata: string | null; // JSON string
+    timestamp: string;
+}
+
+interface DatabaseSchema {
+    test_runs: TestRunTable;
+    test_steps: TestStepTable;
+    logs: LogTable;
+}
+
+@injectable()
+export class SQLiteAdapter implements IPersistenceAdapter {
+    private db: Kysely<DatabaseSchema>;
+
+    constructor(@inject(ConfigService) configService: ConfigService) {
+        const config = configService.get();
+        const dbPath = config.paths.databasePath;
+
+        fs.ensureDirSync(path.dirname(dbPath));
+
+        const database = new Database(dbPath);
+        this.db = new Kysely<DatabaseSchema>({
+            dialect: new SqliteDialect({
+                database,
+            }),
+        });
+
+        this.initializeSchema(database);
+    }
+
+    private initializeSchema(database: Database.Database) {
+        database.exec(`
+            CREATE TABLE IF NOT EXISTS test_runs (
+                id TEXT PRIMARY KEY,
+                url TEXT NOT NULL,
+                status TEXT NOT NULL,
+                started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                completed_at DATETIME,
+                duration_ms INTEGER,
+                goal TEXT,
+                summary TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS test_steps (
+                id TEXT PRIMARY KEY,
+                test_run_id TEXT NOT NULL,
+                step_number INTEGER NOT NULL,
+                action_type TEXT NOT NULL,
+                action_payload JSON,
+                screenshot_path TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(test_run_id) REFERENCES test_runs(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                test_run_id TEXT NOT NULL,
+                level TEXT NOT NULL,
+                message TEXT NOT NULL,
+                metadata JSON,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(test_run_id) REFERENCES test_runs(id)
+            );
+        `);
+    }
+
+    saveTestRun(run: TestRun): ResultAsync<void, PersistenceError> {
+        return ResultAsync.fromPromise(
+            this.db.insertInto('test_runs')
+                .values({
+                    id: run.id,
+                    url: run.url,
+                    status: run.status,
+                    started_at: run.startedAt,
+                    completed_at: run.completedAt ?? null,
+                    duration_ms: run.durationMs ?? null,
+                    goal: run.goal ?? null,
+                    summary: run.summary ?? null
+                })
+                .execute(),
+            (e) => new PersistenceError(`Failed to save test run: ${e}`)
+        ).map(() => undefined);
+    }
+
+    updateTestRun(id: string, updates: Partial<TestRun>): ResultAsync<void, PersistenceError> {
+        // Map domain fields to DB fields
+        const values: Partial<TestRunTable> = {};
+        if (updates.status) values.status = updates.status;
+        if (updates.completedAt) values.completed_at = updates.completedAt;
+        if (updates.durationMs) values.duration_ms = updates.durationMs;
+        if (updates.summary) values.summary = updates.summary;
+
+        return ResultAsync.fromPromise(
+            this.db.updateTable('test_runs')
+                .set(values)
+                .where('id', '=', id)
+                .execute(),
+            (e) => new PersistenceError(`Failed to update test run: ${e}`)
+        ).map(() => undefined);
+    }
+
+    saveTestStep(step: TestStep): ResultAsync<void, PersistenceError> {
+        return ResultAsync.fromPromise(
+            this.db.insertInto('test_steps')
+                .values({
+                    id: step.id,
+                    test_run_id: step.testRunId,
+                    step_number: step.stepNumber,
+                    action_type: step.actionType,
+                    action_payload: JSON.stringify(step.actionPayload),
+                    screenshot_path: step.screenshotPath ?? null,
+                    timestamp: step.timestamp
+                })
+                .execute(),
+            (e) => new PersistenceError(`Failed to save test step: ${e}`)
+        ).map(() => undefined);
+    }
+
+    saveLog(log: LogEntry): ResultAsync<void, PersistenceError> {
+        return ResultAsync.fromPromise(
+            this.db.insertInto('logs')
+                .values({
+                    test_run_id: log.testRunId,
+                    level: log.level,
+                    message: log.message,
+                    metadata: log.metadata ? JSON.stringify(log.metadata) : null,
+                    timestamp: log.timestamp
+                })
+                .execute(),
+            (e) => new PersistenceError(`Failed to save log: ${e}`)
+        ).map(() => undefined);
+    }
+
+    getTestRuns(limit: number = 50): ResultAsync<TestRun[], PersistenceError> {
+        return ResultAsync.fromPromise(
+            this.db.selectFrom('test_runs')
+                .selectAll()
+                .orderBy('started_at', 'desc')
+                .limit(limit)
+                .execute(),
+            (e) => new PersistenceError(`Failed to get test runs: ${e}`)
+        ).map(rows => rows.map(row => {
+            const run: any = {
+                id: row.id,
+                url: row.url,
+                status: row.status,
+                startedAt: row.started_at,
+                completedAt: row.completed_at ?? undefined,
+                durationMs: row.duration_ms ?? undefined,
+                goal: row.goal ?? undefined,
+                summary: row.summary ?? undefined
+            };
+            return run as TestRun;
+        }));
+    }
+
+    getTestRun(id: string): ResultAsync<TestRun | null, PersistenceError> {
+        return ResultAsync.fromPromise(
+            this.db.selectFrom('test_runs')
+                .selectAll()
+                .where('id', '=', id)
+                .executeTakeFirst(),
+            (e) => new PersistenceError(`Failed to get test run: ${e}`)
+        ).map(row => {
+            if (!row) return null;
+            const run: any = {
+                id: row.id,
+                url: row.url,
+                status: row.status,
+                startedAt: row.started_at,
+                completedAt: row.completed_at ?? undefined,
+                durationMs: row.duration_ms ?? undefined,
+                goal: row.goal ?? undefined,
+                summary: row.summary ?? undefined
+            };
+            return run as TestRun;
+        });
+    }
+
+    getTestSteps(runId: string): ResultAsync<TestStep[], PersistenceError> {
+        return ResultAsync.fromPromise(
+            this.db.selectFrom('test_steps')
+                .selectAll()
+                .where('test_run_id', '=', runId)
+                .orderBy('step_number', 'asc')
+                .execute(),
+            (e) => new PersistenceError(`Failed to get test steps: ${e}`)
+        ).map(rows => rows.map(row => {
+            const action = JSON.parse(row.action_payload);
+            const step: any = {
+                id: row.id,
+                testRunId: row.test_run_id,
+                stepNumber: row.step_number,
+                actionType: row.action_type,
+                actionPayload: action,
+                action: action, // For backward compatibility/viewing if needed, though interface might not have it
+                status: { type: 'success' },
+                screenshot: row.screenshot_path ?? null,
+                timestamp: new Date(row.timestamp),
+                duration: 0
+            };
+            return step as TestStep;
+        }));
+    }
+
+    clearHistory(): ResultAsync<void, PersistenceError> {
+        return ResultAsync.fromPromise(
+            Promise.all([
+                this.db.deleteFrom('test_steps').execute(),
+                this.db.deleteFrom('logs').execute(),
+                this.db.deleteFrom('test_runs').execute()
+            ]),
+            (e) => new PersistenceError(`Failed to clear history: ${e}`)
+        ).map(() => undefined);
+    }
+}

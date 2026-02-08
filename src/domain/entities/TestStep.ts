@@ -1,10 +1,12 @@
 import { AgentAction, ArtifactPath } from '../value-objects';
+import { nanoid } from 'nanoid';
 
 /**
  * TestStep Entity
  * Represents a single step in a test run
  */
 export interface TestStep {
+    readonly id: string;
     readonly stepNumber: number;
     readonly action: AgentAction;
     readonly status: StepStatus;
@@ -19,12 +21,13 @@ export type StepStatus =
     | { type: 'success' }
     | { type: 'failed'; error: string };
 
-export const TestStep = {
+export const TestStepFactory = {
     create(params: {
         stepNumber: number;
         action: AgentAction;
     }): TestStep {
         return {
+            id: nanoid(),
             stepNumber: params.stepNumber,
             action: params.action,
             status: { type: 'pending' },

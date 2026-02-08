@@ -9,6 +9,7 @@ import { TestStepFactory } from '@domain/entities';
 import { isTerminalAction } from '@domain/value-objects/AgentAction';
 import { TestRunIdFactory } from '@domain/value-objects';
 import type { TestInput } from '../../shared/validation';
+import type { IPersistenceAdapter } from '@domain/ports'; // Import persistence adapter type
 
 const DEFAULT_MAX_STEPS = 20;
 
@@ -22,15 +23,14 @@ export class RunTestUseCase {
         @inject('ILLMProvider') private readonly llm: ILLMProvider,
         @inject('IArtifactStorage') private readonly artifacts: IArtifactStorage,
         @inject('ILogger') private readonly logger: ILogger,
-        @inject(ActionHandlerRegistry) private readonly actionRegistry: ActionHandlerRegistry
+        @inject(ActionHandlerRegistry) private readonly actionRegistry: ActionHandlerRegistry,
+        @inject('IPersistenceAdapter') private readonly persistence: IPersistenceAdapter
     ) { }
 
     async *execute(
         input: TestInput,
         cancellation: CancellationToken
     ): AsyncGenerator<TestRunEvent, void, undefined> {
-        // ... (Keep existing setup code)
-
         this.logger.info('Starting test run execution');
 
         const testInput = input;
@@ -39,6 +39,15 @@ export class RunTestUseCase {
         // Create test run ID
         const testRunId = TestRunIdFactory.create();
         this.logger.info(`Test run initialized`, { testRunId, url: testInput.url });
+
+        // PERSISTENCE: Save initial test run
+        await this.persistence.saveTestRun({
+            id: testRunId,
+            url: testInput.url,
+            status: 'running',
+            startedAt: new Date().toISOString(),
+            goal: testInput.prompt
+        });
 
         yield { type: 'started', testRunId };
 
@@ -50,6 +59,12 @@ export class RunTestUseCase {
         if (launchResult.isErr()) {
             this.logger.error('Browser launch failed', launchResult.error);
             yield { type: 'error', error: launchResult.error };
+            // PERSISTENCE: Update run as failed
+            await this.persistence.updateTestRun(testRunId, {
+                status: 'fail',
+                completedAt: new Date().toISOString(),
+                summary: `Browser launch failed: ${launchResult.error.message}`
+            });
             return;
         }
 
@@ -60,6 +75,12 @@ export class RunTestUseCase {
             if (navResult.isErr()) {
                 this.logger.error('Navigation failed', navResult.error);
                 yield { type: 'error', error: navResult.error };
+                // PERSISTENCE: Update run as failed
+                await this.persistence.updateTestRun(testRunId, {
+                    status: 'fail',
+                    completedAt: new Date().toISOString(),
+                    summary: `Navigation failed: ${navResult.error.message}`
+                });
                 return;
             }
 
@@ -74,6 +95,12 @@ export class RunTestUseCase {
                 if (cancellation.requested) {
                     this.logger.info('Test run cancelled by user');
                     yield { type: 'cancelled' };
+                    // PERSISTENCE: Update run as failed/cancelled
+                    await this.persistence.updateTestRun(testRunId, {
+                        status: 'fail', // or 'cancelled' if we add that status
+                        completedAt: new Date().toISOString(),
+                        summary: 'Test run cancelled by user'
+                    });
                     return;
                 }
 
@@ -91,11 +118,16 @@ export class RunTestUseCase {
                 const snapshot = snapshotResult.value;
 
                 // Take screenshot
+                // ... (Screenshot logic)
                 const screenshotResult = await this.browser.screenshot();
+                let screenshotPath: string | undefined;
+
                 if (screenshotResult.isOk()) {
                     const base64 = screenshotResult.value.data.toString('base64');
                     yield { type: 'screenshot', data: base64 };
-                    // Save screenshot artifact
+                    // Save screenshot artifact and get path
+                    // We assume saveScreenshot returns void for now, but in future updates capturing the path would be ideal
+                    // For now, we just save it. Ideally IArtifactStorage.saveScreenshot should return the path.
                     await this.artifacts.saveScreenshot(testRunId, stepNumber, screenshotResult.value.data);
                 }
 
@@ -129,6 +161,24 @@ export class RunTestUseCase {
                 // ACT
                 yield { type: 'acting', action };
 
+                // Create step record using factory
+                const step: TestStep = TestStepFactory.create({ stepNumber, action });
+
+                // PERSISTENCE: Save step
+                const stepData: any = {
+                    id: step.id,
+                    testRunId: testRunId,
+                    stepNumber: stepNumber,
+                    actionType: action.type,
+                    actionPayload: action,
+                    timestamp: new Date().toISOString()
+                };
+                if (screenshotPath) {
+                    stepData.screenshotPath = screenshotPath;
+                }
+
+                await this.persistence.saveTestStep(stepData);
+
                 // Check if terminal action
                 if (isTerminalAction(action)) {
                     completed = true;
@@ -158,13 +208,11 @@ export class RunTestUseCase {
                     await this.browser.waitForDOMStable();
                 }
 
-                // Create step record using factory
-                const step: TestStep = TestStepFactory.create({ stepNumber, action });
                 const finalStep = completed
                     ? (action.type === 'pass'
-                        ? TestStepFactory.markSuccess(step, null, 0)
+                        ? TestStepFactory.markSuccess(step, (screenshotPath as any) ?? null, 0)
                         : TestStepFactory.markFailed(step, finalSummary, 0))
-                    : TestStepFactory.markSuccess(step, null, 0);
+                    : TestStepFactory.markSuccess(step, (screenshotPath as any) ?? null, 0);
 
                 yield { type: 'step_complete', step: finalStep };
             }
@@ -172,6 +220,13 @@ export class RunTestUseCase {
             // Build final output
             const success = completed && previousActions.some(a => a.type === 'pass');
             this.logger.info(`Test run complete. Success: ${success}`);
+
+            // PERSISTENCE: Update final status
+            await this.persistence.updateTestRun(testRunId, {
+                status: success ? 'pass' : 'fail',
+                completedAt: new Date().toISOString(),
+                summary: finalSummary || (success ? 'Test completed successfully' : 'Agent stopped without reaching a conclusion')
+            });
 
             yield {
                 type: 'completed',

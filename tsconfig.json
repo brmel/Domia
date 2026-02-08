@@ -51,7 +51,8 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
-    "electron/**/*.ts"
+    "electron/**/*.ts",
+    "scripts/**/*.ts"
   ],
   "references": [
     {

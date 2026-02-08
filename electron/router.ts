@@ -2,6 +2,7 @@ import { initTRPC } from '@trpc/server';
 import { z } from 'zod';
 import { container } from '../src/composition-root';
 import { RunTestUseCase } from '../src/application/use-cases';
+import { IPersistenceAdapter } from '../src/domain/ports';
 import { CancellationTokenSource } from '../src/domain/events';
 import { observable } from '@trpc/server/observable';
 import { EventEmitter } from 'events';
@@ -81,6 +82,37 @@ export const appRouter = t.router({
                 name: source.name,
                 thumbnail: source.thumbnail.toDataURL()
             }));
+        })
+    }),
+
+    history: t.router({
+        getRuns: t.procedure.query(async () => {
+            const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+            const result = await persistence.getTestRuns();
+            if (result.isErr()) throw new Error(result.error.message);
+            return result.value;
+        }),
+        getRun: t.procedure
+            .input(z.object({ id: z.string() }))
+            .query(async ({ input }) => {
+                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+                const runResult = await persistence.getTestRun(input.id);
+                if (runResult.isErr()) throw new Error(runResult.error.message);
+                if (!runResult.value) return null;
+
+                const stepsResult = await persistence.getTestSteps(input.id);
+                if (stepsResult.isErr()) throw new Error(stepsResult.error.message);
+
+                return {
+                    ...runResult.value,
+                    steps: stepsResult.value
+                };
+            }),
+        clear: t.procedure.mutation(async () => {
+            const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+            const result = await persistence.clearHistory();
+            if (result.isErr()) throw new Error(result.error.message);
+            return { success: true };
         })
     })
 });
