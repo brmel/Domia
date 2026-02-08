@@ -78,7 +78,9 @@ export class PlaywrightAdapter implements IBrowserAutomation {
                 headless: options.headless,
                 args: ['--no-sandbox', '--disable-setuid-sandbox']
             });
-            const context = await this.browser.newContext();
+            const context = await this.browser.newContext({
+                ignoreHTTPSErrors: true
+            });
             this.page = await context.newPage();
             this.logger.info('[PlaywrightAdapter] Created new page');
         }

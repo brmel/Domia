@@ -30,7 +30,7 @@ export class LangChainAdapter implements ILLMProvider {
         return ResultAsync.fromPromise(
             this.doGenerateAction(context),
             (e) => new LLMError(`LangChain generation failed: ${String(e)}`)
-        ).andThen((text) => LLMPromptUtils.parseAction(text));
+        ).andThen((text) => LLMPromptUtils.parseAction(text, context));
     }
 
     private async doGenerateAction(context: LLMContext): Promise<string> {

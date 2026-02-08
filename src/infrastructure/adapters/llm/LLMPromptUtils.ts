@@ -69,11 +69,16 @@ ACTION TYPES:
             })
             .join('\n');
 
+        const formatAttributes = (attrs: Record<string, string>) =>
+            Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ') || 'None';
+
         const previousActionsStr = context.previousActions
             .slice(-5)
             .map((a, i) => {
+                const desc = ('elementDescriptor' in a && a.elementDescriptor) ? ` on ${a.elementDescriptor}` : '';
                 if (a.type === 'pressKey') return `${i + 1}. pressKey(${a.key})`;
-                return `${i + 1}. ${a.type}`;
+                if (a.type === 'navigate') return `${i + 1}. navigate to ${a.url}`;
+                return `${i + 1}. ${a.type}${desc}`;
             })
             .join('\n');
 
@@ -84,7 +89,10 @@ VIEWPORT: ${context.viewport.width}x${context.viewport.height} pixels
 CURRENT PAGE:
 URL: ${context.currentUrl}
 Title: ${context.pageTitle}
-Root Classes: ${context.snapshot.rootClasses}
+
+ROOT ELEMENTS:
+- <html> attributes: ${formatAttributes(context.snapshot.rootElements.html)}
+- <body> attributes: ${formatAttributes(context.snapshot.rootElements.body)}
 
 INTERACTIVE ELEMENTS (with bounding boxes [x,y,w,h]):
 ${elementsStr}
@@ -101,14 +109,14 @@ Analyze the elements and their positions, then respond with a single JSON action
         return `${this.systemPrompt}\n\n---\n\n${this.buildUserPrompt(context)}`;
     },
 
-    parseAction(text: string): ResultAsync<AgentAction, LLMError> {
+    parseAction(text: string, context?: LLMContext): ResultAsync<AgentAction, LLMError> {
         return ResultAsync.fromPromise(
-            Promise.resolve(this.doParseAction(text)),
+            Promise.resolve(this.doParseAction(text, context)),
             (e) => new LLMError(`Failed to parse LLM response: ${String(e)}`)
         );
     },
 
-    doParseAction(text: string): AgentAction {
+    doParseAction(text: string, context?: LLMContext): AgentAction {
         if (!text || text.trim().length === 0) {
             throw new LLMError('LLM returned empty response');
         }
@@ -194,11 +202,30 @@ Analyze the elements and their positions, then respond with a single JSON action
 
         const { action, thought = '' } = parsed;
 
+        const getDescriptor = (id: number): string | undefined => {
+            if (!context) return undefined;
+            const el = context.snapshot.elements.find(e => Number(e.id) === id);
+            if (!el) return undefined;
+            return `${el.tag} "${el.text.slice(0, 30)}"`;
+        };
+
         switch (action.type) {
             case 'click':
-                return { type: 'click', elementId: ElementIdFactory.unsafe(action.elementId!), thought };
+                return {
+                    type: 'click',
+                    elementId: ElementIdFactory.unsafe(action.elementId!),
+                    elementDescriptor: getDescriptor(action.elementId!),
+                    thought
+                };
             case 'type':
-                return { type: 'type', elementId: ElementIdFactory.unsafe(action.elementId!), text: action.text ?? '', submit: action.submit ?? false, thought };
+                return {
+                    type: 'type',
+                    elementId: ElementIdFactory.unsafe(action.elementId!),
+                    elementDescriptor: getDescriptor(action.elementId!),
+                    text: action.text ?? '',
+                    submit: action.submit ?? false,
+                    thought
+                };
             case 'pressKey':
                 return { type: 'pressKey', key: action.key ?? 'Enter', thought };
             case 'scroll':
@@ -206,7 +233,12 @@ Analyze the elements and their positions, then respond with a single JSON action
             case 'wait':
                 return { type: 'wait', durationMs: action.durationMs ?? 1000, thought };
             case 'extract':
-                return { type: 'extract', elementId: ElementIdFactory.unsafe(action.elementId!), thought };
+                return {
+                    type: 'extract',
+                    elementId: ElementIdFactory.unsafe(action.elementId!),
+                    elementDescriptor: getDescriptor(action.elementId!),
+                    thought
+                };
             case 'navigate':
                 return { type: 'navigate', url: action.url ?? '', thought };
             case 'pass':

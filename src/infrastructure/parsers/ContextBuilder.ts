@@ -22,7 +22,7 @@ export class ContextBuilder {
             return {
                 url: metadata.url,
                 title: metadata.title,
-                rootClasses: metadata.rootClasses,
+                rootElements: metadata.rootElements,
                 elements: Object.freeze(elements),
                 timestamp: new Date()
             };

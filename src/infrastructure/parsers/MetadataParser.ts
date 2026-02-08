@@ -6,7 +6,10 @@ import type { ILogger } from '@domain/ports';
 export interface PageMetadata {
     url: string;
     title: string;
-    rootClasses: string;
+    rootElements: {
+        html: Record<string, string>;
+        body: Record<string, string>;
+    };
 }
 
 @injectable()
@@ -18,10 +21,22 @@ export class MetadataParser implements IContextParser<PageMetadata> {
 
         const url = page.url();
         const title = await page.title();
-        const rootClasses = await page.evaluate(() => {
-            return `html: ${document.documentElement.className} | body: ${document.body.className}`;
-        });
+        const rootElements = await page.evaluate(`
+            (() => {
+                const getAttrs = (el) => {
+                    const attrs = {};
+                    for (const attr of el.attributes) {
+                        attrs[attr.name] = attr.value;
+                    }
+                    return attrs;
+                };
+                return {
+                    html: getAttrs(document.documentElement),
+                    body: getAttrs(document.body)
+                };
+            })()
+        `) as { html: Record<string, string>; body: Record<string, string> };
 
-        return { url, title, rootClasses };
+        return { url, title, rootElements };
     }
 }

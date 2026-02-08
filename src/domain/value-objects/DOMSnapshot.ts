@@ -24,7 +24,10 @@ export interface BoundingBox {
 export interface DOMSnapshot {
     readonly url: string;
     readonly title: string;
-    readonly rootClasses: string;
+    readonly rootElements: {
+        readonly html: Readonly<Record<string, string>>;
+        readonly body: Readonly<Record<string, string>>;
+    };
     readonly elements: readonly DOMElement[];
     readonly timestamp: Date;
 }
@@ -33,13 +36,19 @@ export const DOMSnapshot = {
     create(params: {
         url: string;
         title: string;
-        rootClasses: string;
+        rootElements: {
+            html: Record<string, string>;
+            body: Record<string, string>;
+        };
         elements: DOMElement[];
     }): DOMSnapshot {
         return {
             url: params.url,
             title: params.title,
-            rootClasses: params.rootClasses,
+            rootElements: {
+                html: Object.freeze(params.rootElements.html),
+                body: Object.freeze(params.rootElements.body),
+            },
             elements: Object.freeze(params.elements),
             timestamp: new Date(),
         };

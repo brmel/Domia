@@ -47,7 +47,12 @@ export class DOMParser implements IContextParser<DOMElement[]> {
 
                 function extractAttrs(el) {
                     const attrs = {};
-                    ['id', 'name', 'type', 'placeholder', 'aria-label', 'href', 'value', 'title', 'checked', 'aria-invalid'].forEach((attr) => {
+                    const relevantAttrs = [
+                        'id', 'name', 'type', 'placeholder', 'aria-label', 'href', 
+                        'value', 'title', 'checked', 'aria-invalid', 'aria-pressed',
+                        'data-state', 'data-theme', 'aria-expanded', 'aria-hidden', 'class'
+                    ];
+                    relevantAttrs.forEach((attr) => {
                         let val = el.getAttribute(attr);
                         if (attr === 'value' && el.value) val = el.value;
                         if (attr === 'checked' && el.checked) val = 'true';
