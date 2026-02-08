@@ -20,7 +20,10 @@ export class DOMParser implements IContextParser<DOMElement[]> {
 
     async parse(page: Page): Promise<DOMElement[]> {
         this.logger.debug('[DOMParser] Extracting interactive elements');
+        return this.doParse(page);
+    }
 
+    private async doParse(page: Page): Promise<DOMElement[]> {
         // We use a string function to avoid 'tsx' adding helper code (like __name) that breaks in the browser
         const extractionScript = `
             (() => {

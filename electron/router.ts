@@ -30,6 +30,9 @@ export const appRouter = t.router({
                 console.log('[Router] test.run called with:', JSON.stringify(input));
                 const useCase = container.resolve<RunTestUseCase>('RunTestUseCase');
                 console.log('[Router] UseCase resolved');
+                if (currentController) {
+                    currentController.stop();
+                }
                 currentController = new ExecutionController();
 
                 try {

@@ -90,22 +90,36 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         }
         this.logger.debug(`[PlaywrightAdapter] Navigating to: ${url}`);
         return ResultAsync.fromPromise(
-            this.page.goto(url, { waitUntil: 'domcontentloaded' }),
+            this.page.goto(url, { waitUntil: 'load', timeout: 30000 }),
             (e) => new NavigationError(`Navigation failed: ${String(e)}`)
-        ).map(() => {
-            this.logger.debug('[PlaywrightAdapter] Navigation complete');
-            return undefined;
-        });
+        ).andThen(() => ResultAsync.fromPromise(this.waitForDOMStable(), e => new NavigationError(String(e))));
     }
 
-    click(elementId: ElementId): ResultAsync<void, InteractionError> {
-        this.logger.debug(`[PlaywrightAdapter] Clicking element: ${elementId}`);
-        return this.findElement(elementId).andThen((el) =>
-            ResultAsync.fromPromise(
-                el.click(),
+    click(elementId: ElementId, options?: { force?: boolean; timeout?: number }): ResultAsync<void, InteractionError> {
+        this.logger.debug(`[PlaywrightAdapter] Clicking element: ${elementId}${options?.force ? ' (forced)' : ''}`);
+
+        return this.findElement(elementId).andThen((el) => {
+            const clickOptions = {
+                force: options?.force ?? false,
+                timeout: options?.timeout ?? 10000 // 10s default instead of 30s
+            };
+
+            const attempt = () => ResultAsync.fromPromise(
+                el.click(clickOptions),
                 (e) => new InteractionError(`Click failed: ${String(e)}`, elementId)
-            )
-        );
+            );
+
+            return attempt().orElse((err) => {
+                if (!options?.force && (err.message.includes('intercepts pointer events') || err.message.includes('Timeout'))) {
+                    this.logger.warn(`[PlaywrightAdapter] Click on ${elementId} intercepted or timed out, retrying with force: true`);
+                    return ResultAsync.fromPromise(
+                        el.click({ ...clickOptions, force: true }),
+                        (e) => new InteractionError(`Force click failed: ${String(e)}`, elementId)
+                    );
+                }
+                return errAsync(err);
+            });
+        });
     }
 
     type(elementId: ElementId, text: string): ResultAsync<void, InteractionError> {
@@ -202,7 +216,10 @@ export class PlaywrightAdapter implements IBrowserAutomation {
             return errAsync(new SnapshotError('Browser not launched'));
         }
         return ResultAsync.fromPromise(
-            this.extractSnapshot(),
+            (async () => {
+                await this.waitForDOMStable();
+                return this.extractSnapshot();
+            })(),
             (e) => new SnapshotError(`Snapshot failed: ${String(e)}`)
         );
     }
@@ -225,14 +242,23 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         return size ?? { width: AGENT_VIEW_CONFIG.DEFAULT_WIDTH, height: AGENT_VIEW_CONFIG.DEFAULT_HEIGHT };
     }
 
-    async waitForDOMStable(timeout: number = 2000): Promise<void> {
+    async waitForDOMStable(timeout: number = 5000): Promise<void> {
         if (!this.page) return;
+        this.logger.debug('[PlaywrightAdapter] Waiting for DOM stability');
         try {
-            await this.page.waitForLoadState('networkidle', { timeout });
-        } catch {
-            // Timeout acceptable
+            // Wait for both load state and a brief period of network idle
+            await Promise.all([
+                this.page.waitForLoadState('load', { timeout }),
+                this.page.waitForLoadState('networkidle', { timeout }).catch(() => {
+                    this.logger.debug('[PlaywrightAdapter] Network idle timeout, proceeding anyway');
+                })
+            ]);
+        } catch (e) {
+            this.logger.debug(`[PlaywrightAdapter] Wait for stable failed or timed out: ${String(e)}`);
         }
-        await this.page.waitForTimeout(100);
+
+        // Final sanity wait to ensure some level of hydration/layout stability
+        await this.page.waitForTimeout(500);
     }
 
     async close(): Promise<void> {

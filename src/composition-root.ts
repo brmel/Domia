@@ -8,9 +8,6 @@ import type { LLMConfig } from '@domain/ports';
 import { RunTestUseCase } from './application/use-cases';
 import { ConsoleLogger } from './infrastructure/adapters/logger/ConsoleLogger';
 
-
-
-
 import { LangChainAdapter } from './infrastructure/adapters/llm/LangChainAdapter';
 import { ConfigService } from './infrastructure/config/ConfigService';
 import { SQLiteAdapter } from './infrastructure/adapters/persistence/SQLiteAdapter';
@@ -24,18 +21,25 @@ import { ExtractTool } from './application/tools/browser/ExtractTool';
 import { PressKeyTool } from './application/tools/browser/PressKeyTool';
 import { AskUserTool } from './application/tools/general/AskUserTool';
 
+import { ActionPerformer } from './application/services/ActionPerformer';
+import { ObservationService } from './application/services/ObservationService';
+import { TestRunLifecycleManager } from './application/services/TestRunLifecycleManager';
+
 export function registerCoreServices() {
     // 1. Core Services (Config & Persistence)
     container.registerSingleton(ConfigService);
-    container.register('IPersistenceAdapter', { useClass: SQLiteAdapter });
+    container.registerSingleton('IPersistenceAdapter', SQLiteAdapter);
 
-    container.register('IBrowserAutomation', { useClass: PlaywrightAdapter });
-    container.register('IArtifactStorage', { useClass: FileSystemAdapter });
-    container.register('ILogger', { useClass: ConsoleLogger });
-    // AgentViewService is Electron-specific, so it's registered in electron/main.ts
+    container.registerSingleton('IBrowserAutomation', PlaywrightAdapter);
+    container.registerSingleton('IArtifactStorage', FileSystemAdapter);
+    container.registerSingleton('ILogger', ConsoleLogger);
+
+    // Decoupled Helper Services
+    container.registerSingleton(TestRunLifecycleManager);
+    container.registerSingleton(ObservationService);
+    container.registerSingleton(ActionPerformer);
 
     // LLM Configuration
-    // We register LLMConfig for adapters that require it directly
     const defaultLLMConfig: LLMConfig = {
         provider: 'google',
         model: 'gemini-2.0-flash',
@@ -44,7 +48,6 @@ export function registerCoreServices() {
     container.register('LLMConfig', { useValue: defaultLLMConfig });
 
     container.register('ILLMProvider', { useClass: LangChainAdapter });
-
     container.register('RunTestUseCase', { useClass: RunTestUseCase });
 
     // Tools

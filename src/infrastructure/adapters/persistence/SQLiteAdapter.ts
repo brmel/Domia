@@ -175,19 +175,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 .limit(limit)
                 .execute(),
             (e) => new PersistenceError(`Failed to get test runs: ${e}`)
-        ).map(rows => rows.map((row) => {
-            const run: TestRun = {
-                id: row.id,
-                url: row.url,
-                status: row.status as TestRun['status'],
-                startedAt: row.started_at,
-                ...(row.completed_at ? { completedAt: row.completed_at } : {}),
-                ...(row.duration_ms ? { durationMs: row.duration_ms } : {}),
-                ...(row.goal ? { goal: row.goal } : {}),
-                ...(row.summary ? { summary: row.summary } : {})
-            };
-            return run;
-        }));
+        ).map(rows => rows.map(row => this.mapToTestRun(row)));
     }
 
     getTestRun(id: string): ResultAsync<TestRun | null, PersistenceError> {
@@ -197,20 +185,20 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 .where('id', '=', id)
                 .executeTakeFirst(),
             (e) => new PersistenceError(`Failed to get test run: ${e}`)
-        ).map(row => {
-            if (!row) return null;
-            const run: TestRun = {
-                id: row.id,
-                url: row.url,
-                status: row.status as TestRun['status'],
-                startedAt: row.started_at,
-                ...(row.completed_at ? { completedAt: row.completed_at } : {}),
-                ...(row.duration_ms ? { durationMs: row.duration_ms } : {}),
-                ...(row.goal ? { goal: row.goal } : {}),
-                ...(row.summary ? { summary: row.summary } : {})
-            };
-            return run;
-        });
+        ).map(row => row ? this.mapToTestRun(row) : null);
+    }
+
+    private mapToTestRun(row: TestRunTable): TestRun {
+        return {
+            id: row.id,
+            url: row.url,
+            status: row.status as TestRun['status'],
+            startedAt: row.started_at,
+            ...(row.completed_at ? { completedAt: row.completed_at } : {}),
+            ...(row.duration_ms ? { durationMs: row.duration_ms } : {}),
+            ...(row.goal ? { goal: row.goal } : {}),
+            ...(row.summary ? { summary: row.summary } : {})
+        };
     }
 
     getTestSteps(runId: string): ResultAsync<TestStep[], PersistenceError> {
@@ -221,19 +209,20 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 .orderBy('step_number', 'asc')
                 .execute(),
             (e) => new PersistenceError(`Failed to get test steps: ${e}`)
-        ).map(rows => rows.map((row) => {
-            const action = JSON.parse(row.action_payload);
-            const step: TestStep = {
-                id: row.id,
-                testRunId: row.test_run_id,
-                stepNumber: row.step_number,
-                actionType: row.action_type,
-                actionPayload: action,
-                timestamp: row.timestamp,
-                ...(row.screenshot_path ? { screenshotPath: row.screenshot_path } : {})
-            };
-            return step;
-        }));
+        ).map(rows => rows.map(row => this.mapToTestStep(row)));
+    }
+
+    private mapToTestStep(row: TestStepTable): TestStep {
+        const action = JSON.parse(row.action_payload);
+        return {
+            id: row.id,
+            testRunId: row.test_run_id,
+            stepNumber: row.step_number,
+            actionType: row.action_type,
+            actionPayload: action,
+            timestamp: row.timestamp,
+            ...(row.screenshot_path ? { screenshotPath: row.screenshot_path } : {})
+        };
     }
 
     clearHistory(): ResultAsync<void, PersistenceError> {

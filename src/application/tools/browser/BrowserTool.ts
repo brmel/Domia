@@ -20,11 +20,11 @@ export abstract class BrowserTool<TParams, TResult = void> implements Tool<TPara
         }
 
         // Auto-highlight if the tool operates on an element
-        // We cast params to any to check for elementId existence safely
-        const p = params as any;
+        const p = params as Record<string, unknown>;
+        const elementId = p['elementId'];
 
-        const highlightTask = (p.elementId !== undefined && typeof p.elementId === 'number')
-            ? browser.highlight(ElementIdFactory.unsafe(p.elementId))
+        const highlightTask = (typeof elementId === 'number')
+            ? browser.highlight(ElementIdFactory.unsafe(elementId))
             : ResultAsync.fromPromise(Promise.resolve(), e => new Error(String(e))); // No-op
 
         // We execute highlight, and regardless of its success/failure (though we swallow/log errors ideally),
