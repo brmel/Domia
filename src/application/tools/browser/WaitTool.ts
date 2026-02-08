@@ -1,23 +1,19 @@
 
 import { z } from 'zod';
-import { ResultAsync, errAsync } from 'neverthrow';
-import { Tool, ToolContext } from '../../../domain/tools/Tool';
+import { ResultAsync } from 'neverthrow';
+import { BrowserTool } from './BrowserTool';
 import { IBrowserAutomation } from '../../../domain/ports';
 
 const WaitSchema = z.object({
     durationMs: z.number().describe('Duration to wait in milliseconds'),
 });
 
-export class WaitTool implements Tool<z.infer<typeof WaitSchema>, void> {
+export class WaitTool extends BrowserTool<z.infer<typeof WaitSchema>> {
     readonly name = 'wait';
     readonly description = 'Wait for a specified duration';
     readonly schema = WaitSchema;
 
-    execute(params: z.infer<typeof WaitSchema>, context: ToolContext): ResultAsync<void, Error> {
-        const browser = context.browser as IBrowserAutomation;
-        if (!browser) {
-            return errAsync(new Error('Browser capability not available in context'));
-        }
+    protected perform(browser: IBrowserAutomation, params: z.infer<typeof WaitSchema>): ResultAsync<void, Error> {
         return browser.wait(params.durationMs);
     }
 }

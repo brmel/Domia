@@ -1,7 +1,7 @@
 
 import { z } from 'zod';
-import { ResultAsync, okAsync, errAsync } from 'neverthrow';
-import { Tool, ToolContext } from '../../../domain/tools/Tool';
+import { ResultAsync, okAsync } from 'neverthrow';
+import { BrowserTool } from './BrowserTool';
 import { IBrowserAutomation } from '../../../domain/ports';
 import { ElementIdFactory } from '../../../domain/value-objects';
 
@@ -11,17 +11,12 @@ const TypeSchema = z.object({
     submit: z.boolean().optional().describe('Whether to press Enter after typing'),
 });
 
-export class TypeTool implements Tool<z.infer<typeof TypeSchema>, void> {
+export class TypeTool extends BrowserTool<z.infer<typeof TypeSchema>> {
     readonly name = 'type';
     readonly description = 'Type text into an input element';
     readonly schema = TypeSchema;
 
-    execute(params: z.infer<typeof TypeSchema>, context: ToolContext): ResultAsync<void, Error> {
-        const browser = context.browser as IBrowserAutomation;
-        if (!browser) {
-            return errAsync(new Error('Browser capability not available in context'));
-        }
-
+    protected perform(browser: IBrowserAutomation, params: z.infer<typeof TypeSchema>): ResultAsync<void, Error> {
         const elementId = ElementIdFactory.unsafe(params.elementId);
 
         return browser.type(elementId, params.text)
