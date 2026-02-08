@@ -50,7 +50,7 @@ ACTION TYPES:
 - pressKey: { "type": "pressKey", "key": "<Enter|Tab|Escape|...>" }
 - scroll: { "type": "scroll", "direction": "up|down" }
 - wait: { "type": "wait", "durationMs": <number> }
-- extract: { "type": "extract", "key": "<key>", "value": "<value>" }
+- extract: { "type": "extract", "elementId": <number> }
 - navigate: { "type": "navigate", "url": "<url>" }
 - pass: { "type": "pass", "summary": "<success summary with evidence>" }
 - fail: { "type": "fail", "reason": "<failure reason with evidence>" }`,
@@ -128,6 +128,7 @@ Analyze the elements and their positions, then respond with a single JSON action
         }
 
         // Sanitize JSON string: escape unescaped control characters
+        // eslint-disable-next-line no-control-regex
         jsonStr = jsonStr.replace(/[\u0000-\u001F]+/g, (match) => {
             // Allow standard whitespace
             if (match === '\n' || match === '\r' || match === '\t') return match;
@@ -166,7 +167,7 @@ Analyze the elements and their positions, then respond with a single JSON action
             case 'wait':
                 return { type: 'wait', durationMs: action.durationMs ?? 1000, thought };
             case 'extract':
-                return { type: 'extract', key: action.keyName ?? action.key ?? '', value: action.value ?? '', thought };
+                return { type: 'extract', elementId: ElementIdFactory.unsafe(action.elementId!), thought };
             case 'navigate':
                 return { type: 'navigate', url: action.url ?? '', thought };
             case 'pass':

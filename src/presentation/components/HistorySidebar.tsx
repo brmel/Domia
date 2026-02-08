@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { trpc } from '../../lib/trpc';
+import type { TestRun, TestStep } from '@domain/ports';
+
+type RunWithSteps = TestRun & { steps: TestStep[] };
 
 export function HistorySidebar({ onClose }: { onClose: () => void }) {
-    const [runs, setRuns] = useState<any[]>([]);
+    const [runs, setRuns] = useState<TestRun[]>([]);
     const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -34,9 +37,8 @@ export function HistorySidebar({ onClose }: { onClose: () => void }) {
         }
     };
 
-    // Sub-component for Run Details
     const RunDetails = ({ runId }: { runId: string }) => {
-        const [run, setRun] = useState<any | null>(null);
+        const [run, setRun] = useState<RunWithSteps | null>(null);
         const [loadingRun, setLoadingRun] = useState(true);
 
         useEffect(() => {
@@ -75,7 +77,7 @@ export function HistorySidebar({ onClose }: { onClose: () => void }) {
                 </div>
                 <h4 className="font-semibold mb-2 text-md">Steps ({run.steps?.length || 0})</h4>
                 <div className="space-y-2">
-                    {run.steps?.map((step: any) => (
+                    {run.steps?.map((step: TestStep) => (
                         <div key={step.id} className="border p-3 rounded-md bg-white text-xs shadow-sm">
                             <div className="flex justify-between items-center mb-1">
                                 <span className="font-bold text-gray-700">Step #{step.stepNumber}: {step.actionType}</span>
@@ -119,7 +121,7 @@ export function HistorySidebar({ onClose }: { onClose: () => void }) {
 
                         {loading && <div className="text-center text-gray-400 py-4">Loading runs...</div>}
 
-                        {!loading && runs.map((run: any) => (
+                        {!loading && runs.map((run: TestRun) => (
                             <div
                                 key={run.id}
                                 onClick={() => setSelectedRunId(run.id)}
@@ -127,7 +129,7 @@ export function HistorySidebar({ onClose }: { onClose: () => void }) {
                             >
                                 <div className="flex justify-between items-start mb-1">
                                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${run.status === 'pass' ? 'bg-green-100 text-green-700' :
-                                            run.status === 'fail' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                                        run.status === 'fail' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
                                         }`}>
                                         {run.status}
                                     </span>

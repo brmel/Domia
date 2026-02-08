@@ -30,6 +30,7 @@ export interface IBrowserAutomation {
     pressKey(key: string): ResultAsync<void, InteractionError>;
     scroll(direction: 'up' | 'down'): ResultAsync<void, InteractionError>;
     wait(durationMs: number): ResultAsync<void, InteractionError>;
+    extractText(elementId: ElementId): ResultAsync<string, InteractionError>;
     snapshot(): ResultAsync<DOMSnapshot, SnapshotError>;
     screenshot(): ResultAsync<Screenshot, CaptureError>;
     getViewportSize(): Promise<{ width: number; height: number }>;

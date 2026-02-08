@@ -151,6 +151,16 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         );
     }
 
+    extractText(elementId: ElementId): ResultAsync<string, InteractionError> {
+        this.logger.debug(`[PlaywrightAdapter] Extracting text from: ${elementId}`);
+        return this.findElement(elementId).andThen((el) =>
+            ResultAsync.fromPromise(
+                el.innerText(),
+                (e) => new InteractionError(`Extract text failed: ${String(e)}`, elementId)
+            )
+        ).map(text => text ?? '');
+    }
+
     snapshot(): ResultAsync<DOMSnapshot, SnapshotError> {
         if (!this.page) {
             return errAsync(new SnapshotError('Browser not launched'));

@@ -1,3 +1,4 @@
+
 import { injectable, inject } from 'tsyringe';
 import type { IBrowserAutomation } from '@domain/ports';
 import type { ILLMProvider, LLMContext, ILogger } from '@domain/ports';
@@ -7,14 +8,15 @@ import type { AgentAction, Url } from '@domain/value-objects';
 import type { TestStep } from '@domain/entities';
 import { TestStepFactory } from '@domain/entities';
 import { isTerminalAction } from '@domain/value-objects/AgentAction';
-import { TestRunIdFactory } from '@domain/value-objects';
+import { TestRunIdFactory, ArtifactPathFactory } from '@domain/value-objects';
 import type { TestInput } from '../../shared/validation';
-import type { IPersistenceAdapter } from '@domain/ports'; // Import persistence adapter type
+import type { IPersistenceAdapter, TestStep as PersistenceTestStep } from '@domain/ports';
+
+import { ToolRegistry } from '../../application/registries/ToolRegistry';
+import { ToolContext } from '../../domain/tools/Tool';
+import { InteractionError } from '@domain/errors';
 
 const DEFAULT_MAX_STEPS = 20;
-
-import { ActionHandlerRegistry } from '../../application/action-handlers/ActionHandlerRegistry';
-import { InteractionError } from '@domain/errors';
 
 @injectable()
 export class RunTestUseCase {
@@ -23,7 +25,7 @@ export class RunTestUseCase {
         @inject('ILLMProvider') private readonly llm: ILLMProvider,
         @inject('IArtifactStorage') private readonly artifacts: IArtifactStorage,
         @inject('ILogger') private readonly logger: ILogger,
-        @inject(ActionHandlerRegistry) private readonly actionRegistry: ActionHandlerRegistry,
+        @inject(ToolRegistry) private readonly toolRegistry: ToolRegistry,
         @inject('IPersistenceAdapter') private readonly persistence: IPersistenceAdapter
     ) { }
 
@@ -40,7 +42,6 @@ export class RunTestUseCase {
         const testRunId = TestRunIdFactory.create();
         this.logger.info(`Test run initialized`, { testRunId, url: testInput.url });
 
-        // PERSISTENCE: Save initial test run
         await this.persistence.saveTestRun({
             id: testRunId,
             url: testInput.url,
@@ -51,7 +52,6 @@ export class RunTestUseCase {
 
         yield { type: 'started', testRunId };
 
-        // Launch browser
         this.logger.debug('Launching browser');
         const launchResult = await this.browser.launch({
             headless: testInput.options?.headless ?? true,
@@ -59,7 +59,7 @@ export class RunTestUseCase {
         if (launchResult.isErr()) {
             this.logger.error('Browser launch failed', launchResult.error);
             yield { type: 'error', error: launchResult.error };
-            // PERSISTENCE: Update run as failed
+
             await this.persistence.updateTestRun(testRunId, {
                 status: 'fail',
                 completedAt: new Date().toISOString(),
@@ -69,13 +69,12 @@ export class RunTestUseCase {
         }
 
         try {
-            // Navigate to URL
             this.logger.debug(`Navigating to ${testInput.url}`);
             const navResult = await this.browser.navigateTo(testInput.url as Url);
             if (navResult.isErr()) {
                 this.logger.error('Navigation failed', navResult.error);
                 yield { type: 'error', error: navResult.error };
-                // PERSISTENCE: Update run as failed
+
                 await this.persistence.updateTestRun(testRunId, {
                     status: 'fail',
                     completedAt: new Date().toISOString(),
@@ -91,7 +90,6 @@ export class RunTestUseCase {
 
             // Agent loop
             while (stepNumber < maxSteps && !completed) {
-                // Cooperative cancellation check
                 if (cancellation.requested) {
                     this.logger.info('Test run cancelled by user');
                     yield { type: 'cancelled' };
@@ -105,9 +103,9 @@ export class RunTestUseCase {
                 }
 
                 stepNumber++;
+                stepNumber++;
                 this.logger.info(`Starting step ${stepNumber}`);
 
-                // OBSERVE
                 yield { type: 'observing' };
                 const snapshotResult = await this.browser.snapshot();
                 if (snapshotResult.isErr()) {
@@ -117,24 +115,17 @@ export class RunTestUseCase {
                 }
                 const snapshot = snapshotResult.value;
 
-                // Take screenshot
-                // ... (Screenshot logic)
                 const screenshotResult = await this.browser.screenshot();
                 let screenshotPath: string | undefined;
 
                 if (screenshotResult.isOk()) {
                     const base64 = screenshotResult.value.data.toString('base64');
                     yield { type: 'screenshot', data: base64 };
-                    // Save screenshot artifact and get path
-                    // We assume saveScreenshot returns void for now, but in future updates capturing the path would be ideal
-                    // For now, we just save it. Ideally IArtifactStorage.saveScreenshot should return the path.
                     await this.artifacts.saveScreenshot(testRunId, stepNumber, screenshotResult.value.data);
                 }
 
-                // Get viewport size for layout analysis
                 const viewport = await this.browser.getViewportSize();
 
-                // Build LLM context
                 const context: LLMContext = {
                     goal: testInput.prompt,
                     currentUrl: snapshot.url,
@@ -145,7 +136,6 @@ export class RunTestUseCase {
                     viewport,
                 };
 
-                // THINK
                 yield { type: 'thinking' };
                 this.logger.debug('Generating action from LLM');
                 const actionResult = await this.llm.generateAction(context);
@@ -158,14 +148,11 @@ export class RunTestUseCase {
                 this.logger.info('Agent decided action', { action: action.type });
                 previousActions.push(action);
 
-                // ACT
                 yield { type: 'acting', action };
 
-                // Create step record using factory
                 const step: TestStep = TestStepFactory.create({ stepNumber, action });
 
-                // PERSISTENCE: Save step
-                const stepData: any = {
+                const stepData: PersistenceTestStep = {
                     id: step.id,
                     testRunId: testRunId,
                     stepNumber: stepNumber,
@@ -179,49 +166,51 @@ export class RunTestUseCase {
 
                 await this.persistence.saveTestStep(stepData);
 
-                // Check if terminal action
                 if (isTerminalAction(action)) {
                     completed = true;
                     finalSummary = action.type === 'pass' ? action.summary : action.reason;
                     this.logger.info(`Terminal action reached: ${action.type}`, { summary: finalSummary });
                 } else {
-                    // Perform browser action using registry
-                    this.logger.debug('Performing browser action', { action });
+                    this.logger.debug('Looking up tool for action', { actionType: action.type });
 
-                    const handler = this.actionRegistry.get(action.type);
-                    if (!handler) {
-                        const error = new InteractionError(`No handler found for action type: ${action.type}`);
-                        this.logger.error('Action execution failed', error);
+                    const tool = this.toolRegistry.get(action.type);
+                    if (!tool) {
+                        const error = new InteractionError(`No tool found for action type: ${action.type}`);
+                        this.logger.error('Tool execution failed', error);
                         yield { type: 'error', error };
                         break;
                     }
 
-                    const performResult = await handler.execute(action, this.browser);
-                    if (performResult.isErr()) {
-                        this.logger.error('Action execution failed', performResult.error);
-                        yield { type: 'error', error: performResult.error };
+                    const toolContext: ToolContext = {
+                        browser: this.browser,
+                        logger: this.logger
+                    };
+
+                    const result = await tool.execute(action, toolContext);
+
+                    if (result.isErr()) {
+                        this.logger.error('Tool execution failed', result.error);
+                        const wrappedError = new InteractionError(`Tool execution failed: ${result.error.message}`);
+                        yield { type: 'error', error: wrappedError };
                         break;
                     }
 
-                    // Wait for DOM to stabilize after action
                     this.logger.debug('Waiting for DOM to stabilize');
                     await this.browser.waitForDOMStable();
                 }
 
                 const finalStep = completed
                     ? (action.type === 'pass'
-                        ? TestStepFactory.markSuccess(step, (screenshotPath as any) ?? null, 0)
+                        ? TestStepFactory.markSuccess(step, screenshotPath ? ArtifactPathFactory.create(screenshotPath) : null, 0)
                         : TestStepFactory.markFailed(step, finalSummary, 0))
-                    : TestStepFactory.markSuccess(step, (screenshotPath as any) ?? null, 0);
+                    : TestStepFactory.markSuccess(step, screenshotPath ? ArtifactPathFactory.create(screenshotPath) : null, 0);
 
                 yield { type: 'step_complete', step: finalStep };
             }
 
-            // Build final output
             const success = completed && previousActions.some(a => a.type === 'pass');
             this.logger.info(`Test run complete. Success: ${success}`);
 
-            // PERSISTENCE: Update final status
             await this.persistence.updateTestRun(testRunId, {
                 status: success ? 'pass' : 'fail',
                 completedAt: new Date().toISOString(),
@@ -235,7 +224,6 @@ export class RunTestUseCase {
             };
 
         } finally {
-            // Close browser
             this.logger.debug('Closing browser');
             await this.browser.close();
         }

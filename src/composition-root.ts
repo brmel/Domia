@@ -14,6 +14,14 @@ import { ConsoleLogger } from './infrastructure/adapters/logger/ConsoleLogger';
 import { LangChainAdapter } from './infrastructure/adapters/llm/LangChainAdapter';
 import { ConfigService } from './infrastructure/config/ConfigService';
 import { SQLiteAdapter } from './infrastructure/adapters/persistence/SQLiteAdapter';
+import { ToolRegistry } from './application/registries/ToolRegistry';
+import { ClickTool } from './application/tools/browser/ClickTool';
+import { TypeTool } from './application/tools/browser/TypeTool';
+import { ScrollTool } from './application/tools/browser/ScrollTool';
+import { WaitTool } from './application/tools/browser/WaitTool';
+import { NavigateTool } from './application/tools/browser/NavigateTool';
+import { ExtractTool } from './application/tools/browser/ExtractTool';
+import { PressKeyTool } from './application/tools/browser/PressKeyTool';
 
 export function registerCoreServices() {
     // 1. Core Services (Config & Persistence)
@@ -42,6 +50,18 @@ export function registerCoreServices() {
     container.register('ILLMProvider', { useClass: LangChainAdapter });
 
     container.register('RunTestUseCase', { useClass: RunTestUseCase });
+
+    // Tools
+    const toolRegistry = new ToolRegistry();
+    toolRegistry.register(new ClickTool());
+    toolRegistry.register(new TypeTool());
+    toolRegistry.register(new ScrollTool());
+    toolRegistry.register(new WaitTool());
+    toolRegistry.register(new NavigateTool());
+    toolRegistry.register(new ExtractTool());
+    toolRegistry.register(new PressKeyTool());
+
+    container.register(ToolRegistry, { useValue: toolRegistry });
 }
 
 export { container };

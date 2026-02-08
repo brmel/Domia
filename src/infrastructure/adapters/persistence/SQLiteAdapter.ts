@@ -175,18 +175,18 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 .limit(limit)
                 .execute(),
             (e) => new PersistenceError(`Failed to get test runs: ${e}`)
-        ).map(rows => rows.map(row => {
-            const run: any = {
+        ).map(rows => rows.map((row) => {
+            const run: TestRun = {
                 id: row.id,
                 url: row.url,
-                status: row.status,
+                status: row.status as TestRun['status'],
                 startedAt: row.started_at,
-                completedAt: row.completed_at ?? undefined,
-                durationMs: row.duration_ms ?? undefined,
-                goal: row.goal ?? undefined,
-                summary: row.summary ?? undefined
+                ...(row.completed_at ? { completedAt: row.completed_at } : {}),
+                ...(row.duration_ms ? { durationMs: row.duration_ms } : {}),
+                ...(row.goal ? { goal: row.goal } : {}),
+                ...(row.summary ? { summary: row.summary } : {})
             };
-            return run as TestRun;
+            return run;
         }));
     }
 
@@ -199,17 +199,17 @@ export class SQLiteAdapter implements IPersistenceAdapter {
             (e) => new PersistenceError(`Failed to get test run: ${e}`)
         ).map(row => {
             if (!row) return null;
-            const run: any = {
+            const run: TestRun = {
                 id: row.id,
                 url: row.url,
-                status: row.status,
+                status: row.status as TestRun['status'],
                 startedAt: row.started_at,
-                completedAt: row.completed_at ?? undefined,
-                durationMs: row.duration_ms ?? undefined,
-                goal: row.goal ?? undefined,
-                summary: row.summary ?? undefined
+                ...(row.completed_at ? { completedAt: row.completed_at } : {}),
+                ...(row.duration_ms ? { durationMs: row.duration_ms } : {}),
+                ...(row.goal ? { goal: row.goal } : {}),
+                ...(row.summary ? { summary: row.summary } : {})
             };
-            return run as TestRun;
+            return run;
         });
     }
 
@@ -221,21 +221,18 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 .orderBy('step_number', 'asc')
                 .execute(),
             (e) => new PersistenceError(`Failed to get test steps: ${e}`)
-        ).map(rows => rows.map(row => {
+        ).map(rows => rows.map((row) => {
             const action = JSON.parse(row.action_payload);
-            const step: any = {
+            const step: TestStep = {
                 id: row.id,
                 testRunId: row.test_run_id,
                 stepNumber: row.step_number,
                 actionType: row.action_type,
                 actionPayload: action,
-                action: action, // For backward compatibility/viewing if needed, though interface might not have it
-                status: { type: 'success' },
-                screenshot: row.screenshot_path ?? null,
-                timestamp: new Date(row.timestamp),
-                duration: 0
+                timestamp: row.timestamp,
+                ...(row.screenshot_path ? { screenshotPath: row.screenshot_path } : {})
             };
-            return step as TestStep;
+            return step;
         }));
     }
 

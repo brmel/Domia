@@ -18,13 +18,14 @@ import { FileSystemAdapter } from '@infrastructure/adapters/storage';
 import { ConsoleLogger } from '@infrastructure/adapters/logger/ConsoleLogger';
 import { AgentViewService } from '@infrastructure/electron/AgentViewService';
 import { RunTestUseCase } from '@application/use-cases';
-import { ActionHandlerRegistry } from '@application/action-handlers/ActionHandlerRegistry';
-import { ClickActionHandler } from '@application/action-handlers/ClickActionHandler';
-import { TypeActionHandler } from '@application/action-handlers/TypeActionHandler';
-import { PressKeyActionHandler } from '@application/action-handlers/PressKeyActionHandler';
-import { ScrollActionHandler } from '@application/action-handlers/ScrollActionHandler';
-import { WaitActionHandler } from '@application/action-handlers/WaitActionHandler';
-import { ExtractActionHandler } from '@application/action-handlers/ExtractActionHandler';
+import { ToolRegistry } from '@application/registries/ToolRegistry';
+import { ClickTool } from '@application/tools/browser/ClickTool';
+import { TypeTool } from '@application/tools/browser/TypeTool';
+import { PressKeyTool } from '@application/tools/browser/PressKeyTool';
+import { ScrollTool } from '@application/tools/browser/ScrollTool';
+import { WaitTool } from '@application/tools/browser/WaitTool';
+import { ExtractTool } from '@application/tools/browser/ExtractTool';
+import { NavigateTool } from '@application/tools/browser/NavigateTool';
 import { CancellationTokenSource } from '@domain/events';
 
 describe('RunTestUseCase Integration', () => {
@@ -44,14 +45,17 @@ describe('RunTestUseCase Integration', () => {
         container.register('IBrowserAutomation', { useClass: PlaywrightAdapter });
         container.register('ILLMProvider', { useClass: LangChainAdapter });
 
-        // Register Action Handlers
-        container.register(ClickActionHandler, { useClass: ClickActionHandler });
-        container.register(TypeActionHandler, { useClass: TypeActionHandler });
-        container.register(PressKeyActionHandler, { useClass: PressKeyActionHandler });
-        container.register(ScrollActionHandler, { useClass: ScrollActionHandler });
-        container.register(WaitActionHandler, { useClass: WaitActionHandler });
-        container.register(ExtractActionHandler, { useClass: ExtractActionHandler });
-        container.register(ActionHandlerRegistry, { useClass: ActionHandlerRegistry });
+        // Register Tools
+        const toolRegistry = new ToolRegistry();
+        toolRegistry.register(new ClickTool());
+        toolRegistry.register(new TypeTool());
+        toolRegistry.register(new PressKeyTool());
+        toolRegistry.register(new ScrollTool());
+        toolRegistry.register(new WaitTool());
+        toolRegistry.register(new ExtractTool());
+        toolRegistry.register(new NavigateTool());
+
+        container.register(ToolRegistry, { useValue: toolRegistry });
 
         container.register('RunTestUseCase', { useClass: RunTestUseCase });
     });

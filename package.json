@@ -13,8 +13,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "cli": "tsx src/cli/index.ts",
-    "package": "npm run build && electron-builder"
+    "cli": "ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs src/cli/index.ts",
+    "package": "npm run build && electron-builder",
+    "rebuild": "electron-rebuild"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^0.0.50",

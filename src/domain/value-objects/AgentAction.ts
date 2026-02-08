@@ -49,8 +49,7 @@ export interface PressKeyAction {
 
 export interface ExtractAction {
     readonly type: 'extract';
-    readonly key: string;
-    readonly value: string;
+    readonly elementId: ElementId;
     readonly thought: string;
 }
 
