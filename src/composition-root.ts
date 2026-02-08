@@ -22,10 +22,17 @@ import { AskUserTool } from './application/tools/general/AskUserTool';
 import { ActionPerformer } from './application/services/ActionPerformer';
 import { SnapshotService } from './application/services/SnapshotService';
 import { TestRunLifecycleManager } from './application/services/TestRunLifecycleManager';
+import { SelectorEngine } from './domain/services/SelectorEngine';
+
+import { LocalBrowserNode } from './infrastructure/nodes/LocalBrowserNode';
+import { DomiaGateway } from './application/gateway/DomiaGateway';
+
+import { WorkflowEngine } from './application/workflows/WorkflowEngine';
 
 export function registerCoreServices(): void {
     // 1. Core Services (Config & Persistence)
     container.registerSingleton(ConfigService);
+    container.registerSingleton('IConfigService', ConfigService);
     container.registerSingleton('IPersistenceAdapter', SQLiteAdapter);
 
     container.registerSingleton('IBrowserAutomation', PlaywrightAdapter);
@@ -35,6 +42,7 @@ export function registerCoreServices(): void {
     container.registerSingleton(TestRunLifecycleManager);
     container.registerSingleton(SnapshotService);
     container.registerSingleton(ActionPerformer);
+    container.registerSingleton(SelectorEngine);
 
     // LLM Configuration
     const defaultLLMConfig: LLMConfig = {
@@ -59,6 +67,16 @@ export function registerCoreServices(): void {
     toolRegistry.register(new AskUserTool());
 
     container.register(ToolRegistry, { useValue: toolRegistry });
+
+    // Enterprise Architecture Services
+    container.registerSingleton(WorkflowEngine);
+    container.registerSingleton(LocalBrowserNode);
+    container.registerSingleton(DomiaGateway);
+
+    // Auto-register local node
+    const gateway = container.resolve(DomiaGateway);
+    const localNode = container.resolve(LocalBrowserNode);
+    gateway.registerNode(localNode);
 }
 
 export { container };

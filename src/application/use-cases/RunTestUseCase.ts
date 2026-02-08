@@ -12,13 +12,26 @@ import { TestRunState } from '../../domain/enums/TestRunState';
 import { TestRunLifecycleManager } from '../services/TestRunLifecycleManager';
 import { SnapshotService } from '../services/SnapshotService';
 import { ActionPerformer } from '../services/ActionPerformer';
+import { DomiaGateway } from '../gateway/DomiaGateway';
+import { WorkflowEngine } from '../workflows/WorkflowEngine';
+import { WorkflowState } from '@domain/value-objects/WorkflowState';
+import { INode } from '@domain/ports';
+import { DomainError } from '@domain/errors';
 
 const DEFAULT_MAX_STEPS = 20;
+
+class WorkflowError extends DomainError {
+    constructor(public readonly code: string, message: string) {
+        super(message);
+    }
+}
 
 @injectable()
 export class RunTestUseCase {
     constructor(
-        @inject('IBrowserAutomation') private readonly browser: IBrowserAutomation,
+        // @inject('IBrowserAutomation') private readonly browser: IBrowserAutomation, // Removed direct browser dependency
+        @inject(DomiaGateway) private readonly gateway: DomiaGateway,
+        @inject(WorkflowEngine) private readonly workflowEngine: WorkflowEngine,
         @inject('ILLMProvider') private readonly llm: ILLMProvider,
         @inject('ILogger') private readonly logger: ILogger,
         @inject('IPersistenceAdapter') private readonly persistence: IPersistenceAdapter,
@@ -31,43 +44,63 @@ export class RunTestUseCase {
         input: TestInput,
         controller: ExecutionController
     ): AsyncGenerator<TestRunEvent, void, undefined> {
-        this.logger.info('Starting test run execution');
+        this.logger.info('Starting test run execution with Durable Workflow Engine');
 
         const testInput = input;
         const maxSteps = testInput.options?.maxSteps ?? DEFAULT_MAX_STEPS;
         const testRunId = TestRunIdFactory.create();
 
+        // 1. Initialize Lifecycle
         await this.lifecycle.initialize(testRunId, testInput.url, testInput.prompt);
-
         controller.start();
         yield { type: 'started', testRunId };
 
-        this.logger.debug('Launching browser');
-        const launchResult = await this.browser.launch({
-            headless: testInput.options?.headless ?? true,
-        });
-        if (launchResult.isErr()) {
-            yield { type: 'error', error: launchResult.error };
-            await this.lifecycle.fail(testRunId, `Browser launch failed: ${launchResult.error.message}`);
+        // 2. Allocate Session via Gateway
+        let node: INode;
+        let browser: IBrowserAutomation;
+        try {
+            this.logger.debug(`Allocating session for ${testRunId}`);
+            node = await this.gateway.allocateSession(testRunId);
+            const browserResult = await node.allocate();
+            if (browserResult.isErr()) throw browserResult.error;
+            browser = browserResult.value;
+
+            this.logger.debug(`Launching browser with options: ${JSON.stringify(testInput.options)}`);
+            const launchOptions = {
+                ...testInput.options,
+                headless: testInput.options?.headless ?? true
+            };
+            const launchResult = await browser.launch(launchOptions);
+            if (launchResult.isErr()) throw launchResult.error;
+        } catch (error) {
+            const domainError = new WorkflowError('BROWSER_LAUNCH_FAILED', String(error));
+            yield { type: 'error', error: domainError };
+            await this.lifecycle.fail(testRunId, `Browser launch failed: ${domainError.message}`);
             return;
         }
 
+        // 3. Navigate
+        const navResult = await browser.navigateTo(testInput.url as Url);
+        if (navResult.isErr()) {
+            const domainError = new WorkflowError('NAVIGATION_FAILED', navResult.error.message);
+            yield { type: 'error', error: domainError };
+            await this.lifecycle.fail(testRunId, `Navigation failed: ${domainError.message}`);
+            await this.gateway.releaseSession(testRunId);
+            return;
+        }
+
+        // 4. Initialize Workflow State
+        const resumeResult = await this.workflowEngine.resume(testRunId);
+        let currentState = resumeResult.isOk() && resumeResult.value ? resumeResult.value : WorkflowState.initial();
+
+        // Loop
+        const previousActions: AgentAction[] = []; // TODO: Load from persistence if resuming
+        let finalSummary = '';
+        let completed = false;
+
         try {
-            this.logger.debug(`Navigating to ${testInput.url}`);
-            const navResult = await this.browser.navigateTo(testInput.url as Url);
-            if (navResult.isErr()) {
-                yield { type: 'error', error: navResult.error };
-                await this.lifecycle.fail(testRunId, `Navigation failed: ${navResult.error.message}`);
-                return;
-            }
-
-            const previousActions: AgentAction[] = [];
-            let stepNumber = 0;
-            let completed = false;
-            let finalSummary = '';
-
-            // Agent loop
-            while (stepNumber < maxSteps && !completed) {
+            while (currentState.stepNumber < maxSteps && !completed) {
+                // Check Controller (Pause/Cancel)
                 if (controller.state === TestRunState.CANCELLED) {
                     this.logger.info('Test run cancelled by user');
                     yield { type: 'cancelled' };
@@ -76,54 +109,69 @@ export class RunTestUseCase {
                 }
 
                 if (controller.state === TestRunState.PAUSED) {
-                    this.logger.info('Test run paused');
                     yield { type: 'paused' };
                     await controller.waitForResume();
                     if ((controller.state as TestRunState) === TestRunState.CANCELLED) continue;
-                    this.logger.info('Test run resumed');
                     yield { type: 'resumed' };
                 }
 
-                stepNumber++;
-                this.logger.info(`Starting step ${stepNumber}`);
+                // State Transition: Planning -> Observing
+                const observeTransition = await this.workflowEngine.transition(testRunId, currentState, 'observing');
+                if (observeTransition.isErr()) throw observeTransition.error;
+                currentState = observeTransition.value;
 
                 yield { type: 'observing' };
-                const observation = await this.snapshotService.perform(testRunId, stepNumber, testInput.prompt, previousActions, maxSteps);
+                const observation = await this.snapshotService.perform(browser, testRunId, currentState.stepNumber, testInput.prompt, previousActions, maxSteps);
                 if (observation.isErr()) {
                     yield { type: 'error', error: observation.error };
                     break;
                 }
                 const { context } = observation.value;
 
+                // State Transition: Observing -> Thinking
+                const thinkTransition = await this.workflowEngine.transition(testRunId, currentState, 'thinking');
+                if (thinkTransition.isErr()) throw thinkTransition.error;
+                currentState = thinkTransition.value;
+
                 yield { type: 'thinking' };
-                this.logger.debug('Generating action from LLM');
                 const actionResult = await this.llm.generateAction(context);
                 if (actionResult.isErr()) {
-                    this.logger.error('LLM generation failed', actionResult.error);
                     yield { type: 'error', error: actionResult.error };
                     break;
                 }
                 const action = actionResult.value;
-                this.logger.info('Agent decided action', { action: action.type });
                 previousActions.push(action);
 
-                yield { type: 'acting', action };
+                // State Transition: Thinking -> Acting
+                const actTransition = await this.workflowEngine.transition(testRunId, currentState, 'acting');
+                if (actTransition.isErr()) throw actTransition.error;
+                currentState = actTransition.value;
 
-                const step: TestStep = TestStepFactory.create({ stepNumber, action });
+                yield { type: 'acting', action };
+                const step: TestStep = TestStepFactory.create({ stepNumber: currentState.stepNumber, action });
                 await this.saveStep(testRunId, step, action);
 
                 if (isTerminalAction(action)) {
                     completed = true;
                     finalSummary = action.type === 'pass' ? action.summary : action.reason;
-                    this.logger.info(`Terminal action reached: ${action.type}`, { summary: finalSummary });
+                    // State Transition: Acting -> Completed
+                    await this.workflowEngine.transition(testRunId, currentState, 'completed');
                 } else {
-                    const toolResult = await this.performer.perform(action, controller);
+                    const toolResult = await this.performer.perform(browser, action, controller);
                     if (toolResult.isErr()) {
-                        yield { type: 'error', error: toolResult.error };
+                        const domainError = new WorkflowError('TOOL_EXECUTION_FAILED', toolResult.error.message);
+                        yield { type: 'error', error: domainError };
                         break;
                     }
-                    this.logger.debug('Waiting for DOM to stabilize');
-                    await this.browser.waitForDOMStable();
+                    // State Transition: Acting -> Validating (Implicitly waiting for DOM)
+                    await this.workflowEngine.transition(testRunId, currentState, 'validating');
+                    await browser.waitForDOMStable();
+
+                    // Prepare for next loop
+                    // State Transition: Validating -> Planning
+                    const planTransition = await this.workflowEngine.transition(testRunId, currentState, 'planning');
+                    if (planTransition.isErr()) throw planTransition.error;
+                    currentState = planTransition.value;
                 }
 
                 const finalStep = this.createFinalStep(step, completed, action, finalSummary);
@@ -132,16 +180,16 @@ export class RunTestUseCase {
 
             const success = completed && previousActions.some(a => a.type === 'pass');
             await this.lifecycle.finalize(testRunId, success, finalSummary);
+            yield { type: 'completed', success, summary: finalSummary };
 
-            yield {
-                type: 'completed',
-                success,
-                summary: finalSummary || (success ? 'Test completed successfully' : 'Agent stopped without reaching a conclusion (Max steps reached or manual stop)'),
-            };
-
+        } catch (error) {
+            this.logger.error('Workflow error', error);
+            const domainError = new WorkflowError('WORKFLOW_CRASH', String(error));
+            yield { type: 'error', error: domainError };
+            await this.lifecycle.fail(testRunId, `Workflow Error: ${domainError.message}`);
         } finally {
-            this.logger.debug('Closing browser');
-            await this.browser.close();
+            this.logger.debug('Releasing session');
+            await this.gateway.releaseSession(testRunId);
             controller.stop();
         }
     }

@@ -29,6 +29,8 @@ export interface DOMSnapshot {
         readonly body: Readonly<Record<string, string>>;
     };
     readonly elements: readonly DOMElement[];
+    readonly accessibilityTree?: import('./AriaNode').AriaNode;
+    readonly screenshot?: string | undefined;
     readonly timestamp: Date;
 }
 
@@ -41,6 +43,7 @@ export const DOMSnapshot = {
             body: Record<string, string>;
         };
         elements: DOMElement[];
+        screenshot?: string | undefined;
     }): DOMSnapshot {
         return {
             url: params.url,
@@ -50,6 +53,7 @@ export const DOMSnapshot = {
                 body: Object.freeze(params.rootElements.body),
             },
             elements: Object.freeze(params.elements),
+            screenshot: params.screenshot,
             timestamp: new Date(),
         };
     },

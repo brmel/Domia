@@ -11,24 +11,24 @@ export interface SnapshotResult {
 @injectable()
 export class SnapshotService {
     constructor(
-        @inject('IBrowserAutomation') private readonly browser: IBrowserAutomation,
         @inject('ILogger') private readonly logger: ILogger
     ) { }
 
     async perform(
+        browser: IBrowserAutomation,
         _testRunId: string,
         stepNumber: number,
         prompt: string,
         previousActions: AgentAction[],
         maxSteps: number
     ): Promise<Result<SnapshotResult, DomainError>> {
-        const snapshotResult = await this.browser.snapshot();
+        const snapshotResult = await browser.snapshot();
         if (snapshotResult.isErr()) {
             this.logger.error('Snapshot failed', snapshotResult.error);
             return err(snapshotResult.error);
         }
         const snapshot = snapshotResult.value;
-        const viewport = await this.browser.getViewportSize();
+        const viewport = await browser.getViewportSize();
 
         const context: LLMContext = {
             goal: prompt,

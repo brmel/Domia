@@ -69,7 +69,7 @@ ACTION TYPES:
             })
             .join('\n');
 
-        const formatAttributes = (attrs: Record<string, string>) =>
+        const formatAttributes = (attrs: Record<string, string>): string =>
             Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ') || 'None';
 
         const previousActionsStr = context.previousActions

@@ -226,6 +226,16 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         );
     }
 
+    snapshotAria(): ResultAsync<import('@domain/value-objects/AriaNode').AriaNode, SnapshotError> {
+        if (!this.page) {
+            return errAsync(new SnapshotError('Browser not launched'));
+        }
+        return ResultAsync.fromPromise(
+            (this.page as unknown as { accessibility: { snapshot: (options: { interestingOnly: boolean }) => Promise<unknown> } }).accessibility.snapshot({ interestingOnly: false }) as Promise<import('@domain/value-objects/AriaNode').AriaNode>,
+            (e) => new SnapshotError(`Aria snapshot failed: ${String(e)}`)
+        );
+    }
+
     screenshot(): ResultAsync<Screenshot, CaptureError> {
         if (!this.page) {
             return errAsync(new CaptureError('Browser not launched'));

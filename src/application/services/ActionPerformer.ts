@@ -10,12 +10,11 @@ import { ToolContext } from '@domain/tools/Tool';
 @injectable()
 export class ActionPerformer {
     constructor(
-        @inject('IBrowserAutomation') private readonly browser: IBrowserAutomation,
         @inject('ILogger') private readonly logger: ILogger,
         @inject(ToolRegistry) private readonly toolRegistry: ToolRegistry
     ) { }
 
-    async perform(action: AgentAction, controller: ExecutionController): Promise<Result<void, DomainError>> {
+    async perform(browser: IBrowserAutomation, action: AgentAction, controller: ExecutionController): Promise<Result<void, DomainError>> {
         this.logger.debug('Looking up tool for action', { actionType: action.type });
 
         const tool = this.toolRegistry.get(action.type);
@@ -24,7 +23,7 @@ export class ActionPerformer {
         }
 
         const toolContext: ToolContext = {
-            browser: this.browser,
+            browser: browser,
             logger: this.logger,
             controller
         };

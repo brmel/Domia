@@ -32,6 +32,7 @@ export class AgentViewService {
                 backgroundThrottling: false,
             }
         });
+        this.view.setBackgroundColor('#ff0000'); // Debug color to verify visibility
 
         this.view.webContents.setUserAgent(
             app.userAgentFallback.replace('Electron/' + process.versions.electron, '')
@@ -70,9 +71,19 @@ export class AgentViewService {
     show(bounds: Rectangle): void {
         if (!this.mainWindow || !this.view) return;
 
-        if (this.mainWindow.contentView.children.indexOf(this.view) === -1) {
+        const children = this.mainWindow.contentView.children;
+        const index = children.indexOf(this.view);
+
+        if (index === -1) {
             this.mainWindow.contentView.addChildView(this.view);
+            this.logger.debug(`[AgentViewService] Added view to hierarchy. Total children: ${this.mainWindow.contentView.children.length}`);
+        } else if (index !== children.length - 1) {
+            // If it's not the last child, it's not on top. Move it to the top.
+            this.mainWindow.contentView.removeChildView(this.view);
+            this.mainWindow.contentView.addChildView(this.view);
+            this.logger.debug('[AgentViewService] Moved view to top of hierarchy');
         }
+
         this.view.setBounds(bounds);
         this.isVisible = true;
         this.logger.debug(`[AgentViewService] View shown at: ${JSON.stringify(bounds)}`);
@@ -100,7 +111,7 @@ export class AgentViewService {
     }
 
     private async getBrowserEndpoint(): Promise<string> {
-        const port = process.env['ELECTRON_REMOTE_DEBUGGING_PORT'] || '21222';
+        const port = process.env['ELECTRON_REMOTE_DEBUGGING_PORT'] || '21223';
         this.logger.debug(`[AgentViewService] Getting browser endpoint from port ${port}`);
 
         const response = await fetch(`http://127.0.0.1:${port}/json/version`);
