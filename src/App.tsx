@@ -6,7 +6,7 @@ import { ResizableSidebar } from './presentation/components/ResizableSidebar';
 import { useState } from 'react';
 import { HistorySidebar } from './presentation/components/HistorySidebar';
 
-function App() {
+function App(): JSX.Element {
     // Determine which sidebar content is active: 'config' | 'history'
     const [activeSidebar, setActiveSidebar] = useState<'config' | 'history'>('config');
 

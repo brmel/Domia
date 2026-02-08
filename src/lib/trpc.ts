@@ -12,14 +12,14 @@ function createMockClient(): ReturnType<typeof createTRPCClient<AppRouter>> {
                     get(_t: unknown, method: string): unknown {
                         if (method === 'run') {
                             return {
-                                mutate: async () => {
+                                mutate: async (): Promise<{ success: boolean; error: string }> => {
                                     return { success: false, error: 'Running in browser-only mode' };
                                 }
                             };
                         }
                         if (method === 'cancel') {
                             return {
-                                mutate: async () => {
+                                mutate: async (): Promise<{ success: boolean }> => {
                                     return { success: false };
                                 }
                             };
@@ -27,7 +27,7 @@ function createMockClient(): ReturnType<typeof createTRPCClient<AppRouter>> {
                         if (method === 'onUpdate') {
                             return {
                                 subscribe: () => ({
-                                    unsubscribe: () => { }
+                                    unsubscribe: (): void => { }
                                 })
                             };
                         }
@@ -40,7 +40,7 @@ function createMockClient(): ReturnType<typeof createTRPCClient<AppRouter>> {
                     get(_t: unknown, method: string): unknown {
                         if (method === 'getSources') {
                             return {
-                                query: async () => {
+                                query: async (): Promise<unknown[]> => {
                                     return [];
                                 }
                             };

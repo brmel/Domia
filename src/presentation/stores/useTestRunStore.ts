@@ -22,10 +22,6 @@ export interface TestRunState {
     success: boolean | null;
     summary: string | null;
     errorMessage: string | null;
-
-    // Screenshots (base64 encoded strings received over IPC)
-    screenshots: string[];
-    latestScreenshot: string | null;
 }
 
 interface TestRunActions {
@@ -49,15 +45,13 @@ const initialState: TestRunState = {
     success: null,
     summary: null,
     errorMessage: null,
-    screenshots: [],
-    latestScreenshot: null,
 };
 
 export const useTestRunStore = create<TestRunStore>((set) => ({
     ...initialState,
 
     // Test actions
-    startTest: async (input: TestInput) => {
+    startTest: async (input: TestInput): Promise<void> => {
         // Reset state for new run
         set({
             status: 'running',
@@ -68,8 +62,6 @@ export const useTestRunStore = create<TestRunStore>((set) => ({
             success: null,
             summary: null,
             errorMessage: null,
-            screenshots: [],
-            latestScreenshot: null,
         });
 
         try {
@@ -80,7 +72,7 @@ export const useTestRunStore = create<TestRunStore>((set) => ({
         }
     },
 
-    cancelTest: async () => {
+    cancelTest: async (): Promise<void> => {
         try {
             await trpc.test.cancel.mutate();
         } catch (err) {
@@ -89,10 +81,10 @@ export const useTestRunStore = create<TestRunStore>((set) => ({
         set({ status: 'cancelled' });
     },
 
-    reset: () => set(initialState),
+    reset: (): void => set(initialState),
 
     // Event handling from IPC
-    handleEvent: (event) => {
+    handleEvent: (event: TestRunEvent): void => {
         switch (event.type) {
             case 'started':
                 set({ testRunId: event.testRunId, status: 'running' });
@@ -115,13 +107,6 @@ export const useTestRunStore = create<TestRunStore>((set) => ({
                     steps: [...state.steps, event.step],
                     currentPhase: null,
                     currentAction: null,
-                }));
-                break;
-
-            case 'screenshot':
-                set((state) => ({
-                    screenshots: [...state.screenshots, event.data],
-                    latestScreenshot: event.data,
                 }));
                 break;
 

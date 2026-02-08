@@ -6,7 +6,7 @@ import { IPersistenceAdapter } from '../domain/ports';
 import inquirer from 'inquirer';
 
 export class HistoryCommand {
-    static register(program: Command) {
+    static register(program: Command): void {
         const history = program.command('history')
             .description('Manage test run history');
 

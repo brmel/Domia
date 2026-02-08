@@ -6,7 +6,7 @@ import { Tool } from '../../domain/tools/Tool';
 export class ToolRegistry {
     private tools = new Map<string, Tool>();
 
-    register(tool: Tool) {
+    register(tool: Tool): void {
         if (this.tools.has(tool.name)) {
             console.warn(`Tool ${tool.name} already registered. Overwriting.`);
         }

@@ -25,7 +25,6 @@ interface TestStepTable {
     step_number: number;
     action_type: string;
     action_payload: string; // JSON string
-    screenshot_path: string | null;
     timestamp: string;
 }
 
@@ -64,7 +63,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         this.initializeSchema(database);
     }
 
-    private initializeSchema(database: Database.Database) {
+    private initializeSchema(database: Database.Database): void {
         database.exec(`
             CREATE TABLE IF NOT EXISTS test_runs (
                 id TEXT PRIMARY KEY,
@@ -83,7 +82,6 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 step_number INTEGER NOT NULL,
                 action_type TEXT NOT NULL,
                 action_payload JSON,
-                screenshot_path TEXT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(test_run_id) REFERENCES test_runs(id)
             );
@@ -144,7 +142,6 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                     step_number: step.stepNumber,
                     action_type: step.actionType,
                     action_payload: JSON.stringify(step.actionPayload),
-                    screenshot_path: step.screenshotPath ?? null,
                     timestamp: step.timestamp
                 })
                 .execute(),
@@ -220,8 +217,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
             stepNumber: row.step_number,
             actionType: row.action_type,
             actionPayload: action,
-            timestamp: row.timestamp,
-            ...(row.screenshot_path ? { screenshotPath: row.screenshot_path } : {})
+            timestamp: row.timestamp
         };
     }
 

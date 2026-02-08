@@ -37,7 +37,7 @@ export const LiveViewContainer: React.FC = () => {
         observer.observe(container);
         window.addEventListener('resize', updateBounds);
 
-        return () => {
+        return (): void => {
             observer.disconnect();
             window.removeEventListener('resize', updateBounds);
             if (!isRunning) {
@@ -47,7 +47,7 @@ export const LiveViewContainer: React.FC = () => {
     }, [isRunning]);
 
     useEffect(() => {
-        return () => {
+        return (): void => {
             window.electron?.agentView?.hide();
         };
     }, []);

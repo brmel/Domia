@@ -23,7 +23,7 @@ export function TestRunner(): React.ReactElement {
                     console.error('Subscription error:', err);
                 }
             });
-            return () => {
+            return (): void => {
                 subscription.unsubscribe();
             };
         } catch (err) {

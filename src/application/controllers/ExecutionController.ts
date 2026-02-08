@@ -16,19 +16,19 @@ export class ExecutionController extends EventEmitter implements IExecutionContr
         return this._currentPrompt;
     }
 
-    start() {
+    start(): void {
         this._state = TestRunState.RUNNING;
         this.emit('stateChanged', this._state);
     }
 
-    pause() {
+    pause(): void {
         if (this._state === TestRunState.RUNNING) {
             this._state = TestRunState.PAUSED;
             this.emit('stateChanged', this._state);
         }
     }
 
-    resume() {
+    resume(): void {
         if (this._state === TestRunState.PAUSED) {
             this._state = TestRunState.RUNNING;
             if (this._resumeResolver) {
@@ -39,7 +39,7 @@ export class ExecutionController extends EventEmitter implements IExecutionContr
         }
     }
 
-    stop() {
+    stop(): void {
         this._state = TestRunState.CANCELLED;
         // Resume if paused so loop can exit
         if (this._resumeResolver) {
@@ -49,13 +49,13 @@ export class ExecutionController extends EventEmitter implements IExecutionContr
         this.emit('stateChanged', this._state);
     }
 
-    requestInput(prompt?: string) {
+    requestInput(prompt?: string): void {
         this._state = TestRunState.AWAITING_INPUT;
         this._currentPrompt = prompt;
         this.emit('stateChanged', this._state, prompt);
     }
 
-    provideInput(input: string) {
+    provideInput(input: string): void {
         if (this._state === TestRunState.AWAITING_INPUT) {
             this._state = TestRunState.RUNNING;
             if (this._inputResolver) {

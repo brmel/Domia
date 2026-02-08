@@ -4,12 +4,12 @@ import type { TestRun, TestStep } from '@domain/ports';
 
 type RunWithSteps = TestRun & { steps: TestStep[] };
 
-export function HistorySidebar({ onClose }: { onClose: () => void }) {
+export function HistorySidebar({ onClose }: { onClose: () => void }): JSX.Element {
     const [runs, setRuns] = useState<TestRun[]>([]);
     const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    const fetchRuns = async () => {
+    const fetchRuns = async (): Promise<void> => {
         setLoading(true);
         try {
             const data = await trpc.history.getRuns.query();
@@ -25,7 +25,7 @@ export function HistorySidebar({ onClose }: { onClose: () => void }) {
         fetchRuns();
     }, []);
 
-    const handleClearHistory = async () => {
+    const handleClearHistory = async (): Promise<void> => {
         if (confirm('Are you sure you want to delete all history? This cannot be undone.')) {
             try {
                 await trpc.history.clear.mutate();
@@ -37,12 +37,12 @@ export function HistorySidebar({ onClose }: { onClose: () => void }) {
         }
     };
 
-    const RunDetails = ({ runId }: { runId: string }) => {
+    const RunDetails = ({ runId }: { runId: string }): JSX.Element => {
         const [run, setRun] = useState<RunWithSteps | null>(null);
         const [loadingRun, setLoadingRun] = useState(true);
 
         useEffect(() => {
-            const fetchRun = async () => {
+            const fetchRun = async (): Promise<void> => {
                 setLoadingRun(true);
                 try {
                     const data = await trpc.history.getRun.query({ id: runId });

@@ -10,14 +10,12 @@ import 'dotenv/config';
 import 'reflect-metadata';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { container, Lifecycle } from 'tsyringe';
-import { ResultAsync, okAsync } from 'neverthrow';
+import { okAsync } from 'neverthrow';
 
 import { PlaywrightAdapter } from '@infrastructure/adapters/browser/PlaywrightAdapter';
 import { LangChainAdapter } from '@infrastructure/adapters/llm/LangChainAdapter';
 import type { LLMConfig, IPersistenceAdapter } from '@domain/ports';
-import { FileSystemAdapter } from '@infrastructure/adapters/storage';
 import { ConsoleLogger } from '@infrastructure/adapters/logger/ConsoleLogger';
-import { AgentViewService } from '@infrastructure/electron/AgentViewService';
 import { RunTestUseCase } from '@application/use-cases';
 import { ToolRegistry } from '@application/registries/ToolRegistry';
 import { ClickTool } from '@application/tools/browser/ClickTool';
@@ -59,7 +57,6 @@ describe('RunTestUseCase Integration', () => {
 
         container.register('LLMConfig', { useValue: config });
         container.register('ILogger', { useClass: ConsoleLogger });
-        container.register('IArtifactStorage', { useClass: FileSystemAdapter });
         container.register('IViewHost', { useClass: MockViewHost });
         container.register('IPersistenceAdapter', { useClass: MockPersistenceAdapter });
         container.register('IBrowserAutomation', { useClass: PlaywrightAdapter }, { lifecycle: Lifecycle.Singleton });

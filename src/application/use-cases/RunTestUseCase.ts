@@ -5,12 +5,12 @@ import type { AgentAction, Url } from '@domain/value-objects';
 import type { TestStep } from '@domain/entities';
 import { TestStepFactory } from '@domain/entities';
 import { isTerminalAction } from '@domain/value-objects/AgentAction';
-import { TestRunIdFactory, ArtifactPathFactory } from '@domain/value-objects';
+import { TestRunIdFactory } from '@domain/value-objects';
 import type { TestInput } from '../../shared/validation';
 import { ExecutionController } from '../controllers/ExecutionController';
 import { TestRunState } from '../../domain/enums/TestRunState';
 import { TestRunLifecycleManager } from '../services/TestRunLifecycleManager';
-import { ObservationService } from '../services/ObservationService';
+import { SnapshotService } from '../services/SnapshotService';
 import { ActionPerformer } from '../services/ActionPerformer';
 
 const DEFAULT_MAX_STEPS = 20;
@@ -23,7 +23,7 @@ export class RunTestUseCase {
         @inject('ILogger') private readonly logger: ILogger,
         @inject('IPersistenceAdapter') private readonly persistence: IPersistenceAdapter,
         @inject(TestRunLifecycleManager) private readonly lifecycle: TestRunLifecycleManager,
-        @inject(ObservationService) private readonly observer: ObservationService,
+        @inject(SnapshotService) private readonly snapshotService: SnapshotService,
         @inject(ActionPerformer) private readonly performer: ActionPerformer
     ) { }
 
@@ -88,15 +88,12 @@ export class RunTestUseCase {
                 this.logger.info(`Starting step ${stepNumber}`);
 
                 yield { type: 'observing' };
-                const observation = await this.observer.perform(testRunId, stepNumber, testInput.prompt, previousActions, maxSteps);
+                const observation = await this.snapshotService.perform(testRunId, stepNumber, testInput.prompt, previousActions, maxSteps);
                 if (observation.isErr()) {
                     yield { type: 'error', error: observation.error };
                     break;
                 }
-                const { context, screenshotBase64, screenshotPath } = observation.value;
-                if (screenshotBase64) {
-                    yield { type: 'screenshot', data: screenshotBase64 };
-                }
+                const { context } = observation.value;
 
                 yield { type: 'thinking' };
                 this.logger.debug('Generating action from LLM');
@@ -113,7 +110,7 @@ export class RunTestUseCase {
                 yield { type: 'acting', action };
 
                 const step: TestStep = TestStepFactory.create({ stepNumber, action });
-                await this.saveStep(testRunId, step, action, screenshotPath);
+                await this.saveStep(testRunId, step, action);
 
                 if (isTerminalAction(action)) {
                     completed = true;
@@ -129,7 +126,7 @@ export class RunTestUseCase {
                     await this.browser.waitForDOMStable();
                 }
 
-                const finalStep = this.createFinalStep(step, completed, action, screenshotPath, finalSummary);
+                const finalStep = this.createFinalStep(step, completed, action, finalSummary);
                 yield { type: 'step_complete', step: finalStep };
             }
 
@@ -149,25 +146,23 @@ export class RunTestUseCase {
         }
     }
 
-    private async saveStep(testRunId: string, step: TestStep, action: AgentAction, screenshotPath?: string): Promise<void> {
+    private async saveStep(testRunId: string, step: TestStep, action: AgentAction): Promise<void> {
         await this.persistence.saveTestStep({
             id: step.id,
             testRunId: testRunId,
             stepNumber: step.stepNumber,
             actionType: action.type,
             actionPayload: action,
-            timestamp: new Date().toISOString(),
-            ...(screenshotPath ? { screenshotPath } : {})
+            timestamp: new Date().toISOString()
         });
     }
 
-    private createFinalStep(step: TestStep, completed: boolean, action: AgentAction, screenshotPath?: string, summary?: string): TestStep {
-        const artifact = screenshotPath ? ArtifactPathFactory.create(screenshotPath) : null;
+    private createFinalStep(step: TestStep, completed: boolean, action: AgentAction, summary?: string): TestStep {
         if (completed) {
             return action.type === 'pass'
-                ? TestStepFactory.markSuccess(step, artifact, 0)
+                ? TestStepFactory.markSuccess(step, 0)
                 : TestStepFactory.markFailed(step, summary || 'Failed', 0);
         }
-        return TestStepFactory.markSuccess(step, artifact, 0);
+        return TestStepFactory.markSuccess(step, 0);
     }
 }

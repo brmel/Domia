@@ -2,8 +2,6 @@ import 'reflect-metadata';
 import { container } from 'tsyringe';
 
 import { PlaywrightAdapter } from './infrastructure/adapters/browser';
-import { FileSystemAdapter } from './infrastructure/adapters/storage';
-
 import type { LLMConfig } from '@domain/ports';
 import { RunTestUseCase } from './application/use-cases';
 import { ConsoleLogger } from './infrastructure/adapters/logger/ConsoleLogger';
@@ -22,21 +20,20 @@ import { PressKeyTool } from './application/tools/browser/PressKeyTool';
 import { AskUserTool } from './application/tools/general/AskUserTool';
 
 import { ActionPerformer } from './application/services/ActionPerformer';
-import { ObservationService } from './application/services/ObservationService';
+import { SnapshotService } from './application/services/SnapshotService';
 import { TestRunLifecycleManager } from './application/services/TestRunLifecycleManager';
 
-export function registerCoreServices() {
+export function registerCoreServices(): void {
     // 1. Core Services (Config & Persistence)
     container.registerSingleton(ConfigService);
     container.registerSingleton('IPersistenceAdapter', SQLiteAdapter);
 
     container.registerSingleton('IBrowserAutomation', PlaywrightAdapter);
-    container.registerSingleton('IArtifactStorage', FileSystemAdapter);
     container.registerSingleton('ILogger', ConsoleLogger);
 
     // Decoupled Helper Services
     container.registerSingleton(TestRunLifecycleManager);
-    container.registerSingleton(ObservationService);
+    container.registerSingleton(SnapshotService);
     container.registerSingleton(ActionPerformer);
 
     // LLM Configuration

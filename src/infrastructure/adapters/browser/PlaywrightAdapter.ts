@@ -104,7 +104,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
                 timeout: options?.timeout ?? 10000 // 10s default instead of 30s
             };
 
-            const attempt = () => ResultAsync.fromPromise(
+            const attempt = (): ResultAsync<void, InteractionError> => ResultAsync.fromPromise(
                 el.click(clickOptions),
                 (e) => new InteractionError(`Click failed: ${String(e)}`, elementId)
             );
@@ -168,7 +168,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
     highlight(elementId: ElementId): ResultAsync<void, InteractionError> {
         return this.findElement(elementId).andThen((el) =>
             ResultAsync.fromPromise(
-                (async () => {
+                (async (): Promise<void> => {
                     // Scroll into view first
                     await el.scrollIntoViewIfNeeded();
 
@@ -216,7 +216,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
             return errAsync(new SnapshotError('Browser not launched'));
         }
         return ResultAsync.fromPromise(
-            (async () => {
+            (async (): Promise<DOMSnapshot> => {
                 await this.waitForDOMStable();
                 return this.extractSnapshot();
             })(),
