@@ -22,7 +22,7 @@ import { PressKeyTool } from './application/tools/browser/PressKeyTool';
 import { AskUserTool } from './application/tools/general/AskUserTool';
 
 import { ActionPerformer } from './application/services/ActionPerformer';
-import { ObservationService } from './application/services/ObservationService';
+import { SnapshotService } from './application/services/SnapshotService';
 import { TestRunLifecycleManager } from './application/services/TestRunLifecycleManager';
 
 export function registerCoreServices() {
@@ -36,7 +36,7 @@ export function registerCoreServices() {
 
     // Decoupled Helper Services
     container.registerSingleton(TestRunLifecycleManager);
-    container.registerSingleton(ObservationService);
+    container.registerSingleton(SnapshotService);
     container.registerSingleton(ActionPerformer);
 
     // LLM Configuration

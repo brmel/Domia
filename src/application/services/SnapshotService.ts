@@ -1,31 +1,27 @@
 import { injectable, inject } from 'tsyringe';
-import type { IBrowserAutomation, LLMContext, ILogger, IArtifactStorage } from '@domain/ports';
-import { TestRunIdFactory } from '@domain/value-objects';
+import type { IBrowserAutomation, LLMContext, ILogger } from '@domain/ports';
 import type { AgentAction } from '@domain/value-objects';
 import { Result, ok, err } from 'neverthrow';
 import { DomainError } from '@domain/errors';
 
-export interface ObservationResult {
+export interface SnapshotResult {
     context: LLMContext;
-    screenshotBase64?: string;
-    screenshotPath?: string;
+    screenshotBuffer?: Buffer;
 }
 
 @injectable()
-export class ObservationService {
+export class SnapshotService {
     constructor(
         @inject('IBrowserAutomation') private readonly browser: IBrowserAutomation,
-        @inject('IArtifactStorage') private readonly artifacts: IArtifactStorage,
         @inject('ILogger') private readonly logger: ILogger
     ) { }
 
-    async perform(
-        testRunId: string,
+    async capture(
         stepNumber: number,
         prompt: string,
         previousActions: AgentAction[],
         maxSteps: number
-    ): Promise<Result<ObservationResult, DomainError>> {
+    ): Promise<Result<SnapshotResult, DomainError>> {
         const snapshotResult = await this.browser.snapshot();
         if (snapshotResult.isErr()) {
             this.logger.error('Snapshot failed', snapshotResult.error);
@@ -34,19 +30,12 @@ export class ObservationService {
         const snapshot = snapshotResult.value;
 
         const screenshotResult = await this.browser.screenshot();
-        let screenshotBase64: string | undefined;
-        let screenshotPath: string | undefined;
+        let screenshotBuffer: Buffer | undefined;
 
         if (screenshotResult.isOk()) {
-            screenshotBase64 = screenshotResult.value.data.toString('base64');
-            const savedResult = await this.artifacts.saveScreenshot(
-                TestRunIdFactory.fromString(testRunId),
-                stepNumber,
-                screenshotResult.value.data
-            );
-            if (savedResult.isOk()) {
-                screenshotPath = String(savedResult.value);
-            }
+            screenshotBuffer = screenshotResult.value.data;
+        } else {
+            this.logger.warn('Screenshot failed, proceeding without it', { error: screenshotResult.error });
         }
 
         const viewport = await this.browser.getViewportSize();
@@ -61,11 +50,10 @@ export class ObservationService {
             viewport,
         };
 
-        const result: ObservationResult = {
-            context
-        };
-        if (screenshotBase64) result.screenshotBase64 = screenshotBase64;
-        if (screenshotPath) result.screenshotPath = screenshotPath;
+        const result: SnapshotResult = { context };
+        if (screenshotBuffer) {
+            result.screenshotBuffer = screenshotBuffer;
+        }
 
         return ok(result);
     }

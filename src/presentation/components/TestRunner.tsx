@@ -5,8 +5,13 @@ import { cn } from '../../lib/utils';
 import { trpc } from '../../lib/trpc';
 
 export function TestRunner(): React.ReactElement {
-    const { status, currentAction, steps, success, summary, errorMessage, handleEvent, cancelTest } =
-        useTestRunStore();
+    const state = useTestRunStore();
+    const { status, steps, handleEvent, cancelTest } = state;
+
+    const currentAction = state.status === 'running' ? state.currentAction : null;
+    const success = state.status === 'completed' ? state.success : null;
+    const summary = state.status === 'completed' ? state.summary : null;
+    const errorMessage = state.status === 'error' ? state.errorMessage : null;
 
     useEffect(() => {
         const isElectron = typeof window !== 'undefined' && 'electronTRPC' in window;

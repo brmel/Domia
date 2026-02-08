@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import type { TestRunEvent } from '@domain/events';
 import type { AgentAction, TestRunId } from '@domain/value-objects';
@@ -6,77 +7,79 @@ import { trpc } from '../../lib/trpc';
 import type { TestInput } from '../../shared/validation';
 
 /**
- * Test run state for UI
+ * Test Run State (Discriminated Union)
  */
-export interface TestRunState {
-    // Current run status
-    status: 'idle' | 'running' | 'cancelled' | 'completed' | 'error';
-    testRunId: TestRunId | null;
-
-    // Progress tracking
-    currentPhase: 'observing' | 'thinking' | 'acting' | null;
-    currentAction: AgentAction | null;
+interface BaseState {
     steps: TestStep[];
-
-    // Results
-    success: boolean | null;
-    summary: string | null;
-    errorMessage: string | null;
-
-    // Screenshots (base64 encoded strings received over IPC)
     screenshots: string[];
     latestScreenshot: string | null;
 }
 
+export type IdleState = BaseState & { status: 'idle' };
+export type RunningState = BaseState & {
+    status: 'running';
+    testRunId: TestRunId | null;
+    currentPhase: 'observing' | 'thinking' | 'acting' | null;
+    currentAction: AgentAction | null;
+};
+export type CancelledState = BaseState & { status: 'cancelled' };
+export type CompletedState = BaseState & {
+    status: 'completed';
+    success: boolean;
+    summary: string;
+};
+export type ErrorState = BaseState & {
+    status: 'error';
+    errorMessage: string;
+};
+
+export type TestRunState = IdleState | RunningState | CancelledState | CompletedState | ErrorState;
+
 interface TestRunActions {
-    // Test actions
     startTest: (input: TestInput) => Promise<void>;
     cancelTest: () => Promise<void>;
     reset: () => void;
-
-    // Event handling
     handleEvent: (event: TestRunEvent) => void;
 }
 
+// Helpers to access properties safely across states (for backward compatibility or ease of use)
+// But purely, UI should check status.
+// We will export a generic store type.
+
 type TestRunStore = TestRunState & TestRunActions;
 
-const initialState: TestRunState = {
-    status: 'idle',
-    testRunId: null,
-    currentPhase: null,
-    currentAction: null,
+const initialBaseState: BaseState = {
     steps: [],
-    success: null,
-    summary: null,
-    errorMessage: null,
     screenshots: [],
     latestScreenshot: null,
+};
+
+const initialState: IdleState = {
+    ...initialBaseState,
+    status: 'idle',
 };
 
 export const useTestRunStore = create<TestRunStore>((set) => ({
     ...initialState,
 
-    // Test actions
     startTest: async (input: TestInput) => {
-        // Reset state for new run
         set({
+            ...initialBaseState,
             status: 'running',
             testRunId: null,
             currentPhase: null,
             currentAction: null,
-            steps: [],
-            success: null,
-            summary: null,
-            errorMessage: null,
-            screenshots: [],
-            latestScreenshot: null,
-        });
+        } as RunningState);
 
         try {
             await trpc.test.run.mutate(input);
         } catch (err) {
             console.error('Failed to run test:', err);
-            set({ status: 'error', errorMessage: String(err) });
+            set((state) => ({
+                ...state,
+                status: 'error',
+                errorMessage: String(err)
+            } as ErrorState));
         }
     },
 
@@ -86,65 +89,74 @@ export const useTestRunStore = create<TestRunStore>((set) => ({
         } catch (err) {
             console.error('Failed to cancel test:', err);
         }
-        set({ status: 'cancelled' });
+        set((state) => ({ ...state, status: 'cancelled' } as CancelledState));
     },
 
     reset: () => set(initialState),
 
-    // Event handling from IPC
     handleEvent: (event) => {
-        switch (event.type) {
-            case 'started':
-                set({ testRunId: event.testRunId, status: 'running' });
-                break;
+        set((state) => {
+            // Common updates (steps, screenshots) apply to all states effectively
+            // But we need to be careful with transitions.
 
-            case 'observing':
-                set({ currentPhase: 'observing' });
-                break;
+            switch (event.type) {
+                case 'started':
+                    return {
+                        ...state,
+                        status: 'running',
+                        testRunId: event.testRunId,
+                        currentPhase: null,
+                        currentAction: null
+                    } as RunningState;
 
-            case 'thinking':
-                set({ currentPhase: 'thinking' });
-                break;
+                case 'observing':
+                    if (state.status !== 'running') return state;
+                    return { ...state, currentPhase: 'observing' };
 
-            case 'acting':
-                set({ currentPhase: 'acting', currentAction: event.action });
-                break;
+                case 'thinking':
+                    if (state.status !== 'running') return state;
+                    return { ...state, currentPhase: 'thinking' };
 
-            case 'step_complete':
-                set((state) => ({
-                    steps: [...state.steps, event.step],
-                    currentPhase: null,
-                    currentAction: null,
-                }));
-                break;
+                case 'acting':
+                    if (state.status !== 'running') return state;
+                    return { ...state, currentPhase: 'acting', currentAction: event.action };
 
-            case 'screenshot':
-                set((state) => ({
-                    screenshots: [...state.screenshots, event.data],
-                    latestScreenshot: event.data,
-                }));
-                break;
+                case 'step_complete':
+                    return {
+                        ...state,
+                        steps: [...state.steps, event.step],
+                        // reset phase if running
+                        ...(state.status === 'running' ? { currentPhase: null, currentAction: null } : {})
+                    } as TestRunState; // generic cast due to complex conditional
 
-            case 'completed':
-                set({
-                    status: 'completed',
-                    success: event.success,
-                    summary: event.summary,
-                    currentPhase: null,
-                });
-                break;
+                case 'screenshot':
+                    return {
+                        ...state,
+                        screenshots: [...state.screenshots, event.data],
+                        latestScreenshot: event.data,
+                    };
 
-            case 'cancelled':
-                set({ status: 'cancelled', currentPhase: null });
-                break;
+                case 'completed':
+                    return {
+                        ...state,
+                        status: 'completed',
+                        success: event.success,
+                        summary: event.summary,
+                    } as CompletedState;
 
-            case 'error':
-                set({
-                    status: 'error',
-                    errorMessage: event.error.message,
-                    currentPhase: null,
-                });
-                break;
-        }
+                case 'cancelled':
+                    return { ...state, status: 'cancelled' } as CancelledState;
+
+                case 'error':
+                    return {
+                        ...state,
+                        status: 'error',
+                        errorMessage: event.error.message,
+                    } as ErrorState;
+
+                default:
+                    return state;
+            }
+        });
     },
 }));

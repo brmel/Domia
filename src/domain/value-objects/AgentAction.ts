@@ -1,4 +1,5 @@
-import type { ElementId } from './Brand';
+import type { ElementId } from './ElementId';
+import type { Url } from './Url';
 import { AgentActionType } from '../enums/AgentActionType';
 
 /**
@@ -57,7 +58,7 @@ export interface ExtractAction {
 
 export interface NavigateAction {
     readonly type: AgentActionType.NAVIGATE;
-    readonly url: string;
+    readonly url: Url;
     readonly thought: string;
 }
 

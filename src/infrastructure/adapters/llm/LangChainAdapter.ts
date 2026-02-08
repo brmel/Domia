@@ -8,6 +8,10 @@ import type { AgentAction } from '@domain/value-objects';
 import { LLMError } from '@domain/errors';
 import { LLMPromptUtils } from './LLMPromptUtils';
 
+import { retry, handleAll, ExponentialBackoff } from 'cockatiel';
+
+const retryPolicy = retry(handleAll, { maxAttempts: 3, backoff: new ExponentialBackoff() });
+
 @injectable()
 export class LangChainAdapter implements ILLMProvider {
     readonly providerName: string;
@@ -28,8 +32,8 @@ export class LangChainAdapter implements ILLMProvider {
 
     generateAction(context: LLMContext): ResultAsync<AgentAction, LLMError> {
         return ResultAsync.fromPromise(
-            this.doGenerateAction(context),
-            (e) => new LLMError(`LangChain generation failed: ${String(e)}`)
+            retryPolicy.execute(() => this.doGenerateAction(context)),
+            (e) => new LLMError(`LangChain generation failed after retries: ${String(e)}`)
         ).andThen((text) => LLMPromptUtils.parseAction(text));
     }
 
