@@ -50,11 +50,11 @@ function createWindow(): void {
   const agentViewService = container.resolve(AgentViewService);
   agentViewService.initialize(win);
 
-  ipcMain.on('agent-view:resize', (_, bounds) => {
+  ipcMain.on('agent-view:resize', (_, bounds: Electron.Rectangle) => {
     agentViewService.updateBounds(bounds);
   });
 
-  ipcMain.on('agent-view:show', (_, bounds) => {
+  ipcMain.on('agent-view:show', (_, bounds: Electron.Rectangle) => {
     agentViewService.show(bounds);
   });
 

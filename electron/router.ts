@@ -7,6 +7,7 @@ import { ConfigService } from '../src/infrastructure/config/ConfigService';
 import { ExecutionController } from '../src/application/controllers/ExecutionController';
 import { observable } from '@trpc/server/observable';
 import { EventEmitter } from 'events';
+import { RunTestInput } from '../src/application/dtos';
 
 const t = initTRPC.create({ isServer: true });
 
@@ -37,7 +38,7 @@ export const appRouter = t.router({
                 currentController = new ExecutionController();
 
                 try {
-                    const generator = useCase.execute(input as any, currentController);
+                    const generator = useCase.execute(input as RunTestInput, currentController);
 
                     (async () => {
                         for await (const event of generator) {
