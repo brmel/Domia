@@ -10,14 +10,13 @@ import 'dotenv/config';
 import 'reflect-metadata';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { container, Lifecycle } from 'tsyringe';
-import { ResultAsync, okAsync } from 'neverthrow';
-
+import { okAsync, ResultAsync } from 'neverthrow';
+import { INode, IBrowserAutomation, IPersistenceAdapter, LLMConfig } from '@domain/ports';
+import { DomiaGateway } from '@application/gateway/DomiaGateway';
+import { WorkflowEngine } from '@application/workflows/WorkflowEngine';
 import { PlaywrightAdapter } from '@infrastructure/adapters/browser/PlaywrightAdapter';
 import { LangChainAdapter } from '@infrastructure/adapters/llm/LangChainAdapter';
-import type { LLMConfig, IPersistenceAdapter } from '@domain/ports';
-import { FileSystemAdapter } from '@infrastructure/adapters/storage';
 import { ConsoleLogger } from '@infrastructure/adapters/logger/ConsoleLogger';
-import { AgentViewService } from '@infrastructure/electron/AgentViewService';
 import { RunTestUseCase } from '@application/use-cases';
 import { ToolRegistry } from '@application/registries/ToolRegistry';
 import { ClickTool } from '@application/tools/browser/ClickTool';
@@ -29,9 +28,24 @@ import { ExtractTool } from '@application/tools/browser/ExtractTool';
 import { NavigateTool } from '@application/tools/browser/NavigateTool';
 import { AskUserTool } from '@application/tools/general/AskUserTool';
 import { ExecutionController } from '@application/controllers/ExecutionController';
+import { PersistenceError } from '@domain/errors';
 
 describe('RunTestUseCase Integration', () => {
 
+    const mockBrowser: IBrowserAutomation = {
+        launch: () => okAsync(undefined),
+        navigateTo: () => okAsync(undefined),
+        click: () => okAsync(undefined),
+        type: () => okAsync(undefined),
+        pressKey: () => okAsync(undefined),
+        scroll: () => okAsync(undefined),
+        wait: () => okAsync(undefined),
+        extract: () => okAsync(''),
+        close: () => Promise.resolve(),
+        snapshot: () => okAsync({ url: 'http://test', title: 'Test', rootElements: [], elements: [], pointerPosition: { x: 0, y: 0 }, viewportSize: { width: 100, height: 100 }, scrollPosition: { x: 0, y: 0 } }),
+        waitForDOMStable: () => Promise.resolve(),
+        snapshotAria: () => okAsync({ role: 'root', name: 'Root', children: [] })
+    } as unknown as IBrowserAutomation;
 
     class MockViewHost {
         show() { }
@@ -39,7 +53,23 @@ describe('RunTestUseCase Integration', () => {
         async getCDPWebSocketURL() { throw new Error('Not implemented'); }
     }
 
+    class MockNode implements INode {
+        id = 'mock-node';
+        capabilities = ['browser'];
+        healthCheck(): Promise<boolean> { return Promise.resolve(true); }
+        allocate(): ResultAsync<IBrowserAutomation, Error> {
+            return okAsync(mockBrowser);
+        }
+        release(): Promise<void> { return Promise.resolve(); }
+    }
+
     class MockPersistenceAdapter implements IPersistenceAdapter {
+        saveCheckpoint(_runId: string, _state: import('../../src/domain/value-objects/WorkflowState').WorkflowState): ResultAsync<void, PersistenceError> {
+            return okAsync(undefined);
+        }
+        getCheckpoint(_runId: string): ResultAsync<import('../../src/domain/value-objects/WorkflowState').WorkflowState | null, PersistenceError> {
+            return okAsync(null);
+        }
         saveTestRun() { return okAsync(undefined); }
         updateTestRun() { return okAsync(undefined); }
         saveTestStep() { return okAsync(undefined); }
@@ -59,7 +89,6 @@ describe('RunTestUseCase Integration', () => {
 
         container.register('LLMConfig', { useValue: config });
         container.register('ILogger', { useClass: ConsoleLogger });
-        container.register('IArtifactStorage', { useClass: FileSystemAdapter });
         container.register('IViewHost', { useClass: MockViewHost });
         container.register('IPersistenceAdapter', { useClass: MockPersistenceAdapter });
         container.register('IBrowserAutomation', { useClass: PlaywrightAdapter }, { lifecycle: Lifecycle.Singleton });
@@ -88,6 +117,15 @@ describe('RunTestUseCase Integration', () => {
         container.register(ToolRegistry, { useValue: toolRegistry });
 
         container.register('RunTestUseCase', { useClass: RunTestUseCase });
+
+        // Register Enterprise Architecture
+        container.registerSingleton(DomiaGateway);
+        container.registerSingleton(WorkflowEngine);
+
+        // Register Mock Node
+        const gateway = container.resolve(DomiaGateway);
+        const mockNode = new MockNode();
+        gateway.registerNode(mockNode);
     });
 
     afterAll(() => {

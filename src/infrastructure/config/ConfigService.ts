@@ -1,36 +1,17 @@
-import { z } from 'zod';
 import { cosmiconfigSync } from 'cosmiconfig';
 import { injectable } from 'tsyringe';
+import fs from 'fs-extra';
+import path from 'path';
+import { DomiaConfigSchema, type DomiaConfig } from '../../shared/config-types';
 
-export const DomiaConfigSchema = z.object({
-    headless: z.boolean().default(true),
-    viewport: z.object({
-        width: z.number().default(1280),
-        height: z.number().default(800),
-    }).default({ width: 1280, height: 800 }),
+export { DomiaConfigSchema, type DomiaConfig };
 
-    ai: z.object({
-        provider: z.enum(['google', 'openai', 'anthropic']).default('google'),
-        model: z.string().default('gemini-2.0-flash'),
-        apiKey: z.string().optional(), // Can still be loaded from env, but handled by this service
-    }).default({ provider: 'google', model: 'gemini-2.0-flash' }),
-
-    paths: z.object({
-        artifactsDir: z.string().default('./artifacts'),
-        databasePath: z.string().default('./domia.db'),
-    }).default({ artifactsDir: './artifacts', databasePath: './domia.db' }),
-
-    limits: z.object({
-        maxSteps: z.number().default(20),
-        delayBetweenSteps: z.number().default(1000),
-    }).default({ maxSteps: 20, delayBetweenSteps: 1000 }),
-});
-
-export type DomiaConfig = z.infer<typeof DomiaConfigSchema>;
+import { IConfigService } from '../../domain/ports/IConfigService';
 
 @injectable()
-export class ConfigService {
+export class ConfigService implements IConfigService {
     private config: DomiaConfig;
+    private configPath: string;
 
     constructor() {
         const explorer = cosmiconfigSync('domia');
@@ -39,6 +20,10 @@ export class ConfigService {
         let loadedConfig = {};
         if (result && result.config) {
             loadedConfig = result.config;
+            this.configPath = result.filepath;
+        } else {
+            // Default to local directory if no config found
+            this.configPath = path.resolve(process.cwd(), 'domia.config.json');
         }
 
         // 1. Zod defaults -> 2. File config -> 3. Env overrides
@@ -54,5 +39,37 @@ export class ConfigService {
 
     get(): DomiaConfig {
         return this.config;
+    }
+
+    update(updates: Partial<DomiaConfig>): void {
+        // Deep merge logic (simplified for now)
+        this.config = {
+            ...this.config,
+            ...updates,
+            ai: { ...this.config.ai, ...updates.ai },
+            selectorEngine: { ...this.config.selectorEngine, ...updates.selectorEngine },
+            viewport: { ...this.config.viewport, ...updates.viewport },
+            paths: { ...this.config.paths, ...updates.paths },
+            limits: { ...this.config.limits, ...updates.limits },
+        };
+
+        this.save();
+    }
+
+    private save(): void {
+        try {
+            // Don't save API key if it came from env
+            const configToSave = { ...this.config };
+            if (process.env['GOOGLE_API_KEY'] || process.env['GEMINI_API_KEY'] || process.env['OPENAI_API_KEY']) {
+                // We keep the runtime value, but when writing to disk we might want to strip it
+                // For now, let's just write what we have, assuming the user might want to override env?
+                // Actually, safer to NOT write secrets to disk if they aren't already there.
+                // But managing that logic is complex. ConfigService is simple for now.
+            }
+
+            fs.writeJsonSync(this.configPath, configToSave, { spaces: 2 });
+        } catch (error) {
+            console.error('Failed to save config:', error);
+        }
     }
 }

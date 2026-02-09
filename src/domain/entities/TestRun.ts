@@ -1,4 +1,4 @@
-import { TestRunId, Url, ArtifactPath } from '../value-objects';
+import { TestRunId, Url } from '../value-objects';
 import { TestStep } from './TestStep';
 
 /**
@@ -11,7 +11,6 @@ export interface TestRun {
     readonly prompt: string;
     readonly status: TestRunStatus;
     readonly steps: readonly TestStep[];
-    readonly artifacts: TestRunArtifacts;
     readonly createdAt: Date;
     readonly updatedAt: Date;
 }
@@ -23,11 +22,6 @@ export type TestRunStatus =
     | { type: 'failed'; error: string; failedAtStep: number; duration: number }
     | { type: 'cancelled'; reason: string };
 
-export interface TestRunArtifacts {
-    readonly video: ArtifactPath | null;
-    readonly trace: ArtifactPath | null;
-}
-
 export const TestRun = {
     create(params: { id: TestRunId; url: Url; prompt: string }): TestRun {
         return {
@@ -36,7 +30,6 @@ export const TestRun = {
             prompt: params.prompt,
             status: { type: 'pending' },
             steps: [],
-            artifacts: { video: null, trace: null },
             createdAt: new Date(),
             updatedAt: new Date(),
         };
@@ -89,14 +82,6 @@ export const TestRun = {
         return {
             ...run,
             status: { type: 'cancelled', reason },
-            updatedAt: new Date(),
-        };
-    },
-
-    setArtifacts(run: TestRun, artifacts: Partial<TestRunArtifacts>): TestRun {
-        return {
-            ...run,
-            artifacts: { ...run.artifacts, ...artifacts },
             updatedAt: new Date(),
         };
     },

@@ -26,7 +26,7 @@ export function LiveView(): React.ReactElement {
             </div>
 
             {/* Content Container */}
-            <div className="flex-1 flex items-center justify-center relative w-full h-full bg-black overflow-hidden">
+            <div className="flex-1 flex items-center justify-center relative w-full h-full bg-transparent overflow-hidden">
                 {/* Tech Grid Background */}
                 <div className="absolute inset-0 opacity-[0.05]"
                     style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }}>

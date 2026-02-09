@@ -13,7 +13,6 @@ export type Url = Brand<string, 'Url'>;
 export type TestRunId = Brand<string, 'TestRunId'>;
 export type ElementId = Brand<number, 'ElementId'>;
 export type Selector = Brand<string, 'Selector'>;
-export type ArtifactPath = Brand<string, 'ArtifactPath'>;
 
 // Url factory
 export const UrlFactory = {
@@ -55,12 +54,5 @@ export const ElementIdFactory = {
     },
     unsafe(value: number): ElementId {
         return value as ElementId;
-    },
-};
-
-// ArtifactPath factory
-export const ArtifactPathFactory = {
-    create(value: string): ArtifactPath {
-        return value as ArtifactPath;
     },
 };

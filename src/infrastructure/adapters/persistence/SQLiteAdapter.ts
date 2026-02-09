@@ -25,7 +25,6 @@ interface TestStepTable {
     step_number: number;
     action_type: string;
     action_payload: string; // JSON string
-    screenshot_path: string | null;
     timestamp: string;
 }
 
@@ -38,10 +37,18 @@ interface LogTable {
     timestamp: string;
 }
 
+interface WorkflowCheckpointTable {
+    id: Generated<number>;
+    run_id: string;
+    state_json: string;
+    created_at: string;
+}
+
 interface DatabaseSchema {
     test_runs: TestRunTable;
     test_steps: TestStepTable;
     logs: LogTable;
+    workflow_checkpoints: WorkflowCheckpointTable;
 }
 
 @injectable()
@@ -64,7 +71,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         this.initializeSchema(database);
     }
 
-    private initializeSchema(database: Database.Database) {
+    private initializeSchema(database: Database.Database): void {
         database.exec(`
             CREATE TABLE IF NOT EXISTS test_runs (
                 id TEXT PRIMARY KEY,
@@ -83,7 +90,6 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 step_number INTEGER NOT NULL,
                 action_type TEXT NOT NULL,
                 action_payload JSON,
-                screenshot_path TEXT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(test_run_id) REFERENCES test_runs(id)
             );
@@ -96,6 +102,14 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 metadata JSON,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(test_run_id) REFERENCES test_runs(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS workflow_checkpoints (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id TEXT NOT NULL,
+                state_json JSON NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(run_id) REFERENCES test_runs(id)
             );
         `);
     }
@@ -144,7 +158,6 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                     step_number: step.stepNumber,
                     action_type: step.actionType,
                     action_payload: JSON.stringify(step.actionPayload),
-                    screenshot_path: step.screenshotPath ?? null,
                     timestamp: step.timestamp
                 })
                 .execute(),
@@ -220,19 +233,44 @@ export class SQLiteAdapter implements IPersistenceAdapter {
             stepNumber: row.step_number,
             actionType: row.action_type,
             actionPayload: action,
-            timestamp: row.timestamp,
-            ...(row.screenshot_path ? { screenshotPath: row.screenshot_path } : {})
+            timestamp: row.timestamp
         };
     }
 
     clearHistory(): ResultAsync<void, PersistenceError> {
         return ResultAsync.fromPromise(
-            Promise.all([
-                this.db.deleteFrom('test_steps').execute(),
-                this.db.deleteFrom('logs').execute(),
-                this.db.deleteFrom('test_runs').execute()
-            ]),
+            (async (): Promise<void> => {
+                await this.db.deleteFrom('test_steps').execute();
+                await this.db.deleteFrom('logs').execute();
+                await this.db.deleteFrom('workflow_checkpoints').execute();
+                await this.db.deleteFrom('test_runs').execute();
+            })(),
             (e) => new PersistenceError(`Failed to clear history: ${e}`)
         ).map(() => undefined);
+    }
+
+    saveCheckpoint(runId: string, state: import('@domain/value-objects/WorkflowState').WorkflowState): ResultAsync<void, PersistenceError> {
+        return ResultAsync.fromPromise(
+            this.db.insertInto('workflow_checkpoints')
+                .values({
+                    run_id: runId,
+                    state_json: JSON.stringify(state),
+                    created_at: new Date().toISOString()
+                })
+                .execute(),
+            (e) => new PersistenceError(`Failed to save checkpoint: ${e}`)
+        ).map(() => undefined);
+    }
+
+    getCheckpoint(runId: string): ResultAsync<import('@domain/value-objects/WorkflowState').WorkflowState | null, PersistenceError> {
+        return ResultAsync.fromPromise(
+            this.db.selectFrom('workflow_checkpoints')
+                .select('state_json')
+                .where('run_id', '=', runId)
+                .orderBy('created_at', 'desc')
+                .limit(1)
+                .executeTakeFirst(),
+            (e) => new PersistenceError(`Failed to get checkpoint: ${e}`)
+        ).map(row => row ? JSON.parse(row.state_json) : null);
     }
 }

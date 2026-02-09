@@ -10,7 +10,7 @@ import { ExecutionController } from '../application/controllers/ExecutionControl
 import { ConsoleViewHost } from '../infrastructure/adapters/view/ConsoleViewHost';
 
 export class RunCommand {
-    static register(program: Command) {
+    static register(program: Command): void {
         program
             .command('run')
             .description('Start an autonomous test agent session')

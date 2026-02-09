@@ -1,4 +1,6 @@
 import { injectable, inject } from 'tsyringe';
+import { Result, ok, err } from 'neverthrow';
+import { TestRunIdFactory, TestRunId } from '@domain/value-objects';
 import type { IPersistenceAdapter, ILogger } from '@domain/ports';
 
 @injectable()
@@ -8,18 +10,24 @@ export class TestRunLifecycleManager {
         @inject('ILogger') private readonly logger: ILogger
     ) { }
 
-    async initialize(id: string, url: string, prompt: string): Promise<void> {
+    async initializeTestRun(url: string, prompt: string): Promise<Result<TestRunId, Error>> {
+        const id = TestRunIdFactory.create();
         this.logger.info(`Test run initialized`, { id, url });
-        await this.persistence.saveTestRun({
-            id,
-            url,
-            status: 'running',
-            startedAt: new Date().toISOString(),
-            goal: prompt
-        });
+        try {
+            await this.persistence.saveTestRun({
+                id,
+                url,
+                status: 'running',
+                startedAt: new Date().toISOString(),
+                goal: prompt
+            });
+            return ok(id);
+        } catch (error) {
+            return err(new Error(`Failed to save test run: ${error}`));
+        }
     }
 
-    async finalize(id: string, success: boolean, summary?: string): Promise<void> {
+    async finalizeTestRun(id: TestRunId, success: boolean, summary?: string): Promise<void> {
         this.logger.info(`Test run complete. Success: ${success}`);
         await this.persistence.updateTestRun(id, {
             status: success ? 'pass' : 'fail',
@@ -28,7 +36,7 @@ export class TestRunLifecycleManager {
         });
     }
 
-    async fail(id: string, summary: string): Promise<void> {
+    async failTestRun(id: TestRunId, summary: string): Promise<void> {
         this.logger.error(summary);
         await this.persistence.updateTestRun(id, {
             status: 'fail',

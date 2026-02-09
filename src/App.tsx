@@ -6,9 +6,11 @@ import { ResizableSidebar } from './presentation/components/ResizableSidebar';
 import { useState } from 'react';
 import { HistorySidebar } from './presentation/components/HistorySidebar';
 
-function App() {
-    // Determine which sidebar content is active: 'config' | 'history'
-    const [activeSidebar, setActiveSidebar] = useState<'config' | 'history'>('config');
+import { SettingsSidebar } from './presentation/components/SettingsSidebar';
+
+function App(): JSX.Element {
+    // Determine which sidebar content is active: 'config' | 'history' | 'settings'
+    const [activeSidebar, setActiveSidebar] = useState<'config' | 'history' | 'settings'>('config');
 
     return (
         <div className="flex h-screen w-screen overflow-hidden bg-gray-50 text-gray-900 font-sans">
@@ -23,7 +25,7 @@ function App() {
                         <div className="flex-1 overflow-y-auto p-6 bg-white">
                             <TestForm />
                         </div>
-                        <div className="p-4 border-t border-gray-100 bg-gray-50">
+                        <div className="p-4 border-t border-gray-100 bg-gray-50 space-y-2">
                             <button
                                 onClick={() => setActiveSidebar('history')}
                                 className="flex items-center justify-center space-x-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-white border border-transparent hover:border-gray-200 hover:shadow-sm w-full p-2.5 rounded-md transition-all font-medium"
@@ -31,11 +33,20 @@ function App() {
                                 <span>📜</span>
                                 <span>View History</span>
                             </button>
+                            <button
+                                onClick={() => setActiveSidebar('settings')}
+                                className="flex items-center justify-center space-x-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-white border border-transparent hover:border-gray-200 hover:shadow-sm w-full p-2.5 rounded-md transition-all font-medium"
+                            >
+                                <span>⚙️</span>
+                                <span>Settings</span>
+                            </button>
                             <p className="text-[10px] text-gray-400 mt-3 text-center">Configured via domia.config.json</p>
                         </div>
                     </>
-                ) : (
+                ) : activeSidebar === 'history' ? (
                     <HistorySidebar onClose={() => setActiveSidebar('config')} />
+                ) : (
+                    <SettingsSidebar onClose={() => setActiveSidebar('config')} />
                 )}
             </ResizableSidebar>
 

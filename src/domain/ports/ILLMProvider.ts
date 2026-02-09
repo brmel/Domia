@@ -13,6 +13,7 @@ export interface LLMContext {
     readonly previousActions: readonly AgentAction[];
     readonly stepsRemaining: number;
     readonly viewport: { readonly width: number; readonly height: number };
+    readonly plan?: import('../entities/Plan').Plan;
 }
 
 /**

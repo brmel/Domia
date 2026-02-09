@@ -5,3 +5,4 @@ export { LLMError, ParseError } from './LLMErrors';
 export { StorageError, NotFoundError } from './StorageErrors';
 export { ConfigurationError } from './ConfigurationError';
 export { PersistenceError } from './PersistenceError';
+export { WorkflowError } from './WorkflowError';

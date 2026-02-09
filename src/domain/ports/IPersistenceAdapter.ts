@@ -19,7 +19,6 @@ export interface TestStep {
     stepNumber: number;
     actionType: string;
     actionPayload: AgentAction;
-    screenshotPath?: string;
     timestamp: string;
 }
 
@@ -40,4 +39,8 @@ export interface IPersistenceAdapter {
     getTestRun(id: string): ResultAsync<TestRun | null, PersistenceError>;
     getTestSteps(runId: string): ResultAsync<TestStep[], PersistenceError>;
     clearHistory(): ResultAsync<void, PersistenceError>;
+
+    // Durable Workflow
+    saveCheckpoint(runId: string, state: import('@domain/value-objects/WorkflowState').WorkflowState): ResultAsync<void, PersistenceError>;
+    getCheckpoint(runId: string): ResultAsync<import('@domain/value-objects/WorkflowState').WorkflowState | null, PersistenceError>;
 }

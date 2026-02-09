@@ -13,10 +13,7 @@ export interface LaunchOptions {
 /**
  * Screenshot data
  */
-export interface Screenshot {
-    readonly data: Buffer;
-    readonly timestamp: Date;
-}
+import { Screenshot } from './Screenshot';
 
 /**
  * IBrowserAutomation Port
@@ -37,6 +34,10 @@ export interface IBrowserAutomation {
      */
     highlight(elementId: ElementId): ResultAsync<void, InteractionError>;
     snapshot(): ResultAsync<DOMSnapshot, SnapshotError>;
+    /**
+     * Captures the full accessibility tree of the page.
+     */
+    snapshotAria(): ResultAsync<import('../value-objects/AriaNode').AriaNode, SnapshotError>;
     /**
      * Takes a screenshot of the current page.
      */

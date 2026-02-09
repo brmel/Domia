@@ -1,8 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { StringOutputParser } from '@langchain/core/output_parsers';
+import { SystemMessage, HumanMessage, AIMessage, BaseMessage } from '@langchain/core/messages';
 import type { ILLMProvider, LLMContext, ILogger, LLMConfig } from '@domain/ports';
 import type { AgentAction } from '@domain/value-objects';
 import { LLMError } from '@domain/errors';
@@ -28,34 +27,80 @@ export class LangChainAdapter implements ILLMProvider {
 
     generateAction(context: LLMContext): ResultAsync<AgentAction, LLMError> {
         return ResultAsync.fromPromise(
-            this.doGenerateAction(context),
-            (e) => new LLMError(`LangChain generation failed: ${String(e)}`)
-        ).andThen((text) => LLMPromptUtils.parseAction(text));
+            this.generateWithRetry(context),
+            (e) => e instanceof LLMError ? e : new LLMError(`Generation failed: ${String(e)}`)
+        );
     }
 
-    private async doGenerateAction(context: LLMContext): Promise<string> {
-        // Construct the prompt using LangChain's template structure
-        // We reuse LLMPromptUtils for the content to ensure zero regression in behavior
+    private async generateWithRetry(context: LLMContext, retries = 3): Promise<AgentAction> {
+        let lastError: LLMError | undefined;
+        let correctionContext: { error: string; lastResponse: string } | undefined;
 
-        // Escape braces in system prompt because LangChain treats them as variables
-        const systemPrompt = LLMPromptUtils.systemPrompt.replace(/{/g, '{{').replace(/}/g, '}}');
+        for (let i = 0; i < retries; i++) {
+            try {
+                const responseText = await this.doGenerateAction(context, correctionContext);
 
-        const prompt = ChatPromptTemplate.fromMessages([
-            ["system", systemPrompt],
-            ["user", "{user_context}"]
-        ]);
+                const result = await LLMPromptUtils.parseAction(responseText, context);
 
-        const chain = prompt.pipe(this.model).pipe(new StringOutputParser());
+                if (result.isOk()) {
+                    return result.value;
+                } else {
+                    lastError = result.error;
+                    correctionContext = {
+                        error: lastError.message,
+                        lastResponse: responseText
+                    };
+                    this.logger.warn(`[LangChainAdapter] validation failed (attempt ${i + 1}/${retries}): ${lastError.message}`);
+                }
+            } catch (e: unknown) {
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                const error = new LLMError(`Generation failed: ${errorMessage}`);
+                this.logger.error(`[LangChainAdapter] system error: ${error.message}`);
 
-        const userContext = LLMPromptUtils.buildUserPrompt(context);
+                if (i < retries - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
 
-        this.logger.debug(`[LangChainAdapter] Invoking chain with context length: ${userContext.length}`);
+                lastError = error;
+            }
+        }
 
-        const response = await chain.invoke({
-            user_context: userContext
-        });
+        throw lastError || new LLMError("Failed to generate valid action after retries");
+    }
 
-        this.logger.debug(`[LangChainAdapter] Response length: ${response.length}`);
-        return response;
+    private async doGenerateAction(
+        context: LLMContext,
+        correction?: { error: string; lastResponse: string }
+    ): Promise<string> {
+        // No need to escape for templates anymore
+        const systemPrompt = LLMPromptUtils.systemPrompt;
+
+        const messages: BaseMessage[] = [
+            new SystemMessage(systemPrompt),
+            new HumanMessage(LLMPromptUtils.buildUserPrompt(context))
+        ];
+
+        if (correction) {
+            messages.push(new AIMessage(correction.lastResponse));
+            messages.push(new HumanMessage(`SYSTEM: Your last response was invalid. Error: ${correction.error}.\nYou MUST correct it and provide valid JSON matching the schema.`));
+        }
+
+        this.logger.debug(`[LangChainAdapter] Invoking model directly. Correction active: ${!!correction}`);
+
+        const response = await this.model.invoke(messages);
+
+        let content = '';
+        if (typeof response.content === 'string') {
+            content = response.content;
+        } else if (Array.isArray(response.content)) {
+            // Handle multimodal content if it ever happens (mostly string for now)
+            content = response.content.map(c => {
+                if ('text' in c) return c.text;
+                return '';
+            }).join('');
+        }
+
+        this.logger.debug(`[LangChainAdapter] Response length: ${content.length}`);
+        return content;
     }
 }

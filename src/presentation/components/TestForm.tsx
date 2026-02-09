@@ -3,14 +3,21 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTestRunStore } from '../stores';
 import { TestInputSchema, type TestInput } from '../../shared/validation';
+import { trpc } from '../../lib/trpc';
 
 /**
  * TestForm Component
  * Input form for URL and test prompt
  */
 export function TestForm(): React.ReactElement {
-    const { status, startTest } = useTestRunStore();
+    const { status } = useTestRunStore();
     const isRunning = status === 'running';
+
+    const runMutation = trpc.test.run.useMutation({
+        onError: (error) => {
+            console.error('Failed to start test:', error);
+        }
+    });
 
     const {
         register,
@@ -31,7 +38,7 @@ export function TestForm(): React.ReactElement {
 
     const onSubmit = (data: TestInput): void => {
         if (!isRunning) {
-            startTest(data);
+            runMutation.mutate(data);
         }
     };
 

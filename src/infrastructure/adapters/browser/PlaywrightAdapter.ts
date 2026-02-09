@@ -30,13 +30,9 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         this.logger.debug('[PlaywrightAdapter] Starting browser launch');
 
         if (!options.headless) {
-            this.viewHost.show({
-                x: 0,
-                y: 0,
-                width: AGENT_VIEW_CONFIG.DEFAULT_WIDTH,
-                height: AGENT_VIEW_CONFIG.DEFAULT_HEIGHT
-            });
-            this.logger.debug('[PlaywrightAdapter] AgentView shown');
+            // this.viewHost.show({ ... }); // Removed to prevent white screen flash
+            // Let the frontend (LiveViewContainer) control visibility and bounds
+            this.logger.debug('[PlaywrightAdapter] Adapting view for headless: false');
         }
 
         let wsEndpoint: string | null = null;
@@ -78,7 +74,9 @@ export class PlaywrightAdapter implements IBrowserAutomation {
                 headless: options.headless,
                 args: ['--no-sandbox', '--disable-setuid-sandbox']
             });
-            const context = await this.browser.newContext();
+            const context = await this.browser.newContext({
+                ignoreHTTPSErrors: true
+            });
             this.page = await context.newPage();
             this.logger.info('[PlaywrightAdapter] Created new page');
         }
@@ -104,7 +102,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
                 timeout: options?.timeout ?? 10000 // 10s default instead of 30s
             };
 
-            const attempt = () => ResultAsync.fromPromise(
+            const attempt = (): ResultAsync<void, InteractionError> => ResultAsync.fromPromise(
                 el.click(clickOptions),
                 (e) => new InteractionError(`Click failed: ${String(e)}`, elementId)
             );
@@ -168,7 +166,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
     highlight(elementId: ElementId): ResultAsync<void, InteractionError> {
         return this.findElement(elementId).andThen((el) =>
             ResultAsync.fromPromise(
-                (async () => {
+                (async (): Promise<void> => {
                     // Scroll into view first
                     await el.scrollIntoViewIfNeeded();
 
@@ -216,11 +214,21 @@ export class PlaywrightAdapter implements IBrowserAutomation {
             return errAsync(new SnapshotError('Browser not launched'));
         }
         return ResultAsync.fromPromise(
-            (async () => {
+            (async (): Promise<DOMSnapshot> => {
                 await this.waitForDOMStable();
                 return this.extractSnapshot();
             })(),
             (e) => new SnapshotError(`Snapshot failed: ${String(e)}`)
+        );
+    }
+
+    snapshotAria(): ResultAsync<import('@domain/value-objects/AriaNode').AriaNode, SnapshotError> {
+        if (!this.page) {
+            return errAsync(new SnapshotError('Browser not launched'));
+        }
+        return ResultAsync.fromPromise(
+            (this.page as unknown as { accessibility: { snapshot: (options: { interestingOnly: boolean }) => Promise<unknown> } }).accessibility.snapshot({ interestingOnly: false }) as Promise<import('@domain/value-objects/AriaNode').AriaNode>,
+            (e) => new SnapshotError(`Aria snapshot failed: ${String(e)}`)
         );
     }
 
@@ -262,8 +270,10 @@ export class PlaywrightAdapter implements IBrowserAutomation {
     }
 
     async close(): Promise<void> {
-        this.logger.debug('[PlaywrightAdapter] Closing browser');
-        this.viewHost.hide();
+        this.logger.debug('[PlaywrightAdapter] Closing browser context');
+        // Do not hide the view here. Let the UI (React) decide when to hide the viewContainer.
+        // this.viewHost.hide(); 
+
         if (this.browser) {
             await this.browser.close();
             this.browser = null;

@@ -1,38 +1,28 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useTestRunStore } from '../stores';
 import type { AgentAction } from '@domain/value-objects';
 import { cn } from '../../lib/utils';
 import { trpc } from '../../lib/trpc';
 
 export function TestRunner(): React.ReactElement {
-    const { status, currentAction, steps, success, summary, errorMessage, handleEvent, cancelTest } =
+    const { status, currentAction, steps, success, summary, errorMessage, handleEvent } =
         useTestRunStore();
 
-    useEffect(() => {
-        const isElectron = typeof window !== 'undefined' && 'electronTRPC' in window;
-        if (!isElectron) {
-            return;
+    trpc.test.onUpdate.useSubscription(undefined, {
+        onData: (event) => {
+            handleEvent(event as Parameters<typeof handleEvent>[0]);
+        },
+        onError: (err) => {
+            console.error('Subscription error:', err);
+        },
+        enabled: typeof window !== 'undefined' && 'electronTRPC' in window
+    });
+
+    const cancelMutation = trpc.test.cancel.useMutation({
+        onError: (err) => {
+            console.error('Failed to cancel test:', err);
         }
-
-        try {
-            const subscription = trpc.test.onUpdate.subscribe(undefined, {
-                onData: (event) => {
-                    handleEvent(event as Parameters<typeof handleEvent>[0]);
-                },
-                onError: (err) => {
-                    console.error('Subscription error:', err);
-                }
-            });
-            return () => {
-                subscription.unsubscribe();
-            };
-        } catch (err) {
-            console.error('Failed to subscribe to test updates:', err);
-        }
-        return undefined;
-    }, [handleEvent]);
-
-
+    });
 
     // Helper to safely get thought if it exists
     const getThought = (action: AgentAction): string | undefined => {
@@ -62,10 +52,11 @@ export function TestRunner(): React.ReactElement {
 
                     {status === 'running' && (
                         <button
-                            onClick={cancelTest}
-                            className="text-xs font-medium text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-md transition-colors border border-transparent hover:border-red-100"
+                            onClick={() => cancelMutation.mutate()}
+                            disabled={cancelMutation.isPending}
+                            className="text-xs font-medium text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-md transition-colors border border-transparent hover:border-red-100 disabled:opacity-50"
                         >
-                            Stop Agent
+                            {cancelMutation.isPending ? 'Stopping...' : 'Stop Agent'}
                         </button>
                     )}
                 </div>

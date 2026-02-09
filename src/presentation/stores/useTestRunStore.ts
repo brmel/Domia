@@ -2,8 +2,6 @@ import { create } from 'zustand';
 import type { TestRunEvent } from '@domain/events';
 import type { AgentAction, TestRunId } from '@domain/value-objects';
 import type { TestStep } from '@domain/entities';
-import { trpc } from '../../lib/trpc';
-import type { TestInput } from '../../shared/validation';
 
 /**
  * Test run state for UI
@@ -22,16 +20,10 @@ export interface TestRunState {
     success: boolean | null;
     summary: string | null;
     errorMessage: string | null;
-
-    // Screenshots (base64 encoded strings received over IPC)
-    screenshots: string[];
-    latestScreenshot: string | null;
 }
 
 interface TestRunActions {
     // Test actions
-    startTest: (input: TestInput) => Promise<void>;
-    cancelTest: () => Promise<void>;
     reset: () => void;
 
     // Event handling
@@ -49,50 +41,15 @@ const initialState: TestRunState = {
     success: null,
     summary: null,
     errorMessage: null,
-    screenshots: [],
-    latestScreenshot: null,
 };
 
 export const useTestRunStore = create<TestRunStore>((set) => ({
     ...initialState,
 
-    // Test actions
-    startTest: async (input: TestInput) => {
-        // Reset state for new run
-        set({
-            status: 'running',
-            testRunId: null,
-            currentPhase: null,
-            currentAction: null,
-            steps: [],
-            success: null,
-            summary: null,
-            errorMessage: null,
-            screenshots: [],
-            latestScreenshot: null,
-        });
-
-        try {
-            await trpc.test.run.mutate(input);
-        } catch (err) {
-            console.error('Failed to run test:', err);
-            set({ status: 'error', errorMessage: String(err) });
-        }
-    },
-
-    cancelTest: async () => {
-        try {
-            await trpc.test.cancel.mutate();
-        } catch (err) {
-            console.error('Failed to cancel test:', err);
-        }
-        set({ status: 'cancelled' });
-    },
-
-    reset: () => set(initialState),
+    reset: (): void => set(initialState),
 
     // Event handling from IPC
-    handleEvent: (event) => {
+    handleEvent: (event: TestRunEvent): void => {
         switch (event.type) {
             case 'started':
                 set({ testRunId: event.testRunId, status: 'running' });
@@ -115,13 +72,6 @@ export const useTestRunStore = create<TestRunStore>((set) => ({
                     steps: [...state.steps, event.step],
                     currentPhase: null,
                     currentAction: null,
-                }));
-                break;
-
-            case 'screenshot':
-                set((state) => ({
-                    screenshots: [...state.screenshots, event.data],
-                    latestScreenshot: event.data,
                 }));
                 break;
 

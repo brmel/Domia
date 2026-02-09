@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { container } from '../src/composition-root';
 import { RunTestUseCase } from '../src/application/use-cases';
 import { IPersistenceAdapter } from '../src/domain/ports';
+import { ConfigService } from '../src/infrastructure/config/ConfigService';
 import { ExecutionController } from '../src/application/controllers/ExecutionController';
 import { observable } from '@trpc/server/observable';
 import { EventEmitter } from 'events';
@@ -36,7 +37,7 @@ export const appRouter = t.router({
                 currentController = new ExecutionController();
 
                 try {
-                    const generator = useCase.execute(input, currentController);
+                    const generator = useCase.execute(input as any, currentController);
 
                     (async () => {
                         for await (const event of generator) {
@@ -119,6 +120,20 @@ export const appRouter = t.router({
             if (result.isErr()) throw new Error(result.error.message);
             return { success: true };
         })
+    }),
+
+    settings: t.router({
+        get: t.procedure.query(() => {
+            const configService = container.resolve<ConfigService>(ConfigService);
+            return configService.get();
+        }),
+        update: t.procedure
+            .input(z.any()) // Validation handled by ConfigService/Zod inside
+            .mutation(({ input }) => {
+                const configService = container.resolve<ConfigService>(ConfigService);
+                configService.update(input);
+                return { success: true };
+            })
     })
 });
 

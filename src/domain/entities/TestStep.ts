@@ -1,4 +1,4 @@
-import { AgentAction, ArtifactPath } from '../value-objects';
+import { AgentAction } from '../value-objects';
 import { nanoid } from 'nanoid';
 
 /**
@@ -10,7 +10,6 @@ export interface TestStep {
     readonly stepNumber: number;
     readonly action: AgentAction;
     readonly status: StepStatus;
-    readonly screenshot: ArtifactPath | null;
     readonly timestamp: Date;
     readonly duration: number;
 }
@@ -31,7 +30,6 @@ export const TestStepFactory = {
             stepNumber: params.stepNumber,
             action: params.action,
             status: { type: 'pending' },
-            screenshot: null,
             timestamp: new Date(),
             duration: 0,
         };
@@ -41,11 +39,10 @@ export const TestStepFactory = {
         return { ...step, status: { type: 'executing' } };
     },
 
-    markSuccess(step: TestStep, screenshot: ArtifactPath | null, duration: number): TestStep {
+    markSuccess(step: TestStep, duration: number): TestStep {
         return {
             ...step,
             status: { type: 'success' },
-            screenshot,
             duration,
         };
     },

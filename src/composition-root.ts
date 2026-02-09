@@ -2,8 +2,6 @@ import 'reflect-metadata';
 import { container } from 'tsyringe';
 
 import { PlaywrightAdapter } from './infrastructure/adapters/browser';
-import { FileSystemAdapter } from './infrastructure/adapters/storage';
-
 import type { LLMConfig } from '@domain/ports';
 import { RunTestUseCase } from './application/use-cases';
 import { ConsoleLogger } from './infrastructure/adapters/logger/ConsoleLogger';
@@ -22,22 +20,33 @@ import { PressKeyTool } from './application/tools/browser/PressKeyTool';
 import { AskUserTool } from './application/tools/general/AskUserTool';
 
 import { ActionPerformer } from './application/services/ActionPerformer';
-import { ObservationService } from './application/services/ObservationService';
+import { SnapshotService } from './application/services/SnapshotService';
 import { TestRunLifecycleManager } from './application/services/TestRunLifecycleManager';
+import { SelectorEngine } from './domain/services/SelectorEngine';
 
-export function registerCoreServices() {
+import { LocalBrowserNode } from './infrastructure/nodes/LocalBrowserNode';
+import { DomiaGateway } from './application/gateway/DomiaGateway';
+import { PlannerService } from './application/services/PlannerService';
+
+import { WorkflowEngine } from './application/workflows/WorkflowEngine';
+
+export function registerCoreServices(): void {
     // 1. Core Services (Config & Persistence)
     container.registerSingleton(ConfigService);
+    container.registerSingleton('IConfigService', ConfigService);
     container.registerSingleton('IPersistenceAdapter', SQLiteAdapter);
 
     container.registerSingleton('IBrowserAutomation', PlaywrightAdapter);
-    container.registerSingleton('IArtifactStorage', FileSystemAdapter);
     container.registerSingleton('ILogger', ConsoleLogger);
 
     // Decoupled Helper Services
     container.registerSingleton(TestRunLifecycleManager);
-    container.registerSingleton(ObservationService);
+    container.registerSingleton(SnapshotService);
     container.registerSingleton(ActionPerformer);
+    container.registerSingleton(SnapshotService);
+    container.registerSingleton(SelectorEngine);
+    container.registerSingleton(PlannerService);
+    container.registerSingleton('PlannerService', PlannerService);
 
     // LLM Configuration
     const defaultLLMConfig: LLMConfig = {
@@ -62,6 +71,16 @@ export function registerCoreServices() {
     toolRegistry.register(new AskUserTool());
 
     container.register(ToolRegistry, { useValue: toolRegistry });
+
+    // Enterprise Architecture Services
+    container.registerSingleton(WorkflowEngine);
+    container.registerSingleton(LocalBrowserNode);
+    container.registerSingleton(DomiaGateway);
+
+    // Auto-register local node
+    const gateway = container.resolve(DomiaGateway);
+    const localNode = container.resolve(LocalBrowserNode);
+    gateway.registerNode(localNode);
 }
 
 export { container };

@@ -1,14 +1,17 @@
-import { ResultAsync } from 'neverthrow';
+
+import { ResultAsync, okAsync, errAsync } from 'neverthrow';
 import type { LLMContext } from '@domain/ports';
 import type { AgentAction } from '@domain/value-objects';
 import { ElementIdFactory } from '@domain/value-objects';
 import { LLMError } from '@domain/errors';
 
+import { ActionSchema } from '@domain/schemas/ActionSchema';
+
 export const LLMPromptUtils = {
     systemPrompt: `You are an autonomous web testing agent. You interact with web pages to verify conditions and achieve goals.
 
 CAPABILITIES:
-- You can click, type, press keys, scroll, wait, and extract data
+- You can click, type, pressKey, scroll, wait, and extract data
 - You receive bounding box coordinates (x, y, width, height) for every element
 - You receive the viewport dimensions to calculate positions and layouts
 - You can verify visual layout properties using math on bounding boxes
@@ -69,13 +72,25 @@ ACTION TYPES:
             })
             .join('\n');
 
+        const formatAttributes = (attrs: Record<string, string>): string =>
+            Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(' ') || 'None';
+
         const previousActionsStr = context.previousActions
             .slice(-5)
             .map((a, i) => {
+                const desc = ('elementDescriptor' in a && a.elementDescriptor) ? ` on ${a.elementDescriptor}` : '';
                 if (a.type === 'pressKey') return `${i + 1}. pressKey(${a.key})`;
-                return `${i + 1}. ${a.type}`;
+                if (a.type === 'navigate') return `${i + 1}. navigate to ${a.url}`;
+                return `${i + 1}. ${a.type}${desc}`;
             })
             .join('\n');
+
+        // Fix for untyped plan using unknown and manual check/cast
+        const formatPlan = (p: unknown): string => {
+            const plan = p as { items: { status: string; description: string }[] };
+            if (!plan || !plan.items) return 'No active plan.';
+            return plan.items.map(item => `- [${item.status.toUpperCase()}] ${item.description}`).join('\n');
+        };
 
         return `GOAL: ${context.goal}
 
@@ -84,13 +99,19 @@ VIEWPORT: ${context.viewport.width}x${context.viewport.height} pixels
 CURRENT PAGE:
 URL: ${context.currentUrl}
 Title: ${context.pageTitle}
-Root Classes: ${context.snapshot.rootClasses}
+
+ROOT ELEMENTS:
+- <html> attributes: ${formatAttributes(context.snapshot.rootElements.html)}
+- <body> attributes: ${formatAttributes(context.snapshot.rootElements.body)}
 
 INTERACTIVE ELEMENTS (with bounding boxes [x,y,w,h]):
 ${elementsStr}
 
 PREVIOUS ACTIONS:
 ${previousActionsStr || 'None yet'}
+
+CURRENT PLAN:
+${formatPlan(context.plan)}
 
 STEPS REMAINING: ${context.stepsRemaining}
 
@@ -101,14 +122,16 @@ Analyze the elements and their positions, then respond with a single JSON action
         return `${this.systemPrompt}\n\n---\n\n${this.buildUserPrompt(context)}`;
     },
 
-    parseAction(text: string): ResultAsync<AgentAction, LLMError> {
-        return ResultAsync.fromPromise(
-            Promise.resolve(this.doParseAction(text)),
-            (e) => new LLMError(`Failed to parse LLM response: ${String(e)}`)
-        );
+    parseAction(text: string, context?: LLMContext): ResultAsync<AgentAction, LLMError> {
+        try {
+            const action = this.doParseAction(text, context);
+            return okAsync(action);
+        } catch (e) {
+            return errAsync(new LLMError(`Failed to parse LLM response: ${String(e)}`));
+        }
     },
 
-    doParseAction(text: string): AgentAction {
+    doParseAction(text: string, context?: LLMContext): AgentAction {
         if (!text || text.trim().length === 0) {
             throw new LLMError('LLM returned empty response');
         }
@@ -128,7 +151,6 @@ Analyze the elements and their positions, then respond with a single JSON action
         }
 
         // Sanitize JSON string: escape unescaped control characters
-        // We use a simple state machine to escape newlines inside strings
         let sanitized = '';
         let inString = false;
         let isEscaped = false;
@@ -144,26 +166,21 @@ Analyze the elements and their positions, then respond with a single JSON action
                     inString = false;
                     sanitized += char;
                 } else if (char === '\n') {
-                    // Escape newline inside string
                     sanitized += '\\n';
-                    isEscaped = false; // Reset escape state
+                    isEscaped = false;
                 } else if (char === '\r') {
-                    // Ignore CR inside string or escape it? Better to ignore or convert to \r
                     sanitized += '\\r';
                     isEscaped = false;
                 } else if (char === '\t') {
-                    // Tab is allowed in string? Actually tab in string MUST be escaped in JSON
                     sanitized += '\\t';
                     isEscaped = false;
                 } else if (char && char.charCodeAt(0) < 0x20) {
-                    // Other control chars - ignore
                     isEscaped = false;
                 } else {
                     sanitized += char;
                     isEscaped = false;
                 }
             } else {
-                // Not in string - preserve structural chars, ignore whitespace/control if needed or keep for formatting
                 if (char === '"') {
                     inString = true;
                     sanitized += char;
@@ -174,47 +191,67 @@ Analyze the elements and their positions, then respond with a single JSON action
         }
         jsonStr = sanitized;
 
-        const parsed = JSON.parse(jsonStr) as {
-            thought?: string;
-            action: {
-                type: string;
-                elementId?: number;
-                text?: string;
-                submit?: boolean;
-                key?: string;
-                direction?: string;
-                durationMs?: number;
-                keyName?: string;
-                value?: string;
-                url?: string;
-                summary?: string;
-                reason?: string;
-            };
-        };
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(jsonStr);
+        } catch (e) {
+            throw new LLMError(`JSON Syntax Error: ${String(e)} in payload: ${jsonStr.substring(0, 100)}...`);
+        }
 
-        const { action, thought = '' } = parsed;
+        const validationResult = ActionSchema.safeParse(parsed);
+
+        if (!validationResult.success) {
+            const errors = validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+            throw new LLMError(`Schema Validation Failed: ${errors}`);
+        }
+
+        const { action, thought = '' } = validationResult.data;
+
+        const getDescriptor = (id: number): string | undefined => {
+            if (!context) return undefined;
+            const el = context.snapshot.elements.find(e => Number(e.id) === id);
+            if (!el) return undefined;
+            return `${el.tag} "${el.text.slice(0, 30)}"`;
+        };
 
         switch (action.type) {
             case 'click':
-                return { type: 'click', elementId: ElementIdFactory.unsafe(action.elementId!), thought };
+                return {
+                    type: 'click',
+                    elementId: ElementIdFactory.unsafe(action.elementId),
+                    elementDescriptor: getDescriptor(action.elementId),
+                    thought
+                };
             case 'type':
-                return { type: 'type', elementId: ElementIdFactory.unsafe(action.elementId!), text: action.text ?? '', submit: action.submit ?? false, thought };
+                return {
+                    type: 'type',
+                    elementId: ElementIdFactory.unsafe(action.elementId),
+                    elementDescriptor: getDescriptor(action.elementId),
+                    text: action.text,
+                    submit: action.submit ?? false,
+                    thought
+                };
             case 'pressKey':
-                return { type: 'pressKey', key: action.key ?? 'Enter', thought };
+                return { type: 'pressKey', key: action.key, thought };
             case 'scroll':
-                return { type: 'scroll', direction: action.direction === 'up' ? 'up' : 'down', thought };
+                return { type: 'scroll', direction: action.direction, thought };
             case 'wait':
-                return { type: 'wait', durationMs: action.durationMs ?? 1000, thought };
+                return { type: 'wait', durationMs: action.durationMs, thought };
             case 'extract':
-                return { type: 'extract', elementId: ElementIdFactory.unsafe(action.elementId!), thought };
+                return {
+                    type: 'extract',
+                    elementId: ElementIdFactory.unsafe(action.elementId),
+                    elementDescriptor: getDescriptor(action.elementId),
+                    thought
+                };
             case 'navigate':
-                return { type: 'navigate', url: action.url ?? '', thought };
+                return { type: 'navigate', url: action.url, thought };
             case 'pass':
-                return { type: 'pass', summary: action.summary ?? 'Test passed', thought };
+                return { type: 'pass', summary: action.summary, thought };
             case 'fail':
-                return { type: 'fail', reason: action.reason ?? 'Test failed', thought };
+                return { type: 'fail', reason: action.reason, thought };
             default:
-                throw new LLMError(`Unknown action type: ${action.type}`);
+                throw new LLMError(`Unknown action type`);
         }
     },
 };
