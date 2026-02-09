@@ -12,6 +12,7 @@ export interface TestRun {
     readonly status: TestRunStatus;
     readonly plan?: Plan;
     readonly createdAt: Date;
+    readonly startedAt?: Date;
     readonly updatedAt: Date;
 }
 
@@ -38,6 +39,7 @@ export const TestRun = {
         return {
             ...run,
             status: { type: 'running' },
+            startedAt: new Date(),
             updatedAt: new Date(),
         };
     },

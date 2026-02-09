@@ -105,16 +105,11 @@ export class RunTestUseCase {
                 const stepGen = this.executor.executeStep(item.description, browser, input.url);
                 let result: import('neverthrow').Result<void, Error> | undefined;
 
-                // Manual iteration to capture both yielded events and return value
                 const iterator = stepGen[Symbol.asyncIterator]();
                 let next = await iterator.next();
                 while (!next.done) {
                     if (next.value.type === 'action') {
                         yield { type: 'acting', action: next.value.action };
-                    } else if (next.value.type === 'thought') {
-                        // Optional: yield thought events if RunTestOutput supports it
-                        // For now we ignore or log?
-                        // yield { type: 'thinking', text: next.value.text }; // parsing error if not supported
                     }
                     next = await iterator.next();
                 }

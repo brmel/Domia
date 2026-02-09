@@ -23,12 +23,10 @@ export class StepExecutor {
         let loopCount = 0;
 
         while (loopCount < maxActions) {
-            // 1. Perception
             const snapshotResult = await browser.snapshot();
             if (snapshotResult.isErr()) return err(new Error(`Snapshot failed: ${snapshotResult.error.message}`));
             const snapshot = snapshotResult.value;
 
-            // 2. Planning (LLM)
             const viewport = await browser.getViewportSize();
             const context: LLMContext = {
                 goal: stepGoal,
@@ -44,19 +42,15 @@ export class StepExecutor {
             if (actionResult.isErr()) return err(new Error(`LLM failed: ${actionResult.error.message}`));
             const action = actionResult.value;
 
-            // 3. Loop Detection
             if (this.loopDetector.isLoop(currentState.history, action)) {
                 return err(new Error(`Loop detected. Action '${action.type}' repeated too many times.`));
             }
 
-            // Yield Thought/Action
             yield { type: 'action', action };
 
-            // 4. Execution
             const execResult = await this.executeAction(browser, action);
             if (execResult.isErr()) return err(new Error(`Action execution failed: ${execResult.error.message}`));
 
-            // 5. State Update
             currentState = {
                 ...currentState,
                 history: [...currentState.history, action],
@@ -64,7 +58,6 @@ export class StepExecutor {
             };
             loopCount++;
 
-            // 6. Terminal Conditions
             if (action.type === ActionType.PASS) {
                 return ok(undefined);
             }

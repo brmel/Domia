@@ -4,7 +4,9 @@ import Database from 'better-sqlite3';
 import { Kysely, SqliteDialect, Generated } from 'kysely';
 import fs from 'fs-extra';
 import path from 'path';
-import { IPersistenceAdapter, TestRun, TestStep, LogEntry } from '@domain/ports';
+import { IPersistenceAdapter, TestStep, LogEntry } from '@domain/ports';
+import { TestRun, TestRunStatus } from '@domain/entities/TestRun';
+import { TestRunId, Url } from '@domain/value-objects';
 import { PersistenceError } from '@domain/errors';
 import { ConfigService } from '../../config/ConfigService';
 
@@ -115,17 +117,35 @@ export class SQLiteAdapter implements IPersistenceAdapter {
     }
 
     saveTestRun(run: TestRun): ResultAsync<void, PersistenceError> {
+        // Extract flattened fields from TestRunStatus
+        let summary: string | null = null;
+        let durationMs: number | null = null;
+
+        if (run.status.type === 'passed') {
+            summary = run.status.summary;
+            durationMs = run.status.duration;
+        } else if (run.status.type === 'failed') {
+            summary = run.status.error;
+            durationMs = run.status.duration;
+        } else if (run.status.type === 'cancelled') {
+            summary = run.status.reason;
+        }
+
+        // startedAt is optional in interface (due to my fix) but required in DB? 
+        // We set default in DB, but better to use run.startedAt if present or run.createdAt as fallback
+        const startedAt = run.startedAt ? run.startedAt.toISOString() : run.createdAt.toISOString();
+
         return ResultAsync.fromPromise(
             this.db.insertInto('test_runs')
                 .values({
                     id: run.id,
                     url: run.url,
-                    status: run.status,
-                    started_at: run.startedAt,
-                    completed_at: run.completedAt ?? null,
-                    duration_ms: run.durationMs ?? null,
-                    goal: run.goal ?? null,
-                    summary: run.summary ?? null
+                    status: run.status.type,
+                    started_at: startedAt,
+                    completed_at: null, // Initial save typically not completed
+                    duration_ms: durationMs,
+                    goal: run.prompt,
+                    summary: summary
                 })
                 .execute(),
             (e) => new PersistenceError(`Failed to save test run: ${e}`)
@@ -135,10 +155,31 @@ export class SQLiteAdapter implements IPersistenceAdapter {
     updateTestRun(id: string, updates: Partial<TestRun>): ResultAsync<void, PersistenceError> {
         // Map domain fields to DB fields
         const values: Partial<TestRunTable> = {};
-        if (updates.status) values.status = updates.status;
-        if (updates.completedAt) values.completed_at = updates.completedAt;
-        if (updates.durationMs) values.duration_ms = updates.durationMs;
-        if (updates.summary) values.summary = updates.summary;
+
+        // Handle Status Update
+        if (updates.status) {
+            values.status = updates.status.type;
+            if (updates.status.type === 'passed') {
+                values.summary = updates.status.summary;
+                values.duration_ms = updates.status.duration;
+            } else if (updates.status.type === 'failed') {
+                values.summary = updates.status.error;
+                values.duration_ms = updates.status.duration;
+            } else if (updates.status.type === 'cancelled') {
+                values.summary = updates.status.reason;
+            }
+        }
+
+        if (updates.startedAt) values.started_at = updates.startedAt.toISOString();
+
+        // We generally infer completed_at from status change to terminal state, 
+        // but explicit update is respected.
+        // TestRun entity doesn't have explicit completedAt, it's inside status for duration/summary? 
+        // Actually TestRun Entity has updatedAt. 
+        // The DB has completed_at. We can set completed_at = now if status is terminal.
+        if (updates.status && ['passed', 'failed', 'cancelled'].includes(updates.status.type)) {
+            values.completed_at = new Date().toISOString();
+        }
 
         return ResultAsync.fromPromise(
             this.db.updateTable('test_runs')
@@ -202,15 +243,28 @@ export class SQLiteAdapter implements IPersistenceAdapter {
     }
 
     private mapToTestRun(row: TestRunTable): TestRun {
+        let status: TestRunStatus;
+
+        if (row.status === 'passed') {
+            status = { type: 'passed', summary: row.summary || '', duration: row.duration_ms || 0 };
+        } else if (row.status === 'failed') {
+            status = { type: 'failed', error: row.summary || 'Unknown error', duration: row.duration_ms || 0 };
+        } else if (row.status === 'cancelled') {
+            status = { type: 'cancelled', reason: row.summary || '' };
+        } else if (row.status === 'running') {
+            status = { type: 'running' };
+        } else {
+            status = { type: 'pending' };
+        }
+
         return {
-            id: row.id,
-            url: row.url,
-            status: row.status as TestRun['status'],
-            startedAt: row.started_at,
-            ...(row.completed_at ? { completedAt: row.completed_at } : {}),
-            ...(row.duration_ms ? { durationMs: row.duration_ms } : {}),
-            ...(row.goal ? { goal: row.goal } : {}),
-            ...(row.summary ? { summary: row.summary } : {})
+            id: row.id as TestRunId,
+            url: row.url as Url,
+            prompt: row.goal || '',
+            status: status,
+            createdAt: new Date(row.started_at),
+            startedAt: new Date(row.started_at),
+            updatedAt: row.completed_at ? new Date(row.completed_at) : new Date(row.started_at)
         };
     }
 
