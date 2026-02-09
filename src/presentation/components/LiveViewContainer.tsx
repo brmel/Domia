@@ -49,12 +49,14 @@ export const LiveViewContainer: React.FC = () => {
             clearTimeout(debounceTimer);
             observer.disconnect();
             window.removeEventListener('resize', updateBounds);
-            if (!isRunning) {
+            // Hide the view when the component stops running (or unmounts)
+            if (isRunning) {
                 window.electron?.agentView?.hide();
             }
         };
     }, [isRunning]);
 
+    // Ensure view is hidden on unmount (redundant safety)
     useEffect(() => {
         return (): void => {
             window.electron?.agentView?.hide();

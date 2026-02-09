@@ -2,6 +2,8 @@
 import { AgentAction, TestRunId } from '../domain/value-objects';
 import { WorkflowError } from '../domain/errors';
 
+import { TestStep } from '../domain/entities';
+
 export interface RunTestInput {
     url: string;
     prompt: string;
@@ -16,6 +18,6 @@ export type RunTestOutput =
     | { type: 'observing' }
     | { type: 'thinking' }
     | { type: 'acting'; action: AgentAction }
-    | { type: 'step_complete'; stepNumber: number }
+    | { type: 'step_complete'; step: TestStep }
     | { type: 'completed'; success: boolean; summary?: string }
     | { type: 'error'; error: WorkflowError | Error };

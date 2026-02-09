@@ -62,6 +62,15 @@ function createWindow(): void {
     agentViewService.hide();
   });
 
+  // Log renderer crashes
+  win.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[Main] Renderer process gone:', details);
+  });
+
+  win.webContents.on('did-finish-load', () => {
+    win?.webContents.send('main-process-message', (new Date).toLocaleString())
+  });
+
   createIPCHandler({ router: appRouter, windows: [win] });
 
   if (VITE_DEV_SERVER_URL) {

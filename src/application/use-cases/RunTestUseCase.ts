@@ -3,10 +3,12 @@ import { injectable, inject } from 'tsyringe';
 import { DomiaGateway } from '../gateway/DomiaGateway';
 import type { ILLMProvider, IBrowserAutomation, LLMContext } from '../../domain/ports';
 import { AgentAction, WorkflowState, UrlFactory } from '../../domain/value-objects';
+import { TestStepFactory } from '../../domain/entities';
 import { ExecutionController } from '../controllers/ExecutionController';
 import { WorkflowError } from '../../domain/errors';
 import { TestRunLifecycleManager } from '../services/TestRunLifecycleManager';
 import { RunTestInput, RunTestOutput } from '../dtos';
+import { TestRunState } from '../../domain/enums/TestRunState';
 
 @injectable()
 export class RunTestUseCase {
@@ -59,11 +61,11 @@ export class RunTestUseCase {
             // Execute Workflow Loop
             while (!completed && !controller.isStopped()) {
                 // Pause handling
-                if (controller.state === 'paused') {
+                if (controller.state === TestRunState.PAUSED) {
                     await controller.waitForResume();
                 }
 
-                if (controller.state === 'cancelled') {
+                if (controller.state === TestRunState.CANCELLED) {
                     break;
                 }
 
@@ -137,26 +139,40 @@ export class RunTestUseCase {
                     finalSummary = action.reason;
                     throw new WorkflowError(action.reason);
                 } else {
+                    // Create Step
+                    const step = TestStepFactory.create({
+                        stepNumber: currentState.stepNumber + 1,
+                        action
+                    });
+
+                    // Execute Action
                     await this.executeAction(browser, action);
-                }
 
-                // Update State (Immutable update)
-                currentState = {
-                    ...currentState,
-                    stepNumber: currentState.stepNumber + 1,
-                    history: newHistory
-                };
+                    // Mark as Success (for now assuming success if no error thrown)
+                    // In a real scenario, we'd check execution result
+                    const completedStep = TestStepFactory.markSuccess(step, 0); // Simplified duration for now
 
-                yield { type: 'step_complete', stepNumber: currentState.stepNumber };
+                    // Update State (Immutable update)
+                    currentState = {
+                        ...currentState,
+                        stepNumber: currentState.stepNumber + 1,
+                        history: newHistory,
+                        // We don't track steps in currentState explicitly in this simplified version, 
+                        // but if we did, we'd add it here. The UI store tracks history via events.
+                    };
 
-                if (currentState.stepNumber >= (input.options?.maxSteps || 20)) {
-                    completed = true;
-                    finalSummary = "Max steps reached without conclusion.";
+                    yield { type: 'step_complete', step: completedStep };
+
+                    if (currentState.stepNumber >= (input.options?.maxSteps || 20)) {
+                        completed = true;
+                        finalSummary = "Max steps reached without conclusion.";
+                    }
                 }
             }
+            // End of Workflow Loop
 
             // Finalize
-            if (controller.state === 'cancelled') {
+            if (controller.state === TestRunState.CANCELLED) {
                 yield { type: 'completed', success: false, summary: "Test cancelled by user." };
                 await this.lifecycleManager.finalizeTestRun(testRunId, false, "Test cancelled by user.");
             } else {
