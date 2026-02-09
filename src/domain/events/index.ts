@@ -4,7 +4,7 @@ export type {
     ObservingEvent,
     ThinkingEvent,
     ActingEvent,
-    StepCompleteEvent,
+
     ScreenshotEvent,
     ErrorEvent,
     CancelledEvent,

@@ -1,8 +1,6 @@
 import { injectable, singleton, inject } from 'tsyringe';
 import { INode } from '@domain/ports';
 import type { ILogger } from '@domain/ports';
-import { WorkflowEngine } from '../workflows/WorkflowEngine';
-import { TestRunId } from '@domain/value-objects';
 
 @singleton()
 @injectable()
@@ -11,7 +9,6 @@ export class DomiaGateway {
     private sessions: Map<string, string> = new Map(); // SessionId -> NodeId
 
     constructor(
-        @inject(WorkflowEngine) private workflowEngine: WorkflowEngine,
         @inject('ILogger') private logger: ILogger
     ) { }
 
@@ -35,13 +32,6 @@ export class DomiaGateway {
         const node = this.getAvailableNode();
         if (!node) {
             throw new Error('No available nodes found');
-        }
-
-        // Check if we can resume an existing workflow
-        // TestRunId is a branded string, so we can pass the string directly if we cast or unwrap
-        const conversionResult = await this.workflowEngine.resume(sessionId as TestRunId);
-        if (conversionResult.isOk() && conversionResult.value.status !== 'idle') {
-            this.logger.info(`[DomiaGateway] Resuming existing workflow for ${sessionId} in state ${conversionResult.value.status}`);
         }
 
         this.sessions.set(sessionId, node.id);

@@ -89,7 +89,16 @@ export class RunCommand {
                         switch (event.type) {
                             case 'started':
                                 break;
-                            case 'step_complete':
+                            case 'state_updated':
+                                const state = event.state;
+                                if (state.plan) {
+                                    // Simple visualization of plan progress
+                                    // For CLI, maybe just log the active item?
+                                    const activeItem = state.plan.items.find(i => i.status === 'active');
+                                    if (activeItem) {
+                                        spinner.text = `Executing: ${activeItem.description}`;
+                                    }
+                                }
                                 break;
                             case 'completed':
                                 if (event.success) {

@@ -1,5 +1,5 @@
 import { TestRunId, Url } from '../value-objects';
-import { TestStep } from './TestStep';
+import { Plan } from './Plan';
 
 /**
  * TestRun Entity (Aggregate Root)
@@ -10,16 +10,16 @@ export interface TestRun {
     readonly url: Url;
     readonly prompt: string;
     readonly status: TestRunStatus;
-    readonly steps: readonly TestStep[];
+    readonly plan?: Plan;
     readonly createdAt: Date;
     readonly updatedAt: Date;
 }
 
 export type TestRunStatus =
     | { type: 'pending' }
-    | { type: 'running'; currentStep: number }
+    | { type: 'running' }
     | { type: 'passed'; summary: string; duration: number }
-    | { type: 'failed'; error: string; failedAtStep: number; duration: number }
+    | { type: 'failed'; error: string; duration: number }
     | { type: 'cancelled'; reason: string };
 
 export const TestRun = {
@@ -29,7 +29,6 @@ export const TestRun = {
             url: params.url,
             prompt: params.prompt,
             status: { type: 'pending' },
-            steps: [],
             createdAt: new Date(),
             updatedAt: new Date(),
         };
@@ -38,24 +37,15 @@ export const TestRun = {
     start(run: TestRun): TestRun {
         return {
             ...run,
-            status: { type: 'running', currentStep: 0 },
+            status: { type: 'running' },
             updatedAt: new Date(),
         };
     },
 
-    addStep(run: TestRun, step: TestStep): TestRun {
+    updatePlan(run: TestRun, plan: Plan): TestRun {
         return {
             ...run,
-            steps: [...run.steps, step],
-            status: { type: 'running', currentStep: step.stepNumber },
-            updatedAt: new Date(),
-        };
-    },
-
-    updateStep(run: TestRun, stepNumber: number, updater: (step: TestStep) => TestStep): TestRun {
-        return {
-            ...run,
-            steps: run.steps.map((s) => (s.stepNumber === stepNumber ? updater(s) : s)),
+            plan,
             updatedAt: new Date(),
         };
     },
@@ -69,11 +59,11 @@ export const TestRun = {
         };
     },
 
-    fail(run: TestRun, error: string, failedAtStep: number): TestRun {
+    fail(run: TestRun, error: string): TestRun {
         const duration = Date.now() - run.createdAt.getTime();
         return {
             ...run,
-            status: { type: 'failed', error, failedAtStep, duration },
+            status: { type: 'failed', error, duration },
             updatedAt: new Date(),
         };
     },

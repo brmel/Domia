@@ -6,6 +6,7 @@ import type { ILLMProvider, LLMContext, ILogger, LLMConfig } from '@domain/ports
 import type { AgentAction } from '@domain/value-objects';
 import { LLMError } from '@domain/errors';
 import { LLMPromptUtils } from './LLMPromptUtils';
+import { LLMPlanningUtils } from './LLMPlanningUtils';
 
 @injectable()
 export class LangChainAdapter implements ILLMProvider {
@@ -102,5 +103,32 @@ export class LangChainAdapter implements ILLMProvider {
 
         this.logger.debug(`[LangChainAdapter] Response length: ${content.length}`);
         return content;
+    }
+    generatePlan(prompt: string): ResultAsync<import('@domain/entities/Plan').Plan, LLMError> {
+        return ResultAsync.fromPromise(
+            this.doGeneratePlan(prompt),
+            (e) => e instanceof LLMError ? e : new LLMError(`Plan generation failed: ${String(e)}`)
+        );
+    }
+
+    private async doGeneratePlan(prompt: string): Promise<import('@domain/entities/Plan').Plan> {
+        const messages: BaseMessage[] = [
+            new SystemMessage(LLMPlanningUtils.systemPrompt),
+            new HumanMessage(`User Request: "${prompt}"`)
+        ];
+
+        const response = await this.model.invoke(messages);
+        let content = '';
+        if (typeof response.content === 'string') {
+            content = response.content;
+        } else if (Array.isArray(response.content)) {
+            content = response.content.map(c => ('text' in c ? c.text : '')).join('');
+        }
+
+        const result = LLMPlanningUtils.parsePlan(content);
+        if (result.isErr()) {
+            throw new LLMError(result.error.message);
+        }
+        return result.value;
     }
 }

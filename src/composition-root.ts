@@ -19,16 +19,10 @@ import { ExtractTool } from './application/tools/browser/ExtractTool';
 import { PressKeyTool } from './application/tools/browser/PressKeyTool';
 import { AskUserTool } from './application/tools/general/AskUserTool';
 
-import { ActionPerformer } from './application/services/ActionPerformer';
-import { SnapshotService } from './application/services/SnapshotService';
 import { TestRunLifecycleManager } from './application/services/TestRunLifecycleManager';
-import { SelectorEngine } from './domain/services/SelectorEngine';
 
 import { LocalBrowserNode } from './infrastructure/nodes/LocalBrowserNode';
 import { DomiaGateway } from './application/gateway/DomiaGateway';
-import { PlannerService } from './application/services/PlannerService';
-
-import { WorkflowEngine } from './application/workflows/WorkflowEngine';
 
 export function registerCoreServices(): void {
     // 1. Core Services (Config & Persistence)
@@ -41,12 +35,6 @@ export function registerCoreServices(): void {
 
     // Decoupled Helper Services
     container.registerSingleton(TestRunLifecycleManager);
-    container.registerSingleton(SnapshotService);
-    container.registerSingleton(ActionPerformer);
-    container.registerSingleton(SnapshotService);
-    container.registerSingleton(SelectorEngine);
-    container.registerSingleton(PlannerService);
-    container.registerSingleton('PlannerService', PlannerService);
 
     // LLM Configuration
     const defaultLLMConfig: LLMConfig = {
@@ -73,7 +61,6 @@ export function registerCoreServices(): void {
     container.register(ToolRegistry, { useValue: toolRegistry });
 
     // Enterprise Architecture Services
-    container.registerSingleton(WorkflowEngine);
     container.registerSingleton(LocalBrowserNode);
     container.registerSingleton(DomiaGateway);
 

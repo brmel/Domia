@@ -1,6 +1,6 @@
 import type { TestRunId } from '../value-objects';
 import type { AgentAction } from '../value-objects';
-import type { TestStep } from '../entities';
+import type { WorkflowState } from '../value-objects';
 import type { DomainError } from '../errors';
 
 /**
@@ -12,7 +12,7 @@ export type TestRunEvent =
     | ObservingEvent
     | ThinkingEvent
     | ActingEvent
-    | StepCompleteEvent
+    | StateUpdatedEvent
     | ScreenshotEvent
     | ErrorEvent
     | CancelledEvent
@@ -51,9 +51,9 @@ export interface ActingEvent {
     readonly action: AgentAction;
 }
 
-export interface StepCompleteEvent {
-    readonly type: 'step_complete';
-    readonly step: TestStep;
+export interface StateUpdatedEvent {
+    readonly type: 'state_updated';
+    readonly state: WorkflowState;
 }
 
 export interface ScreenshotEvent {

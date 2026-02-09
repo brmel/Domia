@@ -1,4 +1,5 @@
 import type { ElementId } from './Brand';
+import { ActionType } from '../enums/ActionType';
 
 /**
  * AgentAction Value Object
@@ -16,14 +17,14 @@ export type AgentAction =
     | FailAction;
 
 export interface ClickAction {
-    readonly type: 'click';
+    readonly type: ActionType.CLICK;
     readonly elementId: ElementId;
     readonly elementDescriptor?: string | undefined;
     readonly thought: string;
 }
 
 export interface TypeAction {
-    readonly type: 'type';
+    readonly type: ActionType.TYPE;
     readonly elementId: ElementId;
     readonly elementDescriptor?: string | undefined;
     readonly text: string;
@@ -32,44 +33,44 @@ export interface TypeAction {
 }
 
 export interface ScrollAction {
-    readonly type: 'scroll';
+    readonly type: ActionType.SCROLL;
     readonly direction: 'up' | 'down';
     readonly thought: string;
 }
 
 export interface WaitAction {
-    readonly type: 'wait';
+    readonly type: ActionType.WAIT;
     readonly durationMs: number;
     readonly thought: string;
 }
 
 export interface PressKeyAction {
-    readonly type: 'pressKey';
+    readonly type: ActionType.PRESS_KEY;
     readonly key: string;
     readonly thought: string;
 }
 
 export interface ExtractAction {
-    readonly type: 'extract';
+    readonly type: ActionType.EXTRACT;
     readonly elementId: ElementId;
     readonly elementDescriptor?: string | undefined;
     readonly thought: string;
 }
 
 export interface NavigateAction {
-    readonly type: 'navigate';
+    readonly type: ActionType.NAVIGATE;
     readonly url: string;
     readonly thought: string;
 }
 
 export interface PassAction {
-    readonly type: 'pass';
+    readonly type: ActionType.PASS;
     readonly summary: string;
     readonly thought?: string;
 }
 
 export interface FailAction {
-    readonly type: 'fail';
+    readonly type: ActionType.FAIL;
     readonly reason: string;
     readonly thought?: string;
 }
@@ -78,5 +79,5 @@ export interface FailAction {
  * Type guard for terminal actions
  */
 export function isTerminalAction(action: AgentAction): action is PassAction | FailAction {
-    return action.type === 'pass' || action.type === 'fail';
+    return action.type === ActionType.PASS || action.type === ActionType.FAIL;
 }

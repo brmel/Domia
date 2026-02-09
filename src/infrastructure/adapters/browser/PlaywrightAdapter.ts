@@ -30,7 +30,6 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         this.logger.debug('[PlaywrightAdapter] Starting browser launch');
 
         if (!options.headless) {
-            // this.viewHost.show({ ... }); // Removed to prevent white screen flash
             // Let the frontend (LiveViewContainer) control visibility and bounds
             this.logger.debug('[PlaywrightAdapter] Adapting view for headless: false');
         }
@@ -271,8 +270,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
 
     async close(): Promise<void> {
         this.logger.debug('[PlaywrightAdapter] Closing browser context');
-        // Do not hide the view here. Let the UI (React) decide when to hide the viewContainer.
-        // this.viewHost.hide(); 
+        // Do not hide the view here. Let the UI (React) decide when to hide the viewContainer. 
 
         if (this.browser) {
             await this.browser.close();
