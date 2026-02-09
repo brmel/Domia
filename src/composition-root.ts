@@ -26,6 +26,7 @@ import { SelectorEngine } from './domain/services/SelectorEngine';
 
 import { LocalBrowserNode } from './infrastructure/nodes/LocalBrowserNode';
 import { DomiaGateway } from './application/gateway/DomiaGateway';
+import { PlannerService } from './application/services/PlannerService';
 
 import { WorkflowEngine } from './application/workflows/WorkflowEngine';
 
@@ -42,7 +43,10 @@ export function registerCoreServices(): void {
     container.registerSingleton(TestRunLifecycleManager);
     container.registerSingleton(SnapshotService);
     container.registerSingleton(ActionPerformer);
+    container.registerSingleton(SnapshotService);
     container.registerSingleton(SelectorEngine);
+    container.registerSingleton(PlannerService);
+    container.registerSingleton('PlannerService', PlannerService);
 
     // LLM Configuration
     const defaultLLMConfig: LLMConfig = {

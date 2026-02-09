@@ -12,6 +12,10 @@ export class ExecutionController extends EventEmitter implements IExecutionContr
         return this._state;
     }
 
+    isStopped(): boolean {
+        return this._state === TestRunState.CANCELLED || this._state === TestRunState.COMPLETED || this._state === TestRunState.FAILED;
+    }
+
     get currentPrompt(): string | undefined {
         return this._currentPrompt;
     }

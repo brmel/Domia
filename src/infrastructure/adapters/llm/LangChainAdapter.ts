@@ -53,8 +53,9 @@ export class LangChainAdapter implements ILLMProvider {
                     };
                     this.logger.warn(`[LangChainAdapter] validation failed (attempt ${i + 1}/${retries}): ${lastError.message}`);
                 }
-            } catch (e: any) {
-                const error = new LLMError(`Generation failed: ${e.message}`);
+            } catch (e: unknown) {
+                const errorMessage = e instanceof Error ? e.message : String(e);
+                const error = new LLMError(`Generation failed: ${errorMessage}`);
                 this.logger.error(`[LangChainAdapter] system error: ${error.message}`);
 
                 if (i < retries - 1) {

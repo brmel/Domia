@@ -1,3 +1,5 @@
+import { Plan } from '../entities/Plan';
+import { AgentAction } from './AgentAction';
 
 export type WorkflowStatus =
     | 'idle'
@@ -12,9 +14,14 @@ export type WorkflowStatus =
 export interface WorkflowState {
     readonly status: WorkflowStatus;
     readonly stepNumber: number;
-    readonly lastCheckpointId?: string; // ID of the last successfully executed step/snapshot
-    readonly variables: Record<string, unknown>; // Context variables for the workflow
+    readonly lastCheckpointId?: string;
+    readonly variables: Record<string, unknown>;
     readonly error?: string;
+
+    // Hierarchical Planning
+    readonly plan?: Plan;
+    readonly activeItemId?: string;
+    readonly history: AgentAction[];
 }
 
 export const WorkflowState = {
@@ -22,7 +29,8 @@ export const WorkflowState = {
         return {
             status: 'idle',
             stepNumber: 0,
-            variables: {}
+            variables: {},
+            history: []
         };
     }
 };

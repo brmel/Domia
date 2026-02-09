@@ -18,7 +18,12 @@ export type TestRunEvent =
     | CancelledEvent
     | ResumedEvent
     | PausedEvent
-    | CompletedEvent;
+    | CompletedEvent
+    | PlanningEvent;
+
+export interface PlanningEvent {
+    readonly type: 'planning';
+}
 
 export interface StartedEvent {
     readonly type: 'started';

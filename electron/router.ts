@@ -37,7 +37,7 @@ export const appRouter = t.router({
                 currentController = new ExecutionController();
 
                 try {
-                    const generator = useCase.execute(input, currentController);
+                    const generator = useCase.execute(input as any, currentController);
 
                     (async () => {
                         for await (const event of generator) {

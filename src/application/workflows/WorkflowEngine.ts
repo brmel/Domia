@@ -13,6 +13,18 @@ export class WorkflowEngine {
     ) { }
 
     /**
+     * Updates the current plan in the workflow state using a transactional transition.
+     */
+    async updatePlan(runId: TestRunId, currentState: WorkflowState, plan: import('@domain/entities/Plan').Plan): Promise<ResultAsync<WorkflowState, Error>> {
+        const firstItem = plan.items.length > 0 ? plan.items[0] : null;
+
+        return this.transition(runId, currentState, currentState.status, {
+            plan,
+            ...(firstItem ? { activeItemId: firstItem.id } : {})
+        });
+    }
+
+    /**
      * Transitions the workflow to a new state, persisting the change atomically.
      */
     async transition(

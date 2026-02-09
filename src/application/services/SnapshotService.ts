@@ -20,7 +20,8 @@ export class SnapshotService {
         stepNumber: number,
         prompt: string,
         previousActions: AgentAction[],
-        maxSteps: number
+        maxSteps: number,
+        plan?: import('@domain/entities/Plan').Plan
     ): Promise<Result<SnapshotResult, DomainError>> {
         const snapshotResult = await browser.snapshot();
         if (snapshotResult.isErr()) {
@@ -38,6 +39,7 @@ export class SnapshotService {
             previousActions,
             stepsRemaining: maxSteps - stepNumber,
             viewport,
+            ...(plan ? { plan } : {})
         };
 
         return ok({ context });

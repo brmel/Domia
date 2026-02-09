@@ -13,10 +13,7 @@ export interface LaunchOptions {
 /**
  * Screenshot data
  */
-export interface Screenshot {
-    readonly data: Buffer;
-    readonly timestamp: Date;
-}
+import { Screenshot } from './Screenshot';
 
 /**
  * IBrowserAutomation Port

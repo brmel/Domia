@@ -1,3 +1,4 @@
+
 import { ResultAsync, okAsync, errAsync } from 'neverthrow';
 import type { LLMContext } from '@domain/ports';
 import type { AgentAction } from '@domain/value-objects';
@@ -10,7 +11,7 @@ export const LLMPromptUtils = {
     systemPrompt: `You are an autonomous web testing agent. You interact with web pages to verify conditions and achieve goals.
 
 CAPABILITIES:
-- You can click, type, press keys, scroll, wait, and extract data
+- You can click, type, pressKey, scroll, wait, and extract data
 - You receive bounding box coordinates (x, y, width, height) for every element
 - You receive the viewport dimensions to calculate positions and layouts
 - You can verify visual layout properties using math on bounding boxes
@@ -84,6 +85,13 @@ ACTION TYPES:
             })
             .join('\n');
 
+        // Fix for untyped plan using unknown and manual check/cast
+        const formatPlan = (p: unknown): string => {
+            const plan = p as { items: { status: string; description: string }[] };
+            if (!plan || !plan.items) return 'No active plan.';
+            return plan.items.map(item => `- [${item.status.toUpperCase()}] ${item.description}`).join('\n');
+        };
+
         return `GOAL: ${context.goal}
 
 VIEWPORT: ${context.viewport.width}x${context.viewport.height} pixels
@@ -102,6 +110,9 @@ ${elementsStr}
 PREVIOUS ACTIONS:
 ${previousActionsStr || 'None yet'}
 
+CURRENT PLAN:
+${formatPlan(context.plan)}
+
 STEPS REMAINING: ${context.stepsRemaining}
 
 Analyze the elements and their positions, then respond with a single JSON action:`;
@@ -119,8 +130,6 @@ Analyze the elements and their positions, then respond with a single JSON action
             return errAsync(new LLMError(`Failed to parse LLM response: ${String(e)}`));
         }
     },
-
-    // ... (inside LLMPromptUtils)
 
     doParseAction(text: string, context?: LLMContext): AgentAction {
         if (!text || text.trim().length === 0) {
@@ -182,18 +191,12 @@ Analyze the elements and their positions, then respond with a single JSON action
         }
         jsonStr = sanitized;
 
-        let parsed: any;
+        let parsed: unknown;
         try {
             parsed = JSON.parse(jsonStr);
         } catch (e) {
             throw new LLMError(`JSON Syntax Error: ${String(e)} in payload: ${jsonStr.substring(0, 100)}...`);
         }
-
-        // Validate using Zod Schema
-        // We expect the LLM to output { thought?: string, action: { ... } }
-        // The ActionSchema defines the whole payload structure? 
-        // Wait, ActionSchema above defined { thought: z.string().optional(), action: z.discriminatedUnion(...) }
-        // So we can parse the whole object directly.
 
         const validationResult = ActionSchema.safeParse(parsed);
 
@@ -210,11 +213,6 @@ Analyze the elements and their positions, then respond with a single JSON action
             if (!el) return undefined;
             return `${el.tag} "${el.text.slice(0, 30)}"`;
         };
-
-        // Map back to AgentAction domain object (if necessary, or just return validated data if types match)
-        // The Zod schema matches the AgentAction value object structure mostly.
-        // But AgentAction in domain might have specific classes or branding.
-        // Let's keep the switch case mapping for safety and to inject 'elementDescriptor' which is not in the LLM output.
 
         switch (action.type) {
             case 'click':
@@ -253,7 +251,6 @@ Analyze the elements and their positions, then respond with a single JSON action
             case 'fail':
                 return { type: 'fail', reason: action.reason, thought };
             default:
-                // Should be unreachable due to Zod validation
                 throw new LLMError(`Unknown action type`);
         }
     },
