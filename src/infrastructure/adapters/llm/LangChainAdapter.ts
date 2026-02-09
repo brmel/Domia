@@ -1,8 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { StringOutputParser } from '@langchain/core/output_parsers';
+import { SystemMessage, HumanMessage, AIMessage, BaseMessage } from '@langchain/core/messages';
 import type { ILLMProvider, LLMContext, ILogger, LLMConfig } from '@domain/ports';
 import type { AgentAction } from '@domain/value-objects';
 import { LLMError } from '@domain/errors';
@@ -73,26 +72,35 @@ export class LangChainAdapter implements ILLMProvider {
         context: LLMContext,
         correction?: { error: string; lastResponse: string }
     ): Promise<string> {
-        const systemPrompt = LLMPromptUtils.systemPrompt.replace(/{/g, '{{').replace(/}/g, '}}');
+        // No need to escape for templates anymore
+        const systemPrompt = LLMPromptUtils.systemPrompt;
 
-        const messages: (string | [string, string])[] = [
-            ["system", systemPrompt],
-            ["user", LLMPromptUtils.buildUserPrompt(context)]
+        const messages: BaseMessage[] = [
+            new SystemMessage(systemPrompt),
+            new HumanMessage(LLMPromptUtils.buildUserPrompt(context))
         ];
 
         if (correction) {
-            messages.push(["assistant", correction.lastResponse]);
-            messages.push(["user", `SYSTEM: Your last response was invalid. Error: ${correction.error}.\nYou MUST correct it and provide valid JSON matching the schema.`]);
+            messages.push(new AIMessage(correction.lastResponse));
+            messages.push(new HumanMessage(`SYSTEM: Your last response was invalid. Error: ${correction.error}.\nYou MUST correct it and provide valid JSON matching the schema.`));
         }
 
-        const prompt = ChatPromptTemplate.fromMessages(messages);
-        const chain = prompt.pipe(this.model).pipe(new StringOutputParser());
+        this.logger.debug(`[LangChainAdapter] Invoking model directly. Correction active: ${!!correction}`);
 
-        this.logger.debug(`[LangChainAdapter] Invoking chain. Correction active: ${!!correction}`);
+        const response = await this.model.invoke(messages);
 
-        const response = await chain.invoke({});
+        let content = '';
+        if (typeof response.content === 'string') {
+            content = response.content;
+        } else if (Array.isArray(response.content)) {
+            // Handle multimodal content if it ever happens (mostly string for now)
+            content = response.content.map(c => {
+                if ('text' in c) return c.text;
+                return '';
+            }).join('');
+        }
 
-        this.logger.debug(`[LangChainAdapter] Response length: ${response.length}`);
-        return response;
+        this.logger.debug(`[LangChainAdapter] Response length: ${content.length}`);
+        return content;
     }
 }

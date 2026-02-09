@@ -10,8 +10,10 @@ export const LiveViewContainer: React.FC = () => {
         if (!containerRef.current) return;
 
         const container = containerRef.current;
+        let debounceTimer: NodeJS.Timeout;
 
-        const updateBounds = (): void => {
+        const performUpdate = (): void => {
+            if (!container) return;
             const rect = container.getBoundingClientRect();
             const bounds = {
                 x: Math.round(rect.x),
@@ -29,8 +31,14 @@ export const LiveViewContainer: React.FC = () => {
             }
         };
 
+        const updateBounds = (): void => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(performUpdate, 16); // Debounce at ~60fps
+        };
+
+        // Initial update (immediate, but could be debounced too, sticking to immediate for responsiveness)
         if (isRunning) {
-            updateBounds();
+            performUpdate();
         }
 
         const observer = new ResizeObserver(updateBounds);
@@ -38,6 +46,7 @@ export const LiveViewContainer: React.FC = () => {
         window.addEventListener('resize', updateBounds);
 
         return (): void => {
+            clearTimeout(debounceTimer);
             observer.disconnect();
             window.removeEventListener('resize', updateBounds);
             if (!isRunning) {

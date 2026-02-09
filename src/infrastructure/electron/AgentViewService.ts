@@ -72,35 +72,46 @@ export class AgentViewService {
 
         const children = this.mainWindow.contentView.children;
         const index = children.indexOf(this.view);
+        const isLast = index === children.length - 1;
 
         if (index === -1) {
             this.mainWindow.contentView.addChildView(this.view);
             this.logger.debug(`[AgentViewService] Added view to hierarchy. Total children: ${this.mainWindow.contentView.children.length}`);
-        } else if (index !== children.length - 1) {
-            // If it's not the last child, it's not on top. Move it to the top.
+        } else if (!isLast) {
+            // Only re-order if it's NOT already at the top
             this.mainWindow.contentView.removeChildView(this.view);
             this.mainWindow.contentView.addChildView(this.view);
             this.logger.debug('[AgentViewService] Moved view to top of hierarchy');
         }
 
-        this.view.setBounds(bounds);
+        // Only update bounds if they changed (simple check)
+        const current = this.view.getBounds();
+        if (current.x !== bounds.x || current.y !== bounds.y || current.width !== bounds.width || current.height !== bounds.height) {
+            this.view.setBounds(bounds);
+            this.logger.debug(`[AgentViewService] View shown at: ${JSON.stringify(bounds)}`);
+        }
+
         this.isVisible = true;
-        this.logger.debug(`[AgentViewService] View shown at: ${JSON.stringify(bounds)}`);
     }
 
     updateBounds(bounds: Rectangle): void {
         if (this.isVisible && this.view) {
-            this.view.setBounds(bounds);
+            const current = this.view.getBounds();
+            if (current.x !== bounds.x || current.y !== bounds.y || current.width !== bounds.width || current.height !== bounds.height) {
+                this.view.setBounds(bounds);
+            }
         }
     }
 
     hide(): void {
         if (this.mainWindow && this.view) {
-            if (this.mainWindow.contentView.children.indexOf(this.view) !== -1) {
-                this.mainWindow.contentView.removeChildView(this.view);
+            if (this.isVisible) {
+                if (this.mainWindow.contentView.children.indexOf(this.view) !== -1) {
+                    this.mainWindow.contentView.removeChildView(this.view);
+                }
+                this.isVisible = false;
+                this.logger.debug('[AgentViewService] View hidden');
             }
-            this.isVisible = false;
-            this.logger.debug('[AgentViewService] View hidden');
         }
     }
 

@@ -102,6 +102,33 @@ export class RunTestUseCase {
                 // Update History
                 const newHistory = [...currentState.history, action];
 
+                // optimized loop detection
+                if (currentState.history.length > 0) {
+                    const lastAction = currentState.history[currentState.history.length - 1];
+
+                    const isSemanticallyEqual = (a1: AgentAction, a2: AgentAction): boolean => {
+                        if (a1.type !== a2.type) return false;
+                        if (a1.type === 'click' && a2.type === 'click') return a1.elementId === a2.elementId;
+                        if (a1.type === 'type' && a2.type === 'type') return a1.elementId === a2.elementId && a1.text === a2.text && a1.submit === a2.submit;
+                        if (a1.type === 'navigate' && a2.type === 'navigate') return a1.url === a2.url;
+                        if (a1.type === 'scroll' && a2.type === 'scroll') return a1.direction === a2.direction;
+                        if (a1.type === 'pressKey' && a2.type === 'pressKey') return a1.key === a2.key;
+                        return false;
+                    };
+
+                    if (lastAction && isSemanticallyEqual(lastAction, action) && action.type !== 'wait') {
+                        // If we are repeating the exact same action (and it's not a wait), we are likely stuck.
+                        // But for now, let's just log a warning in the thought or force a fail if it happens too many times.
+                        // A simple heuristic: if the last 3 actions are identical, fail.
+                        const lastSeveral = currentState.history.slice(-2); // Get last 2
+                        const repeatedCount = lastSeveral.filter(a => isSemanticallyEqual(a, action)).length;
+
+                        if (repeatedCount === 4) { // Logic: Last 4 were same, + current one = 5 times
+                            throw new WorkflowError(`Agent stuck in a loop: repeated action '${action.type}' 5 times. Terminating.`);
+                        }
+                    }
+                }
+
                 if (action.type === 'pass') {
                     completed = true;
                     finalSummary = action.summary;
