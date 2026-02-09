@@ -1,8 +1,10 @@
-import { ResultAsync } from 'neverthrow';
+import { ResultAsync, okAsync, errAsync } from 'neverthrow';
 import type { LLMContext } from '@domain/ports';
 import type { AgentAction } from '@domain/value-objects';
 import { ElementIdFactory } from '@domain/value-objects';
 import { LLMError } from '@domain/errors';
+
+import { ActionSchema } from '@domain/schemas/ActionSchema';
 
 export const LLMPromptUtils = {
     systemPrompt: `You are an autonomous web testing agent. You interact with web pages to verify conditions and achieve goals.
@@ -110,11 +112,15 @@ Analyze the elements and their positions, then respond with a single JSON action
     },
 
     parseAction(text: string, context?: LLMContext): ResultAsync<AgentAction, LLMError> {
-        return ResultAsync.fromPromise(
-            Promise.resolve(this.doParseAction(text, context)),
-            (e) => new LLMError(`Failed to parse LLM response: ${String(e)}`)
-        );
+        try {
+            const action = this.doParseAction(text, context);
+            return okAsync(action);
+        } catch (e) {
+            return errAsync(new LLMError(`Failed to parse LLM response: ${String(e)}`));
+        }
     },
+
+    // ... (inside LLMPromptUtils)
 
     doParseAction(text: string, context?: LLMContext): AgentAction {
         if (!text || text.trim().length === 0) {
@@ -136,7 +142,6 @@ Analyze the elements and their positions, then respond with a single JSON action
         }
 
         // Sanitize JSON string: escape unescaped control characters
-        // We use a simple state machine to escape newlines inside strings
         let sanitized = '';
         let inString = false;
         let isEscaped = false;
@@ -152,26 +157,21 @@ Analyze the elements and their positions, then respond with a single JSON action
                     inString = false;
                     sanitized += char;
                 } else if (char === '\n') {
-                    // Escape newline inside string
                     sanitized += '\\n';
-                    isEscaped = false; // Reset escape state
+                    isEscaped = false;
                 } else if (char === '\r') {
-                    // Ignore CR inside string or escape it? Better to ignore or convert to \r
                     sanitized += '\\r';
                     isEscaped = false;
                 } else if (char === '\t') {
-                    // Tab is allowed in string? Actually tab in string MUST be escaped in JSON
                     sanitized += '\\t';
                     isEscaped = false;
                 } else if (char && char.charCodeAt(0) < 0x20) {
-                    // Other control chars - ignore
                     isEscaped = false;
                 } else {
                     sanitized += char;
                     isEscaped = false;
                 }
             } else {
-                // Not in string - preserve structural chars, ignore whitespace/control if needed or keep for formatting
                 if (char === '"') {
                     inString = true;
                     sanitized += char;
@@ -182,25 +182,27 @@ Analyze the elements and their positions, then respond with a single JSON action
         }
         jsonStr = sanitized;
 
-        const parsed = JSON.parse(jsonStr) as {
-            thought?: string;
-            action: {
-                type: string;
-                elementId?: number;
-                text?: string;
-                submit?: boolean;
-                key?: string;
-                direction?: string;
-                durationMs?: number;
-                keyName?: string;
-                value?: string;
-                url?: string;
-                summary?: string;
-                reason?: string;
-            };
-        };
+        let parsed: any;
+        try {
+            parsed = JSON.parse(jsonStr);
+        } catch (e) {
+            throw new LLMError(`JSON Syntax Error: ${String(e)} in payload: ${jsonStr.substring(0, 100)}...`);
+        }
 
-        const { action, thought = '' } = parsed;
+        // Validate using Zod Schema
+        // We expect the LLM to output { thought?: string, action: { ... } }
+        // The ActionSchema defines the whole payload structure? 
+        // Wait, ActionSchema above defined { thought: z.string().optional(), action: z.discriminatedUnion(...) }
+        // So we can parse the whole object directly.
+
+        const validationResult = ActionSchema.safeParse(parsed);
+
+        if (!validationResult.success) {
+            const errors = validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+            throw new LLMError(`Schema Validation Failed: ${errors}`);
+        }
+
+        const { action, thought = '' } = validationResult.data;
 
         const getDescriptor = (id: number): string | undefined => {
             if (!context) return undefined;
@@ -209,44 +211,50 @@ Analyze the elements and their positions, then respond with a single JSON action
             return `${el.tag} "${el.text.slice(0, 30)}"`;
         };
 
+        // Map back to AgentAction domain object (if necessary, or just return validated data if types match)
+        // The Zod schema matches the AgentAction value object structure mostly.
+        // But AgentAction in domain might have specific classes or branding.
+        // Let's keep the switch case mapping for safety and to inject 'elementDescriptor' which is not in the LLM output.
+
         switch (action.type) {
             case 'click':
                 return {
                     type: 'click',
-                    elementId: ElementIdFactory.unsafe(action.elementId!),
-                    elementDescriptor: getDescriptor(action.elementId!),
+                    elementId: ElementIdFactory.unsafe(action.elementId),
+                    elementDescriptor: getDescriptor(action.elementId),
                     thought
                 };
             case 'type':
                 return {
                     type: 'type',
-                    elementId: ElementIdFactory.unsafe(action.elementId!),
-                    elementDescriptor: getDescriptor(action.elementId!),
-                    text: action.text ?? '',
+                    elementId: ElementIdFactory.unsafe(action.elementId),
+                    elementDescriptor: getDescriptor(action.elementId),
+                    text: action.text,
                     submit: action.submit ?? false,
                     thought
                 };
             case 'pressKey':
-                return { type: 'pressKey', key: action.key ?? 'Enter', thought };
+                return { type: 'pressKey', key: action.key, thought };
             case 'scroll':
-                return { type: 'scroll', direction: action.direction === 'up' ? 'up' : 'down', thought };
+                return { type: 'scroll', direction: action.direction, thought };
             case 'wait':
-                return { type: 'wait', durationMs: action.durationMs ?? 1000, thought };
+                return { type: 'wait', durationMs: action.durationMs, thought };
             case 'extract':
                 return {
                     type: 'extract',
-                    elementId: ElementIdFactory.unsafe(action.elementId!),
-                    elementDescriptor: getDescriptor(action.elementId!),
+                    elementId: ElementIdFactory.unsafe(action.elementId),
+                    elementDescriptor: getDescriptor(action.elementId),
                     thought
                 };
             case 'navigate':
-                return { type: 'navigate', url: action.url ?? '', thought };
+                return { type: 'navigate', url: action.url, thought };
             case 'pass':
-                return { type: 'pass', summary: action.summary ?? 'Test passed', thought };
+                return { type: 'pass', summary: action.summary, thought };
             case 'fail':
-                return { type: 'fail', reason: action.reason ?? 'Test failed', thought };
+                return { type: 'fail', reason: action.reason, thought };
             default:
-                throw new LLMError(`Unknown action type: ${action.type}`);
+                // Should be unreachable due to Zod validation
+                throw new LLMError(`Unknown action type`);
         }
     },
 };

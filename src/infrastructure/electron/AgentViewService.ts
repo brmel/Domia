@@ -32,7 +32,6 @@ export class AgentViewService {
                 backgroundThrottling: false,
             }
         });
-        this.view.setBackgroundColor('#ff0000'); // Debug color to verify visibility
 
         this.view.webContents.setUserAgent(
             app.userAgentFallback.replace('Electron/' + process.versions.electron, '')

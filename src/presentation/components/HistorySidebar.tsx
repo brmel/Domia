@@ -1,35 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { trpc } from '../../lib/trpc';
 import type { TestRun, TestStep } from '@domain/ports';
 
-type RunWithSteps = TestRun & { steps: TestStep[] };
-
 export function HistorySidebar({ onClose }: { onClose: () => void }): JSX.Element {
-    const [runs, setRuns] = useState<TestRun[]>([]);
+    const utils = trpc.useUtils();
+    const { data: runs = [], isLoading: loading } = trpc.history.getRuns.useQuery();
     const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
 
-    const fetchRuns = async (): Promise<void> => {
-        setLoading(true);
-        try {
-            const data = await trpc.history.getRuns.query();
-            setRuns(data);
-        } catch (err) {
-            console.error('Failed to fetch runs', err);
-        } finally {
-            setLoading(false);
+    const clearMutation = trpc.history.clear.useMutation({
+        onSuccess: () => {
+            utils.history.getRuns.invalidate();
         }
-    };
-
-    useEffect(() => {
-        fetchRuns();
-    }, []);
+    });
 
     const handleClearHistory = async (): Promise<void> => {
         if (confirm('Are you sure you want to delete all history? This cannot be undone.')) {
             try {
-                await trpc.history.clear.mutate();
-                fetchRuns(); // Refresh list
+                await clearMutation.mutateAsync();
             } catch (err) {
                 console.error('Failed to clear history', err);
                 alert('Failed to clear history');
@@ -38,26 +25,11 @@ export function HistorySidebar({ onClose }: { onClose: () => void }): JSX.Elemen
     };
 
     const RunDetails = ({ runId }: { runId: string }): JSX.Element => {
-        const [run, setRun] = useState<RunWithSteps | null>(null);
-        const [loadingRun, setLoadingRun] = useState(true);
-
-        useEffect(() => {
-            const fetchRun = async (): Promise<void> => {
-                setLoadingRun(true);
-                try {
-                    const data = await trpc.history.getRun.query({ id: runId });
-                    setRun(data);
-                } catch (err) {
-                    console.error('Failed to fetch run details', err);
-                } finally {
-                    setLoadingRun(false);
-                }
-            };
-            fetchRun();
-        }, [runId]);
+        const { data: run, isLoading: loadingRun } = trpc.history.getRun.useQuery({ id: runId });
 
         if (loadingRun) return <div className="p-8 text-center text-gray-400 text-sm">Loading details...</div>;
         if (!run) return <div className="p-8 text-center text-red-500 text-sm">Run not found</div>;
+
 
         return (
             <div className="flex flex-col h-full bg-white">

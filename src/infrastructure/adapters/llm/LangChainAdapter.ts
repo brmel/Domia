@@ -28,32 +28,68 @@ export class LangChainAdapter implements ILLMProvider {
 
     generateAction(context: LLMContext): ResultAsync<AgentAction, LLMError> {
         return ResultAsync.fromPromise(
-            this.doGenerateAction(context),
-            (e) => new LLMError(`LangChain generation failed: ${String(e)}`)
-        ).andThen((text) => LLMPromptUtils.parseAction(text, context));
+            this.generateWithRetry(context),
+            (e) => e instanceof LLMError ? e : new LLMError(`Generation failed: ${String(e)}`)
+        );
     }
 
-    private async doGenerateAction(context: LLMContext): Promise<string> {
-        // Construct the prompt using LangChain's template structure
-        // We reuse LLMPromptUtils for the content to ensure zero regression in behavior
+    private async generateWithRetry(context: LLMContext, retries = 3): Promise<AgentAction> {
+        let lastError: LLMError | undefined;
+        let correctionContext: { error: string; lastResponse: string } | undefined;
 
-        // Escape braces in system prompt because LangChain treats them as variables
+        for (let i = 0; i < retries; i++) {
+            try {
+                const responseText = await this.doGenerateAction(context, correctionContext);
+
+                const result = await LLMPromptUtils.parseAction(responseText, context);
+
+                if (result.isOk()) {
+                    return result.value;
+                } else {
+                    lastError = result.error;
+                    correctionContext = {
+                        error: lastError.message,
+                        lastResponse: responseText
+                    };
+                    this.logger.warn(`[LangChainAdapter] validation failed (attempt ${i + 1}/${retries}): ${lastError.message}`);
+                }
+            } catch (e: any) {
+                const error = new LLMError(`Generation failed: ${e.message}`);
+                this.logger.error(`[LangChainAdapter] system error: ${error.message}`);
+
+                if (i < retries - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+
+                lastError = error;
+            }
+        }
+
+        throw lastError || new LLMError("Failed to generate valid action after retries");
+    }
+
+    private async doGenerateAction(
+        context: LLMContext,
+        correction?: { error: string; lastResponse: string }
+    ): Promise<string> {
         const systemPrompt = LLMPromptUtils.systemPrompt.replace(/{/g, '{{').replace(/}/g, '}}');
 
-        const prompt = ChatPromptTemplate.fromMessages([
+        const messages: (string | [string, string])[] = [
             ["system", systemPrompt],
-            ["user", "{user_context}"]
-        ]);
+            ["user", LLMPromptUtils.buildUserPrompt(context)]
+        ];
 
+        if (correction) {
+            messages.push(["assistant", correction.lastResponse]);
+            messages.push(["user", `SYSTEM: Your last response was invalid. Error: ${correction.error}.\nYou MUST correct it and provide valid JSON matching the schema.`]);
+        }
+
+        const prompt = ChatPromptTemplate.fromMessages(messages);
         const chain = prompt.pipe(this.model).pipe(new StringOutputParser());
 
-        const userContext = LLMPromptUtils.buildUserPrompt(context);
+        this.logger.debug(`[LangChainAdapter] Invoking chain. Correction active: ${!!correction}`);
 
-        this.logger.debug(`[LangChainAdapter] Invoking chain with context length: ${userContext.length}`);
-
-        const response = await chain.invoke({
-            user_context: userContext
-        });
+        const response = await chain.invoke({});
 
         this.logger.debug(`[LangChainAdapter] Response length: ${response.length}`);
         return response;

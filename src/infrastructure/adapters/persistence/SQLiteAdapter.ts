@@ -239,7 +239,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
 
     clearHistory(): ResultAsync<void, PersistenceError> {
         return ResultAsync.fromPromise(
-            (async () => {
+            (async (): Promise<void> => {
                 await this.db.deleteFrom('test_steps').execute();
                 await this.db.deleteFrom('logs').execute();
                 await this.db.deleteFrom('workflow_checkpoints').execute();
