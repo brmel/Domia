@@ -29,7 +29,7 @@ export interface DOMSnapshot {
         readonly body: Readonly<Record<string, string>>;
     };
     readonly elements: readonly DOMElement[];
-    readonly accessibilityTree?: import('./AriaNode').AriaNode;
+    readonly accessibilityTree?: import('./AriaNode').AriaNode | null;
     readonly screenshot?: string | undefined;
     readonly timestamp: Date;
 }

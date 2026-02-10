@@ -1,0 +1,30 @@
+{
+  "headless": true,
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "ai": {
+    "provider": "google",
+    "model": "gemini-2.0-flash",
+    "visionEnabled": true,
+    "debugScreenshots": true,
+    "apiKey": "AIzaSyCw32ji8UTwB6vs8SkWmTyYWvu-PrW0T5U"
+  },
+  "selectorEngine": {
+    "strategyOrder": [
+      "fast",
+      "semantic",
+      "visual",
+      "heuristic"
+    ]
+  },
+  "paths": {
+    "artifactsDir": "./artifacts",
+    "databasePath": "./domia.db"
+  },
+  "limits": {
+    "maxSteps": 20,
+    "delayBetweenSteps": 1000
+  }
+}

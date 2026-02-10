@@ -1,0 +1,214 @@
+import { useRef, useState } from 'react';
+import { useStepInspectorStore } from '../stores/useStepInspectorStore';
+import { trpc } from '../../lib/trpc';
+import { JsonTreeView } from './JsonTreeView';
+import { CognitiveTraceView } from './CognitiveTraceView';
+import { cn } from '../../lib/utils';
+
+export function StepInspector(): JSX.Element | null {
+    const { isOpen, runId, stepNumber, close } = useStepInspectorStore();
+    const modalRef = useRef<HTMLDivElement>(null);
+
+    // Fetch data only if open and IDs are present
+    const { data: artifacts, isLoading, error } = trpc.history.getStepArtifacts.useQuery(
+        { runId: runId!, stepNumber: stepNumber! },
+        { enabled: isOpen && !!runId && stepNumber !== null, staleTime: Infinity }
+    );
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 animate-in fade-in duration-200">
+            {/* Backdrop */}
+            <div
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
+                onClick={close}
+            />
+
+            {/* Modal Window */}
+            <div
+                ref={modalRef}
+                className="relative w-full max-w-6xl h-[85vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 border border-white/20 ring-1 ring-black/5"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Header glass effect */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white/80 backdrop-blur-md z-1">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20 flex items-center justify-center text-white font-bold text-lg">
+                            {stepNumber}
+                        </div>
+                        <div>
+                            <h2 className="text-gray-900 font-bold text-lg tracking-tight">Step Inspection</h2>
+                            <p className="text-gray-400 text-xs font-mono tracking-wide uppercase">ID: {runId?.slice(0, 8)}...</p>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={close}
+                        className="group p-2 rounded-full hover:bg-gray-100 transition-colors duration-200"
+                    >
+                        <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                {/* Content Area */}
+                <div className="flex-1 overflow-hidden bg-gray-50/50 relative">
+                    {isLoading && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                            <div className="w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                            <span className="text-gray-500 font-medium text-sm animate-pulse">Retrieving Artifacts...</span>
+                        </div>
+                    )}
+
+                    {error && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
+                            <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-4">
+                                <span className="text-2xl">⚠️</span>
+                            </div>
+                            <h3 className="text-red-900 font-bold mb-2">Failed to Load</h3>
+                            <p className="text-red-600/80 max-w-md">{error.message}</p>
+                        </div>
+                    )}
+
+                    {!isLoading && !error && artifacts && <InspectorContent artifacts={artifacts} />}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function InspectorContent({ artifacts }: { artifacts: any }) {
+    const [activeTab, setActiveTab] = useState<'vision' | 'semantic' | 'trace'>('vision');
+
+    const screenshotUrl = artifacts.screenshot;
+    const domTree = artifacts.dom;
+    const accessibilityTree = artifacts.accessibility;
+    const traceData = artifacts.trace;
+
+    // Tabs configuration
+    const tabs = [
+        { id: 'vision', label: 'Vision', icon: '👁️', count: screenshotUrl ? 1 : 0 },
+        { id: 'semantic', label: 'Semantic', icon: '🌳', count: (domTree ? 1 : 0) + (accessibilityTree ? 1 : 0) },
+        { id: 'trace', label: 'Trace', icon: '🧠', count: traceData ? 1 : 0 },
+    ] as const;
+
+    return (
+        <div className="flex flex-col h-full">
+            {/* Tab Navigation */}
+            <div className="flex items-center px-6 border-b border-gray-200 bg-white">
+                {tabs.map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={cn(
+                            "relative px-4 py-4 text-sm font-medium transition-colors flex items-center gap-2",
+                            activeTab === tab.id ? "text-blue-600" : "text-gray-500 hover:text-gray-800"
+                        )}
+                    >
+                        <span>{tab.icon}</span>
+                        <span>{tab.label}</span>
+                        {/* Active Indicator */}
+                        {activeTab === tab.id && (
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full"></div>
+                        )}
+                    </button>
+                ))}
+            </div>
+
+            {/* Tab Panels */}
+            <div className="flex-1 overflow-hidden relative">
+
+                {/* Vision Tab */}
+                <div className={cn("absolute inset-0 p-6 flex items-center justify-center transition-opacity duration-300",
+                    activeTab === 'vision' ? "opacity-100 z-10" : "opacity-0 pointer-events-none")}>
+                    {screenshotUrl ? (
+                        <div className="relative rounded-lg overflow-hidden shadow-2xl border border-gray-200 bg-white max-h-full">
+                            <img
+                                src={screenshotUrl}
+                                alt="Step Screenshot"
+                                className="max-w-full max-h-full object-contain"
+                            />
+                        </div>
+                    ) : (
+                        <EmptyState
+                            icon="📷"
+                            title="No Screenshot"
+                            description="Visual capture was disabled or failed for this step."
+                        />
+                    )}
+                </div>
+
+                {/* Semantic Tab */}
+                <div className={cn("absolute inset-0 transition-opacity duration-300",
+                    activeTab === 'semantic' ? "opacity-100 z-10" : "opacity-0 pointer-events-none")}>
+                    <div className="h-full grid grid-cols-2 divide-x divide-gray-200">
+                        <div className="flex flex-col overflow-hidden bg-white">
+                            <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider flex justify-between items-center">
+                                <span>DOM Tree</span>
+                                <span className="text-[10px] bg-gray-200 px-1.5 rounded text-gray-600">RAW</span>
+                            </div>
+                            <div className="flex-1 overflow-auto p-4">
+                                {domTree ? <JsonTreeView data={domTree} name="DOM" /> : <div className="text-gray-400 text-sm italic">No DOM data</div>}
+                            </div>
+                        </div>
+                        <div className="flex flex-col overflow-hidden bg-white">
+                            <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider flex justify-between items-center">
+                                <span>Accessibility Tree</span>
+                                <span className="text-[10px] bg-purple-100 px-1.5 rounded text-purple-600 font-bold">AX</span>
+                            </div>
+                            <div className="flex-1 overflow-auto p-4">
+                                {accessibilityTree ? <JsonTreeView data={accessibilityTree} name="ARIA" /> : <div className="text-gray-400 text-sm italic">No ARIA data</div>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Trace Tab */}
+                <div className={cn("absolute inset-0 transition-opacity duration-300",
+                    activeTab === 'trace' ? "opacity-100 z-10" : "opacity-0 pointer-events-none")}>
+                    {traceData ? (
+                        <div className="h-full grid grid-cols-5 divide-x divide-gray-200">
+                            {/* Cognitive Flow - Wider */}
+                            <div className="col-span-3 flex flex-col overflow-hidden bg-white">
+                                <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                    Cognitive Process
+                                </div>
+                                <div className="flex-1 overflow-auto p-4">
+                                    <CognitiveTraceView trace={traceData} />
+                                </div>
+                            </div>
+                            {/* Raw Data - Narrows */}
+                            <div className="col-span-2 flex flex-col overflow-hidden bg-gray-50/50">
+                                <div className="px-4 py-2 bg-gray-100 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                    Raw Trace Data
+                                </div>
+                                <div className="flex-1 overflow-auto p-4">
+                                    <JsonTreeView data={traceData} name="Trace" />
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <EmptyState
+                            icon="🧩"
+                            title="No Trace Data"
+                            description="Cognitive tracing information is missing for this step."
+                        />
+                    )}
+                </div>
+
+            </div>
+        </div>
+    );
+}
+
+function EmptyState({ icon, title, description }: { icon: string, title: string, description: string }) {
+    return (
+        <div className="h-full flex flex-col items-center justify-center text-center p-8 text-gray-400">
+            <div className="text-4xl mb-4 opacity-50">{icon}</div>
+            <h4 className="text-gray-600 font-semibold mb-1">{title}</h4>
+            <p className="text-sm max-w-xs">{description}</p>
+        </div>
+    );
+}

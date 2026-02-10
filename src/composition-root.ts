@@ -24,13 +24,23 @@ import { TestRunLifecycleManager } from './application/services/TestRunLifecycle
 import { LocalBrowserNode } from './infrastructure/nodes/LocalBrowserNode';
 import { DomiaGateway } from './application/gateway/DomiaGateway';
 
+import { PerceptionPipeline } from './infrastructure/perception/PerceptionPipeline';
+import { VisionSensor } from './infrastructure/perception/sensors/VisionSensor';
+import { DomSensor } from './infrastructure/perception/sensors/DomSensor';
+import { AriaSensor } from './infrastructure/perception/sensors/AriaSensor';
+import { FileSystemStorage } from './infrastructure/storage/FileSystemStorage';
+import { TraceService } from './infrastructure/services/TraceService';
+import { FileTraceExporter } from './infrastructure/services/exporters/FileTraceExporter';
+import { DebugExporter } from './infrastructure/services/exporters/DebugExporter';
+
 export function registerCoreServices(): void {
     // 1. Core Services (Config & Persistence)
     container.registerSingleton(ConfigService);
     container.registerSingleton('IConfigService', ConfigService);
     container.registerSingleton('IPersistenceAdapter', SQLiteAdapter);
 
-    container.registerSingleton('IBrowserAutomation', PlaywrightAdapter);
+    container.registerSingleton(PlaywrightAdapter);
+    container.register('IBrowserAutomation', { useToken: PlaywrightAdapter });
     container.registerSingleton('ILogger', ConsoleLogger);
 
     // Decoupled Helper Services
@@ -63,6 +73,34 @@ export function registerCoreServices(): void {
     // Enterprise Architecture Services
     container.registerSingleton(LocalBrowserNode);
     container.registerSingleton(DomiaGateway);
+
+    // Perception System
+    container.registerSingleton(VisionSensor);
+    container.registerSingleton(DomSensor);
+    container.registerSingleton(AriaSensor);
+
+    container.register('ISensor', { useToken: VisionSensor });
+    container.register('ISensor', { useToken: DomSensor });
+    container.register('ISensor', { useToken: AriaSensor });
+
+    // Register PerceptionPipeline as IPerceptionPipeline
+    container.register('IPerceptionPipeline', { useClass: PerceptionPipeline });
+
+    // Storage & Trace Systems
+    container.registerSingleton('IStorageService', FileSystemStorage);
+    container.registerSingleton(TraceService);
+    container.register('ITraceService', { useToken: TraceService });
+
+    const traceService = container.resolve(TraceService);
+    const storage = container.resolve<import('@domain/ports/IStorageService').IStorageService>('IStorageService');
+
+    // Register Exporters based on config/env
+    if (process.env['DOMIA_VERBOSE'] === 'true') {
+        traceService.addExporter(new FileTraceExporter(storage));
+    }
+
+    // Always enable debug exporter (let the 'debug' package handle filtering via DEBUG env var)
+    traceService.addExporter(new DebugExporter());
 
     // Auto-register local node
     const gateway = container.resolve(DomiaGateway);

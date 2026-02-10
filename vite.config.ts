@@ -48,4 +48,9 @@ export default defineConfig({
   resolve: {
     alias: pathAliases,
   },
+  server: {
+    watch: {
+      ignored: ['**/domia.config.json', '**/domia.db', '**/artifacts/**'],
+    },
+  },
 })
