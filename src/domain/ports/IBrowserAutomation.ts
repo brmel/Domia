@@ -38,6 +38,10 @@ export interface IBrowserAutomation {
      * Captures the full accessibility tree of the page.
      */
     snapshotAria(): ResultAsync<import('../value-objects/AriaNode').AriaNode, SnapshotError>;
+
+    // CDP Synchronization
+    pause(): ResultAsync<void, Error>;
+    resume(): ResultAsync<void, Error>;
     /**
      * Takes a screenshot of the current page.
      */

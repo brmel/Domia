@@ -67,7 +67,7 @@ export class TestRunLifecycleManager {
     }
 
     async failTestRun(id: TestRunId, message: string): Promise<void> {
-        this.logger.error(message);
+        this.logger.warn(`Test run failed: ${message}`);
         const status: import('@domain/entities/TestRun').TestRunStatus = {
             type: 'failed',
             error: message,

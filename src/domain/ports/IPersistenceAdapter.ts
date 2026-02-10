@@ -13,6 +13,7 @@ export interface TestStep {
     stepNumber: number;
     actionType: ActionType;
     actionPayload: AgentAction;
+    assets?: Record<string, string>;
     timestamp: string;
 }
 

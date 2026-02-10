@@ -10,30 +10,63 @@ import { UrlFactory } from '@domain/value-objects';
 export class StepExecutor {
     constructor(
         @inject('ILLMProvider') private llmProvider: ILLMProvider,
-        @inject(LoopDetectorService) private loopDetector: LoopDetectorService
+        @inject(LoopDetectorService) private loopDetector: LoopDetectorService,
+        @inject('IPerceptionPipeline') private perception: import('@domain/ports/IPerceptionPipeline').IPerceptionPipeline,
+        @inject('IStorageService') private storage: import('@domain/ports/IStorageService').IStorageService
     ) { }
 
     async *executeStep(
+        runId: string,
         stepGoal: string,
         browser: IBrowserAutomation,
         url: string,
         maxActions: number = 10
-    ): AsyncGenerator<{ type: 'action', action: AgentAction } | { type: 'thought', text: string }, Result<void, Error>, unknown> {
+    ): AsyncGenerator<{ type: 'action', action: AgentAction, assets?: Record<string, string> } | { type: 'thought', text: string }, Result<void, Error>, unknown> {
         let currentState = WorkflowState.initial();
         let loopCount = 0;
 
         while (loopCount < maxActions) {
-            const snapshotResult = await browser.snapshot();
-            if (snapshotResult.isErr()) return err(new Error(`Snapshot failed: ${snapshotResult.error.message}`));
-            const snapshot = snapshotResult.value;
+            // Perception
+            const frameResult = await this.perception.capture();
+            if (frameResult.isErr()) return err(new Error(`Perception failed: ${frameResult.error.message}`));
+            const frame = frameResult.value;
+
+            // Save Assets
+            // We use standard storage pathing. Actions are usually 1-to-1 with perception in this loop?
+            // stepNumber in WorkflowState is monotonic.
+            const assets = await this.storage.savePerceptionAssets(runId, currentState.stepNumber, frame);
+
+            // Note: assets paths should be passed to persistence? 
+            // StepExecutor yields Action. Action execution leads to Step persistence.
+            // Ideally Step persistence happens here or in RunTestUseCase.
+            // RunTestUseCase persists based on ...?
+            // RunTestUseCase only persists 'started', 'completed'. 
+            // SQLiteAdapter.saveTestStep is likely called by RunTestUseCase?
+            // Actually `RunTestUseCase` does NOT seem to call `saveTestStep`.
+            // Wait, let's check `RunTestUseCase.ts` again.
+            // It calls `lifecycleManager`?
+
+            // Actually, `RunTestUseCase.ts` logic doesn't explicitly save steps yet?
+            // The previous logic might have heavily relied on `TestRunLifecycleManager` or `SQLiteAdapter` implicitly?
+            // Or I missed where `saveTestStep` is called.
+            // Persistence of steps is usually critical. 
+            // Use `grep_search` to find usages of `saveTestStep`.
 
             const viewport = await browser.getViewportSize();
+
+            // Map Frame to DOMSnapshot for LLM (Legacy compatibility)
+            const snapshot: import('@domain/value-objects').DOMSnapshot = {
+                ...frame.semantic.dom,
+                screenshot: frame.vision.screenshot.toString('base64'),
+                accessibilityTree: frame.semantic.accessibility
+            };
+
             const context: LLMContext = {
                 goal: stepGoal,
                 snapshot,
                 previousActions: currentState.history,
                 currentUrl: url,
-                pageTitle: 'Page',
+                pageTitle: frame.metadata.title,
                 viewport,
                 stepsRemaining: maxActions - loopCount
             };
@@ -46,7 +79,7 @@ export class StepExecutor {
                 return err(new Error(`Loop detected. Action '${action.type}' repeated too many times.`));
             }
 
-            yield { type: 'action', action };
+            yield { type: 'action', action, assets };
 
             const execResult = await this.executeAction(browser, action);
             if (execResult.isErr()) return err(new Error(`Action execution failed: ${execResult.error.message}`));

@@ -24,13 +24,20 @@ import { TestRunLifecycleManager } from './application/services/TestRunLifecycle
 import { LocalBrowserNode } from './infrastructure/nodes/LocalBrowserNode';
 import { DomiaGateway } from './application/gateway/DomiaGateway';
 
+import { PerceptionPipeline } from './infrastructure/perception/PerceptionPipeline';
+import { VisionSensor } from './infrastructure/perception/sensors/VisionSensor';
+import { DomSensor } from './infrastructure/perception/sensors/DomSensor';
+import { AriaSensor } from './infrastructure/perception/sensors/AriaSensor';
+import { FileSystemStorage } from './infrastructure/storage/FileSystemStorage';
+
 export function registerCoreServices(): void {
     // 1. Core Services (Config & Persistence)
     container.registerSingleton(ConfigService);
     container.registerSingleton('IConfigService', ConfigService);
     container.registerSingleton('IPersistenceAdapter', SQLiteAdapter);
 
-    container.registerSingleton('IBrowserAutomation', PlaywrightAdapter);
+    container.registerSingleton(PlaywrightAdapter);
+    container.register('IBrowserAutomation', { useToken: PlaywrightAdapter });
     container.registerSingleton('ILogger', ConsoleLogger);
 
     // Decoupled Helper Services
@@ -63,6 +70,21 @@ export function registerCoreServices(): void {
     // Enterprise Architecture Services
     container.registerSingleton(LocalBrowserNode);
     container.registerSingleton(DomiaGateway);
+
+    // Perception System
+    container.registerSingleton(VisionSensor);
+    container.registerSingleton(DomSensor);
+    container.registerSingleton(AriaSensor);
+
+    container.register('ISensor', { useToken: VisionSensor });
+    container.register('ISensor', { useToken: DomSensor });
+    container.register('ISensor', { useToken: AriaSensor });
+
+    // Register PerceptionPipeline as IPerceptionPipeline
+    container.register('IPerceptionPipeline', { useClass: PerceptionPipeline });
+
+    // Storage System
+    container.registerSingleton('IStorageService', FileSystemStorage);
 
     // Auto-register local node
     const gateway = container.resolve(DomiaGateway);

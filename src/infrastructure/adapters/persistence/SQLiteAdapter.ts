@@ -27,6 +27,7 @@ interface TestStepTable {
     step_number: number;
     action_type: string;
     action_payload: string; // JSON string
+    assets_json: string | null; // JSON string
     timestamp: string;
 }
 
@@ -92,6 +93,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 step_number INTEGER NOT NULL,
                 action_type TEXT NOT NULL,
                 action_payload JSON,
+                assets_json JSON,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(test_run_id) REFERENCES test_runs(id)
             );
@@ -114,6 +116,12 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 FOREIGN KEY(run_id) REFERENCES test_runs(id)
             );
         `);
+
+        try {
+            database.exec('ALTER TABLE test_steps ADD COLUMN assets_json JSON;');
+        } catch (e) {
+            // Column likely already exists, ignore
+        }
     }
 
     saveTestRun(run: TestRun): ResultAsync<void, PersistenceError> {
@@ -199,6 +207,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                     step_number: step.stepNumber,
                     action_type: step.actionType,
                     action_payload: JSON.stringify(step.actionPayload),
+                    assets_json: step.assets ? JSON.stringify(step.assets) : null,
                     timestamp: step.timestamp
                 })
                 .execute(),
@@ -287,6 +296,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
             stepNumber: row.step_number,
             actionType: row.action_type as import('@domain/enums/ActionType').ActionType,
             actionPayload: action,
+            assets: row.assets_json ? JSON.parse(row.assets_json) : undefined,
             timestamp: row.timestamp
         };
     }

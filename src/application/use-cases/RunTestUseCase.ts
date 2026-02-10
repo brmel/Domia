@@ -11,6 +11,8 @@ import { TestRunState } from '../../domain/enums/TestRunState';
 import { WorkflowPlanner } from '../services/planning/WorkflowPlanner';
 import { StepExecutor } from '../services/execution/StepExecutor';
 import { PlanItemStatus } from '@domain/entities/Plan';
+import { IPersistenceAdapter, TestStep } from '../../domain/ports';
+import { v4 as uuidv4 } from 'uuid';
 
 
 @injectable()
@@ -19,7 +21,8 @@ export class RunTestUseCase {
         @inject(DomiaGateway) private gateway: DomiaGateway,
         @inject(TestRunLifecycleManager) private lifecycleManager: TestRunLifecycleManager,
         @inject(WorkflowPlanner) private planner: WorkflowPlanner,
-        @inject(StepExecutor) private executor: StepExecutor
+        @inject(StepExecutor) private executor: StepExecutor,
+        @inject('IPersistenceAdapter') private persistence: import('../../domain/ports').IPersistenceAdapter
     ) { }
 
     async *execute(input: RunTestInput, controller: ExecutionController): AsyncGenerator<RunTestOutput, void, unknown> {
@@ -102,13 +105,36 @@ export class RunTestUseCase {
 
                 // Execute Item
                 // We define executing a plan item as executing a "step" in StepExecutor
-                const stepGen = this.executor.executeStep(item.description, browser, input.url);
+                const stepGen = this.executor.executeStep(testRunId, item.description, browser, input.url);
                 let result: import('neverthrow').Result<void, Error> | undefined;
 
                 const iterator = stepGen[Symbol.asyncIterator]();
                 let next = await iterator.next();
                 while (!next.done) {
                     if (next.value.type === 'action') {
+                        const action = next.value.action;
+                        const assets = next.value.assets;
+
+                        const step: TestStep = {
+                            id: uuidv4(),
+                            testRunId,
+                            stepNumber: currentState.stepNumber + 1,
+                            actionType: action.type,
+                            actionPayload: action,
+                            ...(assets ? { assets } : {}),
+                            timestamp: new Date().toISOString()
+                        };
+
+                        await this.persistence.saveTestStep(step);
+
+                        // Update state
+                        currentState = {
+                            ...currentState,
+                            stepNumber: currentState.stepNumber + 1,
+                            history: [...currentState.history, action]
+                        };
+                        yield { type: 'state_updated', state: currentState };
+
                         yield { type: 'acting', action: next.value.action };
                     }
                     next = await iterator.next();

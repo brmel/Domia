@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync, okAsync, errAsync } from 'neverthrow';
-import { chromium, Browser, Page, ElementHandle } from 'playwright';
+import { chromium, Browser, Page, ElementHandle, CDPSession } from 'playwright';
 import type { IBrowserAutomation, LaunchOptions, Screenshot, ILogger, IViewHost } from '@domain/ports';
 import type { Url, ElementId, DOMSnapshot } from '@domain/value-objects';
 import { NavigationError, InteractionError, SnapshotError, CaptureError } from '@domain/errors';
@@ -12,6 +12,7 @@ import { ContextBuilder } from '../../parsers/ContextBuilder';
 export class PlaywrightAdapter implements IBrowserAutomation {
     private browser: Browser | null = null;
     private page: Page | null = null;
+    private cdpSession: CDPSession | null = null;
 
     constructor(
         @inject('IViewHost') private viewHost: IViewHost,
@@ -222,6 +223,10 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         // Playwright Page type definition might differ from actual runtime or local declaration
         const pageWithAccessibility = this.page as unknown as { accessibility: { snapshot: (options: { interestingOnly: boolean }) => Promise<unknown> } };
 
+        if (!pageWithAccessibility.accessibility) {
+            return errAsync(new SnapshotError('Page accessibility API not available'));
+        }
+
         return ResultAsync.fromPromise(
             pageWithAccessibility.accessibility.snapshot({ interestingOnly: false }) as Promise<import('@domain/value-objects/AriaNode').AriaNode>,
             (e) => new SnapshotError(`Aria snapshot failed: ${String(e)}`)
@@ -281,6 +286,46 @@ export class PlaywrightAdapter implements IBrowserAutomation {
             (e) => new InteractionError(`Element not found: ${String(e)}`, elementId)
         ).andThen((el) =>
             el ? okAsync(el) : errAsync(new InteractionError('Element not found', elementId))
+        );
+    }
+
+    pause(): ResultAsync<void, Error> {
+        if (!this.page) return errAsync(new Error('Browser not launched'));
+
+        return ResultAsync.fromPromise(
+            (async () => {
+                if (!this.cdpSession) {
+                    this.cdpSession = await this.page!.context().newCDPSession(this.page!);
+                }
+                await this.cdpSession.send('Debugger.enable');
+                await this.cdpSession.send('Debugger.pause');
+            })(),
+            (error) => new Error(`Failed to pause execution: ${String(error)}`)
+        );
+    }
+
+    resume(): ResultAsync<void, Error> {
+        if (!this.cdpSession) return okAsync(undefined);
+
+        return ResultAsync.fromPromise(
+            (async () => {
+                const session = this.cdpSession;
+                if (!session) return;
+
+                try {
+                    await session.send('Debugger.resume');
+                } catch (e) {
+                    // Ignore errors if already resumed or session closed
+                    // We must proceed to disable debugger
+                } finally {
+                    try {
+                        await session.send('Debugger.disable');
+                    } catch (e) {
+                        // Ignore disable errors
+                    }
+                }
+            })(),
+            (error) => new Error(`Failed to resume execution: ${String(error)}`)
         );
     }
 
