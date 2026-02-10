@@ -1,23 +1,44 @@
 import { injectable } from 'tsyringe';
 import { Page } from 'playwright';
 import { ISensor } from '@domain/ports/ISensor';
-import { AriaNode } from '@domain/value-objects/AriaNode';
+import type { AriaNode } from '@domain/value-objects/AriaNode';
 
 @injectable()
 export class AriaSensor implements ISensor<AriaNode | null> {
     public readonly name = 'AriaSensor';
 
     async capture(page: Page): Promise<AriaNode | null> {
-        if (!page) {
-            console.warn('[AriaSensor] Page is undefined');
+        if (!page) return null;
+
+        // Try standard Playwright API first
+        if ((page as any).accessibility) {
+            try {
+                return await (page as any).accessibility.snapshot({ interestingOnly: false }) as AriaNode;
+            } catch (e) {
+                // Fall through to CDP
+            }
+        }
+
+        // Fallback: Use CDP directly
+        try {
+            const session = await page.context().newCDPSession(page);
+            await session.send('Accessibility.enable');
+            const { nodes } = await session.send('Accessibility.getFullAXTree');
+            await session.detach();
+
+            if (!nodes || nodes.length === 0) return null;
+
+            return {
+                role: 'root',
+                name: 'CDP Fallback Tree',
+                children: nodes.map(n => ({
+                    role: n.role?.value || 'unknown',
+                    name: n.name?.value || '',
+                    description: n.description?.value
+                }))
+            } as any;
+        } catch (e) {
             return null;
         }
-        if (!(page as any).accessibility) {
-            console.warn('[AriaSensor] page.accessibility is undefined. Page keys:', Object.keys(page));
-            // Check if it's a wrapper
-            console.warn('[AriaSensor] Page prototype:', Object.getPrototypeOf(page));
-            return null;
-        }
-        return (page as any).accessibility.snapshot({ interestingOnly: false }) as Promise<AriaNode | null>;
     }
 }

@@ -11,7 +11,7 @@ import { TestRunState } from '../../domain/enums/TestRunState';
 import { WorkflowPlanner } from '../services/planning/WorkflowPlanner';
 import { StepExecutor } from '../services/execution/StepExecutor';
 import { PlanItemStatus } from '@domain/entities/Plan';
-import { IPersistenceAdapter, TestStep } from '../../domain/ports';
+import { TestStep } from '../../domain/ports';
 import { v4 as uuidv4 } from 'uuid';
 
 
