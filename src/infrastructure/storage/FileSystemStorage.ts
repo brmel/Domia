@@ -45,4 +45,20 @@ export class FileSystemStorage implements IStorageService {
 
         return assets;
     }
+
+    async saveStepTrace(runId: string, stepNumber: number, trace: any): Promise<void> {
+        const config = this.configService.get();
+        const baseDir = path.resolve(config.paths.artifactsDir, runId, 'steps');
+        await fs.ensureDir(baseDir);
+
+        const filename = `${stepNumber}_trace.json`;
+        const filePath = path.join(baseDir, filename);
+
+        let existing = {};
+        if (await fs.pathExists(filePath)) {
+            existing = await fs.readJson(filePath);
+        }
+
+        await fs.writeJson(filePath, { ...existing, ...trace }, { spaces: 2 });
+    }
 }

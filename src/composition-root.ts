@@ -29,6 +29,7 @@ import { VisionSensor } from './infrastructure/perception/sensors/VisionSensor';
 import { DomSensor } from './infrastructure/perception/sensors/DomSensor';
 import { AriaSensor } from './infrastructure/perception/sensors/AriaSensor';
 import { FileSystemStorage } from './infrastructure/storage/FileSystemStorage';
+import { TraceService } from './infrastructure/services/TraceService';
 
 export function registerCoreServices(): void {
     // 1. Core Services (Config & Persistence)
@@ -83,8 +84,9 @@ export function registerCoreServices(): void {
     // Register PerceptionPipeline as IPerceptionPipeline
     container.register('IPerceptionPipeline', { useClass: PerceptionPipeline });
 
-    // Storage System
+    // Storage & Trace Systems
     container.registerSingleton('IStorageService', FileSystemStorage);
+    container.registerSingleton('ITraceService', TraceService);
 
     // Auto-register local node
     const gateway = container.resolve(DomiaGateway);

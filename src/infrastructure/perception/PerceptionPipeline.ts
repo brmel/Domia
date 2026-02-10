@@ -69,7 +69,7 @@ export class PerceptionPipeline implements IPerceptionPipeline {
                 this.domSensor.capture(page),
                 e => new SnapshotError(`Dom sensor capture failed: ${String(e)}`)
             ).map(dom => ({ vision, aria, dom }));
-        }).map(({ vision, aria, dom }) => {
+        }).andThen(({ vision, aria, dom }) => {
             const frame: PerceptionFrame = {
                 id: uuidv4(),
                 timestamp: Date.now(),
@@ -87,7 +87,14 @@ export class PerceptionPipeline implements IPerceptionPipeline {
                     accessibility: aria
                 }
             };
-            return frame;
+
+            // Trace Data Point 1: Sensor Extraction
+            // We don't have stepNumber here, but we can pass a partial trace.
+            // Actually, PerceptionPipeline doesn't know the step number easily.
+            // StepExecutor knows. We should probably trace reasoning in StepExecutor.
+            // But we can trace sensor density here.
+
+            return okAsync(frame);
         });
     }
 }

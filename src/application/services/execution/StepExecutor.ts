@@ -12,7 +12,8 @@ export class StepExecutor {
         @inject('ILLMProvider') private llmProvider: ILLMProvider,
         @inject(LoopDetectorService) private loopDetector: LoopDetectorService,
         @inject('IPerceptionPipeline') private perception: import('@domain/ports/IPerceptionPipeline').IPerceptionPipeline,
-        @inject('IStorageService') private storage: import('@domain/ports/IStorageService').IStorageService
+        @inject('IStorageService') private storage: import('@domain/ports/IStorageService').IStorageService,
+        @inject('ITraceService') private trace: import('@domain/ports/ITraceService').ITraceService
     ) { }
 
     async *executeStep(
@@ -52,6 +53,17 @@ export class StepExecutor {
             // Persistence of steps is usually critical. 
             // Use `grep_search` to find usages of `saveTestStep`.
 
+            // Trace: Perception Metadata
+            await this.trace.tracePerception(runId, currentState.stepNumber, {
+                timestamp: Date.now(),
+                sensorData: {
+                    domCount: frame.semantic.dom ? 1 : 0, // Simplified for now
+                    ariaPresent: !!frame.semantic.accessibility,
+                    visionPresent: !!frame.vision.screenshot,
+                    metadata: frame.metadata
+                }
+            });
+
             const viewport = await browser.getViewportSize();
 
             // Map Frame to DOMSnapshot for LLM (Legacy compatibility)
@@ -71,9 +83,32 @@ export class StepExecutor {
                 stepsRemaining: maxActions - loopCount
             };
 
+            // Trace: Agent Input (Prompt Context)
+            await this.trace.traceReasoning(runId, currentState.stepNumber, {
+                agentInput: {
+                    goal: stepGoal,
+                    currentUrl: url,
+                    promptPreview: JSON.stringify(context).substring(0, 500) + '...'
+                }
+            });
+
             const actionResult = await this.llmProvider.generateAction(context);
-            if (actionResult.isErr()) return err(new Error(`LLM failed: ${actionResult.error.message}`));
+            if (actionResult.isErr()) {
+                await this.trace.traceReasoning(runId, currentState.stepNumber, {
+                    agentOutput: { thought: 'LLM Failed', action: null, rawResponse: actionResult.error.message }
+                });
+                return err(new Error(`LLM failed: ${actionResult.error.message}`));
+            }
             const action = actionResult.value;
+
+            // Trace: Agent Output
+            await this.trace.traceReasoning(runId, currentState.stepNumber, {
+                agentOutput: {
+                    thought: action.thought || '',
+                    action: action,
+                    rawResponse: JSON.stringify(action)
+                }
+            });
 
             if (this.loopDetector.isLoop(currentState.history, action)) {
                 return err(new Error(`Loop detected. Action '${action.type}' repeated too many times.`));
