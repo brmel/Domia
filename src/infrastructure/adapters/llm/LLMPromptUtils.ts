@@ -3,6 +3,7 @@ import { ResultAsync, okAsync, errAsync } from 'neverthrow';
 import type { LLMContext } from '@domain/ports';
 import type { AgentAction } from '@domain/value-objects';
 import { ElementIdFactory } from '@domain/value-objects';
+import { ActionType } from '@domain/enums/ActionType';
 import { LLMError } from '@domain/errors';
 
 import { ActionSchema } from '@domain/schemas/ActionSchema';
@@ -79,8 +80,8 @@ ACTION TYPES:
             .slice(-5)
             .map((a, i) => {
                 const desc = ('elementDescriptor' in a && a.elementDescriptor) ? ` on ${a.elementDescriptor}` : '';
-                if (a.type === 'pressKey') return `${i + 1}. pressKey(${a.key})`;
-                if (a.type === 'navigate') return `${i + 1}. navigate to ${a.url}`;
+                if (a.type === ActionType.PRESS_KEY) return `${i + 1}. pressKey(${a.key})`;
+                if (a.type === ActionType.NAVIGATE) return `${i + 1}. navigate to ${a.url}`;
                 return `${i + 1}. ${a.type}${desc}`;
             })
             .join('\n');
@@ -215,41 +216,41 @@ Analyze the elements and their positions, then respond with a single JSON action
         };
 
         switch (action.type) {
-            case 'click':
+            case ActionType.CLICK:
                 return {
-                    type: 'click',
+                    type: ActionType.CLICK,
                     elementId: ElementIdFactory.unsafe(action.elementId),
                     elementDescriptor: getDescriptor(action.elementId),
                     thought
                 };
-            case 'type':
+            case ActionType.TYPE:
                 return {
-                    type: 'type',
+                    type: ActionType.TYPE,
                     elementId: ElementIdFactory.unsafe(action.elementId),
                     elementDescriptor: getDescriptor(action.elementId),
                     text: action.text,
                     submit: action.submit ?? false,
                     thought
                 };
-            case 'pressKey':
-                return { type: 'pressKey', key: action.key, thought };
-            case 'scroll':
-                return { type: 'scroll', direction: action.direction, thought };
-            case 'wait':
-                return { type: 'wait', durationMs: action.durationMs, thought };
-            case 'extract':
+            case ActionType.PRESS_KEY:
+                return { type: ActionType.PRESS_KEY, key: action.key, thought };
+            case ActionType.SCROLL:
+                return { type: ActionType.SCROLL, direction: action.direction, thought };
+            case ActionType.WAIT:
+                return { type: ActionType.WAIT, durationMs: action.durationMs, thought };
+            case ActionType.EXTRACT:
                 return {
-                    type: 'extract',
+                    type: ActionType.EXTRACT,
                     elementId: ElementIdFactory.unsafe(action.elementId),
                     elementDescriptor: getDescriptor(action.elementId),
                     thought
                 };
-            case 'navigate':
-                return { type: 'navigate', url: action.url, thought };
-            case 'pass':
-                return { type: 'pass', summary: action.summary, thought };
-            case 'fail':
-                return { type: 'fail', reason: action.reason, thought };
+            case ActionType.NAVIGATE:
+                return { type: ActionType.NAVIGATE, url: action.url, thought };
+            case ActionType.PASS:
+                return { type: ActionType.PASS, summary: action.summary, thought };
+            case ActionType.FAIL:
+                return { type: ActionType.FAIL, reason: action.reason, thought };
             default:
                 throw new LLMError(`Unknown action type`);
         }

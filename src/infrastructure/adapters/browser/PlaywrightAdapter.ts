@@ -30,7 +30,6 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         this.logger.debug('[PlaywrightAdapter] Starting browser launch');
 
         if (!options.headless) {
-            // this.viewHost.show({ ... }); // Removed to prevent white screen flash
             // Let the frontend (LiveViewContainer) control visibility and bounds
             this.logger.debug('[PlaywrightAdapter] Adapting view for headless: false');
         }
@@ -167,11 +166,8 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         return this.findElement(elementId).andThen((el) =>
             ResultAsync.fromPromise(
                 (async (): Promise<void> => {
-                    // Scroll into view first
                     await el.scrollIntoViewIfNeeded();
 
-                    // Simple, robust highlighting using outline
-                    // We use evaluate to run code in the browser context
                     await el.evaluate((node) => {
                         const element = node as HTMLElement;
                         const originalOutline = element.style.outline;
@@ -181,15 +177,12 @@ export class PlaywrightAdapter implements IBrowserAutomation {
                         element.style.outline = '3px solid #ff0000';
                         element.style.outlineOffset = '2px';
 
-                        // Remove highlight after a short delay
                         setTimeout(() => {
                             element.style.outline = originalOutline;
                             element.style.transition = originalTransition;
-                        }, 1000); // Keep variable visible for 1s
+                        }, 1000);
                     });
 
-                    // Wait a bit on the node side too so execution doesn't race ahead instantly
-                    // This is "visual" wait, not logic wait. 
                     if (this.page) {
                         await this.page.waitForTimeout(500);
                     }
@@ -226,8 +219,11 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         if (!this.page) {
             return errAsync(new SnapshotError('Browser not launched'));
         }
+        // Playwright Page type definition might differ from actual runtime or local declaration
+        const pageWithAccessibility = this.page as unknown as { accessibility: { snapshot: (options: { interestingOnly: boolean }) => Promise<unknown> } };
+
         return ResultAsync.fromPromise(
-            (this.page as unknown as { accessibility: { snapshot: (options: { interestingOnly: boolean }) => Promise<unknown> } }).accessibility.snapshot({ interestingOnly: false }) as Promise<import('@domain/value-objects/AriaNode').AriaNode>,
+            pageWithAccessibility.accessibility.snapshot({ interestingOnly: false }) as Promise<import('@domain/value-objects/AriaNode').AriaNode>,
             (e) => new SnapshotError(`Aria snapshot failed: ${String(e)}`)
         );
     }
@@ -254,7 +250,6 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         if (!this.page) return;
         this.logger.debug('[PlaywrightAdapter] Waiting for DOM stability');
         try {
-            // Wait for both load state and a brief period of network idle
             await Promise.all([
                 this.page.waitForLoadState('load', { timeout }),
                 this.page.waitForLoadState('networkidle', { timeout }).catch(() => {
@@ -264,15 +259,11 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         } catch (e) {
             this.logger.debug(`[PlaywrightAdapter] Wait for stable failed or timed out: ${String(e)}`);
         }
-
-        // Final sanity wait to ensure some level of hydration/layout stability
         await this.page.waitForTimeout(500);
     }
 
     async close(): Promise<void> {
         this.logger.debug('[PlaywrightAdapter] Closing browser context');
-        // Do not hide the view here. Let the UI (React) decide when to hide the viewContainer.
-        // this.viewHost.hide(); 
 
         if (this.browser) {
             await this.browser.close();

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { trpc } from '../../lib/trpc';
-import type { TestRun, TestStep } from '@domain/ports';
+import type { TestStep } from '@domain/ports';
 
 export function HistorySidebar({ onClose }: { onClose: () => void }): JSX.Element {
     const utils = trpc.useUtils();
@@ -30,6 +30,11 @@ export function HistorySidebar({ onClose }: { onClose: () => void }): JSX.Elemen
         if (loadingRun) return <div className="p-8 text-center text-gray-400 text-sm">Loading details...</div>;
         if (!run) return <div className="p-8 text-center text-red-500 text-sm">Run not found</div>;
 
+        // Extract summary
+        let summary = '';
+        if (run.status.type === 'passed') summary = run.status.summary;
+        if (run.status.type === 'failed') summary = run.status.error;
+        if (run.status.type === 'cancelled') summary = run.status.reason;
 
         return (
             <div className="flex flex-col h-full bg-white">
@@ -40,15 +45,15 @@ export function HistorySidebar({ onClose }: { onClose: () => void }): JSX.Elemen
                     >
                         <span>←</span> Back to List
                     </button>
-                    <h3 className="font-bold text-gray-900 text-base leading-tight">{run.goal}</h3>
+                    <h3 className="font-bold text-gray-900 text-base leading-tight">{run.prompt}</h3>
                     <div className="mt-2 flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${run.status === 'pass' ? 'bg-green-100 text-green-700' :
-                            run.status === 'fail' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${run.status.type === 'passed' ? 'bg-green-100 text-green-700' :
+                            run.status.type === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
                             }`}>
-                            {run.status}
+                            {run.status.type}
                         </span>
                         <span className="text-[10px] text-gray-400 font-mono">
-                            {new Date(run.startedAt).toLocaleString()}
+                            {run.startedAt ? run.startedAt.toLocaleString() : 'N/A'}
                         </span>
                     </div>
                 </div>
@@ -56,7 +61,7 @@ export function HistorySidebar({ onClose }: { onClose: () => void }): JSX.Elemen
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                     <div className="bg-gray-50 p-3 rounded-md text-sm border border-gray-100">
                         <p className="mb-1"><strong className="font-semibold text-gray-700">URL:</strong> <span className="text-blue-600">{run.url}</span></p>
-                        {run.summary && <p className="mt-2 text-gray-600 leading-relaxed">{run.summary}</p>}
+                        {summary && <p className="mt-2 text-gray-600 leading-relaxed">{summary}</p>}
                     </div>
 
                     <div>
@@ -119,23 +124,23 @@ export function HistorySidebar({ onClose }: { onClose: () => void }): JSX.Elemen
 
                         {loading && <div className="text-center text-gray-400 py-8 text-sm">Loading runs...</div>}
 
-                        {!loading && runs.map((run: TestRun) => (
+                        {!loading && runs.map((run) => (
                             <div
                                 key={run.id}
                                 onClick={() => setSelectedRunId(run.id)}
                                 className="group mb-2 border border-gray-100 rounded-lg p-3 hover:bg-blue-50/50 hover:border-blue-200 cursor-pointer transition-all active:scale-[0.99]"
                             >
                                 <div className="flex justify-between items-start mb-1.5">
-                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${run.status === 'pass' ? 'bg-green-100 text-green-700' :
-                                        run.status === 'fail' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${run.status.type === 'passed' ? 'bg-green-100 text-green-700' :
+                                        run.status.type === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
                                         }`}>
-                                        {run.status}
+                                        {run.status.type}
                                     </span>
                                     <span className="text-[10px] text-gray-400 font-mono">
-                                        {new Date(run.startedAt).toLocaleDateString()}
+                                        {run.startedAt ? new Date(run.startedAt).toLocaleDateString() : 'N/A'}
                                     </span>
                                 </div>
-                                <div className="font-medium text-sm text-gray-900 truncate mb-1 group-hover:text-blue-700 transition-colors">{run.goal}</div>
+                                <div className="font-medium text-sm text-gray-900 truncate mb-1 group-hover:text-blue-700 transition-colors">{run.prompt}</div>
                                 <div className="text-xs text-gray-500 truncate flex items-center gap-1.5">
                                     <span className="opacity-40">🔗</span> {run.url}
                                 </div>

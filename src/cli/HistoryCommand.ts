@@ -31,10 +31,10 @@ export class HistoryCommand {
                 console.log(chalk.bold(`\nRecent Test Runs (${runs.length}):`));
                 console.log('--------------------------------------------------');
                 runs.forEach(run => {
-                    const statusColor = run.status === 'pass' ? chalk.green : (run.status === 'fail' ? chalk.red : chalk.yellow);
-                    console.log(`${chalk.gray(run.id)} | ${statusColor(run.status.toUpperCase())} | ${run.url}`);
-                    console.log(chalk.dim(`  Goal: ${run.goal}`));
-                    console.log(chalk.dim(`  Time: ${new Date(run.startedAt).toLocaleString()}`));
+                    const statusColor = run.status.type === 'passed' ? chalk.green : (run.status.type === 'failed' ? chalk.red : chalk.yellow);
+                    console.log(`${chalk.gray(run.id)} | ${statusColor(run.status.type.toUpperCase())} | ${run.url}`);
+                    console.log(chalk.dim(`  Goal: ${run.prompt}`));
+                    console.log(chalk.dim(`  Time: ${run.startedAt ? run.startedAt.toLocaleString() : 'N/A'}`));
                     console.log('');
                 });
             });
@@ -59,19 +59,25 @@ export class HistoryCommand {
                 const stepsResult = await persistence.getTestSteps(id);
                 const steps = stepsResult.isOk() ? stepsResult.value : [];
 
+                // Extract summary based on status
+                let summary = 'N/A';
+                if (run.status.type === 'passed') summary = run.status.summary;
+                if (run.status.type === 'failed') summary = run.status.error;
+                if (run.status.type === 'cancelled') summary = run.status.reason;
+
                 console.log(chalk.bold(`\nTest Run Details: ${run.id}`));
                 console.log('--------------------------------------------------');
                 console.log(`URL: ${chalk.blue(run.url)}`);
-                console.log(`Status: ${run.status === 'pass' ? chalk.green('PASS') : chalk.red(run.status.toUpperCase())}`);
-                console.log(`Goal: ${run.goal}`);
-                console.log(`Summary: ${run.summary}`);
+                console.log(`Status: ${run.status.type === 'passed' ? chalk.green('PASS') : chalk.red(run.status.type.toUpperCase())}`);
+                console.log(`Goal: ${run.prompt}`);
+                console.log(`Summary: ${summary}`);
                 console.log(`Steps: ${steps.length}`);
                 console.log('--------------------------------------------------');
 
                 steps.forEach(step => {
                     console.log(`[${step.stepNumber}] ${chalk.cyan(step.actionType)}`);
-                    if (step.actionPayload && step.actionPayload.thought) {
-                        console.log(chalk.dim(`    Thought: ${step.actionPayload.thought}`));
+                    if (step.actionPayload && (step.actionPayload as any).thought) {
+                        console.log(chalk.dim(`    Thought: ${(step.actionPayload as any).thought}`));
                     }
                 });
             });

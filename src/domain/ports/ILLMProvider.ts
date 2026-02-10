@@ -29,4 +29,5 @@ export interface LLMConfig {
 export interface ILLMProvider {
     readonly providerName: string;
     generateAction(context: LLMContext): ResultAsync<AgentAction, LLMError>;
+    generatePlan(prompt: string): ResultAsync<import('../entities/Plan').Plan, LLMError>;
 }

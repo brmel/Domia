@@ -1,12 +1,15 @@
 import { create } from 'zustand';
 import type { TestRunEvent } from '@domain/events';
 import type { AgentAction, TestRunId } from '@domain/value-objects';
-import type { TestStep } from '@domain/entities';
+import type { Plan } from '@domain/entities/Plan';
 
 /**
- * Test run state for UI
+ * TestRun state for UI
  */
-export interface TestRunState {
+/**
+ * TestRun state for UI
+ */
+export interface TestRunStoreState {
     // Current run status
     status: 'idle' | 'running' | 'cancelled' | 'completed' | 'error';
     testRunId: TestRunId | null;
@@ -14,7 +17,8 @@ export interface TestRunState {
     // Progress tracking
     currentPhase: 'observing' | 'thinking' | 'acting' | null;
     currentAction: AgentAction | null;
-    steps: TestStep[];
+    plan: Plan | null;
+    history: readonly AgentAction[];
 
     // Results
     success: boolean | null;
@@ -30,14 +34,15 @@ interface TestRunActions {
     handleEvent: (event: TestRunEvent) => void;
 }
 
-type TestRunStore = TestRunState & TestRunActions;
+type TestRunStore = TestRunStoreState & TestRunActions;
 
-const initialState: TestRunState = {
+const initialState: TestRunStoreState = {
     status: 'idle',
     testRunId: null,
     currentPhase: null,
     currentAction: null,
-    steps: [],
+    plan: null,
+    history: [],
     success: null,
     summary: null,
     errorMessage: null,
@@ -67,11 +72,11 @@ export const useTestRunStore = create<TestRunStore>((set) => ({
                 set({ currentPhase: 'acting', currentAction: event.action });
                 break;
 
-            case 'step_complete':
+            case 'state_updated':
                 set((state) => ({
-                    steps: [...state.steps, event.step],
+                    plan: event.state.plan || state.plan,
+                    history: event.state.history || state.history,
                     currentPhase: null,
-                    currentAction: null,
                 }));
                 break;
 

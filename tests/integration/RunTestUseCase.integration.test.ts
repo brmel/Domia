@@ -13,7 +13,6 @@ import { container, Lifecycle } from 'tsyringe';
 import { okAsync, ResultAsync } from 'neverthrow';
 import { INode, IBrowserAutomation, IPersistenceAdapter, LLMConfig } from '@domain/ports';
 import { DomiaGateway } from '@application/gateway/DomiaGateway';
-import { WorkflowEngine } from '@application/workflows/WorkflowEngine';
 import { PlaywrightAdapter } from '@infrastructure/adapters/browser/PlaywrightAdapter';
 import { LangChainAdapter } from '@infrastructure/adapters/llm/LangChainAdapter';
 import { ConsoleLogger } from '@infrastructure/adapters/logger/ConsoleLogger';
@@ -94,15 +93,6 @@ describe('RunTestUseCase Integration', () => {
         container.register('IBrowserAutomation', { useClass: PlaywrightAdapter }, { lifecycle: Lifecycle.Singleton });
         container.register('ILLMProvider', { useClass: LangChainAdapter });
 
-        // Register ContextBuilder dependencies for PlaywrightAdapter
-        // They were previously implicitly registered or available, but now PlaywrightAdapter imports ContextBuilder
-        // which needs DOMParser and MetadataParser.
-        // We need to ensure they are registered if they are not auto-resolved. 
-        // tsyringe auto-resolves if they have @injectable() and no circular deps.
-        // But let's check if we need to register them.
-        // ContextBuilder is a concrete class. PlaywrightAdapter injects it by class.
-        // So tsyringe should handle it.
-
         // Register Tools
         const toolRegistry = new ToolRegistry();
         toolRegistry.register(new ClickTool());
@@ -120,7 +110,6 @@ describe('RunTestUseCase Integration', () => {
 
         // Register Enterprise Architecture
         container.registerSingleton(DomiaGateway);
-        container.registerSingleton(WorkflowEngine);
 
         // Register Mock Node
         const gateway = container.resolve(DomiaGateway);

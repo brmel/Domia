@@ -21,7 +21,7 @@ export interface WorkflowState {
     // Hierarchical Planning
     readonly plan?: Plan;
     readonly activeItemId?: string;
-    readonly history: AgentAction[];
+    readonly history: readonly AgentAction[];
 }
 
 export const WorkflowState = {

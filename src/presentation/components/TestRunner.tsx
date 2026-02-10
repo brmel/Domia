@@ -5,7 +5,7 @@ import { cn } from '../../lib/utils';
 import { trpc } from '../../lib/trpc';
 
 export function TestRunner(): React.ReactElement {
-    const { status, currentAction, steps, success, summary, errorMessage, handleEvent } =
+    const { status, currentAction, plan, history, success, summary, errorMessage, handleEvent } =
         useTestRunStore();
 
     trpc.test.onUpdate.useSubscription(undefined, {
@@ -64,7 +64,7 @@ export function TestRunner(): React.ReactElement {
                 {/* Log Content */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono text-sm relative">
                     {/* Welcome Message */}
-                    {steps.length === 0 && !currentAction && status === 'idle' && (
+                    {history.length === 0 && !currentAction && status === 'idle' && (
                         <div className="text-gray-400 text-center mt-10 italic">
                             Agent is ready. Waiting for instructions...
                         </div>
@@ -106,33 +106,42 @@ export function TestRunner(): React.ReactElement {
                         </div>
                     )}
 
+                    {/* Plan Progress (Optional, showing active item) */}
+                    {plan && status === 'running' && (
+                        <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                            <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Current Plan Step</h4>
+                            {plan.items.map((item, i) => (
+                                <div key={i} className={cn(
+                                    "flex items-center gap-2 text-xs py-1",
+                                    item.status === 'active' ? "text-blue-600 font-bold" :
+                                        item.status === 'completed' ? "text-green-600 line-through opacity-70" :
+                                            "text-gray-400"
+                                )}>
+                                    <span>{item.status === 'completed' ? '✓' : item.status === 'active' ? '▶' : '○'}</span>
+                                    <span>{item.description}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     {/* History Steps (Newest first) */}
-                    {steps.slice().reverse().map((step, i) => (
+                    {history.slice().reverse().map((action, i) => (
                         <div key={i} className="group flex gap-4 p-3 rounded-xl border border-transparent hover:border-gray-100 hover:bg-gray-50 transition-all">
-                            <span className="text-xs font-bold text-gray-400 mt-1 w-6">#{step.stepNumber}</span>
+                            <span className="text-xs font-bold text-gray-400 mt-1 w-6">#{history.length - i}</span>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <span className={`text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider ${step.action.type === 'fail' ? 'bg-red-100 text-red-700' :
-                                        step.action.type === 'pass' ? 'bg-green-100 text-green-700' :
-                                            'bg-gray-100 text-gray-600'
+                                    <span className={`text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider ${action.type === 'fail' ? 'bg-red-100 text-red-700' :
+                                            action.type === 'pass' ? 'bg-green-100 text-green-700' :
+                                                'bg-gray-100 text-gray-600'
                                         }`}>
-                                        {step.action.type}
-                                    </span>
-                                    <span className="text-xs text-gray-300">
-                                        {step.status.type === 'success' ? '✓' : '✗'}
+                                        {action.type}
                                     </span>
                                 </div>
 
-                                {step.status.type === 'failed' && (
-                                    <div className="text-red-600 text-xs mt-1 font-medium bg-red-50 p-2 rounded">
-                                        Error: {step.status.error}
-                                    </div>
-                                )}
-
                                 {/* Show thought for history items too if available */}
-                                {getThought(step.action) && (
+                                {getThought(action) && (
                                     <p className="text-gray-500 text-xs mt-1 line-clamp-2 italic group-hover:line-clamp-none">
-                                        "{getThought(step.action)}"
+                                        "{getThought(action)}"
                                     </p>
                                 )}
                             </div>

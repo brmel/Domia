@@ -1,23 +1,17 @@
 import { ResultAsync } from 'neverthrow';
 import { PersistenceError } from '@domain/errors';
 import { AgentAction } from '@domain/value-objects';
+import { TestRun } from '@domain/entities/TestRun';
 
-export interface TestRun {
-    id: string;
-    url: string;
-    status: 'pass' | 'fail' | 'running';
-    startedAt: string;
-    completedAt?: string;
-    durationMs?: number;
-    goal?: string;
-    summary?: string;
-}
+// Removed local TestRun interface in favor of Domain Entity
+
+import { ActionType } from '../enums/ActionType';
 
 export interface TestStep {
     id: string;
     testRunId: string;
     stepNumber: number;
-    actionType: string;
+    actionType: ActionType;
     actionPayload: AgentAction;
     timestamp: string;
 }
