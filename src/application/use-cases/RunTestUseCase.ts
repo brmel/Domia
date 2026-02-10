@@ -1,5 +1,6 @@
 
 import { injectable, inject } from 'tsyringe';
+import { errAsync } from 'neverthrow';
 import { DomiaGateway } from '../gateway/DomiaGateway';
 import { IBrowserAutomation } from '../../domain/ports';
 import { UrlFactory, WorkflowState } from '../../domain/value-objects';
@@ -58,6 +59,7 @@ export class RunTestUseCase {
         let currentState = WorkflowState.initial();
         let completed = false;
         let finalSummary: string | undefined;
+        let hasVerificationFailure = false;
 
         try {
             const urlResult = UrlFactory.create(input.url);
@@ -106,41 +108,47 @@ export class RunTestUseCase {
 
                 // Execute Item
                 // We define executing a plan item as executing a "step" in StepExecutor
-                const stepGen = this.executor.executeStep(testRunId, item.description, browser, input.url);
+                // Pass current global step number to ensure artifacts are numbered correctly
+                const stepGen = this.executor.executeStep(testRunId, item.description, browser, input.url, currentState.stepNumber);
                 let result: import('neverthrow').Result<void, Error> | undefined;
 
-                const iterator = stepGen[Symbol.asyncIterator]();
-                let next = await iterator.next();
-                while (!next.done) {
-                    if (next.value.type === 'action') {
-                        const action = next.value.action;
-                        const assets = next.value.assets;
+                try {
+                    const iterator = stepGen[Symbol.asyncIterator]();
+                    let next = await iterator.next();
+                    while (!next.done) {
+                        if (next.value.type === 'action') {
+                            const action = next.value.action;
+                            const assets = next.value.assets; // These are paths from StepExecutor
 
-                        const step: TestStep = {
-                            id: uuidv4(),
-                            testRunId,
-                            stepNumber: currentState.stepNumber + 1,
-                            actionType: action.type,
-                            actionPayload: action,
-                            ...(assets ? { assets } : {}),
-                            timestamp: new Date().toISOString()
-                        };
+                            const step: TestStep = {
+                                id: uuidv4(),
+                                testRunId,
+                                stepNumber: currentState.stepNumber + 1,
+                                actionType: action.type,
+                                actionPayload: action,
+                                ...(assets ? { assets } : {}),
+                                timestamp: new Date().toISOString()
+                            };
 
-                        await this.persistence.saveTestStep(step);
+                            await this.persistence.saveTestStep(step);
 
-                        // Update state
-                        currentState = {
-                            ...currentState,
-                            stepNumber: currentState.stepNumber + 1,
-                            history: [...currentState.history, action]
-                        };
-                        yield { type: 'state_updated', state: currentState };
+                            // Update state
+                            currentState = {
+                                ...currentState,
+                                stepNumber: currentState.stepNumber + 1,
+                                history: [...currentState.history, action]
+                            };
+                            yield { type: 'state_updated', state: currentState };
 
-                        yield { type: 'acting', action: next.value.action };
+                            yield { type: 'acting', action: next.value.action };
+                        }
+                        next = await iterator.next();
                     }
-                    next = await iterator.next();
+                    result = next.value; // This is the return value (Result<void, Error>)
+                } catch (e) {
+                    // Catch unexpected iterator errors
+                    result = errAsync(e instanceof Error ? e : new Error(String(e))) as any; // Cast to match result type
                 }
-                result = next.value; // This is the return value (Result<void, Error>)
 
                 if (result && result.isOk()) {
                     // Mark Success
@@ -150,21 +158,35 @@ export class RunTestUseCase {
                     currentState = { ...currentState, plan: { ...plan, items: successItems } };
                     yield { type: 'state_updated', state: currentState };
                 } else {
-                    // Mark Fail
+                    // Step Failed
                     const errorMsg = result ? result.error.message : "Unknown error";
-                    const failItem = { ...item, status: 'failed' as PlanItemStatus, error: errorMsg } as import('@domain/entities/Plan').PlanItem;
-                    const failItems = [...updatedItems];
-                    failItems[i] = failItem;
-                    currentState = { ...currentState, plan: { ...plan, items: failItems } };
+
+                    // User Request: "Steps are expected to always pass... unless there is an unexpected bug"
+                    // "If a test that fails, then it should be in the agent steps and final result."
+                    // So we mark the PLAN ITEM as completed (because the agent *attempted* it), 
+                    // but we treat the FAILURE as part of the execution history/result.
+
+                    // We will mark it as 'completed' in the UI Plan, but log the error.
+                    // Actually, if we mark it completed, the user might see a green check.
+                    // User said: "not plan steps that should always pass"
+                    // So yes, mark plan item as completed.
+
+                    const completedWithFailureItem = { ...item, status: 'completed' as PlanItemStatus } as import('@domain/entities/Plan').PlanItem;
+                    const newItems = [...updatedItems];
+                    newItems[i] = completedWithFailureItem;
+                    currentState = { ...currentState, plan: { ...plan, items: newItems } };
                     yield { type: 'state_updated', state: currentState };
 
-                    if (result) throw result.error;
-                    else throw new Error("Step execution failed without result");
+                    console.warn(`[RunTestUseCase] Step failed verification: ${errorMsg}`);
+                    finalSummary = `Verification failed: ${errorMsg}`;
+                    hasVerificationFailure = true;
+                    // We DO NOT throw here anymore. We continue execution or finish.
+                    // Since this is likely the last step (verification), we just proceed.
                 }
             }
 
             completed = true;
-            finalSummary = "Test completed successfully.";
+            if (!finalSummary) finalSummary = "Test completed successfully.";
 
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
@@ -178,12 +200,14 @@ export class RunTestUseCase {
             await this.trace.endTrace();
 
             // Final status update
+            // Global Status Logic: Fail if cancelled OR if hasVerificationFailure is true.
             if (controller.state === TestRunState.CANCELLED) {
                 yield { type: 'completed', success: false, summary: "Test cancelled by user." };
                 await this.lifecycleManager.finalizeTestRun(testRunId, false, "Test cancelled by user.");
             } else if (completed) {
-                yield { type: 'completed', success: true, ...(finalSummary ? { summary: finalSummary } : {}) };
-                await this.lifecycleManager.finalizeTestRun(testRunId, true, finalSummary);
+                const isGlobalSuccess = !hasVerificationFailure;
+                yield { type: 'completed', success: isGlobalSuccess, ...(finalSummary ? { summary: finalSummary } : {}) };
+                await this.lifecycleManager.finalizeTestRun(testRunId, isGlobalSuccess, finalSummary);
             }
         }
     }

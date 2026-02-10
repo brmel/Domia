@@ -9,9 +9,10 @@ import { HistorySidebar } from './presentation/components/HistorySidebar';
 import { SettingsSidebar } from './presentation/components/SettingsSidebar';
 import { StepInspector } from './presentation/components/StepInspector';
 
+
 function App(): JSX.Element {
-    // Determine which sidebar content is active: 'config' | 'history' | 'settings'
-    const [activeSidebar, setActiveSidebar] = useState<'config' | 'history' | 'settings'>('config');
+    // Determine which sidebar content is active: 'config' | 'history' | 'settings_model' | 'settings_debug'
+    const [activeSidebar, setActiveSidebar] = useState<'config' | 'history' | 'settings_model' | 'settings_debug'>('config');
 
     return (
         <div className="flex h-screen w-screen overflow-hidden bg-gray-50 text-gray-900 font-sans">
@@ -23,31 +24,20 @@ function App(): JSX.Element {
                             <h1 className="text-2xl font-bold tracking-tight text-gray-900">Domia</h1>
                             <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wider">Autonomous Web Agent</p>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-6 bg-white">
-                            <TestForm />
-                        </div>
-                        <div className="p-4 border-t border-gray-100 bg-gray-50 space-y-2">
-                            <button
-                                onClick={() => setActiveSidebar('history')}
-                                className="flex items-center justify-center space-x-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-white border border-transparent hover:border-gray-200 hover:shadow-sm w-full p-2.5 rounded-md transition-all font-medium"
-                            >
-                                <span>📜</span>
-                                <span>View History</span>
-                            </button>
-                            <button
-                                onClick={() => setActiveSidebar('settings')}
-                                className="flex items-center justify-center space-x-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-white border border-transparent hover:border-gray-200 hover:shadow-sm w-full p-2.5 rounded-md transition-all font-medium"
-                            >
-                                <span>⚙️</span>
-                                <span>Settings</span>
-                            </button>
-                            <p className="text-[10px] text-gray-400 mt-3 text-center">Configured via domia.config.json</p>
+                        <div className="flex-1 overflow-y-auto p-0 bg-white">
+                            <TestForm
+                                onOpenHistory={() => setActiveSidebar('history')}
+                                onOpenModelSettings={() => setActiveSidebar('settings_model')}
+                            />
                         </div>
                     </>
                 ) : activeSidebar === 'history' ? (
                     <HistorySidebar onClose={() => setActiveSidebar('config')} />
                 ) : (
-                    <SettingsSidebar onClose={() => setActiveSidebar('config')} />
+                    <SettingsSidebar
+                        onClose={() => setActiveSidebar('config')}
+                        initialTab={activeSidebar === 'settings_model' ? 'model' : 'debug'}
+                    />
                 )}
             </ResizableSidebar>
 
@@ -64,7 +54,7 @@ function App(): JSX.Element {
                 </section>
             </main>
             <StepInspector />
-        </div>
+        </div >
     );
 }
 

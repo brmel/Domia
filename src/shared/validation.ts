@@ -10,9 +10,11 @@ export const TestInputSchema = z.object({
     prompt: z.string().trim().min(1, "Prompt cannot be empty"),
     options: z.object({
         headless: z.boolean().optional(),
-        maxSteps: z.number().positive().optional(),
-        provider: z.string().optional()
-    }).optional()
+        maxSteps: z.number().positive(),
+        provider: z.string().optional(),
+        verbose: z.boolean().optional(),
+        debug: z.boolean().optional()
+    })
 });
 
 export type TestInput = z.infer<typeof TestInputSchema>;

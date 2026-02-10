@@ -33,6 +33,10 @@ export class PerceptionPipeline implements IPerceptionPipeline {
                     if (!adapter.page) return errAsync(new SnapshotError('Browser page not available'));
                     const page = adapter.page;
 
+                    if (page.isClosed()) {
+                        return errAsync(new SnapshotError('Browser page is closed'));
+                    }
+
                     return ResultAsync.fromPromise(
                         Promise.all([
                             options.vision ? this.visionSensor.capture(page) : Promise.resolve({ screenshot: Buffer.from(''), mimeType: '' }),
@@ -44,15 +48,29 @@ export class PerceptionPipeline implements IPerceptionPipeline {
                 .andThen(([vision, aria]) => {
                     return this.browser.resume()
                         .orElse(e => {
-                            if (String(e).includes('Can only perform operation while paused')) return okAsync(undefined);
-                            return errAsync(new SnapshotError(`Failed to resume browser: ${String(e)}`));
+                            // If resume fails because target is closed, log it but return the captured data if we have it? 
+                            // Actually if we have data, we're good.
+                            const msg = String(e);
+                            if (msg.includes('Target page, context or browser has been closed')) {
+                                this.logger.warn(`[PerceptionPipeline] Browser closed during resume, but capture succeeded.`);
+                                return okAsync(undefined);
+                            }
+                            if (msg.includes('Can only perform operation while paused')) return okAsync(undefined);
+                            return errAsync(new SnapshotError(`Failed to resume browser: ${msg}`));
                         })
                         .map(() => ({ vision, aria }));
                 })
                 .orElse(error => {
-                    this.logger.error(`[PerceptionPipeline] Capture failed during pause/resume: ${error.message}`);
+                    const msg = error.message || String(error);
+                    if (msg.includes('Target page, context or browser has been closed')) {
+                        this.logger.warn(`[PerceptionPipeline] Browser closed during capture sequence. Returning empty perception.`);
+                        return okAsync({ vision: { screenshot: Buffer.from(''), mimeType: '' }, aria: null });
+                    }
+
+                    this.logger.error(`[PerceptionPipeline] Capture failed during pause/resume: ${msg}`);
+                    // Attempt to resume if possible, but don't fail if resume fails
                     return this.browser.resume()
-                        .mapErr(e => new SnapshotError(`Secondary resume failed: ${e.message}`))
+                        .orElse(() => okAsync(undefined))
                         .andThen(() => errAsync(error));
                 })
             : okAsync({ vision: { screenshot: Buffer.from(''), mimeType: '' }, aria: null });

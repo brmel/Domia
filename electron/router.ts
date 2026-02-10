@@ -8,6 +8,9 @@ import { ExecutionController } from '../src/application/controllers/ExecutionCon
 import { observable } from '@trpc/server/observable';
 import { EventEmitter } from 'events';
 import { RunTestInput } from '../src/application/dtos';
+import { FileTraceExporter } from '../src/infrastructure/services/exporters/FileTraceExporter';
+// Debug library handling
+import debug from 'debug';
 
 const t = initTRPC.create({ isServer: true });
 
@@ -20,7 +23,9 @@ const runInputSchema = z.object({
     options: z.object({
         headless: z.boolean().optional(),
         maxSteps: z.number().optional(),
-        provider: z.string().optional()
+        provider: z.string().optional(),
+        verbose: z.boolean().optional(),
+        debug: z.boolean().optional()
     }).optional()
 });
 
@@ -36,6 +41,21 @@ export const appRouter = t.router({
                     currentController.stop();
                 }
                 currentController = new ExecutionController();
+
+                if (input.options?.debug) {
+                    debug.enable('domia:*');
+                }
+
+                if (input.options?.verbose) {
+                    const traceService = container.resolve<import('../src/domain/ports/ITraceService').ITraceService>('ITraceService');
+                    const storage = container.resolve<import('../src/domain/ports/IStorageService').IStorageService>('IStorageService');
+
+                    // Cast to concrete TraceService to access addExporter
+                    const concreteTrace = traceService as import('../src/infrastructure/services/TraceService').TraceService;
+                    if (concreteTrace.addExporter) {
+                        concreteTrace.addExporter(new FileTraceExporter(storage));
+                    }
+                }
 
                 try {
                     const generator = useCase.execute(input as RunTestInput, currentController);

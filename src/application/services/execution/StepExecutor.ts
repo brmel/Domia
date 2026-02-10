@@ -21,10 +21,11 @@ export class StepExecutor {
         stepGoal: string,
         browser: IBrowserAutomation,
         url: string,
+        initialStepNumber: number = 0,
         maxActions: number = 20
     ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, Result<void, Error>, unknown> {
         let loopCount = 0;
-        let currentState: { history: AgentAction[], stepNumber: number } = { history: [], stepNumber: 0 };
+        let currentState: { history: AgentAction[], stepNumber: number } = { history: [], stepNumber: initialStepNumber };
 
         await this.trace.startTrace(runId);
 
@@ -37,7 +38,7 @@ export class StepExecutor {
             // Save Assets
             // We use standard storage pathing. Actions are usually 1-to-1 with perception in this loop?
             // stepNumber in WorkflowState is monotonic.
-            const assets = await this.storage.savePerceptionAssets(runId, currentState.stepNumber, frame);
+            const assets = await this.storage.savePerceptionAssets(runId, currentState.stepNumber + 1, frame);
 
             // Note: assets paths should be passed to persistence? 
             // StepExecutor yields Action. Action execution leads to Step persistence.
@@ -56,7 +57,7 @@ export class StepExecutor {
             // Use `grep_search` to find usages of `saveTestStep`.
 
             // Trace: Perception Metadata
-            await this.trace.tracePerception(runId, currentState.stepNumber, {
+            await this.trace.tracePerception(runId, currentState.stepNumber + 1, {
                 timestamp: Date.now(),
                 sensorData: {
                     domCount: frame.semantic.dom ? 1 : 0, // Simplified for now
@@ -86,7 +87,7 @@ export class StepExecutor {
             };
 
             // Trace: Agent Input (Prompt Context)
-            await this.trace.traceReasoning(runId, currentState.stepNumber, {
+            await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
                 agentInput: {
                     goal: stepGoal,
                     currentUrl: url,
@@ -104,7 +105,7 @@ export class StepExecutor {
             const action = actionResult.value;
 
             // Trace: Agent Output
-            await this.trace.traceReasoning(runId, currentState.stepNumber, {
+            await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
                 agentOutput: {
                     thought: action.thought || '',
                     action: action,

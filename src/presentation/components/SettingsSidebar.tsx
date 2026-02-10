@@ -1,12 +1,16 @@
+
+
 import { useState, useEffect } from 'react';
 import { trpc } from '../../lib/trpc';
 import type { DomiaConfig } from '../../shared/config-types';
+import { cn } from '../../lib/utils';
 
 interface SettingsSidebarProps {
     onClose: () => void;
+    initialTab?: 'model' | 'debug';
 }
 
-export function SettingsSidebar({ onClose }: SettingsSidebarProps): JSX.Element {
+export function SettingsSidebar({ onClose, initialTab = 'model' }: SettingsSidebarProps): JSX.Element {
     const utils = trpc.useUtils();
     const { data: config, isLoading } = trpc.settings.get.useQuery();
     const updateMutation = trpc.settings.update.useMutation({
@@ -15,6 +19,7 @@ export function SettingsSidebar({ onClose }: SettingsSidebarProps): JSX.Element 
         }
     });
 
+    const [activeTab, setActiveTab] = useState<'model' | 'debug'>(initialTab);
     const [localConfig, setLocalConfig] = useState<DomiaConfig | null>(null);
 
     useEffect(() => {
@@ -22,6 +27,11 @@ export function SettingsSidebar({ onClose }: SettingsSidebarProps): JSX.Element 
             setLocalConfig(config);
         }
     }, [config]);
+
+    // Update local state when initialTab changes from props (if the sidebar is re-opened)
+    useEffect(() => {
+        setActiveTab(initialTab);
+    }, [initialTab]);
 
     const handleSave = (): void => {
         if (localConfig) {
@@ -36,8 +46,6 @@ export function SettingsSidebar({ onClose }: SettingsSidebarProps): JSX.Element 
             ai: { ...localConfig.ai, visionEnabled: enabled }
         });
     };
-
-
 
     // Helper to update strategy order safely
     const updateStrategies = (newOrder: ('fast' | 'semantic' | 'visual' | 'heuristic')[]): void => {
@@ -60,8 +68,8 @@ export function SettingsSidebar({ onClose }: SettingsSidebarProps): JSX.Element 
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/50">
                 <div className="flex items-center space-x-2">
-                    <span className="text-xl">⚙️</span>
-                    <h2 className="font-semibold text-gray-800">Settings</h2>
+                    <span className="text-xl">{activeTab === 'model' ? '🧠' : '🛠️'}</span>
+                    <h2 className="font-semibold text-gray-800">{activeTab === 'model' ? 'Model Settings' : 'Debug Tools'}</h2>
                 </div>
                 <button
                     onClick={onClose}
@@ -71,96 +79,143 @@ export function SettingsSidebar({ onClose }: SettingsSidebarProps): JSX.Element 
                 </button>
             </div>
 
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200">
+                <button
+                    onClick={() => setActiveTab('model')}
+                    className={cn(
+                        "flex-1 py-3 text-sm font-medium transition-colors relative",
+                        activeTab === 'model' ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
+                    )}
+                >
+                    Model & AI
+                    {activeTab === 'model' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />}
+                </button>
+                <button
+                    onClick={() => setActiveTab('debug')}
+                    className={cn(
+                        "flex-1 py-3 text-sm font-medium transition-colors relative",
+                        activeTab === 'debug' ? "text-purple-600" : "text-gray-500 hover:text-gray-700"
+                    )}
+                >
+                    Debug & Trace
+                    {activeTab === 'debug' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600" />}
+                </button>
+            </div>
+
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6 space-y-8">
-
-                {/* Vision LLM Section */}
-                <section>
-                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">AI Perception</h3>
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h4 className="font-medium text-gray-900">Vision LLM</h4>
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Allow the agent to "see" screenshots. Increases accuracy but uses more tokens.
-                                </p>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={localConfig.ai?.visionEnabled ?? false}
-                                    onChange={(e) => toggleVision(e.target.checked)}
-                                />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                            </label>
-                        </div>
-                    </div>
-                </section>
-
-                {/* Selector Engine Section */}
-                <section>
-                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">Selector Engine</h3>
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-3">
-                        <p className="text-xs text-gray-500 mb-2">
-                            Strategy Priority Order (Drag order logic to come, functional checkboxes for now)
-                        </p>
-                        {allStrategies.map(strategy => {
-                            const isEnabled = activeStrategies.includes(strategy);
-                            return (
-                                <div key={strategy} className="flex items-center space-x-3 p-2 bg-white border border-gray-200 rounded shadow-sm">
-                                    <input
-                                        type="checkbox"
-                                        checked={isEnabled}
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                updateStrategies([...activeStrategies, strategy]);
-                                            } else {
-                                                updateStrategies(activeStrategies.filter(s => s !== strategy));
-                                            }
-                                        }}
-                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                    />
-                                    <span className="text-sm font-medium text-gray-700 capitalize">{strategy} Path</span>
-                                    {strategy === 'visual' && !localConfig.ai?.visionEnabled && (
-                                        <span className="text-[10px] text-red-500 ml-auto">(Requires Vision)</span>
-                                    )}
+                {activeTab === 'model' && (
+                    <>
+                        {/* Vision LLM Section */}
+                        <section>
+                            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">AI Perception</h3>
+                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="font-medium text-gray-900">Vision Capabilites</h4>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Enable multimodal analysis (screenshots).
+                                        </p>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={localConfig.ai?.visionEnabled ?? false}
+                                            onChange={(e) => toggleVision(e.target.checked)}
+                                        />
+                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                    </label>
                                 </div>
-                            );
-                        })}
-                    </div>
-                </section>
+                            </div>
+                        </section>
 
-                {/* General Settings */}
-                <section>
-                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">General</h3>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Max Steps</label>
-                            <input
-                                type="number"
-                                value={localConfig.limits?.maxSteps ?? 20}
-                                onChange={(e) => setLocalConfig({
-                                    ...localConfig,
-                                    limits: { ...localConfig.limits, maxSteps: parseInt(e.target.value) }
+                        {/* Limits Section */}
+                        <section>
+                            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">Execution Limits</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Max Steps</label>
+                                    <input
+                                        type="number"
+                                        value={localConfig.limits?.maxSteps ?? 20}
+                                        onChange={(e) => setLocalConfig({
+                                            ...localConfig,
+                                            limits: { ...localConfig.limits, maxSteps: parseInt(e.target.value) }
+                                        })}
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">Maximum actions before stopping.</p>
+                                </div>
+                            </div>
+                        </section>
+                    </>
+                )}
+
+                {activeTab === 'debug' && (
+                    <>
+                        {/* Browser Control */}
+                        <section>
+                            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">Browser Control</h3>
+                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="font-medium text-gray-900">Headless Mode</h4>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Run without visual browser window.
+                                        </p>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={localConfig.headless ?? true}
+                                            onChange={(e) => setLocalConfig({
+                                                ...localConfig,
+                                                headless: e.target.checked
+                                            })}
+                                        />
+                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                    </label>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Selector Engine Section */}
+                        <section>
+                            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">Selector Engine</h3>
+                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-3">
+                                <p className="text-xs text-gray-500 mb-2">
+                                    Strategy Priority Order
+                                </p>
+                                {allStrategies.map(strategy => {
+                                    const isEnabled = activeStrategies.includes(strategy);
+                                    return (
+                                        <div key={strategy} className="flex items-center space-x-3 p-2 bg-white border border-gray-200 rounded shadow-sm">
+                                            <input
+                                                type="checkbox"
+                                                checked={isEnabled}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        updateStrategies([...activeStrategies, strategy]);
+                                                    } else {
+                                                        updateStrategies(activeStrategies.filter(s => s !== strategy));
+                                                    }
+                                                }}
+                                                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                                            />
+                                            <span className="text-sm font-medium text-gray-700 capitalize">{strategy} Path</span>
+                                            {strategy === 'visual' && !localConfig.ai?.visionEnabled && (
+                                                <span className="text-[10px] text-red-500 ml-auto">(Requires Vision)</span>
+                                            )}
+                                        </div>
+                                    );
                                 })}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                            />
-                        </div>
-                        <div className="flex items-center py-2">
-                            <input
-                                type="checkbox"
-                                checked={localConfig.headless ?? true}
-                                onChange={(e) => setLocalConfig({
-                                    ...localConfig,
-                                    headless: e.target.checked
-                                })}
-                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-2"
-                            />
-                            <span className="text-sm text-gray-700">Headless Mode</span>
-                        </div>
-                    </div>
-                </section>
+                            </div>
+                        </section>
+                    </>
+                )}
             </div>
 
             {/* Footer */}
@@ -174,7 +229,10 @@ export function SettingsSidebar({ onClose }: SettingsSidebarProps): JSX.Element 
                 <button
                     onClick={handleSave}
                     disabled={updateMutation.isPending}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    className={cn(
+                        "px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md disabled:opacity-50",
+                        activeTab === 'model' ? "bg-blue-600 hover:bg-blue-700" : "bg-purple-600 hover:bg-purple-700"
+                    )}
                 >
                     {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
                 </button>
