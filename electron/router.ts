@@ -36,9 +36,7 @@ export const appRouter = t.router({
         run: t.procedure
             .input(runInputSchema)
             .mutation(async ({ input }: { input: z.infer<typeof runInputSchema> }) => {
-                console.log('[Router] test.run called with:', JSON.stringify(input));
                 const useCase = container.resolve<RunTestUseCase>('RunTestUseCase');
-                console.log('[Router] UseCase resolved');
                 if (currentController) {
                     currentController.stop();
                 }
@@ -84,6 +82,22 @@ export const appRouter = t.router({
         cancel: t.procedure.mutation(() => {
             if (currentController) {
                 currentController.stop();
+                return { success: true };
+            }
+            return { success: false, message: 'No test running' };
+        }),
+
+        pause: t.procedure.mutation(() => {
+            if (currentController) {
+                currentController.pause();
+                return { success: true };
+            }
+            return { success: false, message: 'No test running' };
+        }),
+
+        resume: t.procedure.mutation(() => {
+            if (currentController) {
+                currentController.resume();
                 return { success: true };
             }
             return { success: false, message: 'No test running' };

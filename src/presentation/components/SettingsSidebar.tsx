@@ -4,13 +4,15 @@ import { useState, useEffect } from 'react';
 import { trpc } from '../../lib/trpc';
 import type { DomiaConfig } from '../../shared/config-types';
 import { cn } from '../../lib/utils';
+import { Button } from './ui/Button';
 
 interface SettingsSidebarProps {
     onClose: () => void;
     initialTab?: 'model' | 'debug';
+    disabled?: boolean;
 }
 
-export function SettingsSidebar({ onClose, initialTab = 'model' }: SettingsSidebarProps): JSX.Element {
+export function SettingsSidebar({ onClose, initialTab = 'model', disabled = false }: SettingsSidebarProps): JSX.Element {
     const utils = trpc.useUtils();
     const { data: config, isLoading } = trpc.settings.get.useQuery();
     const updateMutation = trpc.settings.update.useMutation({
@@ -73,28 +75,32 @@ export function SettingsSidebar({ onClose, initialTab = 'model' }: SettingsSideb
     const activeStrategies = effectiveConfig.selectorEngine?.strategyOrder || [];
 
     return (
-        <div className="flex flex-col h-full bg-white border-r border-gray-200 shadow-xl animate-slide-in-right">
+        <div className={`flex flex-col h-full bg-white border-r border-gray-200 shadow-xl animate-slide-in-right ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/50">
                 <div className="flex items-center space-x-2">
                     <span className="text-xl">{activeTab === 'model' ? '🧠' : '🛠️'}</span>
                     <h2 className="font-semibold text-gray-800">{activeTab === 'model' ? 'Model Settings' : 'Debug Tools'}</h2>
                 </div>
-                <button
+                <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={onClose}
-                    className="p-1 hover:bg-gray-200 rounded-md transition-colors text-gray-400 hover:text-gray-600"
+                    disabled={disabled}
                 >
                     ✕
-                </button>
+                </Button>
             </div>
 
             {/* Tabs */}
             <div className="flex border-b border-gray-200">
                 <button
                     onClick={() => setActiveTab('model')}
+                    disabled={disabled}
                     className={cn(
                         "flex-1 py-3 text-sm font-medium transition-colors relative",
-                        activeTab === 'model' ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
+                        activeTab === 'model' ? "text-blue-600" : "text-gray-500 hover:text-gray-700",
+                        disabled && "opacity-50 cursor-not-allowed"
                     )}
                 >
                     Model & AI
@@ -102,9 +108,11 @@ export function SettingsSidebar({ onClose, initialTab = 'model' }: SettingsSideb
                 </button>
                 <button
                     onClick={() => setActiveTab('debug')}
+                    disabled={disabled}
                     className={cn(
                         "flex-1 py-3 text-sm font-medium transition-colors relative",
-                        activeTab === 'debug' ? "text-purple-600" : "text-gray-500 hover:text-gray-700"
+                        activeTab === 'debug' ? "text-purple-600" : "text-gray-500 hover:text-gray-700",
+                        disabled && "opacity-50 cursor-not-allowed"
                     )}
                 >
                     Debug & Trace
@@ -148,6 +156,7 @@ export function SettingsSidebar({ onClose, initialTab = 'model' }: SettingsSideb
                                                     ai: { ...(config.ai || {}), ...updates }
                                                 });
                                             }}
+                                            disabled={disabled}
                                         />
                                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                                     </label>
@@ -180,6 +189,7 @@ export function SettingsSidebar({ onClose, initialTab = 'model' }: SettingsSideb
                                                     ai: { ...(config.ai || {}), ...updates }
                                                 });
                                             }}
+                                            disabled={disabled}
                                         />
                                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-gray-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-600"></div>
                                     </label>
@@ -197,6 +207,7 @@ export function SettingsSidebar({ onClose, initialTab = 'model' }: SettingsSideb
                                         type="number"
                                         value={effectiveConfig.limits?.maxSteps ?? 20}
                                         onChange={(e) => updateMaxSteps(parseInt(e.target.value), e)}
+                                        disabled={disabled}
                                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
                                     />
                                     <p className="text-xs text-gray-500 mt-1">Maximum actions before stopping.</p>
@@ -225,6 +236,7 @@ export function SettingsSidebar({ onClose, initialTab = 'model' }: SettingsSideb
                                             className="sr-only peer"
                                             checked={effectiveConfig.headless ?? true}
                                             onChange={(e) => toggleHeadless(e.target.checked, e)}
+                                            disabled={disabled}
                                         />
                                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                                     </label>
@@ -253,6 +265,7 @@ export function SettingsSidebar({ onClose, initialTab = 'model' }: SettingsSideb
                                                         updateStrategies(activeStrategies.filter(s => s !== strategy), e);
                                                     }
                                                 }}
+                                                disabled={disabled}
                                                 className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                                             />
                                             <span className="text-sm font-medium text-gray-700 capitalize">{strategy} Path</span>

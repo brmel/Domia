@@ -18,7 +18,7 @@ export class ContextBuilder {
     async buildSnapshot(page: Page): Promise<DOMSnapshot> {
         try {
             const config = this.configService.get();
-            const shouldCaptureScreenshot = config.ai.visionEnabled;
+            const shouldCaptureScreenshot = config.ai.debugScreenshots;
 
             const [elements, metadata, accessibilityTree, screenshot] = await Promise.all([
                 this.domParser.parse(page),

@@ -18,13 +18,27 @@ export class RunCommand {
             .option('-p, --prompt <prompt>', 'Testing instruction')
             .option('-s, --steps <steps>', 'Max steps', '10')
             .option('-H, --no-headless', 'Run in headful mode (visible browser)', false)
-            .option('-v, --verbose', 'Enable detailed artifact recording (DOM, Screenshots)', false)
-            .option('-d, --debug', 'Enable debug console output', false)
+            .option('-V, --vision', 'Enable Vision LLM', false)
+            .option('-S, --screenshots', 'Enable Debug Screenshots', false)
             .action(async (options) => {
                 console.log(chalk.cyan(figlet.textSync('Domia Agent', { horizontalLayout: 'full' })));
 
-                let { url, prompt, steps, verbose, debug } = options;
+                let { url, prompt, steps, verbose, debug, vision, screenshots } = options;
+                // console.log(`[RunCommand] Flags - Vision: ${vision}, Screenshots: ${screenshots}`);
+
                 const { headless } = options;
+
+                // Update ConfigService with CLI flags
+                const configService = container.resolve<import('../domain/ports/IConfigService').IConfigService>('IConfigService');
+                const updates = {
+                    ai: {
+                        visionEnabled: !!vision,
+                        debugScreenshots: !!screenshots
+                    } as any
+                };
+                // console.log(`[RunCommand] Updating ConfigService with:`, JSON.stringify(updates, null, 2));
+                configService.update(updates);
+                // console.log(`[RunCommand] Config after update:`, JSON.stringify(configService.get().ai, null, 2));
 
                 // 1. Handle Debug Mode (Console Logs)
                 if (debug) {
@@ -107,6 +121,8 @@ export class RunCommand {
                         options: {
                             maxSteps: parseInt(String(steps), 10),
                             headless: !!headless,
+                            vision: !!vision,
+                            debugScreenshots: !!screenshots
                         },
                     };
 

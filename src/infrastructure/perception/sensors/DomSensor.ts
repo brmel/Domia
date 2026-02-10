@@ -17,22 +17,37 @@ export class DomSensor implements ISensor<DOMSnapshot> {
     ) { }
 
     async capture(page: Page): Promise<DOMSnapshot> {
-        try {
-            const [elements, metadata] = await Promise.all([
-                this.domParser.parse(page),
-                this.metadataParser.parse(page)
-            ]);
+        let retries = 3;
+        while (retries > 0) {
+            try {
+                const [elements, metadata] = await Promise.all([
+                    this.domParser.parse(page),
+                    this.metadataParser.parse(page)
+                ]);
 
-            return {
-                url: metadata.url,
-                title: metadata.title,
-                rootElements: Object.freeze(metadata.rootElements),
-                elements: Object.freeze(elements),
-                timestamp: new Date()
-            };
-        } catch (e) {
-            this.logger.error(`[DomSensor] Capture failed: ${e}`);
-            throw e;
+                return {
+                    url: metadata.url,
+                    title: metadata.title,
+                    rootElements: Object.freeze(metadata.rootElements),
+                    elements: Object.freeze(elements),
+                    timestamp: new Date()
+                };
+            } catch (e) {
+                const msg = String(e);
+                if (msg.includes('Execution context was destroyed') || msg.includes('Target closed')) {
+                    this.logger.warn(`[DomSensor] Execution context destroyed (navigation?), retrying... (${retries} left)`);
+                    retries--;
+                    if (retries > 0) {
+                        try {
+                            await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => { });
+                        } catch (waitError) { /* ignore wait error */ }
+                        continue;
+                    }
+                }
+                this.logger.error(`[DomSensor] Capture failed: ${e}`);
+                throw e;
+            }
         }
+        throw new Error('[DomSensor] Failed to capture after retries');
     }
 }

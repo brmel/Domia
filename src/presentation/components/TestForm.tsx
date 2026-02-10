@@ -5,6 +5,9 @@ import { useTestRunStore } from '../stores';
 import { TestInputSchema, type TestInput } from '../../shared/validation';
 import { trpc } from '../../lib/trpc';
 import { cn } from '../../lib/utils';
+import { Button } from './ui/Button';
+import { AgentStatus } from '../../domain/types/AgentStatus';
+import { canStart, canPause, canResume, canStop, isAgentRunning } from '../utils/agentStateUtils';
 
 interface TestFormProps {
     onOpenHistory: () => void;
@@ -12,24 +15,29 @@ interface TestFormProps {
 }
 
 export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps): React.ReactElement {
-    const { status } = useTestRunStore();
-    const isRunning = status === 'running';
+    const { status, setStatus, url, prompt, setUrl, setPrompt } = useTestRunStore();
+    const isRunning = isAgentRunning(status);
 
     const runMutation = trpc.test.run.useMutation({
         onError: (error) => {
             console.error('Failed to start test:', error);
+            setStatus(AgentStatus.FAILED);
+        },
+        onSuccess: () => {
+            // Status will be updated via IPC event 'started'
         }
     });
 
     const {
-        register,
+        // register, // Unused now
+        setValue,
         handleSubmit,
         formState: { errors, isValid }
     } = useForm<TestInput>({
         resolver: zodResolver(TestInputSchema),
         defaultValues: {
-            url: 'https://www.google.com',
-            prompt: 'Validate that the search button is centered on the page',
+            url: url,
+            prompt: prompt,
             options: {
                 maxSteps: 20,
                 headless: false,
@@ -43,7 +51,8 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
     const { data: config } = trpc.settings.get.useQuery();
 
     const onSubmit = (data: TestInput): void => {
-        if (!isRunning) {
+        if (canStart(status)) {
+            setStatus(AgentStatus.RUNNING); // Optimistic update
             const finalData = {
                 ...data,
                 options: {
@@ -54,6 +63,33 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
             };
             runMutation.mutate(finalData);
         }
+    };
+
+    const stopMutation = trpc.test.cancel.useMutation({
+        onError: (err) => console.error('Failed to stop test:', err)
+    });
+
+    const pauseMutation = trpc.test.pause.useMutation({
+        onError: (err) => console.error('Failed to pause test:', err)
+    });
+
+    const resumeMutation = trpc.test.resume.useMutation({
+        onError: (err) => console.error('Failed to resume test:', err)
+    });
+
+    const handleStop = (): void => {
+        stopMutation.mutate();
+        setStatus(AgentStatus.CANCELLED); // Optimistic update
+    };
+
+    const handlePause = (): void => {
+        pauseMutation.mutate();
+        setStatus(AgentStatus.PAUSED); // Optimistic update
+    };
+
+    const handleResume = (): void => {
+        resumeMutation.mutate();
+        setStatus(AgentStatus.RUNNING); // Optimistic update
     };
 
     return (
@@ -73,7 +109,11 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
                             )}
                             type="text"
                             placeholder="google.com"
-                            {...register('url')}
+                            value={url}
+                            onChange={(e) => {
+                                setUrl(e.target.value);
+                                setValue('url', e.target.value, { shouldValidate: true });
+                            }}
                             disabled={isRunning}
                             autoFocus
                         />
@@ -92,30 +132,66 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
                                 : "border-transparent focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 hover:bg-white hover:border-gray-100"
                         )}
                         placeholder="Describe the task step-by-step..."
-                        {...register('prompt')}
+                        value={prompt}
+                        onChange={(e) => {
+                            setPrompt(e.target.value);
+                            setValue('prompt', e.target.value, { shouldValidate: true });
+                        }}
                         disabled={isRunning}
                     />
                 </div>
 
-                {/* Start Button - Sticky at bottom of scroll area or just below prompt */}
-                <div className="mt-auto pt-4 pb-2">
-                    <button
-                        type="submit"
-                        className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gray-900 hover:bg-black text-white font-bold rounded-2xl shadow-xl shadow-gray-900/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] group"
-                        disabled={isRunning || !isValid}
-                    >
-                        {isRunning ? (
-                            <>
-                                <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                                <span>Running...</span>
-                            </>
-                        ) : (
-                            <>
-                                <span className="text-xl group-hover:scale-110 transition-transform">✨</span>
-                                <span>Start Agent</span>
-                            </>
-                        )}
-                    </button>
+                {/* Agent Controls */}
+                <div className="mt-auto pt-4 pb-2 space-y-3">
+                    {canStart(status) && (
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            size="lg"
+                            className="w-full shadow-xl shadow-blue-500/20 py-4 rounded-2xl text-base"
+                            disabled={!isValid || runMutation.isPending}
+                            isLoading={runMutation.isPending}
+                            leftIcon={<span>✨</span>}
+                        >
+                            Start Agent
+                        </Button>
+                    )}
+
+                    {isAgentRunning(status) && (
+                        <div className="grid grid-cols-2 gap-3">
+                            {canPause(status) ? (
+                                <Button
+                                    variant="secondary"
+                                    onClick={handlePause}
+                                    className="py-3 rounded-xl"
+                                    leftIcon={<span>⏸️</span>}
+                                >
+                                    Pause
+                                </Button>
+                            ) : canResume(status) ? (
+                                <Button
+                                    variant="primary"
+                                    onClick={handleResume}
+                                    className="py-3 rounded-xl"
+                                    leftIcon={<span>▶️</span>}
+                                >
+                                    Resume
+                                </Button>
+                            ) : null}
+
+                            {canStop(status) && (
+                                <Button
+                                    variant="danger"
+                                    onClick={handleStop}
+                                    className="py-3 rounded-xl"
+                                    leftIcon={<span>⏹️</span>}
+                                >
+                                    Stop
+                                </Button>
+                            )}
+                        </div>
+                    )}
+
                     <p className="text-center text-[10px] text-gray-400 mt-3">
                         {isRunning ? 'Agent is working autonomously...' : 'Ready to explore'}
                     </p>
@@ -131,7 +207,8 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
                         <button
                             type="button"
                             onClick={onOpenHistory}
-                            className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl text-gray-400 hover:text-gray-900 hover:bg-white hover:shadow-sm transition-all group"
+                            disabled={isRunning}
+                            className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl text-gray-400 hover:text-gray-900 hover:bg-white hover:shadow-sm transition-all group ${isRunning ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             <span className="text-2xl group-hover:-translate-y-0.5 transition-transform filter grayscale group-hover:grayscale-0">📜</span>
                             <span className="text-[10px] font-bold uppercase tracking-wide">History</span>
@@ -143,7 +220,8 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
                         <button
                             type="button"
                             onClick={onOpenModelSettings}
-                            className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-white hover:shadow-sm transition-all group"
+                            disabled={isRunning}
+                            className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-white hover:shadow-sm transition-all group ${isRunning ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             <span className="text-2xl group-hover:-translate-y-0.5 transition-transform filter grayscale group-hover:grayscale-0">⚙️</span>
                             <span className="text-[10px] font-bold uppercase tracking-wide">Settings</span>

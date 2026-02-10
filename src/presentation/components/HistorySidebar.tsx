@@ -3,7 +3,12 @@ import { trpc } from '../../lib/trpc';
 import type { TestStep } from '@domain/ports';
 import { useStepInspectorStore } from '../stores/useStepInspectorStore';
 
-export function HistorySidebar({ onClose }: { onClose: () => void }): JSX.Element {
+interface HistorySidebarProps {
+    onClose: () => void;
+    disabled?: boolean;
+}
+
+export function HistorySidebar({ onClose, disabled = false }: HistorySidebarProps): JSX.Element {
     const utils = trpc.useUtils();
     const { data: runs = [], isLoading: loading } = trpc.history.getRuns.useQuery();
     const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
@@ -95,14 +100,15 @@ export function HistorySidebar({ onClose }: { onClose: () => void }): JSX.Elemen
     };
 
     return (
-        <div className="flex flex-col h-full w-full bg-white">
+        <div className={`flex flex-col h-full w-full bg-white ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
             <div className="p-4 border-b border-gray-100 bg-white flex justify-between items-center shrink-0">
                 <h2 className="text-xl font-bold flex items-center gap-2 text-gray-900">
                     <span>📜</span> History
                 </h2>
                 <button
                     onClick={onClose}
-                    className="p-1.5 hover:bg-gray-100 text-gray-400 hover:text-gray-700 rounded-full transition-colors"
+                    disabled={disabled}
+                    className="p-1.5 hover:bg-gray-100 text-gray-400 hover:text-gray-700 rounded-full transition-colors disabled:opacity-50"
                     title="Close History"
                 >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>

@@ -36,7 +36,7 @@ import { DebugExporter } from './infrastructure/services/exporters/DebugExporter
 export function registerCoreServices(): void {
     // 1. Core Services (Config & Persistence)
     container.registerSingleton(ConfigService);
-    container.registerSingleton('IConfigService', ConfigService);
+    container.register('IConfigService', { useToken: ConfigService });
     container.registerSingleton('IPersistenceAdapter', SQLiteAdapter);
 
     container.registerSingleton(PlaywrightAdapter);

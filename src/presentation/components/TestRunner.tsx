@@ -3,6 +3,8 @@ import { useTestRunStore, useStepInspectorStore } from '../stores';
 import type { AgentAction } from '@domain/value-objects';
 import { cn } from '../../lib/utils';
 import { trpc } from '../../lib/trpc';
+import { AgentStatus } from '../../domain/types/AgentStatus';
+
 
 export function TestRunner(): React.ReactElement {
     const { status, currentAction, plan, history, success, summary, errorMessage, handleEvent, testRunId: runId } =
@@ -34,17 +36,17 @@ export function TestRunner(): React.ReactElement {
         <div className="w-full h-full p-6 pt-2 overflow-hidden">
             <div className="flex h-full gap-4">
                 {/* Main Content Area (Log & Results) */}
-                <div className="flex-1 flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden min-w-0">
+                <div className="flex-1 flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden min-w-[300px]">
                     {/* Header Actions */}
                     <div className="flex justify-between items-center px-4 py-3 border-b border-gray-100 bg-gray-50/50">
                         <div>
                             <h3 className="font-semibold text-gray-700 text-sm flex items-center gap-2">
                                 <span className={cn(
                                     "w-2 h-2 rounded-full transition-all duration-300",
-                                    status === 'running' && "bg-blue-500 animate-pulse ring-2 ring-blue-500/30",
-                                    status === 'completed' && "bg-green-500 ring-2 ring-green-500/30",
-                                    status === 'cancelled' && "bg-yellow-500",
-                                    status === 'error' && "bg-red-500"
+                                    status === AgentStatus.RUNNING && "bg-blue-500 animate-pulse ring-2 ring-blue-500/30",
+                                    status === AgentStatus.COMPLETED && "bg-green-500 ring-2 ring-green-500/30",
+                                    status === AgentStatus.CANCELLED && "bg-yellow-500",
+                                    status === AgentStatus.FAILED && "bg-red-500"
                                 )}></span>
                                 Activity Log
                             </h3>
@@ -53,7 +55,7 @@ export function TestRunner(): React.ReactElement {
                             </div>
                         </div>
 
-                        {status === 'running' && (
+                        {status === AgentStatus.RUNNING && (
                             <button
                                 onClick={() => cancelMutation.mutate()}
                                 disabled={cancelMutation.isPending}
@@ -67,14 +69,14 @@ export function TestRunner(): React.ReactElement {
                     {/* Log Content */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono text-sm relative">
                         {/* Welcome Message */}
-                        {history.length === 0 && !currentAction && status === 'idle' && (
+                        {history.length === 0 && !currentAction && status === AgentStatus.IDLE && (
                             <div className="text-gray-400 text-center mt-10 italic">
                                 Agent is ready. Waiting for instructions...
                             </div>
                         )}
 
                         {/* Pending Action (Currently executing) - Show at Top if running */}
-                        {currentAction && status === 'running' && (
+                        {currentAction && status === AgentStatus.RUNNING && (
                             <div className="border-l-4 border-blue-500 pl-4 py-3 bg-blue-50/10 animate-pulse rounded-r-lg">
                                 <div className="flex justify-between items-center mb-1">
                                     <span className="text-xs font-bold text-blue-500 uppercase tracking-wider">Processing</span>
@@ -88,7 +90,7 @@ export function TestRunner(): React.ReactElement {
                         )}
 
                         {/* Result Card (Inlined if completed) */}
-                        {(status === 'completed' || status === 'error') && (
+                        {(status === AgentStatus.COMPLETED || status === AgentStatus.FAILED) && (
                             <div className={cn(
                                 "p-4 rounded-xl border-l-4 shadow-sm mb-4 bg-white",
                                 success ? "bg-green-50/50 border-green-500 text-green-900" : "bg-red-50/50 border-red-500 text-red-900"
@@ -102,7 +104,7 @@ export function TestRunner(): React.ReactElement {
                                             {success ? 'Goal Achieved' : 'Goal Failed'}
                                         </h4>
                                         <p className="text-sm leading-relaxed opacity-90 whitespace-pre-wrap">
-                                            {status === 'error' ? errorMessage : summary}
+                                            {status === AgentStatus.FAILED ? errorMessage : summary}
                                         </p>
                                     </div>
                                 </div>

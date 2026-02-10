@@ -2,7 +2,7 @@ import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { SystemMessage, HumanMessage, AIMessage, BaseMessage } from '@langchain/core/messages';
-import type { ILLMProvider, LLMContext, ILogger, LLMConfig } from '@domain/ports';
+import type { ILLMProvider, LLMContext, ILogger, LLMConfig, IConfigService } from '@domain/ports';
 import type { AgentAction } from '@domain/value-objects';
 import { LLMError } from '@domain/errors';
 import { LLMPromptUtils } from './LLMPromptUtils';
@@ -15,7 +15,8 @@ export class LangChainAdapter implements ILLMProvider {
 
     constructor(
         @inject('LLMConfig') config: LLMConfig,
-        @inject('ILogger') private readonly logger: ILogger
+        @inject('ILogger') private readonly logger: ILogger,
+        @inject('IConfigService') private readonly configService: IConfigService
     ) {
         this.model = new ChatGoogleGenerativeAI({
             model: config.model,
@@ -81,10 +82,11 @@ export class LangChainAdapter implements ILLMProvider {
         ];
 
         const promptText = LLMPromptUtils.buildUserPrompt(context);
+        const config = this.configService.get();
+        const isVisionEnabled = config.ai.visionEnabled;
 
-        if (context.snapshot.screenshot) {
+        if (context.snapshot.screenshot && isVisionEnabled) {
             // Multimodal Message
-            console.log('[LangChainAdapter] Injecting screenshot into payload');
             messages.push(new HumanMessage({
                 content: [
                     { type: "text", text: promptText },
