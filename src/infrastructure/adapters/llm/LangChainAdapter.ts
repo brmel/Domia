@@ -78,8 +78,28 @@ export class LangChainAdapter implements ILLMProvider {
 
         const messages: BaseMessage[] = [
             new SystemMessage(systemPrompt),
-            new HumanMessage(LLMPromptUtils.buildUserPrompt(context))
         ];
+
+        const promptText = LLMPromptUtils.buildUserPrompt(context);
+
+        if (context.snapshot.screenshot) {
+            // Multimodal Message
+            console.log('[LangChainAdapter] Injecting screenshot into payload');
+            messages.push(new HumanMessage({
+                content: [
+                    { type: "text", text: promptText },
+                    {
+                        type: "image_url",
+                        image_url: {
+                            url: `data:image/jpeg;base64,${context.snapshot.screenshot}`
+                        }
+                    }
+                ]
+            }));
+        } else {
+            // Text-only Message
+            messages.push(new HumanMessage(promptText));
+        }
 
         if (correction) {
             messages.push(new AIMessage(correction.lastResponse));
