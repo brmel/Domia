@@ -5,11 +5,13 @@ import { TestRun } from '@domain/entities/TestRun';
 
 // Removed local TestRun interface in favor of Domain Entity
 
+import { ActionType } from '../enums/ActionType';
+
 export interface TestStep {
     id: string;
     testRunId: string;
     stepNumber: number;
-    actionType: string;
+    actionType: ActionType;
     actionPayload: AgentAction;
     timestamp: string;
 }

@@ -6,7 +6,10 @@ import type { Plan } from '@domain/entities/Plan';
 /**
  * TestRun state for UI
  */
-export interface TestRunState {
+/**
+ * TestRun state for UI
+ */
+export interface TestRunStoreState {
     // Current run status
     status: 'idle' | 'running' | 'cancelled' | 'completed' | 'error';
     testRunId: TestRunId | null;
@@ -15,7 +18,7 @@ export interface TestRunState {
     currentPhase: 'observing' | 'thinking' | 'acting' | null;
     currentAction: AgentAction | null;
     plan: Plan | null;
-    history: AgentAction[];
+    history: readonly AgentAction[];
 
     // Results
     success: boolean | null;
@@ -31,9 +34,9 @@ interface TestRunActions {
     handleEvent: (event: TestRunEvent) => void;
 }
 
-type TestRunStore = TestRunState & TestRunActions;
+type TestRunStore = TestRunStoreState & TestRunActions;
 
-const initialState: TestRunState = {
+const initialState: TestRunStoreState = {
     status: 'idle',
     testRunId: null,
     currentPhase: null,

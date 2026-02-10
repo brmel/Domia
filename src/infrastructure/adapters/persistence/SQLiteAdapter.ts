@@ -285,7 +285,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
             id: row.id,
             testRunId: row.test_run_id,
             stepNumber: row.step_number,
-            actionType: row.action_type,
+            actionType: row.action_type as import('@domain/enums/ActionType').ActionType,
             actionPayload: action,
             timestamp: row.timestamp
         };

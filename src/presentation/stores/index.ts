@@ -1,2 +1,2 @@
 export { useTestRunStore } from './useTestRunStore';
-export type { TestRunState } from './useTestRunStore';
+export type { TestRunStoreState } from './useTestRunStore';
