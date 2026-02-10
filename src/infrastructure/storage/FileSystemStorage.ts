@@ -61,4 +61,48 @@ export class FileSystemStorage implements IStorageService {
 
         await fs.writeJson(filePath, { ...existing, ...trace }, { spaces: 2 });
     }
+
+    async getStepArtifacts(runId: string, stepNumber: number): Promise<{
+        screenshot?: string;
+        dom?: any;
+        accessibility?: any;
+        trace?: any;
+    }> {
+        const config = this.configService.get();
+        const baseDir = path.resolve(config.paths.artifactsDir, runId, 'steps');
+
+        // Security check: ensure baseDir is within artifactsDir to prevent traversal
+        if (!baseDir.startsWith(path.resolve(config.paths.artifactsDir))) {
+            throw new Error("Invalid runId");
+        }
+
+        const artifacts: any = {};
+
+        // 1. Screenshot
+        const screenshotPath = path.join(baseDir, `${stepNumber}_screenshot.jpg`);
+        if (await fs.pathExists(screenshotPath)) {
+            const buffer = await fs.readFile(screenshotPath);
+            artifacts.screenshot = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+        }
+
+        // 2. DOM
+        const domPath = path.join(baseDir, `${stepNumber}_dom.json`);
+        if (await fs.pathExists(domPath)) {
+            artifacts.dom = await fs.readJson(domPath);
+        }
+
+        // 3. Accessibility
+        const ariaPath = path.join(baseDir, `${stepNumber}_aria.json`);
+        if (await fs.pathExists(ariaPath)) {
+            artifacts.accessibility = await fs.readJson(ariaPath);
+        }
+
+        // 4. Trace
+        const tracePath = path.join(baseDir, `${stepNumber}_trace.json`);
+        if (await fs.pathExists(tracePath)) {
+            artifacts.trace = await fs.readJson(tracePath);
+        }
+
+        return artifacts;
+    }
 }

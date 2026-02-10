@@ -22,7 +22,8 @@ export class RunTestUseCase {
         @inject(TestRunLifecycleManager) private lifecycleManager: TestRunLifecycleManager,
         @inject(WorkflowPlanner) private planner: WorkflowPlanner,
         @inject(StepExecutor) private executor: StepExecutor,
-        @inject('IPersistenceAdapter') private persistence: import('../../domain/ports').IPersistenceAdapter
+        @inject('IPersistenceAdapter') private persistence: import('../../domain/ports').IPersistenceAdapter,
+        @inject('ITraceService') private trace: import('../../domain/ports/ITraceService').ITraceService
     ) { }
 
     async *execute(input: RunTestInput, controller: ExecutionController): AsyncGenerator<RunTestOutput, void, unknown> {
@@ -172,6 +173,9 @@ export class RunTestUseCase {
         } finally {
             if (browser) await browser.close();
             await this.gateway.releaseSession(testRunId);
+
+            // Flush and finalize traces
+            await this.trace.endTrace();
 
             // Final status update
             if (controller.state === TestRunState.CANCELLED) {

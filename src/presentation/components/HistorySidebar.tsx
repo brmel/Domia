@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { trpc } from '../../lib/trpc';
 import type { TestStep } from '@domain/ports';
+import { useStepInspectorStore } from '../stores/useStepInspectorStore';
 
 export function HistorySidebar({ onClose }: { onClose: () => void }): JSX.Element {
     const utils = trpc.useUtils();
@@ -70,12 +71,15 @@ export function HistorySidebar({ onClose }: { onClose: () => void }): JSX.Elemen
                             {run.steps?.map((step: TestStep) => (
                                 <div key={step.id} className="relative pl-6">
                                     <div className="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-white border-2 border-blue-100 z-10"></div>
-                                    <div className="border border-gray-200 rounded-lg p-3 bg-white shadow-sm hover:shadow-md transition-shadow">
+                                    <div
+                                        onClick={() => useStepInspectorStore.getState().open(runId, step.stepNumber)}
+                                        className="border border-gray-200 rounded-lg p-3 bg-white shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-300 group"
+                                    >
                                         <div className="flex justify-between items-center mb-1.5">
-                                            <span className="font-semibold text-gray-800 text-sm">Step {step.stepNumber}: {step.actionType}</span>
+                                            <span className="font-semibold text-gray-800 text-sm group-hover:text-blue-600">Step {step.stepNumber}: {step.actionType}</span>
                                             <span className="text-gray-400 font-mono text-[10px]">{new Date(step.timestamp).toLocaleTimeString()}</span>
                                         </div>
-                                        <div className="bg-gray-50 rounded p-2 overflow-x-auto border border-gray-100">
+                                        <div className="bg-gray-50 rounded p-2 overflow-x-auto border border-gray-100 group-hover:bg-blue-50/30 transition-colors">
                                             <pre className="text-[10px] text-gray-600 font-mono leading-tight">
                                                 {JSON.stringify(step.actionPayload, null, 2)}
                                             </pre>

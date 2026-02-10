@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { Result, ok, err } from 'neverthrow';
 import type { ILLMProvider, IBrowserAutomation, LLMContext } from '@domain/ports';
-import { AgentAction, WorkflowState } from '@domain/value-objects';
+import { AgentAction } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
 import { LoopDetectorService } from './LoopDetectorService';
 import { UrlFactory } from '@domain/value-objects';
@@ -21,10 +21,12 @@ export class StepExecutor {
         stepGoal: string,
         browser: IBrowserAutomation,
         url: string,
-        maxActions: number = 10
-    ): AsyncGenerator<{ type: 'action', action: AgentAction, assets?: Record<string, string> } | { type: 'thought', text: string }, Result<void, Error>, unknown> {
-        let currentState = WorkflowState.initial();
+        maxActions: number = 20
+    ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, Result<void, Error>, unknown> {
         let loopCount = 0;
+        let currentState: { history: AgentAction[], stepNumber: number } = { history: [], stepNumber: 0 };
+
+        await this.trace.startTrace(runId);
 
         while (loopCount < maxActions) {
             // Perception

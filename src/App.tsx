@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { HistorySidebar } from './presentation/components/HistorySidebar';
 
 import { SettingsSidebar } from './presentation/components/SettingsSidebar';
+import { StepInspector } from './presentation/components/StepInspector';
 
 function App(): JSX.Element {
     // Determine which sidebar content is active: 'config' | 'history' | 'settings'
@@ -62,6 +63,7 @@ function App(): JSX.Element {
                     <TestRunner />
                 </section>
             </main>
+            <StepInspector />
         </div>
     );
 }

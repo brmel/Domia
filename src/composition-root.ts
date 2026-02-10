@@ -30,6 +30,8 @@ import { DomSensor } from './infrastructure/perception/sensors/DomSensor';
 import { AriaSensor } from './infrastructure/perception/sensors/AriaSensor';
 import { FileSystemStorage } from './infrastructure/storage/FileSystemStorage';
 import { TraceService } from './infrastructure/services/TraceService';
+import { FileTraceExporter } from './infrastructure/services/exporters/FileTraceExporter';
+import { DebugExporter } from './infrastructure/services/exporters/DebugExporter';
 
 export function registerCoreServices(): void {
     // 1. Core Services (Config & Persistence)
@@ -86,7 +88,19 @@ export function registerCoreServices(): void {
 
     // Storage & Trace Systems
     container.registerSingleton('IStorageService', FileSystemStorage);
-    container.registerSingleton('ITraceService', TraceService);
+    container.registerSingleton(TraceService);
+    container.register('ITraceService', { useToken: TraceService });
+
+    const traceService = container.resolve(TraceService);
+    const storage = container.resolve<import('@domain/ports/IStorageService').IStorageService>('IStorageService');
+
+    // Register Exporters based on config/env
+    if (process.env['DOMIA_VERBOSE'] === 'true') {
+        traceService.addExporter(new FileTraceExporter(storage));
+    }
+
+    // Always enable debug exporter (let the 'debug' package handle filtering via DEBUG env var)
+    traceService.addExporter(new DebugExporter());
 
     // Auto-register local node
     const gateway = container.resolve(DomiaGateway);
