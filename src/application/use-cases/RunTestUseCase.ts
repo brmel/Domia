@@ -141,8 +141,8 @@ export class RunTestUseCase {
 
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
-            yield { type: 'error', error: error instanceof Error ? error : new Error(msg) };
             await this.lifecycleManager.failTestRun(testRunId, msg);
+            yield { type: 'error', error: error instanceof Error ? error : new Error(msg) };
         } finally {
             if (browser) await browser.close();
             await this.gateway.releaseSession(testRunId);
