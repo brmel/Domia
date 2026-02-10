@@ -109,7 +109,13 @@ export class RunTestUseCase {
                 // Execute Item
                 // We define executing a plan item as executing a "step" in StepExecutor
                 // Pass current global step number to ensure artifacts are numbered correctly
-                const stepGen = this.executor.executeStep(testRunId, item.description, browser, input.url, currentState.stepNumber);
+                const executionOptions = {
+                    vision: input.options?.vision ?? true,
+                    debugScreenshots: input.options?.debugScreenshots ?? false,
+                    maxActions: input.options?.maxSteps ?? 20
+                };
+
+                const stepGen = this.executor.executeStep(testRunId, item.description, browser, input.url, currentState.stepNumber, executionOptions);
                 let result: import('neverthrow').Result<void, Error> | undefined;
 
                 try {

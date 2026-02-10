@@ -10,6 +10,8 @@ export interface RunTestInput {
     options?: {
         maxSteps?: number;
         headless?: boolean;
+        vision?: boolean;
+        debugScreenshots?: boolean;
     };
 }
 

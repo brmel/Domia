@@ -13,7 +13,9 @@ export const TestInputSchema = z.object({
         maxSteps: z.number().positive(),
         provider: z.string().optional(),
         verbose: z.boolean().optional(),
-        debug: z.boolean().optional()
+        debug: z.boolean().optional(),
+        vision: z.boolean().optional(),
+        debugScreenshots: z.boolean().optional()
     })
 });
 

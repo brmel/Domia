@@ -22,16 +22,19 @@ export class StepExecutor {
         browser: IBrowserAutomation,
         url: string,
         initialStepNumber: number = 0,
-        maxActions: number = 20
+        options: { vision: boolean; debugScreenshots: boolean; maxActions: number } = { vision: true, debugScreenshots: false, maxActions: 20 }
     ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, Result<void, Error>, unknown> {
         let loopCount = 0;
         let currentState: { history: AgentAction[], stepNumber: number } = { history: [], stepNumber: initialStepNumber };
+        const maxActions = options.maxActions;
 
         await this.trace.startTrace(runId);
 
         while (loopCount < maxActions) {
             // Perception
-            const frameResult = await this.perception.capture({ vision: true, aria: true, dom: true });
+            // Capture if either Vision (LLM) or DebugScreenshots is enabled
+            const shouldCaptureVision = options.vision || options.debugScreenshots;
+            const frameResult = await this.perception.capture({ vision: shouldCaptureVision, aria: true, dom: true });
             if (frameResult.isErr()) return err(new Error(`Perception failed: ${frameResult.error.message}`));
             const frame = frameResult.value;
 
@@ -40,29 +43,13 @@ export class StepExecutor {
             // stepNumber in WorkflowState is monotonic.
             const assets = await this.storage.savePerceptionAssets(runId, currentState.stepNumber + 1, frame);
 
-            // Note: assets paths should be passed to persistence? 
-            // StepExecutor yields Action. Action execution leads to Step persistence.
-            // Ideally Step persistence happens here or in RunTestUseCase.
-            // RunTestUseCase persists based on ...?
-            // RunTestUseCase only persists 'started', 'completed'. 
-            // SQLiteAdapter.saveTestStep is likely called by RunTestUseCase?
-            // Actually `RunTestUseCase` does NOT seem to call `saveTestStep`.
-            // Wait, let's check `RunTestUseCase.ts` again.
-            // It calls `lifecycleManager`?
-
-            // Actually, `RunTestUseCase.ts` logic doesn't explicitly save steps yet?
-            // The previous logic might have heavily relied on `TestRunLifecycleManager` or `SQLiteAdapter` implicitly?
-            // Or I missed where `saveTestStep` is called.
-            // Persistence of steps is usually critical. 
-            // Use `grep_search` to find usages of `saveTestStep`.
-
             // Trace: Perception Metadata
             await this.trace.tracePerception(runId, currentState.stepNumber + 1, {
                 timestamp: Date.now(),
                 sensorData: {
                     domCount: frame.semantic.dom ? 1 : 0, // Simplified for now
                     ariaPresent: !!frame.semantic.accessibility,
-                    visionPresent: !!frame.vision.screenshot,
+                    visionPresent: !!frame.vision.screenshot && frame.vision.screenshot.length > 0,
                     metadata: frame.metadata
                 }
             });
@@ -70,9 +57,10 @@ export class StepExecutor {
             const viewport = await browser.getViewportSize();
 
             // Map Frame to DOMSnapshot for LLM (Legacy compatibility)
+            // ONLY include screenshot if Vision is enabled for LLM
             const snapshot: import('@domain/value-objects').DOMSnapshot = {
                 ...frame.semantic.dom,
-                screenshot: frame.vision.screenshot.toString('base64'),
+                screenshot: options.vision ? frame.vision.screenshot.toString('base64') : undefined,
                 accessibilityTree: frame.semantic.accessibility
             };
 

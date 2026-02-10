@@ -12,7 +12,8 @@ export const DomiaConfigSchema = z.object({
         model: z.string().default('gemini-2.0-flash'),
         apiKey: z.string().optional(),
         visionEnabled: z.boolean().default(false),
-    }).default({ provider: 'google', model: 'gemini-2.0-flash', visionEnabled: false }),
+        debugScreenshots: z.boolean().default(false),
+    }).default({ provider: 'google', model: 'gemini-2.0-flash', visionEnabled: false, debugScreenshots: false }),
 
     selectorEngine: z.object({
         strategyOrder: z.array(z.enum(['fast', 'semantic', 'visual', 'heuristic']))

@@ -20,15 +20,15 @@ export class FileSystemStorage implements IStorageService {
         const assets: Record<string, string> = {};
 
         // Save Screenshot
-        if (frame.vision.screenshot) {
-            const filename = `${stepNumber}_screenshot.jpg`; // Assuming jpg from VisionSensor
+        if (frame.vision.screenshot && frame.vision.screenshot.length > 0) {
+            const filename = `${stepNumber}_screenshot.jpg`;
             const filePath = path.join(baseDir, filename);
             await fs.writeFile(filePath, frame.vision.screenshot);
             assets['screenshot'] = filePath;
         }
 
         // Save DOM
-        if (frame.semantic.dom) {
+        if (frame.semantic.dom && Object.keys(frame.semantic.dom).length > 0) {
             const filename = `${stepNumber}_dom.json`;
             const filePath = path.join(baseDir, filename);
             await fs.writeJson(filePath, frame.semantic.dom, { spaces: 2 });
@@ -36,7 +36,7 @@ export class FileSystemStorage implements IStorageService {
         }
 
         // Save Accessibility
-        if (frame.semantic.accessibility) {
+        if (frame.semantic.accessibility && Object.keys(frame.semantic.accessibility).length > 0) {
             const filename = `${stepNumber}_aria.json`;
             const filePath = path.join(baseDir, filename);
             await fs.writeJson(filePath, frame.semantic.accessibility, { spaces: 2 });

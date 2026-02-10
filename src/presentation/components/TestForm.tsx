@@ -40,9 +40,19 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
         mode: 'onChange'
     });
 
+    const { data: config } = trpc.settings.get.useQuery();
+
     const onSubmit = (data: TestInput): void => {
         if (!isRunning) {
-            runMutation.mutate(data);
+            const finalData = {
+                ...data,
+                options: {
+                    ...data.options,
+                    vision: config?.ai?.visionEnabled ?? true,
+                    debugScreenshots: config?.ai?.debugScreenshots ?? false
+                }
+            };
+            runMutation.mutate(finalData);
         }
     };
 

@@ -25,7 +25,9 @@ const runInputSchema = z.object({
         maxSteps: z.number().optional(),
         provider: z.string().optional(),
         verbose: z.boolean().optional(),
-        debug: z.boolean().optional()
+        debug: z.boolean().optional(),
+        vision: z.boolean().optional(),
+        debugScreenshots: z.boolean().optional()
     }).optional()
 });
 
