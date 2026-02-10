@@ -27,7 +27,7 @@ export class StepExecutor {
 
         while (loopCount < maxActions) {
             // Perception
-            const frameResult = await this.perception.capture();
+            const frameResult = await this.perception.capture({ vision: true, aria: true, dom: true });
             if (frameResult.isErr()) return err(new Error(`Perception failed: ${frameResult.error.message}`));
             const frame = frameResult.value;
 

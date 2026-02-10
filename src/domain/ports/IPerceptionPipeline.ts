@@ -1,7 +1,13 @@
 import { ResultAsync } from 'neverthrow';
-import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
-import { SnapshotError } from '@domain/errors';
+import { SnapshotError } from '../errors';
+import { PerceptionFrame } from '../value-objects/PerceptionFrame';
+
+export interface PerceptionOptions {
+    vision?: boolean;
+    aria?: boolean;
+    dom?: boolean;
+}
 
 export interface IPerceptionPipeline {
-    capture(): ResultAsync<PerceptionFrame, SnapshotError>;
+    capture(options?: PerceptionOptions): ResultAsync<PerceptionFrame, SnapshotError>;
 }
