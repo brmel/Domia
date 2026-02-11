@@ -118,7 +118,6 @@ export class AppDriverFactory {
 
         // Handle different connection types
         if (connection.type === 'cdp') {
-            // Connect to existing Electron app via CDP
             const connectConfig: any = {
                 cdpUrl: connection.cdpUrl,
             };
@@ -135,9 +134,25 @@ export class AppDriverFactory {
 
             this.logger.info(`[AppDriverFactory] ElectronDriver connected via CDP: ${connection.cdpUrl}`);
         } else {
-            // Launch Electron app from executable
-            // TODO: Implement executable launch support in ElectronDriver
-            throw new Error('[AppDriverFactory] Electron executable launch not yet implemented. Use CDP connection mode.');
+            const launchConfig: any = {
+                executablePath: connection.executablePath,
+            };
+            
+            if (connection.launchArgs) {
+                launchConfig.launchArgs = connection.launchArgs;
+            }
+            
+            if (connection.windowTitle) {
+                launchConfig.windowTitle = connection.windowTitle;
+            }
+            
+            const launchResult = await driver.connect(launchConfig);
+
+            if (launchResult.isErr()) {
+                throw new Error(`[AppDriverFactory] ElectronDriver launch failed: ${launchResult.error.message}`);
+            }
+
+            this.logger.info(`[AppDriverFactory] ElectronDriver launched from: ${connection.executablePath}`);
         }
 
         return driver;

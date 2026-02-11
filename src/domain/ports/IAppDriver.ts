@@ -1,14 +1,14 @@
-
 import { ResultAsync } from 'neverthrow';
 import { ToolDefinition } from '../tools';
 import { AppSnapshot } from '../value-objects/AppSnapshot';
 import { NavigationError } from '../errors';
+import { Platform } from '../constants/PlatformConstants';
 
 export interface AppCapabilities {
-    readonly platform: 'web' | 'electron' | 'mobile';
-    readonly supportsDOM: boolean; // Can we get a DOM tree?
-    readonly supportsVision: boolean; // Can we take screenshots?
-    readonly supportsMultiWindow: boolean; // specific to Electron/Desktop
+    readonly platform: Platform;
+    readonly supportsDOM: boolean;
+    readonly supportsVision: boolean;
+    readonly supportsMultiWindow: boolean;
     readonly supportsNativeInteraction: boolean;
 }
 

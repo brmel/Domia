@@ -1,26 +1,13 @@
-/**
- * CLI Test Helpers
- * 
- * Utilities for running production CLI commands and validating output
- * This approach tests the actual production code path that users experience
- */
 import { spawn, ChildProcess } from 'child_process';
 import { writeFileSync, unlinkSync, existsSync } from 'fs';
 import { join } from 'path';
 
 export interface CLITestConfig {
-    // Web platform
     url?: string;
-    
-    // Electron platform (CDP mode)
     cdpUrl?: string;
     windowTitle?: string;
-    
-    // Electron platform (Executable mode)
     executablePath?: string;
     launchArgs?: string[];
-    
-    // Common options
     prompt: string;
     maxSteps?: number;
     headless?: boolean;
@@ -36,26 +23,20 @@ export interface CLITestResult {
     exitCode: number;
 }
 
-/**
- * Run CLI command and capture output
- */
 export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> {
     const configPath = join(process.cwd(), '.domia-test-config.json');
     const startTime = Date.now();
     
     try {
-        // Create platform config based on type
         let platformConfig;
         
         if (config.url) {
-            // Web platform
             platformConfig = {
                 platform: 'web',
                 url: config.url,
                 prompt: config.prompt
             };
         } else if (config.cdpUrl) {
-            // Electron CDP mode
             platformConfig = {
                 platform: 'electron',
                 connection: {
@@ -66,7 +47,6 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
                 prompt: config.prompt
             };
         } else if (config.executablePath) {
-            // Electron Executable mode
             platformConfig = {
                 platform: 'electron',
                 connection: {
@@ -79,7 +59,6 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
             };
         }
         
-        // Write config file for CLI to read
         writeFileSync(configPath, JSON.stringify({
             platformConfig,
             options: {
@@ -90,13 +69,11 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
             }
         }, null, 2));
         
-        // Build CLI command
         const args = [
             'run',
             '--config', configPath
         ];
         
-        // Add legacy URL flag for backward compatibility
         if (config.url) {
             args.push('--url', config.url);
         }
@@ -116,12 +93,9 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
             args.push('--screenshots');
         }
         
-        // Run CLI
         const result = await spawnCLI(args);
-        
         const duration = Date.now() - startTime;
         
-        // Parse output for success indicators
         const output = result.stdout + result.stderr;
         const success = result.exitCode === 0 && (
             output.includes('✓') ||
@@ -130,7 +104,6 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
             output.includes('Test completed')
         );
         
-        // Extract errors
         const errors = extractErrors(output);
         
         return {
@@ -142,16 +115,12 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
         };
         
     } finally {
-        // Cleanup config file
         if (existsSync(configPath)) {
             unlinkSync(configPath);
         }
     }
 }
 
-/**
- * Spawn CLI process and capture output
- */
 function spawnCLI(args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     return new Promise((resolve) => {
         let stdout = '';
@@ -164,12 +133,12 @@ function spawnCLI(args: string[]): Promise<{ stdout: string; stderr: string; exi
         
         cli.stdout?.on('data', (data) => {
             stdout += data.toString();
-            process.stdout.write(data); // Echo to console
+            process.stdout.write(data);
         });
         
         cli.stderr?.on('data', (data) => {
             stderr += data.toString();
-            process.stderr.write(data); // Echo to console
+            process.stderr.write(data);
         });
         
         cli.on('close', (code) => {
@@ -183,9 +152,6 @@ function spawnCLI(args: string[]): Promise<{ stdout: string; stderr: string; exi
     });
 }
 
-/**
- * Extract error messages from CLI output
- */
 function extractErrors(output: string): string[] {
     const errors: string[] = [];
     const lines = output.split('\n');
@@ -204,9 +170,6 @@ function extractErrors(output: string): string[] {
     return errors;
 }
 
-/**
- * Launch Electron app with CDP enabled and return process
- */
 export async function launchElectronApp(appPath: string, cdpPort: number = 9222): Promise<ChildProcess> {
     return new Promise((resolve, reject) => {
         const app = spawn(appPath, [`--remote-debugging-port=${cdpPort}`], {
@@ -218,7 +181,6 @@ export async function launchElectronApp(appPath: string, cdpPort: number = 9222)
             const output = data.toString();
             console.log(`[Electron App] ${output}`);
             
-            // Wait for app to be ready (look for specific log)
             if (output.includes('ready') || output.includes('started')) {
                 resolve(app);
             }
@@ -232,14 +194,10 @@ export async function launchElectronApp(appPath: string, cdpPort: number = 9222)
             reject(error);
         });
         
-        // Timeout after 30 seconds
         setTimeout(() => resolve(app), 30000);
     });
 }
 
-/**
- * Kill Electron app process
- */
 export function killElectronApp(app: ChildProcess): Promise<void> {
     return new Promise((resolve) => {
         if (app.killed) {
@@ -253,7 +211,6 @@ export function killElectronApp(app: ChildProcess): Promise<void> {
         
         app.kill('SIGTERM');
         
-        // Force kill after 5 seconds
         setTimeout(() => {
             if (!app.killed) {
                 app.kill('SIGKILL');
@@ -263,9 +220,6 @@ export function killElectronApp(app: ChildProcess): Promise<void> {
     });
 }
 
-/**
- * Check if CDP port is available
- */
 export async function waitForCDP(port: number, timeoutMs: number = 30000): Promise<boolean> {
     const startTime = Date.now();
     
@@ -287,9 +241,6 @@ export async function waitForCDP(port: number, timeoutMs: number = 30000): Promi
     return false;
 }
 
-/**
- * Verify Electron app is built
- */
 export function getElectronAppPath(): string | null {
     const platform = process.platform;
     let appPath: string;
@@ -309,9 +260,6 @@ export function getElectronAppPath(): string | null {
     return null;
 }
 
-/**
- * Build Electron app
- */
 export async function buildElectronApp(): Promise<boolean> {
     console.log('📦 Building Electron app...');
     
@@ -331,9 +279,6 @@ export async function buildElectronApp(): Promise<boolean> {
     });
 }
 
-/**
- * Log test result
- */
 export function logTestResult(testName: string, result: CLITestResult): void {
     console.log(`\n${'═'.repeat(60)}`);
     console.log(`📊 Test: ${testName}`);

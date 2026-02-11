@@ -17,7 +17,9 @@ import { ElectronWindowManager } from './ElectronWindowManager';
 import { CommonWebToolsFactory } from './CommonWebToolsFactory';
 
 export interface ElectronConnectionConfig {
-    readonly cdpUrl: string;
+    readonly cdpUrl?: string;
+    readonly executablePath?: string;
+    readonly launchArgs?: string[];
     readonly connectionTimeout?: number;
     readonly waitForWindow?: boolean;
     readonly windowTitle?: string;
@@ -37,6 +39,16 @@ export class ElectronDriver implements IAppDriver {
     }
 
     connect(config?: ElectronConnectionConfig): ResultAsync<void, NavigationError | Error> {
+        if(config?.executablePath) {
+            return ResultAsync.fromPromise(
+                this.doLaunch(config),
+                (error) => {
+                    const message = error instanceof Error ? error.message : String(error);
+                    return new NavigationError(`ElectronDriver launch failed: ${message}`);
+                }
+            );
+        }
+        
         const cdpUrl = config?.cdpUrl || CDP_CONSTANTS.DEFAULT_URL;
         
         const validation = CDPValidator.validateCDPUrl(cdpUrl);
@@ -60,7 +72,7 @@ export class ElectronDriver implements IAppDriver {
         this.logger.info(`[ElectronDriver] Connecting to CDP: ${config.cdpUrl}`);
 
         try {
-            this.browser = await chromium.connectOverCDP(config.cdpUrl, {
+            this.browser = await chromium.connectOverCDP(config.cdpUrl!, {
                 timeout: config.connectionTimeout || CDP_CONSTANTS.CONNECTION_TIMEOUT_MS
             });
 
@@ -74,6 +86,30 @@ export class ElectronDriver implements IAppDriver {
             this.logger.info(`[ElectronDriver] Connected with ${this.windowManager.getWindowCount()} window(s)`);
         } catch (error) {
             this.logger.error('[ElectronDriver] Connection error:', error);
+            throw error;
+        }
+    }
+    
+    private async doLaunch(config: ElectronConnectionConfig): Promise<void> {
+        this.logger.info(`[ElectronDriver] Launching Electron app: ${config.executablePath}`);
+
+        try {
+            this.browser = await chromium.launch({
+                executablePath: config.executablePath!,
+                args: config.launchArgs || [],
+                timeout: config.connectionTimeout || CDP_CONSTANTS.CONNECTION_TIMEOUT_MS
+            });
+
+            this.logger.debug('[ElectronDriver] App launched successfully');
+            await this.discoverWindows();
+
+            if (config.waitForWindow !== false && this.windowManager.getWindowCount() === 0) {
+                await this.waitForWindow(CDP_CONSTANTS.WINDOW_WAIT_TIMEOUT_MS);
+            }
+
+            this.logger.info(`[ElectronDriver] Launched with ${this.windowManager.getWindowCount()} window(s)`);
+        } catch (error) {
+            this.logger.error('[ElectronDriver] Launch error:', error);
             throw error;
         }
     }
