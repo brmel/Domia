@@ -8,7 +8,8 @@ import { IBrowserAutomation, ILogger, IExecutionController } from '../ports';
  * Allows tools to access shared resources like the browser, logger, etc.
  */
 export interface ToolContext {
-    browser?: IBrowserAutomation;
+    browser?: IBrowserAutomation; // Deprecated: Use driver instead
+    driver?: import('../ports/IAppDriver').IAppDriver; // New unified driver
     logger?: ILogger;
     controller?: IExecutionController;
 }

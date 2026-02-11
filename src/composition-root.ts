@@ -2,6 +2,8 @@ import 'reflect-metadata';
 import { container } from 'tsyringe';
 
 import { PlaywrightAdapter } from './infrastructure/adapters/browser';
+import { WebDriver, ElectronDriver, AppDriverFactory } from './infrastructure/adapters/drivers';
+import { ToolRegistry } from './domain/tools/ToolRegistry';
 import type { LLMConfig } from '@domain/ports';
 import { RunTestUseCase } from './application/use-cases';
 import { ConsoleLogger } from './infrastructure/adapters/logger/ConsoleLogger';
@@ -29,8 +31,20 @@ export function registerCoreServices(): void {
     container.register('IConfigService', { useToken: ConfigService });
     container.registerSingleton('IPersistenceAdapter', SQLiteAdapter);
 
+    // Browser / Driver Automation
     container.registerSingleton(PlaywrightAdapter);
-    container.register('IBrowserAutomation', { useToken: PlaywrightAdapter });
+    container.register('IBrowserAutomation', { useToken: PlaywrightAdapter }); // Legacy/Internal
+
+    // New App Driver Architecture
+    container.registerSingleton(WebDriver);
+    container.registerSingleton(ElectronDriver);
+    container.registerSingleton(AppDriverFactory);
+    container.registerSingleton(ToolRegistry);
+    
+    // Default to WebDriver for backward compatibility
+    // Use AppDriverFactory.createDriver() to switch platforms dynamically
+    container.register('IAppDriver', { useToken: WebDriver });
+
     container.registerSingleton('ILogger', ConsoleLogger);
 
     // Decoupled Helper Services

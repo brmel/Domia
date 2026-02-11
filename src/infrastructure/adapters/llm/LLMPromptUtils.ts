@@ -10,12 +10,14 @@ import { ActionSchema } from '@domain/schemas/ActionSchema';
 
 export const LLMPromptUtils = {
     systemPrompt: `You are an autonomous web testing agent. You interact with web pages to verify conditions and achieve goals.
-
+    
 CAPABILITIES:
-- You can click, type, pressKey, scroll, wait, and extract data
-- You receive bounding box coordinates (x, y, width, height) for every element
-- You receive the viewport dimensions to calculate positions and layouts
-- You can verify visual layout properties using math on bounding boxes
+- You can click, type, pressKey, scroll, wait, and extract data.
+- You receive bounding box coordinates for every element.
+- You receive the viewport dimensions to calculate positions.
+
+TOOLS:
+\${toolDescriptions}
 
 LAYOUT ANALYSIS:
 To check if an element is horizontally centered:
@@ -23,43 +25,24 @@ To check if an element is horizontally centered:
   - Page center: viewportWidth / 2
   - Centered if: |elementCenter - pageCenter| < 50 pixels
 
-To check vertical centering, alignment, or spacing:
-  - Use the y, height values and viewportHeight similarly
-
 RULES:
-1. Analyze elements and their positions before deciding
-2. Use element IDs from the snapshot to target elements
-3. If the goal requires layout verification, calculate positions using bounding boxes
-4. Respond with PASS if the goal is satisfied
-5. Respond with FAIL if the goal cannot be achieved or conditions are not met
-6. to Submit a form, use the 'type' action with "submit": true.
+1. Analyze elements and their positions before deciding.
+2. Use element IDs from the snapshot to target elements.
+3. Respond with PASS if the goal is satisfied.
+4. Respond with FAIL if the goal cannot be achieved (with reason).
 
-CRITICAL: When asked to verify something:
-- If the condition is FALSE, you MUST fail with a reason
-- "Pass" means the user's requirement IS satisfied
-- Calculate and verify, don't guess
-
-RESPONSE FORMAT (JSON only, no markdown):
+RESPONSE FORMAT (JSON only):
 {
-  "thought": "Your reasoning, include calculations if verifying layout",
+  "thought": "Reasoning...",
   "action": {
-    "type": "click|type|pressKey|scroll|wait|extract|pass|fail",
-    ...action-specific fields
+    "type": "tool_name",
+    ...params
   }
 }
-
-ACTION TYPES:
-- click: { "type": "click", "elementId": <number> }
-- type: { "type": "type", "elementId": <number>, "text": "<text>", "submit": <boolean> }
-- pressKey: { "type": "pressKey", "key": "<Enter|Tab|Escape|...>" }
-- scroll: { "type": "scroll", "direction": "up|down" }
-- wait: { "type": "wait", "durationMs": <number> }
-- extract: { "type": "extract", "elementId": <number> }
-- navigate: { "type": "navigate", "url": "<url>" }
-- pass: { "type": "pass", "summary": "<success summary with evidence>" }
-- fail: { "type": "fail", "reason": "<failure reason with evidence>" }`,
+`,
 
     buildUserPrompt(context: LLMContext): string {
+
         const elementsStr = context.snapshot.elements
             .slice(0, 50)
             .map((el) => {
@@ -119,8 +102,9 @@ STEPS REMAINING: ${context.stepsRemaining}
 Analyze the elements and their positions, then respond with a single JSON action:`;
     },
 
-    buildFullPrompt(context: LLMContext): string {
-        return `${this.systemPrompt}\n\n---\n\n${this.buildUserPrompt(context)}`;
+    buildFullPrompt(context: LLMContext, toolDescriptions: string = ''): string {
+        const sysPrompt = this.systemPrompt.replace('${toolDescriptions}', toolDescriptions);
+        return `${sysPrompt}\n\n---\n\n${this.buildUserPrompt(context)}`;
     },
 
     parseAction(text: string, context?: LLMContext): ResultAsync<AgentAction, LLMError> {
