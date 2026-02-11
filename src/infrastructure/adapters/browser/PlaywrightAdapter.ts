@@ -1,22 +1,19 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync, okAsync, errAsync } from 'neverthrow';
-import { chromium, Browser, Page, ElementHandle, CDPSession } from 'playwright';
-import type { IBrowserAutomation, LaunchOptions, Screenshot, ILogger, IViewHost } from '@domain/ports';
-import type { Url, ElementId, DOMSnapshot } from '@domain/value-objects';
-import { NavigationError, InteractionError, SnapshotError, CaptureError } from '@domain/errors';
+import { chromium, Browser, Page, ElementHandle } from 'playwright';
+import type { IBrowserAutomation, LaunchOptions, ILogger, IViewHost } from '@domain/ports';
+import type { Url, ElementId } from '@domain/value-objects';
+import { NavigationError, InteractionError } from '@domain/errors';
 import { AGENT_VIEW_CONFIG } from '../../../shared/config';
-
-import { ContextBuilder } from '../../parsers/ContextBuilder';
 
 @injectable()
 export class PlaywrightAdapter implements IBrowserAutomation {
     private browser: Browser | null = null;
     private page: Page | null = null;
-    private cdpSession: CDPSession | null = null;
+
 
     constructor(
         @inject('IViewHost') private viewHost: IViewHost,
-        @inject(ContextBuilder) private contextBuilder: ContextBuilder,
         @inject('ILogger') private logger: ILogger
     ) { }
 
@@ -44,22 +41,36 @@ export class PlaywrightAdapter implements IBrowserAutomation {
 
         if (wsEndpoint) {
             this.logger.debug(`[PlaywrightAdapter] Connecting to: ${wsEndpoint}`);
-            this.browser = await chromium.connectOverCDP({
-                endpointURL: wsEndpoint,
-                headers: { 'Upgrade': 'websocket' }
-            });
+
+            let retries = 3;
+            while (retries > 0) {
+                try {
+                    this.browser = await chromium.connectOverCDP({
+                        endpointURL: wsEndpoint,
+                        headers: { 'Upgrade': 'websocket' },
+                        timeout: 5000
+                    });
+                    break;
+                } catch (e) {
+                    retries--;
+                    this.logger.warn(`[PlaywrightAdapter] Connection attempt failed: ${e}. Retries left: ${retries}`);
+                    if (retries === 0) throw e;
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+            }
 
             // Find existing page in Electron
-            const contexts = this.browser.contexts();
+            const contexts = this.browser!.contexts();
             for (const ctx of contexts) {
                 const pages = ctx.pages();
                 for (const p of pages) {
                     const url = p.url();
-                    const isMainWindow = url.includes('localhost:') || url.includes('127.0.0.1:5173');
+                    // We look for the blank page or the specific agent page depending on state
+                    // matching broadly to catch the view
                     const isDevTools = url.startsWith('devtools://');
                     const isExtension = url.startsWith('chrome-extension://');
 
-                    if (!isMainWindow && !isDevTools && !isExtension) {
+                    if (!isDevTools && !isExtension) {
                         this.page = p;
                         this.logger.info(`[PlaywrightAdapter] Found agent page at: ${url}`);
                         return;
@@ -203,46 +214,6 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         ).map(text => text ?? '');
     }
 
-    snapshot(): ResultAsync<DOMSnapshot, SnapshotError> {
-        if (!this.page) {
-            return errAsync(new SnapshotError('Browser not launched'));
-        }
-        return ResultAsync.fromPromise(
-            (async (): Promise<DOMSnapshot> => {
-                await this.waitForDOMStable();
-                return this.extractSnapshot();
-            })(),
-            (e) => new SnapshotError(`Snapshot failed: ${String(e)}`)
-        );
-    }
-
-    snapshotAria(): ResultAsync<import('@domain/value-objects/AriaNode').AriaNode, SnapshotError> {
-        if (!this.page) {
-            return errAsync(new SnapshotError('Browser not launched'));
-        }
-        // Playwright Page type definition might differ from actual runtime or local declaration
-        const pageWithAccessibility = this.page as unknown as { accessibility: { snapshot: (options: { interestingOnly: boolean }) => Promise<unknown> } };
-
-        if (!pageWithAccessibility.accessibility) {
-            return errAsync(new SnapshotError('Page accessibility API not available'));
-        }
-
-        return ResultAsync.fromPromise(
-            pageWithAccessibility.accessibility.snapshot({ interestingOnly: false }) as Promise<import('@domain/value-objects/AriaNode').AriaNode>,
-            (e) => new SnapshotError(`Aria snapshot failed: ${String(e)}`)
-        );
-    }
-
-    screenshot(): ResultAsync<Screenshot, CaptureError> {
-        if (!this.page) {
-            return errAsync(new CaptureError('Browser not launched'));
-        }
-        return ResultAsync.fromPromise(
-            this.page.screenshot({ fullPage: false }),
-            (e) => new CaptureError(`Screenshot failed: ${String(e)}`)
-        ).map((data) => ({ data, timestamp: new Date() }));
-    }
-
     async getViewportSize(): Promise<{ width: number; height: number }> {
         if (!this.page) {
             return { width: AGENT_VIEW_CONFIG.DEFAULT_WIDTH, height: AGENT_VIEW_CONFIG.DEFAULT_HEIGHT };
@@ -287,50 +258,5 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         ).andThen((el) =>
             el ? okAsync(el) : errAsync(new InteractionError('Element not found', elementId))
         );
-    }
-
-    pause(): ResultAsync<void, Error> {
-        if (!this.page) return errAsync(new Error('Browser not launched'));
-
-        return ResultAsync.fromPromise(
-            (async () => {
-                if (!this.cdpSession) {
-                    this.cdpSession = await this.page!.context().newCDPSession(this.page!);
-                }
-                await this.cdpSession.send('Debugger.enable');
-                await this.cdpSession.send('Debugger.pause');
-            })(),
-            (error) => new Error(`Failed to pause execution: ${String(error)}`)
-        );
-    }
-
-    resume(): ResultAsync<void, Error> {
-        if (!this.cdpSession) return okAsync(undefined);
-
-        return ResultAsync.fromPromise(
-            (async () => {
-                const session = this.cdpSession;
-                if (!session) return;
-
-                try {
-                    await session.send('Debugger.resume');
-                } catch (e) {
-                    // Ignore errors if already resumed or session closed
-                    // We must proceed to disable debugger
-                } finally {
-                    try {
-                        await session.send('Debugger.disable');
-                    } catch (e) {
-                        // Ignore disable errors
-                    }
-                }
-            })(),
-            (error) => new Error(`Failed to resume execution: ${String(error)}`)
-        );
-    }
-
-    private async extractSnapshot(): Promise<DOMSnapshot> {
-        if (!this.page) throw new SnapshotError('Page not available');
-        return this.contextBuilder.buildSnapshot(this.page);
     }
 }

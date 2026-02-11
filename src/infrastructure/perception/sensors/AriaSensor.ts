@@ -38,7 +38,9 @@ export class AriaSensor implements ISensor<AriaNode | null> {
                 }))
             } as any;
         } catch (e) {
-            return null;
+            // this.logger.warn(`[AriaSensor] Failed to compute AX tree: ${e}`);
+            // Return empty node to prevent downstream null checks
+            return { role: 'ROOT', name: 'Empty', children: [] };
         }
     }
 }

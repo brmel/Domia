@@ -1,6 +1,8 @@
 import { DOMSnapshot } from './DOMSnapshot';
 import { AriaNode } from './AriaNode';
 
+import { VisualContext } from './VisualContext';
+
 export interface PerceptionFrame {
     id: string; // UUID
     timestamp: number;
@@ -9,10 +11,7 @@ export interface PerceptionFrame {
         title: string;
         viewport: { width: number; height: number };
     };
-    vision: {
-        screenshot: Buffer; // Raw buffer for processing, to be saved to disk
-        mimeType: string;
-    };
+    vision: VisualContext;
     semantic: {
         dom: DOMSnapshot;
         accessibility: AriaNode | null;

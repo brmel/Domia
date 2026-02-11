@@ -85,19 +85,28 @@ export class LangChainAdapter implements ILLMProvider {
         const config = this.configService.get();
         const isVisionEnabled = config.ai.visionEnabled;
 
-        if (context.snapshot.screenshot && isVisionEnabled) {
+        if (isVisionEnabled && (context.snapshot.screenshots?.length || context.snapshot.screenshot)) {
             // Multimodal Message
-            messages.push(new HumanMessage({
-                content: [
-                    { type: "text", text: promptText },
-                    {
-                        type: "image_url",
-                        image_url: {
-                            url: `data:image/jpeg;base64,${context.snapshot.screenshot}`
-                        }
+            const content: any[] = [{ type: "text", text: promptText }];
+
+            // Prioritize array, fallback to single
+            const images = context.snapshot.screenshots?.length
+                ? context.snapshot.screenshots
+                : (context.snapshot.screenshot ? [context.snapshot.screenshot] : []);
+
+            // Limit to 3 images as requested
+            const imagesToSend = images.slice(0, 3);
+
+            for (const imgBase64 of imagesToSend) {
+                content.push({
+                    type: "image_url",
+                    image_url: {
+                        url: `data:image/jpeg;base64,${imgBase64}`
                     }
-                ]
-            }));
+                });
+            }
+
+            messages.push(new HumanMessage({ content }));
         } else {
             // Text-only Message
             messages.push(new HumanMessage(promptText));

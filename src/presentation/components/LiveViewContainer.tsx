@@ -23,11 +23,14 @@ export const LiveViewContainer: React.FC = () => {
             };
 
             if (bounds.width > 0 && bounds.height > 0) {
+                console.log('[LiveViewContainer] Sending bounds:', bounds, 'isRunning:', isRunning);
                 if (isRunning) {
                     window.electron?.agentView?.show(bounds);
                 } else {
                     window.electron?.agentView?.resize(bounds);
                 }
+            } else {
+                console.warn('[LiveViewContainer] Invalid bounds calculated:', bounds);
             }
         };
 
@@ -66,7 +69,8 @@ export const LiveViewContainer: React.FC = () => {
     return (
         <div
             ref={containerRef}
-            className="w-full h-full bg-transparent absolute inset-0"
+            className="w-full h-full bg-transparent absolute inset-0 border-2 border-transparent data-[debug=true]:border-red-500"
+            data-debug="true"
             style={{ minHeight: '100px', zIndex: isRunning ? 10 : -1 }}
         />
     );

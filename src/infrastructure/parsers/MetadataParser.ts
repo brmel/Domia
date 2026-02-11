@@ -1,6 +1,5 @@
 import { injectable, inject } from 'tsyringe';
 import { Page } from 'playwright';
-import { IContextParser } from './IContextParser';
 import type { ILogger } from '@domain/ports';
 
 export interface PageMetadata {
@@ -13,7 +12,7 @@ export interface PageMetadata {
 }
 
 @injectable()
-export class MetadataParser implements IContextParser<PageMetadata> {
+export class MetadataParser {
     constructor(@inject('ILogger') private logger: ILogger) { }
 
     async parse(page: Page): Promise<PageMetadata> {

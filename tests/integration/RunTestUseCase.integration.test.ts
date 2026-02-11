@@ -11,23 +11,22 @@ import 'reflect-metadata';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { container, Lifecycle } from 'tsyringe';
 import { okAsync, ResultAsync } from 'neverthrow';
-import { INode, IBrowserAutomation, IPersistenceAdapter, LLMConfig } from '@domain/ports';
+import { INode, IBrowserAutomation, IPersistenceAdapter, LLMConfig, IStorageService, ITraceService } from '@domain/ports';
 import { DomiaGateway } from '@application/gateway/DomiaGateway';
 import { PlaywrightAdapter } from '@infrastructure/adapters/browser/PlaywrightAdapter';
 import { LangChainAdapter } from '@infrastructure/adapters/llm/LangChainAdapter';
 import { ConsoleLogger } from '@infrastructure/adapters/logger/ConsoleLogger';
 import { RunTestUseCase } from '@application/use-cases';
-import { ToolRegistry } from '@application/registries/ToolRegistry';
-import { ClickTool } from '@application/tools/browser/ClickTool';
-import { TypeTool } from '@application/tools/browser/TypeTool';
-import { PressKeyTool } from '@application/tools/browser/PressKeyTool';
-import { ScrollTool } from '@application/tools/browser/ScrollTool';
-import { WaitTool } from '@application/tools/browser/WaitTool';
-import { ExtractTool } from '@application/tools/browser/ExtractTool';
-import { NavigateTool } from '@application/tools/browser/NavigateTool';
-import { AskUserTool } from '@application/tools/general/AskUserTool';
 import { ExecutionController } from '@application/controllers/ExecutionController';
 import { PersistenceError } from '@domain/errors';
+
+class MockTraceService implements ITraceService {
+    startTrace() { return Promise.resolve(); }
+    tracePerception() { return Promise.resolve(); }
+    traceReasoning() { return Promise.resolve(); }
+    endTrace() { return Promise.resolve(); }
+    addExporter() { }
+}
 
 describe('RunTestUseCase Integration', () => {
 
@@ -39,11 +38,11 @@ describe('RunTestUseCase Integration', () => {
         pressKey: () => okAsync(undefined),
         scroll: () => okAsync(undefined),
         wait: () => okAsync(undefined),
-        extract: () => okAsync(''),
+        extractText: () => okAsync(''),
+        highlight: () => okAsync(undefined),
         close: () => Promise.resolve(),
-        snapshot: () => okAsync({ url: 'http://test', title: 'Test', rootElements: [], elements: [], pointerPosition: { x: 0, y: 0 }, viewportSize: { width: 100, height: 100 }, scrollPosition: { x: 0, y: 0 } }),
-        waitForDOMStable: () => Promise.resolve(),
-        snapshotAria: () => okAsync({ role: 'root', name: 'Root', children: [] })
+        getViewportSize: () => Promise.resolve({ width: 100, height: 100 }),
+        waitForDOMStable: () => Promise.resolve()
     } as unknown as IBrowserAutomation;
 
     class MockViewHost {
@@ -79,6 +78,13 @@ describe('RunTestUseCase Integration', () => {
         clearHistory() { return okAsync(undefined); }
     }
 
+    class MockStorageService implements IStorageService {
+        savePerceptionAssets() { return Promise.resolve({}); }
+        saveStepTrace() { return Promise.resolve(); }
+        getStepArtifacts() { return Promise.resolve({}); }
+    }
+
+
     beforeAll(() => {
         const config: LLMConfig = {
             provider: 'google',
@@ -90,21 +96,12 @@ describe('RunTestUseCase Integration', () => {
         container.register('ILogger', { useClass: ConsoleLogger });
         container.register('IViewHost', { useClass: MockViewHost });
         container.register('IPersistenceAdapter', { useClass: MockPersistenceAdapter });
+        container.register('IStorageService', { useClass: MockStorageService });
+        container.register('ITraceService', { useClass: MockTraceService });
+
+
         container.register('IBrowserAutomation', { useClass: PlaywrightAdapter }, { lifecycle: Lifecycle.Singleton });
         container.register('ILLMProvider', { useClass: LangChainAdapter });
-
-        // Register Tools
-        const toolRegistry = new ToolRegistry();
-        toolRegistry.register(new ClickTool());
-        toolRegistry.register(new TypeTool());
-        toolRegistry.register(new PressKeyTool());
-        toolRegistry.register(new ScrollTool());
-        toolRegistry.register(new WaitTool());
-        toolRegistry.register(new ExtractTool());
-        toolRegistry.register(new NavigateTool());
-        toolRegistry.register(new AskUserTool());
-
-        container.register(ToolRegistry, { useValue: toolRegistry });
 
         container.register('RunTestUseCase', { useClass: RunTestUseCase });
 

@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import { ResultAsync, okAsync } from 'neverthrow';
+import { ResultAsync } from 'neverthrow';
 import { IPerceptionPipeline } from '@domain/ports/IPerceptionPipeline';
 
 import type { ILogger } from '@domain/ports';
@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { VisionSensor } from './sensors/VisionSensor';
 import { DomSensor } from './sensors/DomSensor';
 import { AriaSensor } from './sensors/AriaSensor';
+import { VisualContext } from '../../domain/value-objects/VisualContext';
 
 @injectable()
 export class PerceptionPipeline implements IPerceptionPipeline {
@@ -30,30 +31,20 @@ export class PerceptionPipeline implements IPerceptionPipeline {
 
         const capturePromise = page
             ? Promise.all([
-                options.vision ? this.visionSensor.capture(page) : Promise.resolve({ screenshot: Buffer.from(''), mimeType: '' }),
-                options.aria ? this.ariaSensor.capture(page) : Promise.resolve(null)
-            ]).then(([vision, aria]) => ({ vision, aria }))
-            : Promise.resolve({ vision: { screenshot: Buffer.from(''), mimeType: '' }, aria: null });
+                options.vision ? this.visionSensor.capture(page) : Promise.resolve({ screenshots: [], mimeType: '' }),
+                options.aria ? this.ariaSensor.capture(page) : Promise.resolve(null),
+                options.dom ? this.domSensor.capture(page) : Promise.resolve(Object.freeze({ url: '', title: '', rootElements: [], elements: [], timestamp: new Date() }))
+            ]).then(([vision, aria, dom]) => ({ vision, aria, dom }))
+            : Promise.resolve({
+                vision: { screenshots: [], mimeType: '' },
+                aria: null,
+                dom: null as any
+            });
 
-        // Wrap in ResultAsync to match existing flow
-        const initialCapture = ResultAsync.fromPromise(
+        return ResultAsync.fromPromise(
             capturePromise,
             e => new SnapshotError(`Sensor capture failed: ${String(e)}`)
-        );
-
-        return initialCapture.andThen(({ vision, aria }) => {
-            const adapter = this.browser as any;
-            const page = adapter.page;
-
-            if (!options.dom) {
-                return okAsync({ vision, aria, dom: null as any });
-            }
-
-            return ResultAsync.fromPromise(
-                this.domSensor.capture(page),
-                e => new SnapshotError(`Dom sensor capture failed: ${String(e)}`)
-            ).map(dom => ({ vision, aria, dom }));
-        }).andThen(({ vision, aria, dom }) => {
+        ).map(({ vision, aria, dom }) => {
             const frame: PerceptionFrame = {
                 id: uuidv4(),
                 timestamp: Date.now(),
@@ -62,23 +53,13 @@ export class PerceptionPipeline implements IPerceptionPipeline {
                     title: dom?.title || '',
                     viewport: { width: 0, height: 0 }
                 },
-                vision: {
-                    screenshot: vision.screenshot,
-                    mimeType: 'image/jpeg'
-                },
+                vision: new VisualContext(vision.screenshots, 'image/jpeg'),
                 semantic: {
-                    dom: dom,
+                    dom: dom as any, // Cast to avoid strict null checks on the resolution fallback
                     accessibility: aria
                 }
             };
-
-            // Trace Data Point 1: Sensor Extraction
-            // We don't have stepNumber here, but we can pass a partial trace.
-            // Actually, PerceptionPipeline doesn't know the step number easily.
-            // StepExecutor knows. We should probably trace reasoning in StepExecutor.
-            // But we can trace sensor density here.
-
-            return okAsync(frame);
+            return frame;
         });
     }
 }
