@@ -61,11 +61,6 @@ export function registerCoreServices(): void {
     container.register('ILLMProvider', { useClass: LangChainAdapter });
     container.register('RunTestUseCase', { useClass: RunTestUseCase });
 
-    // Tools (Legacy - Removed)
-    // const toolRegistry = new ToolRegistry();
-    // ... removed execution logic is now in StepExecutor
-
-
     // Enterprise Architecture Services
     container.registerSingleton(LocalBrowserNode);
     container.registerSingleton(DomiaGateway);

@@ -16,45 +16,12 @@ import { CDPValidator } from '../../../domain/validators/CDPValidator';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { CommonWebToolsFactory } from './CommonWebToolsFactory';
 
-/**
- * Configuration for connecting to an Electron app
- */
 export interface ElectronConnectionConfig {
-    /**
-     * CDP endpoint URL (e.g., 'http://localhost:9222')
-     */
     readonly cdpUrl: string;
-
-    /**
-     * Optional timeout for connection in milliseconds
-     * @default CDP_CONSTANTS.CONNECTION_TIMEOUT_MS (30000)
-     */
     readonly connectionTimeout?: number;
-
-    /**
-     * Whether to wait for the first window to be ready
-     * @default true
-     */
     readonly waitForWindow?: boolean;
 }
 
-/**
- * ElectronDriver
- * 
- * Implements IAppDriver for Electron applications using Chrome DevTools Protocol (CDP).
- * Connects to Electron apps launched with --remote-debugging-port flag.
- * 
- * Key Features:
- * - CDP-based connection (no source code needed)
- * - Multi-window support
- * - Electron-specific tools (menu interaction, window management)
- * - Common web tools (click, type, scroll)
- * 
- * Usage:
- * 1. Launch Electron app with: --remote-debugging-port=9222
- * 2. Connect driver to CDP endpoint
- * 3. Agent can interact with all renderer windows
- */
 @injectable()
 export class ElectronDriver implements IAppDriver {
     private browser: Browser | null = null;
@@ -68,13 +35,9 @@ export class ElectronDriver implements IAppDriver {
         this.windowManager = new ElectronWindowManager(logger);
     }
 
-    /**
-     * Connect to an Electron application via CDP
-     */
     connect(config?: ElectronConnectionConfig): ResultAsync<void, NavigationError | Error> {
         const cdpUrl = config?.cdpUrl || CDP_CONSTANTS.DEFAULT_URL;
         
-        // Validate CDP URL
         const validation = CDPValidator.validateCDPUrl(cdpUrl);
         if (validation.isErr()) {
             return ResultAsync.fromPromise(
@@ -96,18 +59,14 @@ export class ElectronDriver implements IAppDriver {
         this.logger.info(`[ElectronDriver] Connecting to CDP: ${config.cdpUrl}`);
 
         try {
-            // Connect to existing Electron instance via CDP
             this.browser = await chromium.connectOverCDP(config.cdpUrl, {
                 timeout: config.connectionTimeout || CDP_CONSTANTS.CONNECTION_TIMEOUT_MS
             });
 
             this.logger.debug('[ElectronDriver] CDP connection established');
-
-            // Discover all open windows (BrowserContexts)
             await this.discoverWindows();
 
             if (config.waitForWindow !== false && this.windowManager.getWindowCount() === 0) {
-                // Wait for at least one window to appear
                 await this.waitForWindow(CDP_CONSTANTS.WINDOW_WAIT_TIMEOUT_MS);
             }
 
@@ -118,9 +77,6 @@ export class ElectronDriver implements IAppDriver {
         }
     }
 
-    /**
-     * Disconnect from the Electron application
-     */
     async disconnect(): Promise<void> {
         this.logger.info('[ElectronDriver] Disconnecting from Electron app');
 
@@ -134,9 +90,6 @@ export class ElectronDriver implements IAppDriver {
         }
     }
 
-    /**
-     * Get driver capabilities
-     */
     getCapabilities(): AppCapabilities {
         return {
             platform: Platform.ELECTRON,
@@ -147,22 +100,17 @@ export class ElectronDriver implements IAppDriver {
         };
     }
 
-    /**
-     * Capture snapshot of the active window
-     */
     async captureSnapshot(): Promise<AppSnapshot> {
         const activeWindow = this.windowManager.getActiveWindow();
         if (!activeWindow) {
             throw new Error('[ElectronDriver] No active window available for snapshot');
         }
 
-        // Scan DOM and capture screenshots
         const [rawElements, screenshots] = await Promise.all([
             this.domScanner.scan(activeWindow.page),
             this.screenCapture.capture(activeWindow.page, 1)
         ]);
 
-        // Transform elements
         const elements: DOMElement[] = rawElements.map(el => ({
             id: ElementIdFactory.unsafe(el.id),
             tag: el.tag,
@@ -194,19 +142,12 @@ export class ElectronDriver implements IAppDriver {
         };
     }
 
-    /**
-     * Get all available tools for Electron
-     */
     getTools(): ToolDefinition[] {
         return [
-            // Common web interaction tools
             ...this.getCommonTools(),
-            // Electron-specific tools
             ...this.getElectronSpecificTools()
         ];
     }
-
-    // ========== Private Helper Methods ==========
 
     private async discoverWindows(): Promise<void> {
         if (!this.browser) {
@@ -215,7 +156,6 @@ export class ElectronDriver implements IAppDriver {
 
         this.windowManager.clear();
 
-        // Get all browser contexts (each Electron window is typically a context)
         const contexts = this.browser.contexts();
 
         for (const context of contexts) {
@@ -245,15 +185,11 @@ export class ElectronDriver implements IAppDriver {
         }
     }
 
-    // ========== Common Web Tools ==========
-
     private getCommonTools(): ToolDefinition[] {
         return CommonWebToolsFactory.createAll(
             (windowId, action) => this.executeInWindow(windowId, action)
         );
     }
-
-    // ========== Electron-Specific Tools ==========
 
     private getElectronSpecificTools(): ToolDefinition[] {
         return [
@@ -264,7 +200,6 @@ export class ElectronDriver implements IAppDriver {
                     menuPath: z.string()
                 }),
                 execute: (params: { menuPath: string }) => {
-                    // Validate menu path
                     const validation = CDPValidator.validateMenuPath(params.menuPath);
                     if (validation.isErr()) {
                         return ResultAsync.fromSafePromise<ActionResult>(Promise.resolve({
@@ -281,11 +216,7 @@ export class ElectronDriver implements IAppDriver {
                             }
 
                             try {
-                                // Execute menu click via Electron's remote API
-                                // Note: This requires the Electron app to expose menu interaction
                                 await activeWindow.page.evaluate((path) => {
-                                    // This is a placeholder - actual implementation depends on 
-                                    // how the Electron app exposes menu interaction
                                     const electron = (window as any).electron;
                                     if (electron && electron.clickMenu) {
                                         return electron.clickMenu(path);
@@ -312,7 +243,6 @@ export class ElectronDriver implements IAppDriver {
                     url: z.string().optional()
                 }),
                 execute: (params: { windowId?: string; title?: string; url?: string }) => {
-                    // Validate windowId if provided
                     if (params.windowId) {
                         const validation = CDPValidator.validateWindowId(params.windowId);
                         if (validation.isErr()) {
@@ -325,7 +255,6 @@ export class ElectronDriver implements IAppDriver {
 
                     return ResultAsync.fromPromise(
                         (async (): Promise<ActionResult> => {
-                            // Refresh window list
                             await this.discoverWindows();
 
                             let targetWindow;
@@ -413,7 +342,6 @@ export class ElectronDriver implements IAppDriver {
                     windowId: z.string().optional()
                 }),
                 execute: (params: { windowId?: string }) => {
-                    // Validate windowId if provided
                     if (params.windowId) {
                         const validation = CDPValidator.validateWindowId(params.windowId);
                         if (validation.isErr()) {
@@ -463,9 +391,6 @@ export class ElectronDriver implements IAppDriver {
         ];
     }
 
-    /**
-     * Execute an action in a specific window context
-     */
     private async executeInWindow(
         windowId: string | undefined,
         action: (page: Page) => Promise<ActionResult>
@@ -474,7 +399,6 @@ export class ElectronDriver implements IAppDriver {
             let window;
             
             if (windowId) {
-                // Validate windowId
                 const validation = CDPValidator.validateWindowId(windowId);
                 if (validation.isErr()) {
                     return { success: false, error: validation.error.message };

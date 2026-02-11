@@ -18,7 +18,7 @@ export function StepInspector(): JSX.Element | null {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 sm:p-8 animate-in fade-in duration-200">
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
@@ -34,7 +34,7 @@ export function StepInspector(): JSX.Element | null {
                 {/* Header glass effect */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white/80 backdrop-blur-md z-1">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20 flex items-center justify-center text-white font-bold text-lg">
+                        <div className="w-10 h-10 rounded-xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20 flex items-center justify-center text-white font-bold text-lg">
                             {stepNumber}
                         </div>
                         <div>
@@ -82,7 +82,6 @@ export function StepInspector(): JSX.Element | null {
 function InspectorContent({ artifacts }: { artifacts: any }) {
     const [activeTab, setActiveTab] = useState<'vision' | 'semantic' | 'trace'>('vision');
 
-    // const screenshotUrl = artifacts.screenshot; // Removed
     const domTree = artifacts.dom;
     const accessibilityTree = artifacts.accessibility;
     const traceData = artifacts.trace;
@@ -126,7 +125,7 @@ function InspectorContent({ artifacts }: { artifacts: any }) {
                     {artifacts.screenshots && artifacts.screenshots.length > 0 ? (
                         <div className="flex gap-4 overflow-x-auto p-4 w-full h-full items-center">
                             {artifacts.screenshots.map((url: string, index: number) => (
-                                <div key={index} className="flex-shrink-0 relative rounded-lg overflow-hidden shadow-2xl border border-gray-200 bg-white h-full max-w-[80%] snap-center">
+                                <div key={index} className="shrink-0 relative rounded-lg overflow-hidden shadow-2xl border border-gray-200 bg-white h-full max-w-[80%] snap-center">
                                     <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm z-10">
                                         Scan {index + 1}
                                     </div>

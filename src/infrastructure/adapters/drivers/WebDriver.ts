@@ -1,24 +1,17 @@
-
 import { injectable, inject } from 'tsyringe';
-import { ResultAsync, okAsync, errAsync } from 'neverthrow';
+import { ResultAsync, okAsync } from 'neverthrow';
 import { IAppDriver, AppCapabilities } from '../../../domain/ports/IAppDriver';
 import { AppSnapshot } from '../../../domain/value-objects/AppSnapshot';
 import { DOMElement } from '../../../domain/value-objects/DOMSnapshot';
 import { ToolDefinition, ActionResult } from '../../../domain/tools';
 import { PlaywrightAdapter } from '../browser/PlaywrightAdapter';
-import { ILogger } from '../../../domain/ports';
+import type { ILogger } from '../../../domain/ports';
 import { DomScanner } from '../../perception/DomScanner';
 import { SmartScrollCapture } from '../../perception/SmartScrollCapture';
 import { ElementIdFactory } from '../../../domain/value-objects/Brand';
 import { Platform } from '../../../domain/constants/PlatformConstants';
 import { z } from 'zod';
 
-/**
- * WebDriver
- * 
- * Adapts the existing PlaywrightAdapter to the new IAppDriver interface.
- * This ensures backward compatibility while we migrate to the new architecture.
- */
 @injectable()
 export class WebDriver implements IAppDriver {
     constructor(
@@ -51,7 +44,6 @@ export class WebDriver implements IAppDriver {
     }
 
     async captureSnapshot(): Promise<AppSnapshot> {
-        // Access raw page from adapter
         const adapter = this.playwright as any;
         const page = adapter.page;
 
@@ -61,7 +53,7 @@ export class WebDriver implements IAppDriver {
 
         const [rawElements, screenshots] = await Promise.all([
             this.domScanner.scan(page),
-            this.screenCapture.capture(page, 1) // Standard single capture for now
+            this.screenCapture.capture(page, 1)
         ]);
 
         const elements: DOMElement[] = rawElements.map(el => ({
@@ -88,7 +80,7 @@ export class WebDriver implements IAppDriver {
             title,
             rootElements,
             elements,
-            screenshot: screenshots.length > 0 ? screenshots[0].toString('base64') : undefined,
+            screenshot: screenshots[0]?.toString('base64'),
             screenshots: screenshots.map(b => b.toString('base64')),
             timestamp: new Date()
         };

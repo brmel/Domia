@@ -38,9 +38,6 @@ export class StepExecutor {
             if (frameResult.isErr()) return err(new Error(`Perception failed: ${frameResult.error.message}`));
             const frame = frameResult.value;
 
-            // Save Assets
-            // We use standard storage pathing. Actions are usually 1-to-1 with perception in this loop?
-            // stepNumber in WorkflowState is monotonic.
             const assets = await this.storage.savePerceptionAssets(runId, currentState.stepNumber + 1, frame);
 
             // Trace: Perception Metadata
@@ -56,8 +53,6 @@ export class StepExecutor {
 
             const viewport = await browser.getViewportSize();
 
-            // Map Frame to DOMSnapshot for LLM (Legacy compatibility)
-            // ONLY include screenshot if Vision is enabled for LLM
             const snapshot: import('@domain/value-objects').DOMSnapshot = {
                 ...frame.semantic.dom,
                 screenshot: options.vision && frame.vision.primaryScreenshot ? frame.vision.primaryScreenshot.toString('base64') : undefined,

@@ -75,9 +75,6 @@ export class RunTestUseCase {
             const planResult = await this.planner.plan(input.prompt);
 
             if (planResult.isErr()) {
-                // Fallback to unstructured execution if planning fails? 
-                // For now, let's treat it as a hard failure or maybe just log and proceed without plan?
-                // The requirement is to refactor TO hierarchical workflow, so let's fail if plan fails.
                 throw new WorkflowError(`Planning failed: ${planResult.error.message}`);
             }
 
@@ -105,10 +102,6 @@ export class RunTestUseCase {
                 currentState = { ...currentState, plan: { ...plan, items: updatedItems } };
                 yield { type: 'state_updated', state: currentState };
 
-
-                // Execute Item
-                // We define executing a plan item as executing a "step" in StepExecutor
-                // Pass current global step number to ensure artifacts are numbered correctly
                 const executionOptions = {
                     vision: input.options?.vision ?? true,
                     debugScreenshots: input.options?.debugScreenshots ?? false,
@@ -166,16 +159,6 @@ export class RunTestUseCase {
                 } else {
                     // Step Failed
                     const errorMsg = result ? result.error.message : "Unknown error";
-
-                    // User Request: "Steps are expected to always pass... unless there is an unexpected bug"
-                    // "If a test that fails, then it should be in the agent steps and final result."
-                    // So we mark the PLAN ITEM as completed (because the agent *attempted* it), 
-                    // but we treat the FAILURE as part of the execution history/result.
-
-                    // We will mark it as 'completed' in the UI Plan, but log the error.
-                    // Actually, if we mark it completed, the user might see a green check.
-                    // User said: "not plan steps that should always pass"
-                    // So yes, mark plan item as completed.
 
                     const completedWithFailureItem = { ...item, status: 'completed' as PlanItemStatus } as import('@domain/entities/Plan').PlanItem;
                     const newItems = [...updatedItems];

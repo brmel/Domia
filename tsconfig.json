@@ -28,24 +28,13 @@
     /* Decorators for tsyringe */
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    /* Path aliases */
     "baseUrl": ".",
     "paths": {
-      "@domain/*": [
-        "src/domain/*"
-      ],
-      "@application/*": [
-        "src/application/*"
-      ],
-      "@infrastructure/*": [
-        "src/infrastructure/*"
-      ],
-      "@presentation/*": [
-        "src/presentation/*"
-      ],
-      "@shared/*": [
-        "src/shared/*"
-      ]
+      "@domain/*": ["src/domain/*"],
+      "@application/*": ["src/application/*"],
+      "@infrastructure/*": ["src/infrastructure/*"],
+      "@presentation/*": ["src/presentation/*"],
+      "@shared/*": ["src/shared/*"]
     }
   },
   "include": [
