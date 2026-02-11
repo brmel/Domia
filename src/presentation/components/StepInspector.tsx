@@ -82,14 +82,14 @@ export function StepInspector(): JSX.Element | null {
 function InspectorContent({ artifacts }: { artifacts: any }) {
     const [activeTab, setActiveTab] = useState<'vision' | 'semantic' | 'trace'>('vision');
 
-    const screenshotUrl = artifacts.screenshot;
+    // const screenshotUrl = artifacts.screenshot; // Removed
     const domTree = artifacts.dom;
     const accessibilityTree = artifacts.accessibility;
     const traceData = artifacts.trace;
 
     // Tabs configuration
     const tabs = [
-        { id: 'vision', label: 'Vision', icon: '👁️', count: screenshotUrl ? 1 : 0 },
+        { id: 'vision', label: 'Vision', icon: '👁️', count: artifacts.screenshots?.length ?? 0 },
         { id: 'semantic', label: 'Semantic', icon: '🌳', count: (domTree ? 1 : 0) + (accessibilityTree ? 1 : 0) },
         { id: 'trace', label: 'Trace', icon: '🧠', count: traceData ? 1 : 0 },
     ] as const;
@@ -123,13 +123,20 @@ function InspectorContent({ artifacts }: { artifacts: any }) {
                 {/* Vision Tab */}
                 <div className={cn("absolute inset-0 p-6 flex items-center justify-center transition-opacity duration-300",
                     activeTab === 'vision' ? "opacity-100 z-10" : "opacity-0 pointer-events-none")}>
-                    {screenshotUrl ? (
-                        <div className="relative rounded-lg overflow-hidden shadow-2xl border border-gray-200 bg-white max-h-full">
-                            <img
-                                src={screenshotUrl}
-                                alt="Step Screenshot"
-                                className="max-w-full max-h-full object-contain"
-                            />
+                    {artifacts.screenshots && artifacts.screenshots.length > 0 ? (
+                        <div className="flex gap-4 overflow-x-auto p-4 w-full h-full items-center">
+                            {artifacts.screenshots.map((url: string, index: number) => (
+                                <div key={index} className="flex-shrink-0 relative rounded-lg overflow-hidden shadow-2xl border border-gray-200 bg-white h-full max-w-[80%] snap-center">
+                                    <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm z-10">
+                                        Scan {index + 1}
+                                    </div>
+                                    <img
+                                        src={url}
+                                        alt={`Step Screenshot ${index + 1}`}
+                                        className="h-full w-auto object-contain"
+                                    />
+                                </div>
+                            ))}
                         </div>
                     ) : (
                         <EmptyState

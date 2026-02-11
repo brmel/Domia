@@ -1,6 +1,6 @@
 import { ResultAsync } from 'neverthrow';
-import { NavigationError, InteractionError, SnapshotError, CaptureError } from '../errors';
-import { Url, ElementId, DOMSnapshot } from '../value-objects';
+import { NavigationError, InteractionError } from '../errors';
+import { Url, ElementId } from '../value-objects';
 
 /**
  * Browser launch options
@@ -10,10 +10,6 @@ export interface LaunchOptions {
     readonly timeout?: number;
 }
 
-/**
- * Screenshot data
- */
-import { Screenshot } from './Screenshot';
 
 /**
  * IBrowserAutomation Port
@@ -32,20 +28,12 @@ export interface IBrowserAutomation {
      * Highlights an element on the page for visual feedback.
      * @param elementId The internal ID of the element to highlight
      */
+    /**
+     * Highlights an element on the page for visual feedback.
+     * @param elementId The internal ID of the element to highlight
+     */
     highlight(elementId: ElementId): ResultAsync<void, InteractionError>;
-    snapshot(): ResultAsync<DOMSnapshot, SnapshotError>;
-    /**
-     * Captures the full accessibility tree of the page.
-     */
-    snapshotAria(): ResultAsync<import('../value-objects/AriaNode').AriaNode, SnapshotError>;
 
-    // CDP Synchronization
-    pause(): ResultAsync<void, Error>;
-    resume(): ResultAsync<void, Error>;
-    /**
-     * Takes a screenshot of the current page.
-     */
-    screenshot(): ResultAsync<Screenshot, CaptureError>;
     getViewportSize(): Promise<{ width: number; height: number }>;
     waitForDOMStable(timeout?: number): Promise<void>;
     close(): Promise<void>;

@@ -54,8 +54,8 @@ const initialState: TestRunStoreState = {
     summary: null,
     errorMessage: null,
     history: [],
-    url: 'https://www.google.com',
-    prompt: 'Validate that the search button is centered on the page',
+    url: 'https://ibraverse.ca',
+    prompt: 'verify that brahim is smiling',
 };
 
 export const useTestRunStore = create<TestRunStore>((set) => ({

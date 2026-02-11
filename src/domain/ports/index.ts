@@ -6,4 +6,7 @@ export * from './IPersistenceAdapter';
 export * from './IConfigService';
 export * from './IExecutionController';
 export * from './INode';
-export * from './Screenshot';
+export * from './IPerceptionPipeline';
+export * from './ISensor';
+export * from './IStorageService';
+export * from './ITraceService';

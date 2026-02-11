@@ -1,15 +1,14 @@
 import { injectable, inject } from 'tsyringe';
 import { Page } from 'playwright';
-import { IContextParser } from './IContextParser';
 import { DOMElement, ElementIdFactory } from '@domain/value-objects';
 import type { ILogger } from '@domain/ports';
-import { DomSensor } from '../sensors/DomSensor';
+import { DomScanner } from '../perception/DomScanner';
 
 @injectable()
-export class DOMParser implements IContextParser<DOMElement[]> {
+export class DOMParser {
     constructor(
         @inject('ILogger') private logger: ILogger,
-        @inject(DomSensor) private domSensor: DomSensor
+        @inject(DomScanner) private domSensor: DomScanner
     ) { }
 
     async parse(page: Page): Promise<DOMElement[]> {

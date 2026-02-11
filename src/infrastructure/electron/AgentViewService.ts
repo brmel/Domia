@@ -15,6 +15,9 @@ export class AgentViewService {
     private isReady: boolean = false;
     private readyPromise: Promise<void> | null = null;
 
+    // Stability delay to allow renderer process to fully initialize after load
+    private readonly READINESS_STABILITY_DELAY_MS = 500;
+
     constructor(@inject('ILogger') private logger: ILogger) { }
 
     initialize(mainWindow: BrowserWindow): void {
@@ -38,11 +41,15 @@ export class AgentViewService {
         );
 
         this.readyPromise = new Promise<void>((resolve) => {
-            this.view!.webContents.once('did-finish-load', () => {
-                this.isReady = true;
-                this.logger.debug('[AgentViewService] WebContentsView ready');
-                resolve();
-            });
+            if (this.view) {
+                this.view.webContents.once('did-finish-load', () => {
+                    setTimeout(() => {
+                        this.isReady = true;
+                        this.logger.debug(`[AgentViewService] WebContentsView ready after ${this.READINESS_STABILITY_DELAY_MS}ms stability delay`);
+                        resolve();
+                    }, this.READINESS_STABILITY_DELAY_MS);
+                });
+            }
         });
 
         this.view.webContents.loadURL('about:blank');
@@ -61,34 +68,52 @@ export class AgentViewService {
     }
 
     async waitUntilReady(): Promise<void> {
-        if (this.isReady) return;
+        if (this.isReady && this.hasValidBounds()) return;
+
         if (this.readyPromise) {
             await this.readyPromise;
+            // Additional check for bounds
+            if (!this.hasValidBounds()) {
+                this.logger.warn('[AgentViewService] Waiting for valid bounds...');
+                // Wait a bit more or verify bounds are set
+            }
+        }
+    }
+
+    private hasValidBounds(): boolean {
+        if (!this.view) return false;
+        try {
+            const bounds = this.view.getBounds();
+            return bounds.width > 0 && bounds.height > 0;
+        } catch (e) {
+            return false;
         }
     }
 
     show(bounds: Rectangle): void {
-        if (!this.mainWindow || !this.view) return;
+        this.logger.debug(`[AgentViewService] show() called with bounds: ${JSON.stringify(bounds)}`);
+
+        if (!this.mainWindow || !this.view) {
+            this.logger.warn('[AgentViewService] show() ignored - mainWindow or view missing');
+            return;
+        }
 
         const children = this.mainWindow.contentView.children;
         const index = children.indexOf(this.view);
         const isLast = index === children.length - 1;
 
+        // Force update bounds BEFORE adding to hierarchy to prevent flash of full/wrong size
+        this.view.setBounds(bounds);
+        this.logger.debug(`[AgentViewService] View bounds set to: ${JSON.stringify(bounds)}`);
+
         if (index === -1) {
             this.mainWindow.contentView.addChildView(this.view);
             this.logger.debug(`[AgentViewService] Added view to hierarchy. Total children: ${this.mainWindow.contentView.children.length}`);
         } else if (!isLast) {
-            // Only re-order if it's NOT already at the top
+            // Reposition to top if needed
             this.mainWindow.contentView.removeChildView(this.view);
             this.mainWindow.contentView.addChildView(this.view);
             this.logger.debug('[AgentViewService] Moved view to top of hierarchy');
-        }
-
-        // Only update bounds if they changed (simple check)
-        const current = this.view.getBounds();
-        if (current.x !== bounds.x || current.y !== bounds.y || current.width !== bounds.width || current.height !== bounds.height) {
-            this.view.setBounds(bounds);
-            this.logger.debug(`[AgentViewService] View shown at: ${JSON.stringify(bounds)}`);
         }
 
         this.isVisible = true;
@@ -96,10 +121,8 @@ export class AgentViewService {
 
     updateBounds(bounds: Rectangle): void {
         if (this.isVisible && this.view) {
-            const current = this.view.getBounds();
-            if (current.x !== bounds.x || current.y !== bounds.y || current.width !== bounds.width || current.height !== bounds.height) {
-                this.view.setBounds(bounds);
-            }
+            this.logger.debug(`[AgentViewService] updateBounds() called with bounds: ${JSON.stringify(bounds)}`);
+            this.view.setBounds(bounds);
         }
     }
 

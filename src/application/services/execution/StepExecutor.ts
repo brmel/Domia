@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import { Result, ok, err } from 'neverthrow';
-import type { ILLMProvider, IBrowserAutomation, LLMContext } from '@domain/ports';
+import type { ILLMProvider, IBrowserAutomation, LLMContext, IPerceptionPipeline, IStorageService, ITraceService } from '@domain/ports';
 import { AgentAction } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
 import { LoopDetectorService } from './LoopDetectorService';
@@ -11,9 +11,9 @@ export class StepExecutor {
     constructor(
         @inject('ILLMProvider') private llmProvider: ILLMProvider,
         @inject(LoopDetectorService) private loopDetector: LoopDetectorService,
-        @inject('IPerceptionPipeline') private perception: import('@domain/ports/IPerceptionPipeline').IPerceptionPipeline,
-        @inject('IStorageService') private storage: import('@domain/ports/IStorageService').IStorageService,
-        @inject('ITraceService') private trace: import('@domain/ports/ITraceService').ITraceService
+        @inject('IPerceptionPipeline') private perception: IPerceptionPipeline,
+        @inject('IStorageService') private storage: IStorageService,
+        @inject('ITraceService') private trace: ITraceService
     ) { }
 
     async *executeStep(
@@ -49,7 +49,7 @@ export class StepExecutor {
                 sensorData: {
                     domCount: frame.semantic.dom ? 1 : 0, // Simplified for now
                     ariaPresent: !!frame.semantic.accessibility,
-                    visionPresent: !!frame.vision.screenshot && frame.vision.screenshot.length > 0,
+                    visionPresent: frame.vision.count > 0,
                     metadata: frame.metadata
                 }
             });
@@ -60,7 +60,8 @@ export class StepExecutor {
             // ONLY include screenshot if Vision is enabled for LLM
             const snapshot: import('@domain/value-objects').DOMSnapshot = {
                 ...frame.semantic.dom,
-                screenshot: options.vision ? frame.vision.screenshot.toString('base64') : undefined,
+                screenshot: options.vision && frame.vision.primaryScreenshot ? frame.vision.primaryScreenshot.toString('base64') : undefined,
+                screenshots: options.vision ? frame.vision.screenshots.map(b => b.toString('base64')) : [],
                 accessibilityTree: frame.semantic.accessibility
             };
 

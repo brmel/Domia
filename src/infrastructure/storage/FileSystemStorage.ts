@@ -19,12 +19,17 @@ export class FileSystemStorage implements IStorageService {
 
         const assets: Record<string, string> = {};
 
-        // Save Screenshot
-        if (frame.vision.screenshot && frame.vision.screenshot.length > 0) {
-            const filename = `${stepNumber}_screenshot.jpg`;
-            const filePath = path.join(baseDir, filename);
-            await fs.writeFile(filePath, frame.vision.screenshot);
-            assets['screenshot'] = filePath;
+        // Save Screenshots
+        if (frame.vision.screenshots && frame.vision.screenshots.length > 0) {
+            for (let i = 0; i < frame.vision.screenshots.length; i++) {
+                const buffer = frame.vision.screenshots[i];
+                if (!buffer) continue;
+                const filename = i === 0 ? `${stepNumber}_screenshot.jpg` : `${stepNumber}_screenshot_${i}.jpg`;
+                const filePath = path.join(baseDir, filename);
+                await fs.writeFile(filePath, buffer);
+                if (i === 0) assets['screenshot'] = filePath; // Primary
+                assets[`screenshot_${i}`] = filePath;
+            }
         }
 
         // Save DOM
@@ -63,7 +68,7 @@ export class FileSystemStorage implements IStorageService {
     }
 
     async getStepArtifacts(runId: string, stepNumber: number): Promise<{
-        screenshot?: string;
+        screenshots?: string[];
         dom?: any;
         accessibility?: any;
         trace?: any;
@@ -78,11 +83,25 @@ export class FileSystemStorage implements IStorageService {
 
         const artifacts: any = {};
 
-        // 1. Screenshot
-        const screenshotPath = path.join(baseDir, `${stepNumber}_screenshot.jpg`);
-        if (await fs.pathExists(screenshotPath)) {
-            const buffer = await fs.readFile(screenshotPath);
-            artifacts.screenshot = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+        // 1. Screenshots (Scan directory)
+        if (await fs.pathExists(baseDir)) {
+            const files = await fs.readdir(baseDir);
+            const screenshotFiles = files
+                .filter(f => f.startsWith(`${stepNumber}_screenshot`) && f.endsWith('.jpg'))
+                .sort((a, b) => {
+                    // Sort primarily by length (shorter first: _screenshot.jpg vs _screenshot_1.jpg)
+                    // Then alphanumerically
+                    if (a.length !== b.length) return a.length - b.length;
+                    return a.localeCompare(b);
+                });
+
+            if (screenshotFiles.length > 0) {
+                artifacts.screenshots = await Promise.all(screenshotFiles.map(async (f) => {
+                    const filePath = path.join(baseDir, f);
+                    const buffer = await fs.readFile(filePath);
+                    return `data:image/jpeg;base64,${buffer.toString('base64')}`;
+                }));
+            }
         }
 
         // 2. DOM

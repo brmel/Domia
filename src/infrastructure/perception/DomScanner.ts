@@ -12,7 +12,8 @@ export interface RawElement {
 }
 
 @injectable()
-export class DomSensor {
+export class DomScanner {
+
     /**
      * Injects a script into the page to identify and extract interactive elements.
      * Returns raw data that needs to be mapped to domain objects.
@@ -24,13 +25,10 @@ export class DomSensor {
                 const selectors = [
                     'a', 'button', 'input', 'textarea', 'select',
                     '[role="button"]', '[role="link"]', '[role="checkbox"]',
-                    '[role="radio"]', '[role="textbox"]', '[onclick]',
+                    '[role="radio"]', '[role="textbox"]', '[onclick]'
                 ];
 
                 const elements = [];
-                // We use a global counter or simple iteration. 
-                // Note: In a real "Sensor", we might want to maintain stable IDs across scans.
-                // For now, we regenerate them per scan, which is the current behavior.
                 let idCounter = 0;
 
                 function isVisible(el) {
@@ -45,7 +43,7 @@ export class DomSensor {
                 function extractAttrs(el) {
                     const attrs = {};
                     const relevantAttrs = [
-                        'id', 'name', 'type', 'placeholder', 'aria-label', 'href', 
+                        'id', 'name', 'type', 'placeholder', 'aria-label', 'href',
                         'value', 'title', 'checked', 'aria-invalid', 'aria-pressed',
                         'data-state', 'data-theme', 'aria-expanded', 'aria-hidden', 'class'
                     ];
@@ -58,10 +56,6 @@ export class DomSensor {
                     return attrs;
                 }
 
-                // First, clean up old IDs if any (optional, but good for cleanliness)
-                // document.querySelectorAll('[data-autoqa-id]').forEach(el => el.removeAttribute('data-autoqa-id'));
-
-                // Set needed for uniqueness check if we iterate multiple selectors
                 const seen = new Set();
 
                 for (const selector of selectors) {
@@ -70,11 +64,10 @@ export class DomSensor {
                         seen.add(node);
 
                         if (!(node instanceof HTMLElement) || !isVisible(node)) return;
-                        
-                        // We strictly overwrite/set the ID for this scan
+
                         const id = idCounter++;
                         node.setAttribute('data-autoqa-id', String(id));
-                        
+
                         const rect = node.getBoundingClientRect();
                         elements.push({
                             id,
@@ -92,6 +85,11 @@ export class DomSensor {
             })()
         `;
 
-        return await page.evaluate(extractionScript) as RawElement[];
+        try {
+            return await page.evaluate(extractionScript) as RawElement[];
+        } catch (error) {
+            console.warn(`[DomScanner] Scan failed: ${error}`);
+            return [];
+        }
     }
 }
