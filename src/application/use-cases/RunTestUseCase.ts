@@ -14,6 +14,9 @@ import { StepExecutor } from '../services/execution/StepExecutor';
 import { PlanItemStatus } from '@domain/entities/Plan';
 import { TestStep } from '../../domain/ports';
 import { v4 as uuidv4 } from 'uuid';
+import { AppDriverFactory } from '../../infrastructure/adapters/drivers/AppDriverFactory';
+import type { IAppDriver } from '../../domain/ports/IAppDriver';
+import type { ILogger } from '../../domain/ports';
 
 
 @injectable()
@@ -24,12 +27,26 @@ export class RunTestUseCase {
         @inject(WorkflowPlanner) private planner: WorkflowPlanner,
         @inject(StepExecutor) private executor: StepExecutor,
         @inject('IPersistenceAdapter') private persistence: import('../../domain/ports').IPersistenceAdapter,
-        @inject('ITraceService') private trace: import('../../domain/ports/ITraceService').ITraceService
+        @inject('ITraceService') private trace: import('../../domain/ports/ITraceService').ITraceService,
+        @inject(AppDriverFactory) private driverFactory: AppDriverFactory,
+        @inject('ILogger') private logger: ILogger
     ) { }
 
     async *execute(input: RunTestInput, controller: ExecutionController): AsyncGenerator<RunTestOutput, void, unknown> {
+        // Extract URL from platformConfig or legacy url field
+        const url = input.platformConfig?.platform === 'web' 
+            ? input.platformConfig.url 
+            : input.platformConfig?.platform === 'electron' && input.platformConfig.connection.type === 'cdp'
+            ? input.platformConfig.connection.cdpUrl
+            : input.url;
+
+        if (!url) {
+            yield { type: 'error', error: new WorkflowError('No URL provided. Either provide url or platformConfig with a web/CDP connection.') };
+            return;
+        }
+
         // Initialize Test Run
-        const initResult = await this.lifecycleManager.initializeTestRun(input.url, input.prompt);
+        const initResult = await this.lifecycleManager.initializeTestRun(url, input.prompt);
         if (initResult.isErr()) {
             yield { type: 'error', error: initResult.error };
             return;
@@ -37,20 +54,48 @@ export class RunTestUseCase {
         const testRunId = initResult.value;
         yield { type: 'started', testRunId };
 
-        // Allocate Session (Node)
-        let node;
+        // Allocate Driver - use new platform-aware flow if platformConfig provided
+        let driver: IAppDriver | null = null;
         let browser: IBrowserAutomation | undefined;
+        let node;
+        
         try {
-            node = await this.gateway.allocateSession(testRunId);
-            const browserResult = await node.allocate();
-            if (browserResult.isErr()) {
-                throw new WorkflowError(`Failed to allocate browser: ${browserResult.error.message}`);
+            if (input.platformConfig) {
+                // NEW FLOW: Use AppDriverFactory with platform config
+                this.logger.info(`[RunTestUseCase] Using platform: ${input.platformConfig.platform}`);
+                
+                driver = await this.driverFactory.createDriver({
+                    platformConfig: input.platformConfig,
+                    ...(input.options && { options: input.options })
+                });
+                
+                // Get browser automation interface for backward compatibility
+                try {
+                    browser = driver.getBrowserAutomation();
+                } catch (error) {
+                    // Electron doesn't support getBrowserAutomation yet
+                    this.logger.warn('[RunTestUseCase] Driver does not support getBrowserAutomation, skipping browser-based flow');
+                    throw new WorkflowError('Electron platform not fully integrated yet. Please use web platform or CDP mode.');
+                }
+            } else {
+                // LEGACY FLOW: Use old node/browser allocation
+                this.logger.warn('[RunTestUseCase] Using legacy browser allocation flow');
+                node = await this.gateway.allocateSession(testRunId);
+                const browserResult = await node.allocate();
+                if (browserResult.isErr()) {
+                    throw new WorkflowError(`Failed to allocate browser: ${browserResult.error.message}`);
+                }
+                browser = browserResult.value;
+                await browser.launch({ headless: input.options?.headless ?? true });
             }
-            browser = browserResult.value;
-            await browser.launch({ headless: input.options?.headless ?? true });
+            
+            if (!browser) {
+                throw new WorkflowError('Failed to initialize browser automation interface');
+            }
         } catch (error) {
             const err = error instanceof Error ? error : new Error(String(error));
             yield { type: 'error', error: new WorkflowError(`Error initializing session: ${err.message}`) };
+            if (driver) await driver.disconnect();
             if (node && !browser) await this.gateway.releaseSession(testRunId);
             return;
         }
@@ -62,7 +107,7 @@ export class RunTestUseCase {
         let hasVerificationFailure = false;
 
         try {
-            const urlResult = UrlFactory.create(input.url);
+            const urlResult = UrlFactory.create(url);
             if (urlResult.isErr()) throw new WorkflowError(`Invalid URL: ${urlResult.error.message}`);
 
             yield { type: 'thinking' }; // Loading state
@@ -108,7 +153,7 @@ export class RunTestUseCase {
                     maxActions: input.options?.maxSteps ?? 20
                 };
 
-                const stepGen = this.executor.executeStep(testRunId, item.description, browser, input.url, currentState.stepNumber, executionOptions);
+                const stepGen = this.executor.executeStep(testRunId, item.description, browser, url, currentState.stepNumber, executionOptions);
                 let result: import('neverthrow').Result<void, Error> | undefined;
 
                 try {
@@ -182,8 +227,18 @@ export class RunTestUseCase {
             await this.lifecycleManager.failTestRun(testRunId, msg);
             yield { type: 'error', error: error instanceof Error ? error : new Error(msg) };
         } finally {
-            if (browser) await browser.close();
-            await this.gateway.releaseSession(testRunId);
+            // Cleanup: close browser/driver and release session
+            if (driver) {
+                await driver.disconnect().catch(err => 
+                    this.logger.warn(`[RunTestUseCase] Error disconnecting driver: ${err}`)
+                );
+            } else if (browser) {
+                await browser.close();
+            }
+            
+            if (node) {
+                await this.gateway.releaseSession(testRunId);
+            }
 
             // Flush and finalize traces
             await this.trace.endTrace();

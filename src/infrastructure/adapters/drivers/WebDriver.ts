@@ -149,4 +149,8 @@ export class WebDriver implements IAppDriver {
             }
         ];
     }
+
+    getBrowserAutomation(): import('../../../domain/ports').IBrowserAutomation {
+        return this.playwright;
+    }
 }

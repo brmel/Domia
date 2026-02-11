@@ -1,13 +1,14 @@
 
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
 import { useTestRunStore } from '../stores';
-import { TestInputSchema, type TestInput } from '../../shared/validation';
 import { trpc } from '../../lib/trpc';
 import { cn } from '../../lib/utils';
 import { Button } from './ui/Button';
 import { AgentStatus } from '../../domain/types/AgentStatus';
 import { canStart, canPause, canResume, canStop, isAgentRunning } from '../utils/agentStateUtils';
+import { PlatformSelector } from './PlatformSelector';
+import { getPlatformDefinition } from '../config/platformRegistry';
+import type { PlatformType, PlatformConfig } from '../../domain/types/PlatformConfig';
 
 interface TestFormProps {
     onOpenHistory: () => void;
@@ -15,8 +16,15 @@ interface TestFormProps {
 }
 
 export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps): React.ReactElement {
-    const { status, setStatus, url, prompt, setUrl, setPrompt } = useTestRunStore();
+    const { status, setStatus, url, prompt, setPrompt } = useTestRunStore();
     const isRunning = isAgentRunning(status);
+    
+    // Platform state - default to 'web' for backward compatibility
+    const [selectedPlatform, setSelectedPlatform] = useState<PlatformType>('web');
+    const [platformData, setPlatformData] = useState<any>({
+        url: url || '',
+    });
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
     const runMutation = trpc.test.run.useMutation({
         onError: (error) => {
@@ -28,41 +36,57 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
         }
     });
 
-    const {
-        // register, // Unused now
-        setValue,
-        handleSubmit,
-        formState: { errors, isValid }
-    } = useForm<TestInput>({
-        resolver: zodResolver(TestInputSchema),
-        defaultValues: {
-            url: url,
+    const { data: config } = trpc.settings.get.useQuery();
+
+    const handlePlatformChange = (newPlatform: PlatformType) => {
+        setSelectedPlatform(newPlatform);
+        const definition = getPlatformDefinition(newPlatform);
+        setPlatformData(definition.defaultValues);
+        setFieldErrors({});
+    };
+
+    const handleFieldChange = (newData: any) => {
+        setPlatformData(newData);
+    };
+
+    const onSubmit = (e: React.FormEvent): void => {
+        e.preventDefault();
+        
+        if (!canStart(status) || !prompt.trim()) {
+            return;
+        }
+
+        // Build platform config
+        const platformConfig: PlatformConfig = {
+            platform: selectedPlatform,
             prompt: prompt,
+            ...platformData,
+        } as PlatformConfig;
+
+        // For backward compatibility, also send legacy format
+        const legacyUrl = selectedPlatform === 'web' 
+            ? platformData.url 
+            : selectedPlatform === 'electron' && platformData.connection?.type === 'cdp'
+            ? platformData.connection.cdpUrl
+            : '';
+
+        setStatus(AgentStatus.RUNNING);
+        
+        const finalData = {
+            url: legacyUrl, // Backward compatibility
+            platformConfig,
+            prompt,
             options: {
                 maxSteps: 20,
                 headless: false,
                 verbose: true,
-                debug: false
+                debug: false,
+                vision: config?.ai?.visionEnabled ?? true,
+                debugScreenshots: config?.ai?.debugScreenshots ?? false,
             }
-        },
-        mode: 'onChange'
-    });
-
-    const { data: config } = trpc.settings.get.useQuery();
-
-    const onSubmit = (data: TestInput): void => {
-        if (canStart(status)) {
-            setStatus(AgentStatus.RUNNING); // Optimistic update
-            const finalData = {
-                ...data,
-                options: {
-                    ...data.options,
-                    vision: config?.ai?.visionEnabled ?? true,
-                    debugScreenshots: config?.ai?.debugScreenshots ?? false
-                }
-            };
-            runMutation.mutate(finalData);
-        }
+        };
+        
+        runMutation.mutate(finalData);
     };
 
     const stopMutation = trpc.test.cancel.useMutation({
@@ -79,64 +103,57 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
 
     const handleStop = (): void => {
         stopMutation.mutate();
-        setStatus(AgentStatus.CANCELLED); // Optimistic update
+        setStatus(AgentStatus.CANCELLED);
     };
 
     const handlePause = (): void => {
         pauseMutation.mutate();
-        setStatus(AgentStatus.PAUSED); // Optimistic update
+        setStatus(AgentStatus.PAUSED);
     };
 
     const handleResume = (): void => {
         resumeMutation.mutate();
-        setStatus(AgentStatus.RUNNING); // Optimistic update
+        setStatus(AgentStatus.RUNNING);
     };
 
+    const canSubmit = prompt.trim().length > 0 && !isRunning;
+    const platformDefinition = getPlatformDefinition(selectedPlatform);
+    const PlatformFields = platformDefinition.renderFields;
+
     return (
-        <form className="flex flex-col h-full bg-white relative" onSubmit={handleSubmit(onSubmit)}>
+        <form className="flex flex-col h-full bg-white relative" onSubmit={onSubmit}>
             {/* Scrollable Content */}
             <div className="flex-1 flex flex-col p-6 overflow-y-auto">
-                {/* URL Input Area */}
-                <div className="flex flex-col gap-2 mb-4">
-                    <label className="text-xs font-bold uppercase tracking-wider text-gray-400 pl-1">Target URL</label>
-                    <div className="relative group">
-                        <input
-                            className={cn(
-                                "w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white transition-all font-medium font-mono",
-                                errors.url
-                                    ? "border-red-100 focus:border-red-400 focus:ring-4 focus:ring-red-500/10"
-                                    : "border-transparent focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 group-hover:bg-white group-hover:border-gray-100"
-                            )}
-                            type="text"
-                            placeholder="google.com"
-                            value={url}
-                            onChange={(e) => {
-                                setUrl(e.target.value);
-                                setValue('url', e.target.value, { shouldValidate: true });
-                            }}
-                            disabled={isRunning}
-                            autoFocus
-                        />
-                        {errors.url && <span className="absolute right-3 top-3.5 text-xs text-red-500 font-bold">{errors.url.message}</span>}
-                    </div>
+                {/* Platform Selector */}
+                <PlatformSelector
+                    value={selectedPlatform}
+                    onChange={handlePlatformChange}
+                    disabled={isRunning}
+                />
+
+                {/* Dynamic Platform-Specific Fields */}
+                <div className="mb-4">
+                    <PlatformFields
+                        value={platformData}
+                        onChange={handleFieldChange}
+                        errors={fieldErrors}
+                        disabled={isRunning}
+                    />
                 </div>
 
-                {/* Prompt Area - Bigger Size */}
+                {/* Prompt Area - Shared across all platforms */}
                 <div className="flex flex-col gap-2 mb-6">
-                    <label className="text-xs font-bold uppercase tracking-wider text-gray-400 pl-1">Goal Instructions</label>
+                    <label className="text-xs font-bold uppercase tracking-wider text-gray-400 pl-1">
+                        Goal Instructions
+                    </label>
                     <textarea
                         className={cn(
                             "w-full h-64 px-4 py-4 bg-gray-50 border-2 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white transition-all resize-none leading-relaxed",
-                            errors.prompt
-                                ? "border-red-100 focus:border-red-400 focus:ring-4 focus:ring-red-500/10"
-                                : "border-transparent focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 hover:bg-white hover:border-gray-100"
+                            "border-transparent focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 hover:bg-white hover:border-gray-100"
                         )}
                         placeholder="Describe the task step-by-step..."
                         value={prompt}
-                        onChange={(e) => {
-                            setPrompt(e.target.value);
-                            setValue('prompt', e.target.value, { shouldValidate: true });
-                        }}
+                        onChange={(e) => setPrompt(e.target.value)}
                         disabled={isRunning}
                     />
                 </div>
@@ -149,7 +166,7 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
                             variant="primary"
                             size="lg"
                             className="w-full shadow-xl shadow-blue-500/20 py-4 rounded-2xl text-base"
-                            disabled={!isValid || runMutation.isPending}
+                            disabled={!canSubmit || runMutation.isPending}
                             isLoading={runMutation.isPending}
                             leftIcon={<span>✨</span>}
                         >

@@ -20,6 +20,7 @@ export interface ElectronConnectionConfig {
     readonly cdpUrl: string;
     readonly connectionTimeout?: number;
     readonly waitForWindow?: boolean;
+    readonly windowTitle?: string;
 }
 
 @injectable()
@@ -421,5 +422,16 @@ export class ElectronDriver implements IAppDriver {
             const message = error instanceof Error ? error.message : String(error);
             return { success: false, error: message };
         }
+    }
+
+    /**
+     * Get browser automation interface (backward compatibility)
+     * Note: ElectronDriver doesn't use MonoBrowserAdapter like WebDriver,
+     * so this creates a minimal adapter around the active window.
+     */
+    getBrowserAutomation(): import('../../../domain/ports').IBrowserAutomation {
+        // For now, throw an error - ElectronDriver should be used directly
+        // or we need to implement a proper adapter
+        throw new Error('[ElectronDriver] getBrowserAutomation() not yet implemented. Use Electron tools directly.');
     }
 }

@@ -9,10 +9,11 @@
  */
 
 import { container } from 'tsyringe';
-import { AppDriverFactory, PlatformType } from '../../src/infrastructure/adapters/drivers/AppDriverFactory';
+import { AppDriverFactory } from '../../src/infrastructure/adapters/drivers/AppDriverFactory';
 import { ToolRegistry } from '../../src/domain/tools/ToolRegistry';
 import { IAppDriver } from '../../src/domain/ports/IAppDriver';
 import { ToolDefinition } from '../../src/domain/tools/ToolDefinition';
+import type { ElectronPlatformConfig } from '../../src/domain/types/PlatformConfig';
 
 /**
  * Example 1: Basic Electron Connection
@@ -24,13 +25,18 @@ async function basicElectronConnection() {
     const factory = container.resolve(AppDriverFactory);
 
     // Create Electron driver with configuration
-    const driver = await factory.createDriver({
+    const platformConfig: ElectronPlatformConfig = {
         platform: 'electron',
-        connectionOptions: {
+        connection: {
+            type: 'cdp',
             cdpUrl: 'http://localhost:9222',
-            connectionTimeout: 30000,
-            waitForWindow: true
-        }
+            windowTitle: 'My Electron App' // Optional: target specific window
+        },
+        prompt: 'Test the Electron application'
+    };
+
+    const driver = await factory.createDriver({
+        platformConfig
     });
 
     // Connect to the Electron application
@@ -71,7 +77,15 @@ async function multiWindowNavigation() {
     console.log('=== Example 2: Multi-Window Navigation ===\n');
 
     const factory = container.resolve(AppDriverFactory);
-    const driver = await factory.createDriver({ platform: 'electron' });
+    const platformConfig: ElectronPlatformConfig = {
+        platform: 'electron',
+        connection: {
+            type: 'cdp',
+            cdpUrl: 'http://localhost:9222'
+        },
+        prompt: 'Navigate through multiple windows'
+    };
+    const driver = await factory.createDriver({ platformConfig });
     const toolRegistry = container.resolve(ToolRegistry);
 
     await driver.connect({ cdpUrl: 'http://localhost:9222' });
@@ -137,7 +151,15 @@ async function electronSpecificTools() {
     console.log('=== Example 3: Electron-Specific Tools ===\n');
 
     const factory = container.resolve(AppDriverFactory);
-    const driver = await factory.createDriver({ platform: 'electron' });
+    const platformConfig: ElectronPlatformConfig = {
+        platform: 'electron',
+        connection: {
+            type: 'cdp',
+            cdpUrl: 'http://localhost:9222'
+        },
+        prompt: 'Use Electron-specific tools'
+    };
+    const driver = await factory.createDriver({ platformConfig });
     const toolRegistry = container.resolve(ToolRegistry);
 
     await driver.connect({ cdpUrl: 'http://localhost:9222' });
@@ -197,7 +219,15 @@ async function completeAgentWorkflow() {
     const toolRegistry = container.resolve(ToolRegistry);
 
     // Create driver for Electron platform
-    const driver = await factory.createDriver({ platform: 'electron' });
+    const platformConfig: ElectronPlatformConfig = {
+        platform: 'electron',
+        connection: {
+            type: 'cdp',
+            cdpUrl: 'http://localhost:9222'
+        },
+        prompt: 'Complete agent workflow test'
+    };
+    const driver = await factory.createDriver({ platformConfig });
     console.log('✓ Driver created');
 
     // Tools are automatically registered by factory
@@ -272,27 +302,48 @@ async function platformSwitching() {
 
     const factory = container.resolve(AppDriverFactory);
 
-    // Show available platforms
-    const platforms = factory.getAvailablePlatforms();
-    console.log('Available platforms:', platforms.join(', '));
+    // Example: Create Electron driver with CDP connection
+    console.log('Creating Electron driver with CDP...');
+    const cdpConfig: ElectronPlatformConfig = {
+        platform: 'electron',
+        connection: {
+            type: 'cdp',
+            cdpUrl: 'http://localhost:9222'
+        },
+        prompt: 'Platform demonstration'
+    };
+    const cdpDriver = await factory.createDriver({ platformConfig: cdpConfig });
+    const cdpCapabilities = cdpDriver.getCapabilities();
+    console.log('✓ Electron (CDP) driver created:');
+    console.log(`  - Supports DOM: ${cdpCapabilities.supportsDOM}`);
+    console.log(`  - Supports Vision: ${cdpCapabilities.supportsVision}`);
+    console.log(`  - Supports Multi-Window: ${cdpCapabilities.supportsMultiWindow}`);
+    console.log(`  - Supports Native Interaction: ${cdpCapabilities.supportsNativeInteraction}`);
+    const cdpTools = cdpDriver.getTools();
+    console.log(`  - Tools: ${cdpTools.length}`);
     console.log();
 
-    // Create drivers for different platforms
-    for (const platform of platforms) {
-        console.log(`Creating ${platform} driver...`);
-        const driver = await factory.createDriver({ platform: platform as PlatformType });
-
-        const capabilities = driver.getCapabilities();
-        console.log(`✓ ${platform} driver created:`);
-        console.log(`  - Supports DOM: ${capabilities.supportsDOM}`);
-        console.log(`  - Supports Vision: ${capabilities.supportsVision}`);
-        console.log(`  - Supports Multi-Window: ${capabilities.supportsMultiWindow}`);
-        console.log(`  - Supports Native Interaction: ${capabilities.supportsNativeInteraction}`);
-
-        const tools = driver.getTools();
-        console.log(`  - Tools: ${tools.length}`);
-        console.log();
-    }
+    // Example: Create Electron driver with executable path
+    console.log('Creating Electron driver with executable...');
+    const execConfig: ElectronPlatformConfig = {
+        platform: 'electron',
+        connection: {
+            type: 'executable',
+            executablePath: '/path/to/your-app.app/Contents/MacOS/your-app',
+            launchArgs: ['--remote-debugging-port=9222']
+        },
+        prompt: 'Platform demonstration'
+    };
+    const execDriver = await factory.createDriver({ platformConfig: execConfig });
+    const execCapabilities = execDriver.getCapabilities();
+    console.log('✓ Electron (Executable) driver created:');
+    console.log(`  - Supports DOM: ${execCapabilities.supportsDOM}`);
+    console.log(`  - Supports Vision: ${execCapabilities.supportsVision}`);
+    console.log(`  - Supports Multi-Window: ${execCapabilities.supportsMultiWindow}`);
+    console.log(`  - Supports Native Interaction: ${execCapabilities.supportsNativeInteraction}`);
+    const execTools = execDriver.getTools();
+    console.log(`  - Tools: ${execTools.length}`);
+    console.log();
 }
 
 /**

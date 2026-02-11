@@ -47,4 +47,12 @@ export interface IAppDriver {
      * Returns the list of tools this driver supports.
      */
     getTools(): ToolDefinition[];
+
+    /**
+     * getBrowserAutomation
+     * Returns the underlying IBrowserAutomation interface for backward compatibility.
+     * This allows existing code that uses IBrowserAutomation to work with IAppDriver.
+     * @deprecated This is a temporary bridge - prefer using IAppDriver methods directly
+     */
+    getBrowserAutomation(): import('./IBrowserAutomation').IBrowserAutomation;
 }

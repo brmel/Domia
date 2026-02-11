@@ -51,12 +51,12 @@ function App(): JSX.Element {
             {/* Main Content - Execution & Logs */}
             <main className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50 min-w-0">
                 {/* Top: Cinema Mode Viewport (50% height) */}
-                <section className="flex-[3] relative border-b border-gray-200 bg-gray-100/50 p-6 overflow-hidden flex flex-col">
+                <section className="flex-3 relative border-b border-gray-200 bg-gray-100/50 p-6 overflow-hidden flex flex-col">
                     <LiveView />
                 </section>
 
                 {/* Bottom: Terminal Logs (40% height -> 50%) */}
-                <section className="flex-[3] bg-white flex flex-col overflow-hidden min-h-0">
+                <section className="flex-3 bg-white flex flex-col overflow-hidden min-h-0">
                     <TestRunner />
                 </section>
             </main>

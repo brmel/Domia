@@ -1,11 +1,11 @@
 
 import { AgentAction, TestRunId } from '../domain/value-objects';
 import { WorkflowError } from '../domain/errors';
-
-
+import type { PlatformConfig } from '../domain/types/PlatformConfig';
 
 export interface RunTestInput {
-    url: string;
+    url?: string;
+    platformConfig?: PlatformConfig;
     prompt: string;
     options?: {
         maxSteps?: number;
