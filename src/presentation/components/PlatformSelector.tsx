@@ -24,18 +24,15 @@ export function PlatformSelector({ value, onChange, disabled }: PlatformSelector
             onClick={() => onChange(platform.type)}
             disabled={disabled}
             className={cn(
-              "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-left",
+              "flex flex-row items-center justify-center gap-2 p-2 rounded-xl border-2 transition-all",
               value === platform.type
                 ? "bg-blue-50 border-blue-500 shadow-sm"
                 : "bg-gray-50 border-transparent hover:bg-white hover:border-gray-200",
               disabled && "opacity-50 cursor-not-allowed"
             )}
           >
-            <span className="text-3xl">{platform.icon}</span>
-            <div className="text-center w-full">
-              <div className="text-sm font-bold text-gray-900">{platform.label}</div>
-              <div className="text-xs text-gray-500 mt-0.5">{platform.description}</div>
-            </div>
+            <span className="text-lg leading-none">{platform.icon}</span>
+            <span className="text-xs font-bold text-gray-900 leading-none">{platform.label}</span>
           </button>
         ))}
       </div>

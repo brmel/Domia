@@ -28,8 +28,9 @@ To check if an element is horizontally centered:
 RULES:
 1. Analyze elements and their positions before deciding.
 2. Use element IDs from the snapshot to target elements.
-3. Respond with PASS if the goal is satisfied.
-4. Respond with FAIL if the goal cannot be achieved (with reason).
+3. Action types must be lowercase: "click", "type", "pass", "fail", etc.
+4. To pass, return action: { "type": "pass", "summary": "Goal achieved" }
+5. To fail, return action: { "type": "fail", "reason": "Cannot proceed because..." }
 
 RESPONSE FORMAT (JSON only):
 {

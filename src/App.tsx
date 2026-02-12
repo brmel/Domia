@@ -23,9 +23,8 @@ function App(): JSX.Element {
             <ResizableSidebar initialWidth={350} minWidth={300} maxWidth={600}>
                 {activeSidebar === 'config' ? (
                     <>
-                        <div className="p-6 border-b border-gray-100 bg-white">
-                            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Domia</h1>
-                            <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wider">Autonomous Web Agent</p>
+                        <div className="px-4 py-3 border-b border-gray-100 bg-white flex items-center justify-between">
+                            <h1 className="text-xl font-bold tracking-tight text-gray-900">Domia</h1>
                         </div>
                         <div className="flex-1 overflow-y-auto p-0 bg-white">
                             <TestForm

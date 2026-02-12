@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { Page } from 'playwright';
 import { ToolDefinition, ActionResult } from '../../../domain/tools';
 import { TOOL_TIMEOUTS, SCROLL_CONSTANTS } from '../../../domain/constants/PlatformConstants';
+import { PlatformType, ToolScope } from '@domain/tools/ToolMetadata';
 
 export class CommonWebToolsFactory {
     static createAll(
@@ -15,8 +16,12 @@ export class CommonWebToolsFactory {
                 schema: z.object({
                     elementId: z.number(),
                     windowId: z.string().optional()
-                }),
-                execute: (params: { elementId: number; windowId?: string }) => {
+                }),                metadata: {
+                    name: 'click_element',
+                    platforms: ['web', 'electron'] as PlatformType[],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },                execute: (params: { elementId: number; windowId?: string }) => {
                     return ResultAsync.fromPromise(
                         executeInWindow(params.windowId, async (page) => {
                             const selector = `[data-domia-id="${params.elementId}"]`;
@@ -36,6 +41,12 @@ export class CommonWebToolsFactory {
                     submit: z.boolean().optional(),
                     windowId: z.string().optional()
                 }),
+                metadata: {
+                    name: 'type_text',
+                    platforms: ['web', 'electron'] as PlatformType[],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
                 execute: (params: { elementId: number; text: string; submit?: boolean; windowId?: string }) => {
                     return ResultAsync.fromPromise(
                         executeInWindow(params.windowId, async (page) => {
@@ -59,6 +70,12 @@ export class CommonWebToolsFactory {
                     direction: z.enum(['up', 'down']),
                     windowId: z.string().optional()
                 }),
+                metadata: {
+                    name: 'scroll_page',
+                    platforms: ['web', 'electron'] as PlatformType[],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
                 execute: (params: { direction: 'up' | 'down'; windowId?: string }) => {
                     return ResultAsync.fromPromise(
                         executeInWindow(params.windowId, async (page) => {
@@ -80,6 +97,12 @@ export class CommonWebToolsFactory {
                 name: 'wait',
                 description: 'Wait for a specified duration in milliseconds',
                 schema: z.object({ durationMs: z.number().min(0).max(60000) }),
+                metadata: {
+                    name: 'wait',
+                    platforms: ['web', 'electron'] as PlatformType[],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
                 execute: (params: { durationMs: number }) => {
                     return ResultAsync.fromPromise(
                         new Promise<ActionResult>(resolve => {

@@ -15,6 +15,7 @@ import { Platform, CDP_CONSTANTS } from '../../../domain/constants/PlatformConst
 import { CDPValidator } from '../../../domain/validators/CDPValidator';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { CommonWebToolsFactory } from './CommonWebToolsFactory';
+import { PlatformType, ToolScope } from '@domain/tools/ToolMetadata';
 
 export interface ElectronConnectionConfig {
     readonly cdpUrl?: string;
@@ -94,10 +95,21 @@ export class ElectronDriver implements IAppDriver {
         this.logger.info(`[ElectronDriver] Launching Electron app: ${config.executablePath}`);
 
         try {
+            // When launching a packaged Electron app, we must ignore default Chrome arguments
+            // as they might cause the app to crash or reject the flags.
+            // We ensure remote debugging is enabled.
+            const defaultArgs = ['--remote-debugging-port=9222'];
+            const args = [
+                ...(config.launchArgs || []),
+                // Only add default port if not already provided
+                ...(config.launchArgs?.some(a => a.includes('remote-debugging-port')) ? [] : defaultArgs)
+            ];
+
             this.browser = await chromium.launch({
                 executablePath: config.executablePath!,
-                args: config.launchArgs || [],
-                timeout: config.connectionTimeout || CDP_CONSTANTS.CONNECTION_TIMEOUT_MS
+                args,
+                timeout: config.connectionTimeout || CDP_CONSTANTS.CONNECTION_TIMEOUT_MS,
+                ignoreDefaultArgs: true
             });
 
             this.logger.debug('[ElectronDriver] App launched successfully');
@@ -223,9 +235,17 @@ export class ElectronDriver implements IAppDriver {
     }
 
     private getCommonTools(): ToolDefinition[] {
-        return CommonWebToolsFactory.createAll(
-            (windowId, action) => this.executeInWindow(windowId, action)
+        const tools = CommonWebToolsFactory.createAll(
+            (windowId: string | undefined, action: (page: any) => Promise<ActionResult>) => 
+                this.executeInWindow(windowId, action)
         );
+        return tools.map((tool: ToolDefinition) => ({
+            ...tool,
+            metadata: {
+                ...tool.metadata,
+                platforms: ['electron' as PlatformType],
+            }
+        }));
     }
 
     private getElectronSpecificTools(): ToolDefinition[] {
@@ -236,6 +256,12 @@ export class ElectronDriver implements IAppDriver {
                 schema: z.object({
                     menuPath: z.string()
                 }),
+                metadata: {
+                    name: 'electron_menu_click',
+                    platforms: ['electron' as PlatformType],
+                    scope: ToolScope.PLATFORM_SPECIFIC,
+                    terminal: false
+                },
                 execute: (params: { menuPath: string }) => {
                     const validation = CDPValidator.validateMenuPath(params.menuPath);
                     if (validation.isErr()) {
@@ -279,6 +305,12 @@ export class ElectronDriver implements IAppDriver {
                     title: z.string().optional(),
                     url: z.string().optional()
                 }),
+                metadata: {
+                    name: 'electron_switch_window',
+                    platforms: ['electron' as PlatformType],
+                    scope: ToolScope.PLATFORM_SPECIFIC,
+                    terminal: false
+                },
                 execute: (params: { windowId?: string; title?: string; url?: string }) => {
                     if (params.windowId) {
                         const validation = CDPValidator.validateWindowId(params.windowId);
@@ -347,6 +379,12 @@ export class ElectronDriver implements IAppDriver {
                 name: 'electron_list_windows',
                 description: 'List all available Electron windows',
                 schema: z.object({}),
+                metadata: {
+                    name: 'electron_list_windows',
+                    platforms: ['electron' as PlatformType],
+                    scope: ToolScope.PLATFORM_SPECIFIC,
+                    terminal: false
+                },
                 execute: () => {
                     return ResultAsync.fromPromise(
                         (async (): Promise<ActionResult> => {
@@ -378,6 +416,12 @@ export class ElectronDriver implements IAppDriver {
                 schema: z.object({
                     windowId: z.string().optional()
                 }),
+                metadata: {
+                    name: 'electron_get_window_state',
+                    platforms: ['electron' as PlatformType],
+                    scope: ToolScope.PLATFORM_SPECIFIC,
+                    terminal: false
+                },
                 execute: (params: { windowId?: string }) => {
                     if (params.windowId) {
                         const validation = CDPValidator.validateWindowId(params.windowId);

@@ -41,7 +41,7 @@ export const platformRegistry: Record<PlatformType, PlatformDefinition<any>> = {
     icon: '🌐',
     renderFields: WebPlatformFields,
     defaultValues: {
-      url: '',
+      url: 'https://ibraverse.ca',
     },
   },
   

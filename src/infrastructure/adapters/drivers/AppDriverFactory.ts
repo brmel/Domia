@@ -2,14 +2,10 @@ import { injectable, inject, container } from 'tsyringe';
 import { IAppDriver } from '../../../domain/ports/IAppDriver';
 import type { ILogger } from '../../../domain/ports';
 import { WebDriver } from './WebDriver';
-import { ElectronDriver } from './ElectronDriver';
+import { ElectronDriver, ElectronConnectionConfig } from './ElectronDriver';
 import { ToolRegistry } from '../../../domain/tools/ToolRegistry';
 import type { PlatformConfig } from '../../../domain/types/PlatformConfig';
-
-/**
- * Platform types supported by the driver factory
- */
-export type PlatformType = 'web' | 'electron' | 'mobile';
+import { PlatformType } from '../../../domain/tools/ToolMetadata';
 
 /**
  * Configuration for driver creation from PlatformConfig
@@ -118,13 +114,10 @@ export class AppDriverFactory {
 
         // Handle different connection types
         if (connection.type === 'cdp') {
-            const connectConfig: any = {
+            const connectConfig: ElectronConnectionConfig = {
                 cdpUrl: connection.cdpUrl,
+                windowTitle: connection.windowTitle,
             };
-            
-            if (connection.windowTitle) {
-                connectConfig.windowTitle = connection.windowTitle;
-            }
             
             const connectResult = await driver.connect(connectConfig);
 
@@ -134,17 +127,11 @@ export class AppDriverFactory {
 
             this.logger.info(`[AppDriverFactory] ElectronDriver connected via CDP: ${connection.cdpUrl}`);
         } else {
-            const launchConfig: any = {
+            const launchConfig: ElectronConnectionConfig = {
                 executablePath: connection.executablePath,
+                launchArgs: connection.launchArgs,
+                windowTitle: connection.windowTitle,
             };
-            
-            if (connection.launchArgs) {
-                launchConfig.launchArgs = connection.launchArgs;
-            }
-            
-            if (connection.windowTitle) {
-                launchConfig.windowTitle = connection.windowTitle;
-            }
             
             const launchResult = await driver.connect(launchConfig);
 
@@ -163,19 +150,17 @@ export class AppDriverFactory {
      */
     private registerDriverTools(driver: IAppDriver): void {
         const tools = driver.getTools();
-        const platform = driver.getCapabilities().platform;
+        const platform = driver.getCapabilities().platform as unknown as PlatformType;
 
         this.logger.debug(`[AppDriverFactory] Registering ${tools.length} tools for platform: ${platform}`);
 
-        // Clear existing tools to avoid conflicts when switching drivers
-        // Note: In production, you might want more sophisticated tool namespacing
         this.toolRegistry.clear();
-
-        // Register all driver tools
         this.toolRegistry.registerMany(tools);
+        this.toolRegistry.setActivePlatform(platform);
 
         const toolNames = tools.map(t => t.name).join(', ');
-        this.logger.info(`[AppDriverFactory] Registered ${tools.length} tools: ${toolNames}`);
+        this.logger.info(`[AppDriverFactory] Registered ${tools.length} tools for ${platform}: ${toolNames}`);
+        this.logger.debug(`[AppDriverFactory] Active platform set to: ${this.toolRegistry.getActivePlatform()}`);
     }
 
     /**

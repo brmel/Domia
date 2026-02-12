@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:cli": "tsx tests/cli/run-cli-tests.ts",
+    "test:all": "tsx tests/run-all-tests.ts",
     "cli": "ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs src/cli/index.ts",
     "package": "npm run build && electron-builder",
     "rebuild": "electron-rebuild"

@@ -10,6 +10,7 @@ import { DomScanner } from '../../perception/DomScanner';
 import { SmartScrollCapture } from '../../perception/SmartScrollCapture';
 import { ElementIdFactory } from '../../../domain/value-objects/Brand';
 import { Platform } from '../../../domain/constants/PlatformConstants';
+import { PlatformType, ToolScope } from '../../../domain/tools/ToolMetadata';
 import { z } from 'zod';
 
 @injectable()
@@ -87,11 +88,18 @@ export class WebDriver implements IAppDriver {
     }
 
     getTools(): ToolDefinition[] {
-        return [
+        this.logger.debug('[WebDriver] Creating web tools');
+        const tools: ToolDefinition[] = [
             {
                 name: 'click_element',
                 description: 'Click on an element identified by its ID',
                 schema: z.object({ elementId: z.number() }),
+                metadata: {
+                    name: 'click_element',
+                    platforms: ['web'],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
                 execute: (params: { elementId: number }) => {
                     const id = ElementIdFactory.unsafe(params.elementId);
                     return this.playwright.click(id).map(() => ({
@@ -104,6 +112,12 @@ export class WebDriver implements IAppDriver {
                 name: 'type_text',
                 description: 'Type text into an input element',
                 schema: z.object({ elementId: z.number(), text: z.string(), submit: z.boolean().optional() }),
+                metadata: {
+                    name: 'type_text',
+                    platforms: ['web'],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
                 execute: (params: { elementId: number, text: string, submit?: boolean }) => {
                     const id = ElementIdFactory.unsafe(params.elementId);
                     return this.playwright.type(id, params.text)
@@ -121,6 +135,12 @@ export class WebDriver implements IAppDriver {
                 name: 'scroll_page',
                 description: 'Scroll the page up or down',
                 schema: z.object({ direction: z.enum(['up', 'down']) }),
+                metadata: {
+                    name: 'scroll_page',
+                    platforms: ['web'],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
                 execute: (params: { direction: 'up' | 'down' }) => {
                     return this.playwright.scroll(params.direction)
                         .map(() => ({ success: true, message: `Scrolled ${params.direction}` } as ActionResult))
@@ -131,6 +151,12 @@ export class WebDriver implements IAppDriver {
                 name: 'navigate_to',
                 description: 'Navigate to a URL',
                 schema: z.object({ url: z.string() }),
+                metadata: {
+                    name: 'navigate_to',
+                    platforms: ['web'],
+                    scope: ToolScope.PLATFORM_SPECIFIC,
+                    terminal: false
+                },
                 execute: (params: { url: string }) => {
                     return this.playwright.navigateTo(params.url as any)
                         .map(() => ({ success: true, message: `Navigated to ${params.url}` } as ActionResult))
@@ -141,6 +167,12 @@ export class WebDriver implements IAppDriver {
                 name: 'wait',
                 description: 'Wait for a specified duration in milliseconds',
                 schema: z.object({ durationMs: z.number() }),
+                metadata: {
+                    name: 'wait',
+                    platforms: ['web'],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
                 execute: (params: { durationMs: number }) => {
                     return this.playwright.wait(params.durationMs)
                         .map(() => ({ success: true, message: `Waited ${params.durationMs}ms` } as ActionResult))
@@ -148,6 +180,12 @@ export class WebDriver implements IAppDriver {
                 }
             }
         ];
+        this.logger.info(`[WebDriver] Created ${tools.length} tools: ${tools.map(t => t.name).join(', ')}`);
+        return tools;
+    }
+
+    getPlatform(): PlatformType {
+        return 'web';
     }
 
     getBrowserAutomation(): import('../../../domain/ports').IBrowserAutomation {

@@ -33,19 +33,26 @@ export class RunTestUseCase {
     ) { }
 
     async *execute(input: RunTestInput, controller: ExecutionController): AsyncGenerator<RunTestOutput, void, unknown> {
-        // Extract URL from platformConfig or legacy url field
+        // Validate input: Either URL or platformConfig must be provided
+        if (!input.url && !input.platformConfig) {
+            yield { type: 'error', error: new WorkflowError('No platform configuration provided. Either provide url or platformConfig.') };
+            return;
+        }
+        
+        // Extract URL for test run initialization (legacy requirement)
         const url = input.platformConfig?.platform === 'web' 
             ? input.platformConfig.url 
             : input.platformConfig?.platform === 'electron' && input.platformConfig.connection.type === 'cdp'
             ? input.platformConfig.connection.cdpUrl
+            : input.platformConfig?.platform === 'electron' && input.platformConfig.connection.type === 'executable'
+            ? 'electron://app'
             : input.url;
 
         if (!url) {
-            yield { type: 'error', error: new WorkflowError('No URL provided. Either provide url or platformConfig with a web/CDP connection.') };
+            yield { type: 'error', error: new WorkflowError('Could not determine URL from input') };
             return;
         }
 
-        // Initialize Test Run
         const initResult = await this.lifecycleManager.initializeTestRun(url, input.prompt);
         if (initResult.isErr()) {
             yield { type: 'error', error: initResult.error };

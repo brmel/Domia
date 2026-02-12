@@ -1,5 +1,5 @@
 import { spawn, ChildProcess } from 'child_process';
-import { writeFileSync, unlinkSync, existsSync } from 'fs';
+import { existsSync } from 'fs';
 import { join } from 'path';
 
 export interface CLITestConfig {
@@ -24,58 +24,23 @@ export interface CLITestResult {
 }
 
 export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> {
-    const configPath = join(process.cwd(), '.domia-test-config.json');
     const startTime = Date.now();
     
     try {
-        let platformConfig;
-        
-        if (config.url) {
-            platformConfig = {
-                platform: 'web',
-                url: config.url,
-                prompt: config.prompt
-            };
-        } else if (config.cdpUrl) {
-            platformConfig = {
-                platform: 'electron',
-                connection: {
-                    type: 'cdp',
-                    cdpUrl: config.cdpUrl,
-                    ...(config.windowTitle && { windowTitle: config.windowTitle })
-                },
-                prompt: config.prompt
-            };
-        } else if (config.executablePath) {
-            platformConfig = {
-                platform: 'electron',
-                connection: {
-                    type: 'executable',
-                    executablePath: config.executablePath,
-                    ...(config.launchArgs && { launchArgs: config.launchArgs }),
-                    ...(config.windowTitle && { windowTitle: config.windowTitle })
-                },
-                prompt: config.prompt
-            };
-        }
-        
-        writeFileSync(configPath, JSON.stringify({
-            platformConfig,
-            options: {
-                headless: config.headless ?? true,
-                maxSteps: config.maxSteps ?? 5,
-                vision: config.vision ?? false,
-                debugScreenshots: config.screenshots ?? false
-            }
-        }, null, 2));
-        
-        const args = [
-            'run',
-            '--config', configPath
-        ];
+        const args = ['run'];
         
         if (config.url) {
             args.push('--url', config.url);
+        } else if (config.cdpUrl) {
+            args.push('--cdp-url', config.cdpUrl);
+            if (config.windowTitle) {
+                args.push('--window-title', config.windowTitle);
+            }
+        } else if (config.executablePath) {
+            args.push('--executable-path', config.executablePath);
+            if (config.windowTitle) {
+                args.push('--window-title', config.windowTitle);
+            }
         }
         
         args.push('--prompt', config.prompt);
@@ -98,10 +63,10 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
         
         const output = result.stdout + result.stderr;
         const success = result.exitCode === 0 && (
-            output.includes('✓') ||
+            output.includes('✔') ||
+            output.includes('Mission Accomplished') ||
             output.includes('passed') ||
-            output.includes('success') ||
-            output.includes('Test completed')
+            output.includes('success')
         );
         
         const errors = extractErrors(output);
@@ -113,11 +78,15 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
             duration,
             exitCode: result.exitCode
         };
-        
-    } finally {
-        if (existsSync(configPath)) {
-            unlinkSync(configPath);
-        }
+    } catch (error) {
+        const duration = Date.now() - startTime;
+        return {
+            success: false,
+            output: '',
+            errors: [error instanceof Error ? error.message : String(error)],
+            duration,
+            exitCode: 1
+        };
     }
 }
 
@@ -128,16 +97,23 @@ function spawnCLI(args: string[]): Promise<{ stdout: string; stderr: string; exi
         
         const cli = spawn('npm', ['run', 'cli', '--', ...args], {
             cwd: process.cwd(),
-            env: { ...process.env }
+            env: { ...process.env, NODE_OPTIONS: '--no-deprecation' }
         });
         
         cli.stdout?.on('data', (data) => {
-            stdout += data.toString();
+            const str = data.toString();
+            // Filter noise
+            if (str.includes('[WARN] [LangChainAdapter] validation failed')) return;
+            stdout += str;
             process.stdout.write(data);
         });
         
         cli.stderr?.on('data', (data) => {
-            stderr += data.toString();
+            const str = data.toString();
+            // Filter noise
+            if (str.includes('[DEP0190]') || str.includes('DeprecationWarning')) return;
+            if (str.includes('[WARN] [LangChainAdapter] validation failed')) return;
+            stderr += str;
             process.stderr.write(data);
         });
         

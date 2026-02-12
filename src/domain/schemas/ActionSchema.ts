@@ -1,17 +1,20 @@
 
 import { z } from 'zod';
 
+// Helper for loose number parsing (handles LLM string outputs for numbers)
+const LooseNumber = z.union([z.number(), z.string().regex(/^\d+$/).transform(Number)]);
+
 // Define the precise schema for agent actions
 export const ActionSchema = z.object({
     thought: z.string().optional().describe("Reasoning behind the action"),
     action: z.discriminatedUnion("type", [
         z.object({
             type: z.literal("click"),
-            elementId: z.number().describe("ID of element to click"),
+            elementId: LooseNumber.describe("ID of element to click"),
         }),
         z.object({
             type: z.literal("type"),
-            elementId: z.number().describe("ID of input element"),
+            elementId: LooseNumber.describe("ID of input element"),
             text: z.string(),
             submit: z.boolean().optional(),
         }),
@@ -25,11 +28,11 @@ export const ActionSchema = z.object({
         }),
         z.object({
             type: z.literal("wait"),
-            durationMs: z.number().optional().default(1000),
+            durationMs: LooseNumber.optional().default(1000),
         }),
         z.object({
             type: z.literal("extract"),
-            elementId: z.number(),
+            elementId: LooseNumber,
         }),
         z.object({
             type: z.literal("navigate"),
@@ -37,7 +40,7 @@ export const ActionSchema = z.object({
         }),
         z.object({
             type: z.literal("pass"),
-            summary: z.string().describe("Evidence of success"),
+            summary: z.string().describe("Evidence of success").optional().default("Task completed successfully"),
         }),
         z.object({
             type: z.literal("fail"),

@@ -14,7 +14,11 @@ export class RunCommand {
         program
             .command('run')
             .description('Start an autonomous test agent session')
-            .option('-u, --url <url>', 'Target URL to test')
+            .option('-u, --url <url>', 'Target URL to test (Web platform)')
+            .option('--cdp-url <cdpUrl>', 'CDP URL for Electron (e.g., http://localhost:9222)')
+            .option('--executable-path <path>', 'Path to Electron executable')
+            .option('--launch-args <args>', 'Launch arguments for Electron (comma-separated)')
+            .option('--window-title <title>', 'Target window title (Electron)')
             .option('-p, --prompt <prompt>', 'Testing instruction')
             .option('-s, --steps <steps>', 'Max steps', '10')
             .option('-H, --no-headless', 'Run in headful mode (visible browser)', false)
@@ -23,8 +27,7 @@ export class RunCommand {
             .action(async (options) => {
                 console.log(chalk.cyan(figlet.textSync('Domia Agent', { horizontalLayout: 'full' })));
 
-                let { url, prompt, steps, verbose, debug, vision, screenshots } = options;
-                // console.log(`[RunCommand] Flags - Vision: ${vision}, Screenshots: ${screenshots}`);
+                let { url, prompt, steps, verbose, debug, vision, screenshots, cdpUrl, executablePath, launchArgs, windowTitle } = options;
 
                 const { headless } = options;
 
@@ -36,9 +39,7 @@ export class RunCommand {
                         debugScreenshots: !!screenshots
                     } as any
                 };
-                // console.log(`[RunCommand] Updating ConfigService with:`, JSON.stringify(updates, null, 2));
                 configService.update(updates);
-                // console.log(`[RunCommand] Config after update:`, JSON.stringify(configService.get().ai, null, 2));
 
                 // 1. Handle Debug Mode (Console Logs)
                 if (debug) {
@@ -73,14 +74,15 @@ export class RunCommand {
                     container.register('IViewHost', { useClass: ConsoleViewHost });
                 }
 
-                if (!url || !prompt) {
+                // Interactive prompts if needed
+                if ((!url && !cdpUrl && !executablePath) || !prompt) {
                     const answers = await inquirer.prompt([
                         {
                             type: 'input',
                             name: 'url',
                             message: 'Target URL:',
-                            default: 'https://google.com',
-                            when: !url,
+                            default: 'https://ibraverse.ca',
+                            when: !url && !cdpUrl && !executablePath,
                         },
                         {
                             type: 'input',
@@ -115,8 +117,49 @@ export class RunCommand {
                         process.exit(0);
                     });
 
+                    // Build platform config
+                    let platformConfig: any;
+                    
+                    if (url) {
+                        // Web platform
+                        platformConfig = {
+                            platform: 'web',
+                            url,
+                            prompt
+                        };
+                    } else if (cdpUrl) {
+                        // Electron CDP mode
+                        platformConfig = {
+                            platform: 'electron',
+                            connection: {
+                                type: 'cdp',
+                                cdpUrl,
+                                ...(windowTitle && { windowTitle })
+                            },
+                            prompt
+                        };
+                    } else if (executablePath) {
+                        // Electron executable mode
+                        const parsedLaunchArgs = launchArgs 
+                            ? launchArgs.split(',').map((arg: string) => arg.trim())
+                            : ['--remote-debugging-port=9222'];
+                            
+                        platformConfig = {
+                            platform: 'electron',
+                            connection: {
+                                type: 'executable',
+                                executablePath,
+                                launchArgs: parsedLaunchArgs,
+                                ...(windowTitle && { windowTitle })
+                            },
+                            prompt
+                        };
+                    } else {
+                        throw new Error('Must provide either --url, --cdp-url, or --executable-path');
+                    }
+
                     const input = {
-                        url,
+                        platformConfig,
                         prompt,
                         options: {
                             maxSteps: parseInt(String(steps), 10),
@@ -126,7 +169,7 @@ export class RunCommand {
                         },
                     };
 
-                    spinner.succeed(`Starting session on ${chalk.green(url)}`);
+                    spinner.succeed(`Starting session on ${chalk.green(url || cdpUrl || executablePath)}`);
                     console.log(chalk.gray(`Goal: ${prompt}\n`));
 
                     const generator = useCase.execute(input, controller);

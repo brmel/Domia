@@ -123,7 +123,7 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
     return (
         <form className="flex flex-col h-full bg-white relative" onSubmit={onSubmit}>
             {/* Scrollable Content */}
-            <div className="flex-1 flex flex-col p-6 overflow-y-auto">
+            <div className="flex-1 flex flex-col px-4 py-3 overflow-y-auto">
                 {/* Platform Selector */}
                 <PlatformSelector
                     value={selectedPlatform}
@@ -148,7 +148,7 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
                     </label>
                     <textarea
                         className={cn(
-                            "w-full h-64 px-4 py-4 bg-gray-50 border-2 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white transition-all resize-none leading-relaxed",
+                            "w-full h-32 px-4 py-3 bg-gray-50 border-2 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white transition-all resize-none leading-relaxed",
                             "border-transparent focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 hover:bg-white hover:border-gray-100"
                         )}
                         placeholder="Describe the task step-by-step..."

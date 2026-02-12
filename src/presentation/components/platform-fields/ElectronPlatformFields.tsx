@@ -36,10 +36,10 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2">
       {/* Connection Type Selector */}
-      <div className="flex flex-col gap-2">
-        <label className="text-xs font-bold uppercase tracking-wider text-gray-400 pl-1">
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 pl-1">
           Connection Type
         </label>
         <div className="flex gap-2">
@@ -48,7 +48,7 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
             onClick={() => handleTypeChange('cdp')}
             disabled={disabled}
             className={cn(
-              "flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all",
+              "flex-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold transition-all",
               connectionType === 'cdp'
                 ? "bg-blue-500 text-white shadow-sm"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200",
@@ -62,7 +62,7 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
             onClick={() => handleTypeChange('executable')}
             disabled={disabled}
             className={cn(
-              "flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all",
+              "flex-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold transition-all",
               connectionType === 'executable'
                 ? "bg-blue-500 text-white shadow-sm"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200",
@@ -76,13 +76,13 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
 
       {/* CDP URL Input */}
       {connectionType === 'cdp' && connection.type === 'cdp' && (
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-gray-400 pl-1">
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 pl-1">
             Chrome DevTools Protocol URL
           </label>
           <input
             className={cn(
-              "w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white transition-all font-medium font-mono",
+              "w-full px-3 py-2 bg-gray-50 border-2 rounded-lg text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white transition-all font-medium font-mono",
               errors['connection.cdpUrl']
                 ? "border-red-100 focus:border-red-400 focus:ring-4 focus:ring-red-500/10"
                 : "border-transparent focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 hover:bg-white hover:border-gray-100"
@@ -94,10 +94,10 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
             disabled={disabled}
           />
           {errors['connection.cdpUrl'] && (
-            <span className="text-xs text-red-500 pl-1">{errors['connection.cdpUrl']}</span>
+            <span className="text-[10px] text-red-500 pl-1">{errors['connection.cdpUrl']}</span>
           )}
-          <p className="text-xs text-gray-500 pl-1">
-            Launch your Electron app with <code className="bg-gray-100 px-1.5 py-0.5 rounded">--remote-debugging-port=9222</code>
+          <p className="text-[10px] text-gray-500 pl-1 leading-tight">
+            Launch with <code className="bg-gray-100 px-1 py-0 rounded">--remote-debugging-port=9222</code>
           </p>
         </div>
       )}
@@ -105,13 +105,13 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
       {/* Executable Path Input */}
       {connectionType === 'executable' && connection.type === 'executable' && (
         <>
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-gray-400 pl-1">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 pl-1">
               Executable Path
             </label>
             <input
               className={cn(
-                "w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white transition-all font-medium font-mono",
+                "w-full px-3 py-2 bg-gray-50 border-2 rounded-lg text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white transition-all font-medium font-mono",
                 errors['connection.executablePath']
                   ? "border-red-100 focus:border-red-400 focus:ring-4 focus:ring-red-500/10"
                   : "border-transparent focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 hover:bg-white hover:border-gray-100"
@@ -123,17 +123,17 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
               disabled={disabled}
             />
             {errors['connection.executablePath'] && (
-              <span className="text-xs text-red-500 pl-1">{errors['connection.executablePath']}</span>
+              <span className="text-[10px] text-red-500 pl-1">{errors['connection.executablePath']}</span>
             )}
           </div>
 
           {/* Launch Arguments (Optional) */}
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-gray-400 pl-1">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 pl-1">
               Launch Arguments <span className="text-gray-300">(Optional)</span>
             </label>
             <input
-              className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium font-mono hover:bg-white hover:border-gray-100"
+              className="w-full px-3 py-2 bg-gray-50 border-2 border-transparent rounded-lg text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium font-mono hover:bg-white hover:border-gray-100"
               type="text"
               placeholder="--debug --verbose"
               value={connection.launchArgs?.join(' ') || ''}
@@ -148,7 +148,7 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
               }}
               disabled={disabled}
             />
-            <p className="text-xs text-gray-500 pl-1">
+            <p className="text-[10px] text-gray-500 pl-1">
               Space-separated command line arguments
             </p>
           </div>
@@ -156,12 +156,12 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
       )}
 
       {/* Window Title Filter (Optional for both) */}
-      <div className="flex flex-col gap-2">
-        <label className="text-xs font-bold uppercase tracking-wider text-gray-400 pl-1">
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 pl-1">
           Window Title Filter <span className="text-gray-300">(Optional)</span>
         </label>
         <input
-          className="w-full px-4 py-3 bg-gray-50 border-2 border-transparent rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium hover:bg-white hover:border-gray-100"
+          className="w-full px-3 py-2 bg-gray-50 border-2 border-transparent rounded-lg text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium hover:bg-white hover:border-gray-100"
           type="text"
           placeholder="App Title"
           value={connection.windowTitle || ''}
@@ -174,7 +174,7 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
           }}
           disabled={disabled}
         />
-        <p className="text-xs text-gray-500 pl-1">
+        <p className="text-[10px] text-gray-500 pl-1 leading-tight">
           Target specific window by title (useful for multi-window apps)
         </p>
       </div>
