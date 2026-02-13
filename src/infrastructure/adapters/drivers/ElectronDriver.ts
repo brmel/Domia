@@ -129,6 +129,9 @@ export class ElectronDriver implements IAppDriver {
                 // and fails to launch the app logic/CDP server.
                 const env = { ...process.env };
                 delete env['ELECTRON_RUN_AS_NODE'];
+                // Packaged Electron apps reject NODE_OPTIONS and emit a startup warning.
+                // Remove only this known incompatible variable; keep all other stderr warnings visible.
+                delete env['NODE_OPTIONS'];
 
                 this.appProcess = spawn(config.executablePath!, config.launchArgs || [], {
                     env, 
