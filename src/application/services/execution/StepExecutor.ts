@@ -1,5 +1,4 @@
 import { injectable, inject } from 'tsyringe';
-import { Result, ok, err } from 'neverthrow';
 import type { ILLMProvider, IBrowserAutomation, LLMContext, IPerceptionPipeline, IStorageService, ITraceService } from '@domain/ports';
 import { AgentAction } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
@@ -8,6 +7,22 @@ import { AssertionGoalService } from '../assertion/AssertionGoalService';
 import { ToolContractService } from '../tooling/ToolContractService';
 import type { ToolContext } from '@domain/tools/Tool';
 import type { ToolExecutor } from '../tooling/ToolExecutor';
+
+export type StepExecutionResult =
+    | { readonly success: true; readonly terminal: 'pass' }
+    | {
+        readonly success: false;
+        readonly terminal: 'fail' | 'error' | 'max_actions';
+        readonly code:
+        | 'assertion_fail'
+        | 'perception_error'
+        | 'llm_error'
+        | 'loop_detected'
+        | 'action_execution_error'
+        | 'agent_fail'
+        | 'max_actions_reached';
+        readonly reason: string;
+    };
 
 @injectable()
 export class StepExecutor {
@@ -30,7 +45,7 @@ export class StepExecutor {
         initialStepNumber: number = 0,
         options: { vision: boolean; debugScreenshots: boolean; maxActions: number } = { vision: true, debugScreenshots: false, maxActions: 20 },
         executionContext?: { toolContext?: ToolContext }
-    ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, Result<void, Error>, unknown> {
+    ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, StepExecutionResult, unknown> {
         let loopCount = 0;
         let currentState: { history: AgentAction[], stepNumber: number } = { history: [], stepNumber: initialStepNumber };
         const maxActions = options.maxActions;
@@ -42,7 +57,14 @@ export class StepExecutor {
             // Capture if either Vision (LLM) or DebugScreenshots is enabled
             const shouldCaptureVision = options.vision || options.debugScreenshots;
             const frameResult = await this.perception.capture(browser, { vision: shouldCaptureVision, aria: true, dom: true });
-            if (frameResult.isErr()) return err(new Error(`Perception failed: ${frameResult.error.message}`));
+            if (frameResult.isErr()) {
+                return {
+                    success: false,
+                    terminal: 'error',
+                    code: 'perception_error',
+                    reason: `Perception failed: ${frameResult.error.message}`
+                };
+            }
             const frame = frameResult.value;
 
             const assets = await this.storage.savePerceptionAssets(runId, currentState.stepNumber + 1, frame);
@@ -80,11 +102,16 @@ export class StepExecutor {
                 yield { type: 'action', action: deterministicAction, assets };
 
                 if (deterministicAction.type === ActionType.PASS) {
-                    return ok(undefined);
+                    return { success: true, terminal: 'pass' };
                 }
 
                 if (deterministicAction.type === ActionType.FAIL) {
-                    return err(new Error(deterministicAction.reason));
+                    return {
+                        success: false,
+                        terminal: 'fail',
+                        code: 'assertion_fail',
+                        reason: deterministicAction.reason
+                    };
                 }
             }
 
@@ -113,7 +140,12 @@ export class StepExecutor {
                 await this.trace.traceReasoning(runId, currentState.stepNumber, {
                     agentOutput: { thought: 'LLM Failed', action: null, rawResponse: actionResult.error.message }
                 });
-                return err(new Error(`LLM failed: ${actionResult.error.message}`));
+                return {
+                    success: false,
+                    terminal: 'error',
+                    code: 'llm_error',
+                    reason: `LLM failed: ${actionResult.error.message}`
+                };
             }
             const action = actionResult.value;
 
@@ -127,7 +159,12 @@ export class StepExecutor {
             });
 
             if (this.loopDetector.isLoop(currentState.history, action)) {
-                return err(new Error(`Loop detected. Action '${action.type}' repeated too many times.`));
+                return {
+                    success: false,
+                    terminal: 'error',
+                    code: 'loop_detected',
+                    reason: `Loop detected. Action '${action.type}' repeated too many times.`
+                };
             }
 
             yield { type: 'action', action, assets };
@@ -137,7 +174,14 @@ export class StepExecutor {
                 currentUrl: url,
                 ...(executionContext?.toolContext ? { toolContext: executionContext.toolContext } : {})
             });
-            if (execResult.isErr()) return err(new Error(`Action execution failed: ${execResult.error.message}`));
+            if (execResult.isErr()) {
+                return {
+                    success: false,
+                    terminal: 'error',
+                    code: 'action_execution_error',
+                    reason: `Action execution failed: ${execResult.error.message}`
+                };
+            }
 
             currentState = {
                 ...currentState,
@@ -147,13 +191,23 @@ export class StepExecutor {
             loopCount++;
 
             if (action.type === ActionType.PASS) {
-                return ok(undefined);
+                return { success: true, terminal: 'pass' };
             }
             if (action.type === ActionType.FAIL) {
-                return err(new Error(action.reason));
+                return {
+                    success: false,
+                    terminal: 'fail',
+                    code: 'agent_fail',
+                    reason: action.reason
+                };
             }
         }
 
-        return err(new Error(`Max actions (${maxActions}) reached for step: ${stepGoal}`));
+        return {
+            success: false,
+            terminal: 'max_actions',
+            code: 'max_actions_reached',
+            reason: `Max actions (${maxActions}) reached for step: ${stepGoal}`
+        };
     }
 }

@@ -6,6 +6,7 @@ import type { ToolExecutionContext, ToolExecutor } from './ToolExecutor';
 import { ToolContractService } from './ToolContractService';
 import { BrowserActionToolExecutor } from './BrowserActionToolExecutor';
 import { ActionToolMapper } from '@shared/tooling/ActionToolMapper';
+import type { ToolPolicyService } from './ToolPolicyService';
 
 @injectable()
 export class RegistryBackedToolExecutor implements ToolExecutor {
@@ -13,10 +14,16 @@ export class RegistryBackedToolExecutor implements ToolExecutor {
         @inject(ToolContractService) private readonly toolContractService: ToolContractService,
         @inject(BrowserActionToolExecutor) private readonly browserFallback: BrowserActionToolExecutor,
         @inject(ActionToolMapper) private readonly actionToolMapper: ActionToolMapper,
+        @inject('IToolPolicyService') private readonly toolPolicyService: ToolPolicyService,
         @inject('ILogger') private readonly logger: ILogger
     ) {}
 
     async execute(action: AgentAction, context: ToolExecutionContext): Promise<Result<void, Error>> {
+        const policyResult = this.toolPolicyService.beforeToolCall(action, context);
+        if (policyResult.isErr()) {
+            return err(policyResult.error);
+        }
+
         const mapped = this.actionToolMapper.mapActionToRegistryToolCall(action, context.toolContext);
 
         if (mapped && context.toolContext) {

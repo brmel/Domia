@@ -9,6 +9,8 @@ import type {
     ILogger
 } from '@domain/ports';
 import { LLMError } from '@domain/errors';
+import { retryAsync } from '@shared/reliability/retry';
+import { RETRY_PROFILES, isTransientLlmToolCallingError } from '@shared/reliability/retryProfiles';
 
 @injectable()
 export class LangChainToolCallingProvider implements IToolCallingProvider {
@@ -27,6 +29,22 @@ export class LangChainToolCallingProvider implements IToolCallingProvider {
     }
 
     async generateToolCall(request: ToolCallingRequest): Promise<ToolCallingResult> {
+        return retryAsync(
+            async () => this.generateToolCallOnce(request),
+            {
+                ...RETRY_PROFILES.llmToolCalling,
+                shouldRetry: (error) => isTransientLlmToolCallingError(error),
+                onRetry: (info) => {
+                    const message = info.error instanceof Error ? info.error.message : String(info.error);
+                    this.logger.warn(
+                        `[LangChainToolCallingProvider] Retry ${info.attempt}/${info.maxAttempts - 1} after error: ${message}`
+                    );
+                }
+            }
+        );
+    }
+
+    private async generateToolCallOnce(request: ToolCallingRequest): Promise<ToolCallingResult> {
         const messages: BaseMessage[] = [new SystemMessage(request.systemPrompt)];
 
         if (request.imagesBase64 && request.imagesBase64.length > 0) {

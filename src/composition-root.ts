@@ -27,7 +27,9 @@ import { FileTraceExporter } from './infrastructure/services/exporters/FileTrace
 import { DebugExporter } from './infrastructure/services/exporters/DebugExporter';
 import { BrowserActionToolExecutor } from './application/services/tooling/BrowserActionToolExecutor';
 import { RegistryBackedToolExecutor } from './application/services/tooling/RegistryBackedToolExecutor';
+import { DefaultToolPolicyService } from './application/services/tooling/ToolPolicyService';
 import { ActionToolMapper } from './shared/tooling/ActionToolMapper';
+import { InMemoryRunExecutionLaneService } from './application/services/execution/RunExecutionLaneService';
 
 export function registerCoreServices(): void {
     // 1. Core Services (Config & Persistence)
@@ -53,9 +55,13 @@ export function registerCoreServices(): void {
 
     // Decoupled Helper Services
     container.registerSingleton(TestRunLifecycleManager);
+    container.registerSingleton(InMemoryRunExecutionLaneService);
+    container.register('IRunExecutionLaneService', { useToken: InMemoryRunExecutionLaneService });
     container.registerSingleton(ActionToolMapper);
     container.registerSingleton(BrowserActionToolExecutor);
     container.registerSingleton(RegistryBackedToolExecutor);
+    container.registerSingleton(DefaultToolPolicyService);
+    container.register('IToolPolicyService', { useToken: DefaultToolPolicyService });
     container.register('IToolExecutor', { useToken: RegistryBackedToolExecutor });
 
     // LLM Configuration

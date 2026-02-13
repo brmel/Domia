@@ -21,6 +21,8 @@ import { PlatformType, ToolScope } from '@domain/tools/ToolMetadata';
 import { PlaywrightAdapter } from '../browser/PlaywrightAdapter';
 import { IBrowserAutomation } from '../../../domain/ports';
 import { okAsync } from 'neverthrow';
+import { retryAsync } from '@shared/reliability/retry';
+import { RETRY_PROFILES, isTransientElectronConnectError } from '@shared/reliability/retryProfiles';
 
 export interface ElectronConnectionConfig {
     readonly cdpUrl?: string;
@@ -80,9 +82,21 @@ export class ElectronDriver implements IAppDriver {
         this.logger.info(`[ElectronDriver] Connecting to CDP: ${config.cdpUrl}`);
 
         try {
-            this.browser = await chromium.connectOverCDP(config.cdpUrl!, {
-                timeout: config.connectionTimeout || CDP_CONSTANTS.CONNECTION_TIMEOUT_MS
-            });
+            this.browser = await retryAsync(
+                async () => chromium.connectOverCDP(config.cdpUrl!, {
+                    timeout: config.connectionTimeout || CDP_CONSTANTS.CONNECTION_TIMEOUT_MS
+                }),
+                {
+                    ...RETRY_PROFILES.electronCdpConnect,
+                    shouldRetry: (error) => isTransientElectronConnectError(error),
+                    onRetry: (info) => {
+                        const message = info.error instanceof Error ? info.error.message : String(info.error);
+                        this.logger.warn(
+                            `[ElectronDriver] Retry ${info.attempt}/${info.maxAttempts - 1} CDP connect after error: ${message}`
+                        );
+                    }
+                }
+            );
 
             this.logger.debug('[ElectronDriver] CDP connection established');
             await this.discoverWindows();
@@ -133,24 +147,25 @@ export class ElectronDriver implements IAppDriver {
                 });
 
                 const cdpUrl = `http://127.0.0.1:${port}`;
-                let connected = false;
-                let lastError;
-
-                for (let i = 0; i < 20; i++) {
-                    try {
-                        this.browser = await chromium.connectOverCDP(cdpUrl, {
+                try {
+                    this.browser = await retryAsync(
+                        async () => chromium.connectOverCDP(cdpUrl, {
                             timeout: config.connectionTimeout || 5000
-                        });
-                        connected = true;
-                        break;
-                    } catch (err) {
-                        lastError = err;
-                        await new Promise(resolve => setTimeout(resolve, 500));
-                    }
-                }
-
-                if (!connected) {
-                    throw new Error(`Failed to connect to manually spawned Electron app after retries: ${lastError}`);
+                        }),
+                        {
+                            ...RETRY_PROFILES.electronExecutableConnect,
+                            shouldRetry: (error) => isTransientElectronConnectError(error),
+                            onRetry: (info) => {
+                                const message = info.error instanceof Error ? info.error.message : String(info.error);
+                                this.logger.debug(
+                                    `[ElectronDriver] Waiting for executable CDP (${info.attempt}/${info.maxAttempts - 1}): ${message}`
+                                );
+                            }
+                        }
+                    );
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    throw new Error(`Failed to connect to manually spawned Electron app after retries: ${message}`);
                 }
             } else {
                 // When launching a packaged Electron app, we must ignore default Chrome arguments

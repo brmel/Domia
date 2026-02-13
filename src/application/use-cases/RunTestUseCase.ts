@@ -1,6 +1,5 @@
 
 import { injectable, inject } from 'tsyringe';
-import { errAsync } from 'neverthrow';
 import { IBrowserAutomation } from '../../domain/ports';
 import { UrlFactory, WorkflowState } from '../../domain/value-objects';
 import { ExecutionController } from '../controllers/ExecutionController';
@@ -9,7 +8,8 @@ import { TestRunLifecycleManager } from '../services/TestRunLifecycleManager';
 import { RunTestInput, RunTestOutput } from '../dtos';
 import { TestRunState } from '../../domain/enums/TestRunState';
 import { WorkflowPlanner } from '../services/planning/WorkflowPlanner';
-import { StepExecutor } from '../services/execution/StepExecutor';
+import { StepExecutor, type StepExecutionResult } from '../services/execution/StepExecutor';
+import type { RunExecutionLaneService } from '../services/execution/RunExecutionLaneService';
 import { PlanItemStatus } from '@domain/entities/Plan';
 import { TestStep } from '../../domain/ports';
 import { v4 as uuidv4 } from 'uuid';
@@ -27,6 +27,7 @@ export class RunTestUseCase {
         @inject('IPersistenceAdapter') private persistence: import('../../domain/ports').IPersistenceAdapter,
         @inject('ITraceService') private trace: import('../../domain/ports/ITraceService').ITraceService,
         @inject(PlatformSessionFactory) private readonly sessionFactory: PlatformSessionFactory,
+        @inject('IRunExecutionLaneService') private readonly laneService: RunExecutionLaneService,
         @inject('ILogger') private logger: ILogger
     ) { }
 
@@ -51,8 +52,12 @@ export class RunTestUseCase {
             return;
         }
 
+        const laneKey = this.resolveLaneKey(input, url);
+        const releaseLane = await this.laneService.acquire(laneKey);
+
         const initResult = await this.lifecycleManager.initializeTestRun(url, input.prompt);
         if (initResult.isErr()) {
+            releaseLane();
             yield { type: 'error', error: initResult.error };
             return;
         }
@@ -88,6 +93,7 @@ export class RunTestUseCase {
             if (disposeSession) {
                 await disposeSession();
             }
+            releaseLane();
             return;
         }
 
@@ -96,6 +102,7 @@ export class RunTestUseCase {
         let completed = false;
         let finalSummary: string | undefined;
         let hasVerificationFailure = false;
+        let terminalError: Error | null = null;
 
         try {
             const urlResult = UrlFactory.create(url);
@@ -157,7 +164,7 @@ export class RunTestUseCase {
                     executionOptions,
                     { ...(stepToolContext ? { toolContext: stepToolContext } : {}) }
                 );
-                let result: import('neverthrow').Result<void, Error> | undefined;
+                let result: StepExecutionResult | undefined;
 
                 try {
                     const iterator = stepGen[Symbol.asyncIterator]();
@@ -191,13 +198,18 @@ export class RunTestUseCase {
                         }
                         next = await iterator.next();
                     }
-                    result = next.value; // This is the return value (Result<void, Error>)
+                    result = next.value;
                 } catch (e) {
-                    // Catch unexpected iterator errors
-                    result = errAsync(e instanceof Error ? e : new Error(String(e))) as any; // Cast to match result type
+                    const iteratorError = e instanceof Error ? e : new Error(String(e));
+                    result = {
+                        success: false,
+                        terminal: 'error',
+                        code: 'action_execution_error',
+                        reason: `Step iterator failed: ${iteratorError.message}`
+                    };
                 }
 
-                if (result && result.isOk()) {
+                if (result && result.success) {
                     // Mark Success
                     const successItem = { ...item, status: 'completed' as PlanItemStatus } as import('@domain/entities/Plan').PlanItem;
                     const successItems = [...updatedItems];
@@ -206,7 +218,7 @@ export class RunTestUseCase {
                     yield { type: 'state_updated', state: currentState };
                 } else {
                     // Step Failed
-                    const errorMsg = result ? result.error.message : "Unknown error";
+                    const errorMsg = result ? `${result.code}: ${result.reason}` : 'unknown_error: Unknown error';
 
                     const completedWithFailureItem = { ...item, status: 'completed' as PlanItemStatus } as import('@domain/entities/Plan').PlanItem;
                     const newItems = [...updatedItems];
@@ -228,7 +240,7 @@ export class RunTestUseCase {
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
             await this.lifecycleManager.failTestRun(testRunId, msg);
-            yield { type: 'error', error: error instanceof Error ? error : new Error(msg) };
+            terminalError = error instanceof Error ? error : new Error(msg);
         } finally {
             if (disposeSession) {
                 await disposeSession().catch(err =>
@@ -236,12 +248,16 @@ export class RunTestUseCase {
                 );
             }
 
+            releaseLane();
+
             // Flush and finalize traces
             await this.trace.endTrace();
 
             // Final status update
-            // Global Status Logic: Fail if cancelled OR if hasVerificationFailure is true.
-            if (controller.state === TestRunState.CANCELLED) {
+            // Emit exactly one terminal event.
+            if (terminalError) {
+                yield { type: 'error', error: terminalError };
+            } else if (controller.state === TestRunState.CANCELLED) {
                 yield { type: 'completed', success: false, summary: "Test cancelled by user." };
                 await this.lifecycleManager.finalizeTestRun(testRunId, false, "Test cancelled by user.");
             } else if (completed) {
@@ -250,5 +266,28 @@ export class RunTestUseCase {
                 await this.lifecycleManager.finalizeTestRun(testRunId, isGlobalSuccess, finalSummary);
             }
         }
+    }
+
+    private resolveLaneKey(input: RunTestInput, resolvedUrl: string): string {
+        const platformConfig = input.platformConfig;
+        const platform = platformConfig?.platform;
+
+        if (!platformConfig) {
+            return `legacy:web:${resolvedUrl}`;
+        }
+
+        if (platform === 'web') {
+            return `platform:web:${platformConfig.url}`;
+        }
+
+        if (platform === 'electron') {
+            if (platformConfig.connection.type === 'cdp') {
+                return `platform:electron:cdp:${platformConfig.connection.cdpUrl}`;
+            }
+
+            return `platform:electron:executable:${platformConfig.connection.executablePath}`;
+        }
+
+        return `legacy:web:${resolvedUrl}`;
     }
 }
