@@ -9,6 +9,7 @@ import { RunTestUseCase } from './application/use-cases';
 import { ConsoleLogger } from './infrastructure/adapters/logger/ConsoleLogger';
 
 import { LangChainAdapter } from './infrastructure/adapters/llm/LangChainAdapter';
+import { LangChainToolCallingProvider } from './infrastructure/adapters/llm/LangChainToolCallingProvider';
 import { ConfigService } from './infrastructure/config/ConfigService';
 import { SQLiteAdapter } from './infrastructure/adapters/persistence/SQLiteAdapter';
 import { TestRunLifecycleManager } from './application/services/TestRunLifecycleManager';
@@ -24,6 +25,9 @@ import { FileSystemStorage } from './infrastructure/storage/FileSystemStorage';
 import { TraceService } from './infrastructure/services/TraceService';
 import { FileTraceExporter } from './infrastructure/services/exporters/FileTraceExporter';
 import { DebugExporter } from './infrastructure/services/exporters/DebugExporter';
+import { BrowserActionToolExecutor } from './application/services/tooling/BrowserActionToolExecutor';
+import { RegistryBackedToolExecutor } from './application/services/tooling/RegistryBackedToolExecutor';
+import { ActionToolMapper } from './shared/tooling/ActionToolMapper';
 
 export function registerCoreServices(): void {
     // 1. Core Services (Config & Persistence)
@@ -49,6 +53,10 @@ export function registerCoreServices(): void {
 
     // Decoupled Helper Services
     container.registerSingleton(TestRunLifecycleManager);
+    container.registerSingleton(ActionToolMapper);
+    container.registerSingleton(BrowserActionToolExecutor);
+    container.registerSingleton(RegistryBackedToolExecutor);
+    container.register('IToolExecutor', { useToken: RegistryBackedToolExecutor });
 
     // LLM Configuration
     const defaultLLMConfig: LLMConfig = {
@@ -58,6 +66,7 @@ export function registerCoreServices(): void {
     };
     container.register('LLMConfig', { useValue: defaultLLMConfig });
 
+    container.register('IToolCallingProvider', { useClass: LangChainToolCallingProvider });
     container.register('ILLMProvider', { useClass: LangChainAdapter });
     container.register('RunTestUseCase', { useClass: RunTestUseCase });
 

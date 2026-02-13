@@ -15,6 +15,7 @@ import { TestStep } from '../../domain/ports';
 import { v4 as uuidv4 } from 'uuid';
 import type { ILogger } from '../../domain/ports';
 import { PlatformSessionFactory } from '../services/platform/PlatformSessionFactory';
+import type { ToolContext } from '../../domain/tools/Tool';
 
 
 @injectable()
@@ -61,12 +62,22 @@ export class RunTestUseCase {
         let browser: IBrowserAutomation | undefined;
         let disposeSession: (() => Promise<void>) | undefined;
         let shouldNavigate = true;
+        let stepToolContext: ToolContext | undefined;
         
         try {
             const session = await this.sessionFactory.createSession(input, testRunId);
             browser = session.browser;
             disposeSession = session.dispose;
             shouldNavigate = session.shouldNavigate;
+
+            if (session.driver) {
+                stepToolContext = {
+                    browser,
+                    driver: session.driver,
+                    platform: session.driver.getCapabilities().platform,
+                    logger: this.logger
+                };
+            }
             
             if (!browser) {
                 throw new WorkflowError('Failed to initialize browser automation interface');
@@ -137,7 +148,15 @@ export class RunTestUseCase {
                     maxActions: input.options?.maxSteps ?? 20
                 };
 
-                const stepGen = this.executor.executeStep(testRunId, item.description, browser, url, currentState.stepNumber, executionOptions);
+                const stepGen = this.executor.executeStep(
+                    testRunId,
+                    item.description,
+                    browser,
+                    url,
+                    currentState.stepNumber,
+                    executionOptions,
+                    { ...(stepToolContext ? { toolContext: stepToolContext } : {}) }
+                );
                 let result: import('neverthrow').Result<void, Error> | undefined;
 
                 try {

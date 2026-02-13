@@ -10,3 +10,4 @@ export * from './IPerceptionPipeline';
 export * from './ISensor';
 export * from './IStorageService';
 export * from './ITraceService';
+export * from './IToolCallingProvider';

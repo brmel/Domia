@@ -4,8 +4,10 @@ import type { ILLMProvider, IBrowserAutomation, LLMContext, IPerceptionPipeline,
 import { AgentAction } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
 import { LoopDetectorService } from './LoopDetectorService';
-import { UrlFactory } from '@domain/value-objects';
 import { AssertionGoalService } from '../assertion/AssertionGoalService';
+import { ToolContractService } from '../tooling/ToolContractService';
+import type { ToolContext } from '@domain/tools/Tool';
+import type { ToolExecutor } from '../tooling/ToolExecutor';
 
 @injectable()
 export class StepExecutor {
@@ -15,7 +17,9 @@ export class StepExecutor {
         @inject('IPerceptionPipeline') private perception: IPerceptionPipeline,
         @inject('IStorageService') private storage: IStorageService,
         @inject('ITraceService') private trace: ITraceService,
-        @inject(AssertionGoalService) private readonly assertionGoalService: AssertionGoalService
+        @inject(AssertionGoalService) private readonly assertionGoalService: AssertionGoalService,
+        @inject(ToolContractService) private readonly toolContractService: ToolContractService,
+        @inject('IToolExecutor') private readonly toolExecutor: ToolExecutor
     ) { }
 
     async *executeStep(
@@ -24,7 +28,8 @@ export class StepExecutor {
         browser: IBrowserAutomation,
         url: string,
         initialStepNumber: number = 0,
-        options: { vision: boolean; debugScreenshots: boolean; maxActions: number } = { vision: true, debugScreenshots: false, maxActions: 20 }
+        options: { vision: boolean; debugScreenshots: boolean; maxActions: number } = { vision: true, debugScreenshots: false, maxActions: 20 },
+        executionContext?: { toolContext?: ToolContext }
     ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, Result<void, Error>, unknown> {
         let loopCount = 0;
         let currentState: { history: AgentAction[], stepNumber: number } = { history: [], stepNumber: initialStepNumber };
@@ -90,7 +95,8 @@ export class StepExecutor {
                 currentUrl: url,
                 pageTitle: frame.metadata.title,
                 viewport,
-                stepsRemaining: maxActions - loopCount
+                stepsRemaining: maxActions - loopCount,
+                availableTools: this.toolContractService.getToolDescriptors()
             };
 
             // Trace: Agent Input (Prompt Context)
@@ -126,7 +132,11 @@ export class StepExecutor {
 
             yield { type: 'action', action, assets };
 
-            const execResult = await this.executeAction(browser, action);
+            const execResult = await this.toolExecutor.execute(action, {
+                browser,
+                currentUrl: url,
+                ...(executionContext?.toolContext ? { toolContext: executionContext.toolContext } : {})
+            });
             if (execResult.isErr()) return err(new Error(`Action execution failed: ${execResult.error.message}`));
 
             currentState = {
@@ -145,42 +155,5 @@ export class StepExecutor {
         }
 
         return err(new Error(`Max actions (${maxActions}) reached for step: ${stepGoal}`));
-    }
-
-    private async executeAction(browser: IBrowserAutomation, action: AgentAction): Promise<Result<void, Error>> {
-        try {
-            switch (action.type) {
-                case ActionType.CLICK:
-                    (await browser.click(action.elementId)).mapErr(e => { throw new Error(e.message) });
-                    break;
-                case ActionType.TYPE:
-                    (await browser.type(action.elementId, action.text)).mapErr(e => { throw new Error(e.message) });
-                    if (action.submit) {
-                        (await browser.pressKey('Enter')).mapErr(e => { throw new Error(e.message) });
-                    }
-                    break;
-                case ActionType.PRESS_KEY:
-                    (await browser.pressKey(action.key)).mapErr(e => { throw new Error(e.message) });
-                    break;
-                case ActionType.SCROLL:
-                    (await browser.scroll(action.direction)).mapErr(e => { throw new Error(e.message) });
-                    break;
-                case ActionType.WAIT:
-                    (await browser.wait(action.durationMs)).mapErr(e => { throw new Error(e.message) });
-                    break;
-                case ActionType.NAVIGATE: {
-                    const navUrlResult = UrlFactory.create(action.url);
-                    if (navUrlResult.isErr()) throw new Error(`Invalid URL: ${navUrlResult.error.message}`);
-                    (await browser.navigateTo(navUrlResult.value)).mapErr(e => { throw new Error(e.message) });
-                    break;
-                }
-                case ActionType.EXTRACT:
-                    (await browser.extractText(action.elementId)).mapErr(e => { throw new Error(e.message) });
-                    break;
-            }
-            return ok(undefined);
-        } catch (e: unknown) {
-            return err(e instanceof Error ? e : new Error(String(e)));
-        }
     }
 }

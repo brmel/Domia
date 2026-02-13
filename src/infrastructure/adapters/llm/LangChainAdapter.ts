@@ -1,12 +1,20 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { SystemMessage, HumanMessage, AIMessage, BaseMessage } from '@langchain/core/messages';
-import type { ILLMProvider, LLMContext, ILogger, LLMConfig, IConfigService } from '@domain/ports';
+import { SystemMessage, HumanMessage, BaseMessage } from '@langchain/core/messages';
+import type {
+    ILLMProvider,
+    LLMContext,
+    ILogger,
+    LLMConfig,
+    IConfigService,
+    IToolCallingProvider
+} from '@domain/ports';
 import type { AgentAction } from '@domain/value-objects';
 import { LLMError } from '@domain/errors';
-import { LLMPromptUtils } from './LLMPromptUtils';
 import { LLMPlanningUtils } from './LLMPlanningUtils';
+import { ActionToolMapper } from '@shared/tooling/ActionToolMapper';
+import { ACTION_SYSTEM_PROMPT, buildActionUserPrompt } from '@shared/prompts/ActionPromptBuilder';
 
 @injectable()
 export class LangChainAdapter implements ILLMProvider {
@@ -16,7 +24,9 @@ export class LangChainAdapter implements ILLMProvider {
     constructor(
         @inject('LLMConfig') config: LLMConfig,
         @inject('ILogger') private readonly logger: ILogger,
-        @inject('IConfigService') private readonly configService: IConfigService
+        @inject('IConfigService') private readonly configService: IConfigService,
+        @inject('IToolCallingProvider') private readonly toolCallingProvider: IToolCallingProvider,
+        @inject(ActionToolMapper) private readonly actionToolMapper: ActionToolMapper
     ) {
         this.model = new ChatGoogleGenerativeAI({
             model: config.model,
@@ -36,29 +46,16 @@ export class LangChainAdapter implements ILLMProvider {
 
     private async generateWithRetry(context: LLMContext, retries = 3): Promise<AgentAction> {
         let lastError: LLMError | undefined;
-        let correctionContext: { error: string; lastResponse: string } | undefined;
+        let correctionContext: { error: string } | undefined;
 
         for (let i = 0; i < retries; i++) {
             try {
-                const responseText = await this.doGenerateAction(context, correctionContext);
-
-                const result = await LLMPromptUtils.parseAction(responseText, context);
-
-                if (result.isOk()) {
-                    return result.value;
-                } else {
-                    lastError = result.error;
-                    correctionContext = {
-                        error: lastError.message,
-                        lastResponse: responseText
-                    };
-                    this.logger.warn(`[LangChainAdapter] validation failed (attempt ${i + 1}/${retries}): ${lastError.message}`);
-                    this.logger.debug(`[LangChainAdapter] invalid response payload: ${responseText.substring(0, 800)}`);
-                }
+                return await this.doGenerateAction(context, correctionContext);
             } catch (e: unknown) {
                 const errorMessage = e instanceof Error ? e.message : String(e);
                 const error = new LLMError(`Generation failed: ${errorMessage}`);
                 this.logger.error(`[LangChainAdapter] system error: ${error.message}`);
+                correctionContext = { error: error.message };
 
                 if (i < retries - 1) {
                     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -73,69 +70,34 @@ export class LangChainAdapter implements ILLMProvider {
 
     private async doGenerateAction(
         context: LLMContext,
-        correction?: { error: string; lastResponse: string }
-    ): Promise<string> {
-        // No need to escape for templates anymore
-        const systemPrompt = LLMPromptUtils.systemPrompt;
-
-        const messages: BaseMessage[] = [
-            new SystemMessage(systemPrompt),
-        ];
-
-        const promptText = LLMPromptUtils.buildUserPrompt(context);
+        correction?: { error: string }
+    ): Promise<AgentAction> {
+        const systemPrompt = ACTION_SYSTEM_PROMPT;
+        const promptText = buildActionUserPrompt(context);
         const config = this.configService.get();
         const isVisionEnabled = config.ai.visionEnabled;
 
-        if (isVisionEnabled && (context.snapshot.screenshots?.length || context.snapshot.screenshot)) {
-            // Multimodal Message
-            const content: any[] = [{ type: "text", text: promptText }];
-
-            // Prioritize array, fallback to single
-            const images = context.snapshot.screenshots?.length
+        const images = isVisionEnabled
+            ? (context.snapshot.screenshots?.length
                 ? context.snapshot.screenshots
-                : (context.snapshot.screenshot ? [context.snapshot.screenshot] : []);
+                : (context.snapshot.screenshot ? [context.snapshot.screenshot] : []))
+            : [];
 
-            // Limit to 3 images as requested
-            const imagesToSend = images.slice(0, 3);
+        this.logger.debug(`[LangChainAdapter] Invoking tool-calling provider. Correction active: ${!!correction}`);
 
-            for (const imgBase64 of imagesToSend) {
-                content.push({
-                    type: "image_url",
-                    image_url: {
-                        url: `data:image/jpeg;base64,${imgBase64}`
-                    }
-                });
-            }
+        const toolCall = await this.toolCallingProvider.generateToolCall({
+            systemPrompt,
+            userPrompt: promptText,
+            tools: this.actionToolMapper.getModelToolDefinitions(context.availableTools),
+            ...(images.length > 0 ? { imagesBase64: images } : {}),
+            ...(correction ? { correctionError: correction.error } : {})
+        });
 
-            messages.push(new HumanMessage({ content }));
-        } else {
-            // Text-only Message
-            messages.push(new HumanMessage(promptText));
-        }
-
-        if (correction) {
-            messages.push(new AIMessage(correction.lastResponse));
-            messages.push(new HumanMessage(`SYSTEM: Your last response was invalid. Error: ${correction.error}.\nYou MUST correct it and provide valid JSON matching the schema.`));
-        }
-
-        this.logger.debug(`[LangChainAdapter] Invoking model directly. Correction active: ${!!correction}`);
-
-        const response = await this.model.invoke(messages);
-
-        let content = '';
-        if (typeof response.content === 'string') {
-            content = response.content;
-        } else if (Array.isArray(response.content)) {
-            // Handle multimodal content if it ever happens (mostly string for now)
-            content = response.content.map(c => {
-                if ('text' in c) return c.text;
-                return '';
-            }).join('');
-        }
-
-        this.logger.debug(`[LangChainAdapter] Response length: ${content.length}`);
-        return content;
+        const mapped = this.actionToolMapper.mapModelToolCallToAction(toolCall.name, toolCall.args);
+        this.logger.debug(`[LangChainAdapter] Native tool call mapped to action: ${toolCall.name}`);
+        return mapped;
     }
+
     generatePlan(prompt: string): ResultAsync<import('@domain/entities/Plan').Plan, LLMError> {
         return ResultAsync.fromPromise(
             this.doGeneratePlan(prompt),
