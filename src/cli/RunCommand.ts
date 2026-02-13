@@ -8,6 +8,7 @@ import figlet from 'figlet';
 import { RunTestUseCase } from '../application/use-cases';
 import { ExecutionController } from '../application/controllers/ExecutionController';
 import { ConsoleViewHost } from '../infrastructure/adapters/view/ConsoleViewHost';
+import { TraceService } from '../infrastructure/services/TraceService';
 
 export class RunCommand {
     static register(program: Command): void {
@@ -51,22 +52,12 @@ export class RunCommand {
                 // 2. Handle Verbose Mode (File Artifacts)
                 if (verbose) {
                     process.env['DOMIA_VERBOSE'] = 'true';
-                    const traceService = container.resolve<import('../infrastructure/services/TraceService').TraceService>('ITraceService');
+                    const traceService = container.resolve(TraceService);
                     const storage = container.resolve<import('../domain/ports/IStorageService').IStorageService>('IStorageService');
                     const { FileTraceExporter } = await import('../infrastructure/services/exporters/FileTraceExporter');
 
-                    // Avoid duplicate if env var was already set
-                    // But since we can't easily check internal state, strictly speaking this might duplicate if env var was ALSO set. 
-                    // However, for CLI usage usually one or the other. 
-                    // Let's assume if it was set in env, it was registered in composition root.
-                    // If it wasn't set in env (which is why they passed the flag), we register it now.
-                    if (process.env['DOMIA_VERBOSE_INIT'] !== 'true') { // We can't check init state easily.
-                        // Simple check: we just add it. If user sets BOTH env var and flag, they might get double writes, which is acceptable edge case for now.
-                        // Actually, composition root checks logic is: `if (process.env['DOMIA_VERBOSE'] === 'true')`. 
-                        // If we didn't start with it, it's not there.
-                        traceService.addExporter(new FileTraceExporter(storage));
-                        console.log(chalk.gray('[Verbose Mode Enabled: Saving artifacts]'));
-                    }
+                    traceService.addExporter(new FileTraceExporter(storage));
+                    console.log(chalk.gray('[Verbose Mode Enabled: Saving artifacts]'));
                 }
 
                 // Ensure ViewHost is registered

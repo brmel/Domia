@@ -9,6 +9,7 @@ import { observable } from '@trpc/server/observable';
 import { EventEmitter } from 'events';
 import { RunTestInput } from '../src/application/dtos';
 import { FileTraceExporter } from '../src/infrastructure/services/exporters/FileTraceExporter';
+import { TraceService } from '../src/infrastructure/services/TraceService';
 import { RunInputSchema } from '../src/shared/validation';
 import { RuntimeReadinessPolicyService } from '../src/application/services/hardening/RuntimeReadinessPolicyService';
 import debug from 'debug';
@@ -34,14 +35,9 @@ export const appRouter = t.router({
                 }
 
                 if (input.options?.verbose) {
-                    const traceService = container.resolve<import('../src/domain/ports/ITraceService').ITraceService>('ITraceService');
+                    const traceService = container.resolve(TraceService);
                     const storage = container.resolve<import('../src/domain/ports/IStorageService').IStorageService>('IStorageService');
-
-                    // Cast to concrete TraceService to access addExporter
-                    const concreteTrace = traceService as import('../src/infrastructure/services/TraceService').TraceService;
-                    if (concreteTrace.addExporter) {
-                        concreteTrace.addExporter(new FileTraceExporter(storage));
-                    }
+                    traceService.addExporter(new FileTraceExporter(storage));
                 }
 
                 try {

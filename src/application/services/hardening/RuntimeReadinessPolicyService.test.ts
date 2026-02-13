@@ -28,18 +28,17 @@ function makeService(apiKey?: string) {
 
 describe('RuntimeReadinessPolicyService', () => {
     beforeEach(() => {
-        delete process.env['DOMIA_ENABLE_READINESS_GATES'];
         delete process.env['DOMIA_READINESS_MODE'];
     });
 
-    it('does not block when readiness gates are disabled', () => {
+    it('does not block in observe mode even with required gate failure', () => {
         const { service } = makeService(undefined);
         const decision = service.assess({ prompt: 'test', options: {} }, 'https://example.com');
         expect(decision.blocked).toBe(false);
+        expect(decision.report.passed).toBe(false);
     });
 
-    it('does not block in observe mode even with required gate failure', () => {
-        process.env['DOMIA_ENABLE_READINESS_GATES'] = 'true';
+    it('does not block in explicit observe mode even with required gate failure', () => {
         process.env['DOMIA_READINESS_MODE'] = 'observe';
 
         const { service } = makeService(undefined);
@@ -50,7 +49,6 @@ describe('RuntimeReadinessPolicyService', () => {
     });
 
     it('blocks in soft-enforce mode when required gates fail', () => {
-        process.env['DOMIA_ENABLE_READINESS_GATES'] = 'true';
         process.env['DOMIA_READINESS_MODE'] = 'soft-enforce';
 
         const { service } = makeService(undefined);

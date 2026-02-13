@@ -46,14 +46,14 @@ describe('RunBudgetPolicyService', () => {
             }
         );
 
-        expect(assessment.status).toBe('warning');
+        expect(assessment.status).toBe('exceeded');
         expect(assessment.exceeded).toEqual(['actions', 'duration', 'tokens']);
     });
 
-    it('logs non-blocking warning when exceeded', () => {
+    it('logs warning when exceeded via evaluate', () => {
         const { service, logger } = createService();
 
-        service.logIfExceeded(
+        const assessment = service.evaluate(
             'run-1',
             {
                 maxActions: 1,
@@ -69,6 +69,7 @@ describe('RunBudgetPolicyService', () => {
             }
         );
 
+        expect(assessment.status).toBe('exceeded');
         expect(logger.warn).toHaveBeenCalledTimes(1);
     });
 });

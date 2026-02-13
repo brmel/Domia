@@ -9,6 +9,9 @@ export class TraceService implements ITraceService {
     constructor() { }
 
     addExporter(exporter: ITraceExporter): void {
+        if (this.exporters.some(existing => existing.name === exporter.name)) {
+            return;
+        }
         this.exporters.push(exporter);
     }
 
@@ -21,10 +24,10 @@ export class TraceService implements ITraceService {
     }
 
     async tracePerception(runId: string, stepNumber: number, data: Partial<StepTrace>): Promise<void> {
-        await Promise.all(this.exporters.map(e => e.export(runId, stepNumber, data)));
+        await Promise.allSettled(this.exporters.map(e => e.export(runId, stepNumber, data)));
     }
 
     async traceReasoning(runId: string, stepNumber: number, data: Partial<StepTrace>): Promise<void> {
-        await Promise.all(this.exporters.map(e => e.export(runId, stepNumber, data)));
+        await Promise.allSettled(this.exporters.map(e => e.export(runId, stepNumber, data)));
     }
 }

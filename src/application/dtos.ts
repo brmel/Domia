@@ -18,6 +18,16 @@ export interface RecoveryReplayTelemetry {
     reason?: string;
 }
 
+export interface ReplanningTelemetry {
+    runId: string;
+    trigger?: 'loop_detected' | 'action_execution_error' | 'assertion_fail' | 'max_actions_reached';
+    status: 'suggested' | 'suppressed';
+    reason: string;
+    mode: 'observe';
+    replanCount: number;
+    maxReplansPerRun: number;
+}
+
 export type RunTestOutput =
     | { type: 'started'; testRunId: TestRunId }
     | { type: 'observing' }
@@ -25,5 +35,6 @@ export type RunTestOutput =
     | { type: 'acting'; action: AgentAction }
     | { type: 'state_updated'; state: import('../domain/value-objects').WorkflowState }
     | { type: 'recovery_replay'; telemetry: RecoveryReplayTelemetry }
+    | { type: 'replanning'; telemetry: ReplanningTelemetry }
     | { type: 'completed'; success: boolean; summary?: string }
     | { type: 'error'; error: WorkflowError | Error };

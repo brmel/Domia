@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ok, okAsync } from 'neverthrow';
 import type { IBrowserAutomation, TestStep } from '@domain/ports';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
@@ -95,7 +95,9 @@ function createUseCaseContext(
 
     const budgetPolicy = {
         resolveLimits: vi.fn().mockReturnValue({}),
-        logIfExceeded: vi.fn()
+        assess: vi.fn().mockReturnValue({ status: 'ok', exceeded: [] }),
+        evaluate: vi.fn().mockReturnValue({ status: 'ok', exceeded: [] }),
+        formatExceededMessage: vi.fn().mockReturnValue('Run budget exceeded')
     };
 
     const logger = {
@@ -163,19 +165,6 @@ function createUseCaseContext(
 }
 
 describe('RunTestUseCase recovery flow', () => {
-    const previousRecoveryFlag = process.env['DOMIA_ENABLE_RECOVERY_SCAFFOLD'];
-
-    beforeEach(() => {
-        process.env['DOMIA_ENABLE_RECOVERY_SCAFFOLD'] = 'true';
-    });
-
-    afterEach(() => {
-        if (previousRecoveryFlag === undefined) {
-            delete process.env['DOMIA_ENABLE_RECOVERY_SCAFFOLD'];
-        } else {
-            process.env['DOMIA_ENABLE_RECOVERY_SCAFFOLD'] = previousRecoveryFlag;
-        }
-    });
 
     it('reuses checkpoint plan in manual-only mode and skips planner', async () => {
         const checkpointState = {

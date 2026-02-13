@@ -19,7 +19,7 @@ export interface RunBudgetSnapshot {
 }
 
 export interface RunBudgetAssessment {
-    readonly status: 'ok' | 'warning';
+    readonly status: 'ok' | 'exceeded';
     readonly exceeded: readonly RunBudgetDimension[];
 }
 
@@ -63,23 +63,27 @@ export class RunBudgetPolicyService {
         }
 
         return {
-            status: exceeded.length > 0 ? 'warning' : 'ok',
+            status: exceeded.length > 0 ? 'exceeded' : 'ok',
             exceeded
         };
     }
 
-    logIfExceeded(runId: string, limits: RunBudgetLimits, snapshot: RunBudgetSnapshot): void {
+    evaluate(runId: string, limits: RunBudgetLimits, snapshot: RunBudgetSnapshot): RunBudgetAssessment {
         const assessment = this.assess(limits, snapshot);
-        if (assessment.status === 'ok') {
-            return;
+        if (assessment.status === 'exceeded') {
+            this.logger.warn('[RunBudgetPolicyService] Run budget exceeded', {
+                runId,
+                exceeded: assessment.exceeded,
+                limits,
+                snapshot
+            });
         }
 
-        this.logger.warn('[RunBudgetPolicyService] Budget exceeded (non-blocking scaffold)', {
-            runId,
-            exceeded: assessment.exceeded,
-            limits,
-            snapshot
-        });
+        return assessment;
+    }
+
+    formatExceededMessage(limits: RunBudgetLimits, snapshot: RunBudgetSnapshot, assessment: RunBudgetAssessment): string {
+        return `Run budget exceeded (${assessment.exceeded.join(', ')}). actions=${snapshot.actionsTaken}/${limits.maxActions}, durationMs=${snapshot.elapsedMs}/${limits.maxDurationMs}, tokens=${snapshot.estimatedTokensUsed}/${limits.maxEstimatedTokens}, retries=${snapshot.retryCount}/${limits.maxRetries}`;
     }
 
     private safePositiveInt(value: number | undefined, fallback: number): number {

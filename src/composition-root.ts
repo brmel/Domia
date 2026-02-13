@@ -38,6 +38,9 @@ import { RecoveryReplayIdempotencyService } from './application/services/executi
 import { ReplanningPolicyService } from './application/services/execution/ReplanningPolicyService';
 import { TemporalObservationPolicyService } from './application/services/perception/TemporalObservationPolicyService';
 import { TimelineContextAssembler } from './application/services/perception/TimelineContextAssembler';
+import { TemporalContextSelectorService } from './application/services/perception/TemporalContextSelectorService';
+import { TemporalPrivacyFilterService } from './application/services/perception/TemporalPrivacyFilterService';
+import { TemporalPromptAssemblerService } from './application/services/perception/TemporalPromptAssemblerService';
 import { SkillRegistryService } from './application/services/skills/SkillRegistryService';
 import { SkillGovernanceService } from './application/services/skills/SkillGovernanceService';
 import { PluginCapabilityPolicyService } from './application/services/plugins/PluginCapabilityPolicyService';
@@ -81,6 +84,9 @@ export function registerCoreServices(): void {
     container.registerSingleton(ReplanningPolicyService);
     container.registerSingleton(TemporalObservationPolicyService);
     container.registerSingleton(TimelineContextAssembler);
+    container.registerSingleton(TemporalContextSelectorService);
+    container.registerSingleton(TemporalPrivacyFilterService);
+    container.registerSingleton(TemporalPromptAssemblerService);
     container.registerSingleton(SkillRegistryService);
     container.registerSingleton(SkillGovernanceService);
     container.registerSingleton(PluginRegistryService);

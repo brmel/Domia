@@ -6,6 +6,11 @@ export interface SnapshotFrame {
     readonly note?: string;
 }
 
+export interface TemporalSelectionResult {
+    readonly frames: readonly SnapshotFrame[];
+    readonly droppedFrameCount: number;
+}
+
 export interface SnapshotTimeline {
     readonly runId: string;
     readonly mode: 'baseline' | 'burst';
@@ -25,4 +30,9 @@ export interface TimelineContextWindow {
     readonly toTimestamp: number;
     readonly frames: readonly SnapshotFrame[];
     readonly summary: string;
+    readonly mode?: 'off' | 'baseline' | 'adaptive' | 'forensic';
+    readonly selectedFrameCount?: number;
+    readonly droppedFrameCount?: number;
+    readonly tokenEstimate?: number;
+    readonly redactionApplied?: boolean;
 }

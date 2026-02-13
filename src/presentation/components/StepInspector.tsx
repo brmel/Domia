@@ -84,7 +84,37 @@ function InspectorContent({ artifacts }: { artifacts: any }) {
 
     const domTree = artifacts.dom;
     const accessibilityTree = artifacts.accessibility;
-    const traceData = artifacts.trace;
+    const traceData = artifacts.trace
+        ? {
+            ...artifacts.trace,
+            ...(artifacts.temporalWindow && !artifacts.trace.temporal
+                ? {
+                    temporal: {
+                        mode: artifacts.temporalWindow.mode,
+                        frameCount: artifacts.temporalWindow.frames?.length ?? 0,
+                        fromTimestamp: artifacts.temporalWindow.fromTimestamp,
+                        toTimestamp: artifacts.temporalWindow.toTimestamp,
+                        summary: artifacts.temporalWindow.summary,
+                        tokenEstimate: artifacts.temporalWindow.tokenEstimate,
+                        redactionApplied: artifacts.temporalWindow.redactionApplied
+                    }
+                }
+                : {})
+        }
+        : (artifacts.temporalWindow
+            ? {
+                timestamp: artifacts.temporalWindow.toTimestamp,
+                temporal: {
+                    mode: artifacts.temporalWindow.mode,
+                    frameCount: artifacts.temporalWindow.frames?.length ?? 0,
+                    fromTimestamp: artifacts.temporalWindow.fromTimestamp,
+                    toTimestamp: artifacts.temporalWindow.toTimestamp,
+                    summary: artifacts.temporalWindow.summary,
+                    tokenEstimate: artifacts.temporalWindow.tokenEstimate,
+                    redactionApplied: artifacts.temporalWindow.redactionApplied
+                }
+            }
+            : undefined);
 
     // Tabs configuration
     const tabs = [

@@ -284,6 +284,28 @@ export class RunTestUseCase {
                     break;
                 }
 
+                const preStepBudgetAssessment = this.budgetPolicy.evaluate(testRunId, budgetLimits, {
+                    actionsTaken: currentState.stepNumber,
+                    elapsedMs: Date.now() - runStartMs,
+                    estimatedTokensUsed,
+                    retryCount
+                });
+
+                if (preStepBudgetAssessment.status === 'exceeded') {
+                    throw new WorkflowError(
+                        this.budgetPolicy.formatExceededMessage(
+                            budgetLimits,
+                            {
+                                actionsTaken: currentState.stepNumber,
+                                elapsedMs: Date.now() - runStartMs,
+                                estimatedTokensUsed,
+                                retryCount
+                            },
+                            preStepBudgetAssessment
+                        )
+                    );
+                }
+
                 // Update Item Status to Running
                 const runningItem: PlanItem = { ...item, status: 'active' as PlanItemStatus };
                 const updatedItems = [...plan.items];
@@ -296,7 +318,14 @@ export class RunTestUseCase {
                     debugScreenshots: input.options?.debugScreenshots ?? false,
                     maxActions: input.options?.maxSteps ?? 20,
                     temporalObservation: input.options?.temporalObservation ?? false,
-                    temporalBurstFrames: input.options?.temporalBurstFrames ?? 3
+                    temporalMode: input.options?.temporalMode ?? 'adaptive',
+                    ...(input.options?.temporalBurstFrames !== undefined ? { temporalBurstFrames: input.options.temporalBurstFrames } : {}),
+                    ...(input.options?.temporalBaselineIntervalMs !== undefined ? { temporalBaselineIntervalMs: input.options.temporalBaselineIntervalMs } : {}),
+                    ...(input.options?.temporalBurstIntervalMs !== undefined ? { temporalBurstIntervalMs: input.options.temporalBurstIntervalMs } : {}),
+                    ...(input.options?.temporalMaxFramesPerWindow !== undefined ? { temporalMaxFramesPerWindow: input.options.temporalMaxFramesPerWindow } : {}),
+                    ...(input.options?.temporalPromptTokenBudget !== undefined ? { temporalPromptTokenBudget: input.options.temporalPromptTokenBudget } : {}),
+                    ...(input.options?.temporalRedactSensitive !== undefined ? { temporalRedactSensitive: input.options.temporalRedactSensitive } : {}),
+                    ...(input.options?.temporalPersistWindow !== undefined ? { temporalPersistWindow: input.options.temporalPersistWindow } : {})
                 };
 
                 const stepGen = this.executor.executeStep(
@@ -342,12 +371,28 @@ export class RunTestUseCase {
                             estimatedTokensUsed += Math.ceil(JSON.stringify(action).length / 4);
                             yield { type: 'state_updated', state: currentState };
                             await this.durability.checkpoint(testRunId, currentState, 'action_applied');
-                            this.budgetPolicy.logIfExceeded(testRunId, budgetLimits, {
+
+                            const budgetAssessment = this.budgetPolicy.evaluate(testRunId, budgetLimits, {
                                 actionsTaken: currentState.stepNumber,
                                 elapsedMs: Date.now() - runStartMs,
                                 estimatedTokensUsed,
                                 retryCount
                             });
+
+                            if (budgetAssessment.status === 'exceeded') {
+                                throw new WorkflowError(
+                                    this.budgetPolicy.formatExceededMessage(
+                                        budgetLimits,
+                                        {
+                                            actionsTaken: currentState.stepNumber,
+                                            elapsedMs: Date.now() - runStartMs,
+                                            estimatedTokensUsed,
+                                            retryCount
+                                        },
+                                        budgetAssessment
+                                    )
+                                );
+                            }
 
                             yield { type: 'acting', action: next.value.action };
                         }
@@ -356,6 +401,9 @@ export class RunTestUseCase {
                     result = next.value;
                 } catch (e) {
                     const iteratorError = e instanceof Error ? e : new Error(String(e));
+                    if (iteratorError instanceof WorkflowError && iteratorError.message.startsWith('Run budget exceeded')) {
+                        throw iteratorError;
+                    }
                     result = {
                         success: false,
                         terminal: 'error',
@@ -375,12 +423,34 @@ export class RunTestUseCase {
                     // Step Failed
                     const errorMsg = result ? `${result.code}: ${result.reason}` : 'unknown_error: Unknown error';
                     const replanningTrigger = result ? this.mapResultCodeToReplanningTrigger(result.code) : undefined;
-
-                    this.replanningPolicy.logIfSuggested({
+                    const replanningAssessment = this.replanningPolicy.assess({
                         runId: testRunId,
                         replanCount,
                         ...(replanningTrigger ? { trigger: replanningTrigger } : {})
                     });
+
+                    if (replanningAssessment.suggested) {
+                        this.logger.warn('[ReplanningPolicyService] Replanning suggested (observe-only scaffold)', {
+                            runId: testRunId,
+                            trigger: replanningTrigger,
+                            replanCount,
+                            reason: replanningAssessment.reason
+                        });
+                    }
+
+                    const replanningLimits = this.replanningPolicy.resolveLimits();
+                    yield {
+                        type: 'replanning',
+                        telemetry: {
+                            runId: testRunId,
+                            ...(replanningTrigger ? { trigger: replanningTrigger } : {}),
+                            status: replanningAssessment.suggested ? 'suggested' : 'suppressed',
+                            reason: replanningAssessment.reason,
+                            mode: replanningAssessment.mode,
+                            replanCount,
+                            maxReplansPerRun: replanningLimits.maxReplansPerRun
+                        }
+                    };
 
                     const completedWithFailureItem: PlanItem = { ...item, status: 'completed' as PlanItemStatus };
                     const newItems = [...updatedItems];
@@ -441,10 +511,9 @@ export class RunTestUseCase {
     }
 
     private async resolveRecoveryContext(input: RunTestInput): Promise<RecoveryBootstrapContext | null> {
-        const recoveryFeatureEnabled = process.env['DOMIA_ENABLE_RECOVERY_SCAFFOLD'] === 'true';
         const recoveryRunId = input.options?.recoveryRunId?.trim();
 
-        if (!recoveryFeatureEnabled || !recoveryRunId) {
+        if (!recoveryRunId) {
             return null;
         }
 
@@ -726,65 +795,71 @@ export class RunTestUseCase {
     }
 
     private evaluateSkillScaffold(input: RunTestInput, runId: string): void {
-        if (process.env['DOMIA_ENABLE_SKILL_SCAFFOLD'] !== 'true') {
-            return;
-        }
-
         const skillId = input.options?.preferredSkillId?.trim();
         if (!skillId) {
             return;
         }
 
-        const skill = this.skillRegistry.get(skillId);
-        if (!skill) {
-            this.logger.warn('[RunTestUseCase] Skill preflight skipped: skill not found', { runId, skillId });
-            return;
+        try {
+            const skill = this.skillRegistry.get(skillId);
+            if (!skill) {
+                this.logger.warn('[RunTestUseCase] Skill preflight skipped: skill not found', { runId, skillId });
+                return;
+            }
+
+            const allowedTrustLevels = input.options?.allowedSkillTrustLevels ?? ['verified'];
+            const allowed = this.skillGovernance.isAllowed(skill, allowedTrustLevels);
+
+            this.logger.info('[RunTestUseCase] Skill preflight evaluated', {
+                runId,
+                skillId,
+                skillTrust: skill.trust,
+                allowed
+            });
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            this.logger.warn('[RunTestUseCase] Skill preflight failed non-fatally', { runId, skillId, reason });
         }
-
-        const allowedTrustLevels = input.options?.allowedSkillTrustLevels ?? ['verified'];
-        const allowed = this.skillGovernance.isAllowed(skill, allowedTrustLevels);
-
-        this.logger.info('[RunTestUseCase] Skill preflight evaluated', {
-            runId,
-            skillId,
-            skillTrust: skill.trust,
-            allowed
-        });
     }
 
     private evaluatePluginScaffold(input: RunTestInput, runId: string): void {
-        if (process.env['DOMIA_ENABLE_PLUGIN_SCAFFOLD'] !== 'true') {
-            return;
-        }
-
         const preflight = input.options?.pluginPreflight;
         if (!preflight) {
             return;
         }
 
-        const manifest = this.pluginRegistry.get(preflight.pluginId);
-        if (!manifest) {
-            this.logger.warn('[RunTestUseCase] Plugin preflight skipped: plugin not found', {
+        try {
+            const manifest = this.pluginRegistry.get(preflight.pluginId);
+            if (!manifest) {
+                this.logger.warn('[RunTestUseCase] Plugin preflight skipped: plugin not found', {
+                    runId,
+                    pluginId: preflight.pluginId
+                });
+                return;
+            }
+
+            const result = this.pluginGateway.invoke(manifest, {
                 runId,
-                pluginId: preflight.pluginId
+                pluginId: preflight.pluginId,
+                capability: preflight.capability,
+                payload: {}
             });
-            return;
+
+            this.logger.info('[RunTestUseCase] Plugin preflight evaluated', {
+                runId,
+                pluginId: preflight.pluginId,
+                capability: preflight.capability,
+                success: result.success,
+                message: result.message
+            });
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            this.logger.warn('[RunTestUseCase] Plugin preflight failed non-fatally', {
+                runId,
+                pluginId: preflight.pluginId,
+                reason
+            });
         }
-
-        const result = this.pluginGateway.invoke(manifest, {
-            runId,
-            pluginId: preflight.pluginId,
-            capability: preflight.capability,
-            payload: {}
-        });
-
-        this.logger.info('[RunTestUseCase] Plugin preflight evaluated', {
-            runId,
-            pluginId: preflight.pluginId,
-            capability: preflight.capability,
-            success: result.success,
-            message: result.message
-        });
     }
 
     private resolveRunUrl(platformConfig: RunTestInput['platformConfig']): string {

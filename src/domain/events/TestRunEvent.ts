@@ -2,7 +2,7 @@ import type { TestRunId } from '../value-objects';
 import type { AgentAction } from '../value-objects';
 import type { WorkflowState } from '../value-objects';
 import type { DomainError } from '../errors';
-import type { RecoveryReplayTelemetry } from '@application/dtos';
+import type { RecoveryReplayTelemetry, ReplanningTelemetry } from '@application/dtos';
 
 /**
  * TestRunEvent Discriminated Union
@@ -21,7 +21,8 @@ export type TestRunEvent =
     | PausedEvent
     | CompletedEvent
     | PlanningEvent
-    | RecoveryReplayEvent;
+    | RecoveryReplayEvent
+    | ReplanningEvent;
 
 export interface PlanningEvent {
     readonly type: 'planning';
@@ -81,4 +82,9 @@ export interface CompletedEvent {
 export interface RecoveryReplayEvent {
     readonly type: 'recovery_replay';
     readonly telemetry: RecoveryReplayTelemetry;
+}
+
+export interface ReplanningEvent {
+    readonly type: 'replanning';
+    readonly telemetry: ReplanningTelemetry;
 }

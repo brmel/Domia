@@ -18,6 +18,15 @@ interface TestFormProps {
 export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps): React.ReactElement {
     const { status, setStatus, url, prompt, setPrompt } = useTestRunStore();
     const isRunning = isAgentRunning(status);
+
+    const [temporalObservation, setTemporalObservation] = useState(false);
+    const [temporalMode, setTemporalMode] = useState<'off' | 'baseline' | 'adaptive' | 'forensic'>('adaptive');
+    const [temporalBaselineIntervalMs, setTemporalBaselineIntervalMs] = useState(1000);
+    const [temporalBurstIntervalMs, setTemporalBurstIntervalMs] = useState(120);
+    const [temporalMaxFramesPerWindow, setTemporalMaxFramesPerWindow] = useState(12);
+    const [temporalPromptTokenBudget, setTemporalPromptTokenBudget] = useState(400);
+    const [temporalRedactSensitive, setTemporalRedactSensitive] = useState(true);
+    const [temporalPersistWindow, setTemporalPersistWindow] = useState(true);
     
     // Platform state
     const [selectedPlatform, setSelectedPlatform] = useState<PlatformType>('web');
@@ -97,6 +106,14 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
                 debug: false,
                 vision: config?.ai?.visionEnabled ?? true,
                 debugScreenshots: config?.ai?.debugScreenshots ?? false,
+                temporalObservation,
+                temporalMode,
+                temporalBaselineIntervalMs,
+                temporalBurstIntervalMs,
+                temporalMaxFramesPerWindow,
+                temporalPromptTokenBudget,
+                temporalRedactSensitive,
+                temporalPersistWindow
             }
         };
         
@@ -171,6 +188,111 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
                         disabled={isRunning}
                     />
                 </div>
+
+                <details className="mb-5 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                    <summary className="cursor-pointer text-xs font-bold uppercase tracking-wider text-gray-500">
+                        Advanced Runtime Controls
+                    </summary>
+
+                    <div className="mt-3 space-y-3">
+                        <label className="flex items-center justify-between text-xs text-gray-700">
+                            <span>Temporal Observation</span>
+                            <input
+                                type="checkbox"
+                                checked={temporalObservation}
+                                onChange={(event) => setTemporalObservation(event.target.checked)}
+                                disabled={isRunning}
+                            />
+                        </label>
+
+                        <label className="flex flex-col gap-1 text-xs text-gray-700">
+                            <span>Temporal Mode</span>
+                            <select
+                                value={temporalMode}
+                                onChange={(event) => setTemporalMode(event.target.value as 'off' | 'baseline' | 'adaptive' | 'forensic')}
+                                disabled={isRunning}
+                                className="rounded-md border border-gray-300 bg-white px-2 py-1"
+                            >
+                                <option value="off">Off</option>
+                                <option value="baseline">Baseline</option>
+                                <option value="adaptive">Adaptive</option>
+                                <option value="forensic">Forensic</option>
+                            </select>
+                        </label>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <label className="flex flex-col gap-1 text-xs text-gray-700">
+                                <span>Baseline Interval (ms)</span>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    value={temporalBaselineIntervalMs}
+                                    onChange={(event) => setTemporalBaselineIntervalMs(Math.max(1, Number(event.target.value || 1)))}
+                                    disabled={isRunning}
+                                    className="rounded-md border border-gray-300 bg-white px-2 py-1"
+                                />
+                            </label>
+
+                            <label className="flex flex-col gap-1 text-xs text-gray-700">
+                                <span>Burst Interval (ms)</span>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    value={temporalBurstIntervalMs}
+                                    onChange={(event) => setTemporalBurstIntervalMs(Math.max(1, Number(event.target.value || 1)))}
+                                    disabled={isRunning}
+                                    className="rounded-md border border-gray-300 bg-white px-2 py-1"
+                                />
+                            </label>
+
+                            <label className="flex flex-col gap-1 text-xs text-gray-700">
+                                <span>Frames / Window</span>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    value={temporalMaxFramesPerWindow}
+                                    onChange={(event) => setTemporalMaxFramesPerWindow(Math.max(1, Number(event.target.value || 1)))}
+                                    disabled={isRunning}
+                                    className="rounded-md border border-gray-300 bg-white px-2 py-1"
+                                />
+                            </label>
+
+                            <label className="flex flex-col gap-1 text-xs text-gray-700">
+                                <span>Prompt Budget (tokens)</span>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    value={temporalPromptTokenBudget}
+                                    onChange={(event) => setTemporalPromptTokenBudget(Math.max(1, Number(event.target.value || 1)))}
+                                    disabled={isRunning}
+                                    className="rounded-md border border-gray-300 bg-white px-2 py-1"
+                                />
+                            </label>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <label className="flex items-center justify-between text-xs text-gray-700 rounded-md border border-gray-200 bg-white px-2 py-1.5">
+                                <span>Redact Sensitive</span>
+                                <input
+                                    type="checkbox"
+                                    checked={temporalRedactSensitive}
+                                    onChange={(event) => setTemporalRedactSensitive(event.target.checked)}
+                                    disabled={isRunning}
+                                />
+                            </label>
+
+                            <label className="flex items-center justify-between text-xs text-gray-700 rounded-md border border-gray-200 bg-white px-2 py-1.5">
+                                <span>Persist Window</span>
+                                <input
+                                    type="checkbox"
+                                    checked={temporalPersistWindow}
+                                    onChange={(event) => setTemporalPersistWindow(event.target.checked)}
+                                    disabled={isRunning}
+                                />
+                            </label>
+                        </div>
+                    </div>
+                </details>
 
                 {/* Agent Controls */}
                 <div className="mt-auto pt-4 pb-2 space-y-3">

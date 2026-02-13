@@ -7,14 +7,15 @@ import { AgentStatus } from '../../domain/types/AgentStatus';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { InfoCard } from './ui/InfoCard';
 import { SectionBlock } from './ui/SectionBlock';
+import { RunTimelineView } from './RunTimelineView';
 
 
 export function TestRunner(): React.ReactElement {
-    const { status, currentAction, plan, history, success, summary, errorMessage, handleEvent, testRunId: runId, recoveryReplay } =
+    const { status, currentAction, plan, history, success, summary, errorMessage, handleEvent, testRunId: runId, recoveryReplay, replanningEvents } =
         useTestRunStore();
     const { open } = useStepInspectorStore();
     const [rightRailTab, setRightRailTab] = useState<'execution' | 'safety'>('execution');
-    const [workspaceTab, setWorkspaceTab] = useState<'plan' | 'state' | 'checkpoints'>('plan');
+    const [workspaceTab, setWorkspaceTab] = useState<'plan' | 'state' | 'timeline' | 'checkpoints'>('plan');
 
     const checkpointsQuery = trpc.test.getCheckpoints.useQuery(
         { runId: runId ?? '' },
@@ -244,6 +245,7 @@ export function TestRunner(): React.ReactElement {
                                 items={[
                                     { value: 'plan', label: 'Plan' },
                                     { value: 'state', label: 'State' },
+                                    { value: 'timeline', label: 'Timeline' },
                                     { value: 'checkpoints', label: 'Checkpoints' }
                                 ] as const}
                                 value={workspaceTab}
@@ -334,6 +336,16 @@ export function TestRunner(): React.ReactElement {
                                     <div className="text-xs text-gray-500">No checkpoint events yet.</div>
                                 )}
                             </div>
+                        )}
+
+                        {rightRailTab === 'execution' && workspaceTab === 'timeline' && (
+                            <RunTimelineView
+                                statusLabel={status}
+                                actionTypes={history.map(action => action.type)}
+                                checkpoints={checkpointRecords}
+                                recoveryReplay={recoveryReplay}
+                                replanningEvents={replanningEvents}
+                            />
                         )}
 
                         {rightRailTab === 'safety' && (

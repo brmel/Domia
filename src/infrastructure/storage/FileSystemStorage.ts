@@ -3,6 +3,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import { ConfigService } from '../config/ConfigService';
 import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
+import type { TimelineContextWindow } from '@domain/value-objects/TemporalObservation';
 
 import { IStorageService } from '@domain/ports/IStorageService';
 
@@ -67,11 +68,26 @@ export class FileSystemStorage implements IStorageService {
         await fs.writeJson(filePath, { ...existing, ...trace }, { spaces: 2 });
     }
 
+    async saveTemporalWindow(runId: string, stepNumber: number, temporalWindow: TimelineContextWindow): Promise<Record<string, string>> {
+        const config = this.configService.get();
+        const baseDir = path.resolve(config.paths.artifactsDir, runId, 'steps');
+        await fs.ensureDir(baseDir);
+
+        const filename = `${stepNumber}_timeline.json`;
+        const filePath = path.join(baseDir, filename);
+        await fs.writeJson(filePath, temporalWindow, { spaces: 2 });
+
+        return {
+            timeline: filePath
+        };
+    }
+
     async getStepArtifacts(runId: string, stepNumber: number): Promise<{
         screenshots?: string[];
         dom?: any;
         accessibility?: any;
         trace?: any;
+        temporalWindow?: TimelineContextWindow;
     }> {
         const config = this.configService.get();
         const baseDir = path.resolve(config.paths.artifactsDir, runId, 'steps');
@@ -120,6 +136,11 @@ export class FileSystemStorage implements IStorageService {
         const tracePath = path.join(baseDir, `${stepNumber}_trace.json`);
         if (await fs.pathExists(tracePath)) {
             artifacts.trace = await fs.readJson(tracePath);
+        }
+
+        const timelinePath = path.join(baseDir, `${stepNumber}_timeline.json`);
+        if (await fs.pathExists(timelinePath)) {
+            artifacts.temporalWindow = await fs.readJson(timelinePath);
         }
 
         return artifacts;

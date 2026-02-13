@@ -26,16 +26,10 @@ export class RuntimeReadinessPolicyService {
     ) {}
 
     assess(input: RuntimeReadinessInput, resolvedUrl: string): RuntimeReadinessDecision {
-        const enabled = process.env['DOMIA_ENABLE_READINESS_GATES'] === 'true';
         const mode = this.resolveMode(input.options?.readinessMode);
 
         const config = this.configService.get();
         const apiKeyPresent = Boolean(config.ai.apiKey?.trim());
-
-        const temporalFlagEnabled = process.env['DOMIA_ENABLE_TEMPORAL_OBSERVATION'] === 'true';
-        const recoveryFlagEnabled = process.env['DOMIA_ENABLE_RECOVERY_SCAFFOLD'] === 'true';
-        const skillFlagEnabled = process.env['DOMIA_ENABLE_SKILL_SCAFFOLD'] === 'true';
-        const pluginFlagEnabled = process.env['DOMIA_ENABLE_PLUGIN_SCAFFOLD'] === 'true';
 
         const report = this.readinessGateService.evaluate([
             {
@@ -55,40 +49,8 @@ export class RuntimeReadinessPolicyService {
                 description: 'AI API key should be configured',
                 required: true,
                 passed: apiKeyPresent
-            },
-            {
-                id: 'temporal_flag_alignment',
-                description: 'Temporal observation option should align with feature flag',
-                required: false,
-                passed: !input.options?.temporalObservation || temporalFlagEnabled
-            },
-            {
-                id: 'recovery_flag_alignment',
-                description: 'Recovery options should align with feature flag',
-                required: false,
-                passed: !input.options?.recoveryRunId || recoveryFlagEnabled
-            },
-            {
-                id: 'skill_flag_alignment',
-                description: 'Skill preflight should align with feature flag',
-                required: false,
-                passed: !input.options?.preferredSkillId || skillFlagEnabled
-            },
-            {
-                id: 'plugin_flag_alignment',
-                description: 'Plugin preflight should align with feature flag',
-                required: false,
-                passed: !input.options?.pluginPreflight || pluginFlagEnabled
             }
         ]);
-
-        if (!enabled) {
-            return {
-                mode,
-                blocked: false,
-                report
-            };
-        }
 
         if (report.passed) {
             this.logger.debug('[RuntimeReadinessPolicyService] Readiness checks passed', {
