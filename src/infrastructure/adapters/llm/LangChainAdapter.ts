@@ -53,6 +53,7 @@ export class LangChainAdapter implements ILLMProvider {
                         lastResponse: responseText
                     };
                     this.logger.warn(`[LangChainAdapter] validation failed (attempt ${i + 1}/${retries}): ${lastError.message}`);
+                    this.logger.debug(`[LangChainAdapter] invalid response payload: ${responseText.substring(0, 800)}`);
                 }
             } catch (e: unknown) {
                 const errorMessage = e instanceof Error ? e.message : String(e);

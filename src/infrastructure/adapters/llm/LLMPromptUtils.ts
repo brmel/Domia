@@ -7,6 +7,7 @@ import { ActionType } from '@domain/enums/ActionType';
 import { LLMError } from '@domain/errors';
 
 import { ActionSchema } from '@domain/schemas/ActionSchema';
+import { normalizeActionPayload } from './ActionPayloadNormalizer';
 
 export const LLMPromptUtils = {
     systemPrompt: `You are an autonomous web testing agent. You interact with web pages to verify conditions and achieve goals.
@@ -17,7 +18,15 @@ CAPABILITIES:
 - You receive the viewport dimensions to calculate positions.
 
 TOOLS:
-\${toolDescriptions}
+- click
+- type
+- pressKey
+- scroll
+- wait
+- extract
+- navigate
+- pass
+- fail
 
 LAYOUT ANALYSIS:
 To check if an element is horizontally centered:
@@ -184,11 +193,14 @@ Analyze the elements and their positions, then respond with a single JSON action
             throw new LLMError(`JSON Syntax Error: ${String(e)} in payload: ${jsonStr.substring(0, 100)}...`);
         }
 
+        parsed = normalizeActionPayload(parsed);
+
         const validationResult = ActionSchema.safeParse(parsed);
 
         if (!validationResult.success) {
             const errors = validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
-            throw new LLMError(`Schema Validation Failed: ${errors}`);
+            const payload = JSON.stringify(parsed).slice(0, 400);
+            throw new LLMError(`Schema Validation Failed: ${errors}. Payload: ${payload}`);
         }
 
         const { action, thought = '' } = validationResult.data;

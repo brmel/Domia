@@ -5,6 +5,7 @@ import { AgentAction } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
 import { LoopDetectorService } from './LoopDetectorService';
 import { UrlFactory } from '@domain/value-objects';
+import { AssertionGoalService } from '../assertion/AssertionGoalService';
 
 @injectable()
 export class StepExecutor {
@@ -13,7 +14,8 @@ export class StepExecutor {
         @inject(LoopDetectorService) private loopDetector: LoopDetectorService,
         @inject('IPerceptionPipeline') private perception: IPerceptionPipeline,
         @inject('IStorageService') private storage: IStorageService,
-        @inject('ITraceService') private trace: ITraceService
+        @inject('ITraceService') private trace: ITraceService,
+        @inject(AssertionGoalService) private readonly assertionGoalService: AssertionGoalService
     ) { }
 
     async *executeStep(
@@ -59,6 +61,27 @@ export class StepExecutor {
                 screenshots: options.vision ? frame.vision.screenshots.map(b => b.toString('base64')) : [],
                 accessibilityTree: frame.semantic.accessibility
             };
+
+            const deterministicAction = this.assertionGoalService.evaluate(stepGoal, snapshot);
+            if (deterministicAction) {
+                await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
+                    agentOutput: {
+                        thought: deterministicAction.thought || '',
+                        action: deterministicAction,
+                        rawResponse: 'deterministic-assertion-evaluator'
+                    }
+                });
+
+                yield { type: 'action', action: deterministicAction, assets };
+
+                if (deterministicAction.type === ActionType.PASS) {
+                    return ok(undefined);
+                }
+
+                if (deterministicAction.type === ActionType.FAIL) {
+                    return err(new Error(deterministicAction.reason));
+                }
+            }
 
             const context: LLMContext = {
                 goal: stepGoal,

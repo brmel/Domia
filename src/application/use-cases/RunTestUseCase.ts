@@ -60,11 +60,13 @@ export class RunTestUseCase {
 
         let browser: IBrowserAutomation | undefined;
         let disposeSession: (() => Promise<void>) | undefined;
+        let shouldNavigate = true;
         
         try {
             const session = await this.sessionFactory.createSession(input, testRunId);
             browser = session.browser;
             disposeSession = session.dispose;
+            shouldNavigate = session.shouldNavigate;
             
             if (!browser) {
                 throw new WorkflowError('Failed to initialize browser automation interface');
@@ -90,8 +92,12 @@ export class RunTestUseCase {
 
             yield { type: 'thinking' }; // Loading state
 
-            const navResult = await browser.navigateTo(urlResult.value);
-            if (navResult.isErr()) throw new WorkflowError(`Navigation failed: ${navResult.error.message}`);
+            if (shouldNavigate) {
+                const navResult = await browser.navigateTo(urlResult.value);
+                if (navResult.isErr()) throw new WorkflowError(`Navigation failed: ${navResult.error.message}`);
+            } else {
+                await browser.waitForDOMStable();
+            }
 
             // 1. Planning Phase
             yield { type: 'thinking' };

@@ -48,9 +48,11 @@ export class PlatformSessionFactory {
         }
 
         const executionUrl = this.getExecutionUrlFromInput(input);
+        const shouldNavigate = platformConfig.platform === 'web';
 
         return {
             executionUrl,
+            shouldNavigate,
             browser,
             driver,
             dispose: async () => {
@@ -80,6 +82,7 @@ export class PlatformSessionFactory {
 
         return {
             executionUrl: url,
+            shouldNavigate: true,
             browser,
             dispose: async () => {
                 await browser.close().catch(() => undefined);

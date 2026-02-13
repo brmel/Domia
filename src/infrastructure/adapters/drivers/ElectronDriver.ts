@@ -16,6 +16,7 @@ import { Platform, CDP_CONSTANTS } from '../../../domain/constants/PlatformConst
 import { CDPValidator } from '../../../domain/validators/CDPValidator';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { CommonWebToolsFactory } from './CommonWebToolsFactory';
+import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
 import { PlatformType, ToolScope } from '@domain/tools/ToolMetadata';
 import { PlaywrightAdapter } from '../browser/PlaywrightAdapter';
 import { IBrowserAutomation } from '../../../domain/ports';
@@ -39,6 +40,7 @@ export class ElectronDriver implements IAppDriver {
     constructor(
         @inject(DomScanner) private readonly domScanner: DomScanner,
         @inject(SmartScrollCapture) private readonly screenCapture: SmartScrollCapture,
+        @inject(ElectronWindowSelectionPolicy) private readonly windowSelectionPolicy: ElectronWindowSelectionPolicy,
         @inject('ILogger') private readonly logger: ILogger
     ) {
         this.windowManager = new ElectronWindowManager(logger);
@@ -88,6 +90,8 @@ export class ElectronDriver implements IAppDriver {
             if (config.waitForWindow !== false && this.windowManager.getWindowCount() === 0) {
                 await this.waitForWindow(CDP_CONSTANTS.WINDOW_WAIT_TIMEOUT_MS);
             }
+
+            await this.windowSelectionPolicy.selectTargetWindow(this.windowManager, config.windowTitle);
 
             this.logger.info(`[ElectronDriver] Connected with ${this.windowManager.getWindowCount()} window(s)`);
         } catch (error) {
@@ -174,6 +178,8 @@ export class ElectronDriver implements IAppDriver {
             if (config.waitForWindow !== false && this.windowManager.getWindowCount() === 0) {
                 await this.waitForWindow(CDP_CONSTANTS.WINDOW_WAIT_TIMEOUT_MS);
             }
+
+            await this.windowSelectionPolicy.selectTargetWindow(this.windowManager, config.windowTitle);
 
             this.logger.info(`[ElectronDriver] Launched with ${this.windowManager.getWindowCount()} window(s)`);
         } catch (error) {

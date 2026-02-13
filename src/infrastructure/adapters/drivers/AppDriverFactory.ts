@@ -3,10 +3,9 @@ import { IAppDriver } from '../../../domain/ports/IAppDriver';
 import type { ILogger } from '../../../domain/ports';
 import { WebDriver } from './WebDriver';
 import { ElectronDriver, ElectronConnectionConfig } from './ElectronDriver';
-import { ToolRegistry } from '../../../domain/tools/ToolRegistry';
 import type { PlatformConfig } from '../../../domain/types/PlatformConfig';
 import { PlatformType } from '../../../domain/tools/ToolMetadata';
-import { Platform } from '../../../domain/constants/PlatformConstants';
+import { DriverToolRegistrar } from './DriverToolRegistrar';
 
 /**
  * Configuration for driver creation from PlatformConfig
@@ -41,7 +40,7 @@ export interface DriverConfig {
 export class AppDriverFactory {
     constructor(
         @inject('ILogger') private readonly logger: ILogger,
-        @inject(ToolRegistry) private readonly toolRegistry: ToolRegistry,
+        @inject(DriverToolRegistrar) private readonly toolRegistrar: DriverToolRegistrar,
         @inject(WebDriver) private readonly webDriver: WebDriver,
         @inject(ElectronDriver) private readonly electronDriver: ElectronDriver
     ) { }
@@ -73,8 +72,7 @@ export class AppDriverFactory {
                 throw new Error(`[AppDriverFactory] Unsupported platform: ${(_exhaustive as any).platform}`);
         }
 
-        // Register driver's tools with the registry
-        this.registerDriverTools(driver);
+        this.toolRegistrar.registerDriver(driver);
 
         this.logger.debug(`[AppDriverFactory] Driver created, connected, and tools registered`);
 
@@ -149,39 +147,10 @@ export class AppDriverFactory {
     }
 
     /**
-     * Register all tools provided by a driver with the ToolRegistry
-     */
-    private registerDriverTools(driver: IAppDriver): void {
-        const tools = driver.getTools();
-        const platform = this.mapCapabilitiesPlatform(driver.getCapabilities().platform);
-
-        this.logger.debug(`[AppDriverFactory] Registering ${tools.length} tools for platform: ${platform}`);
-
-        this.toolRegistry.clear();
-        this.toolRegistry.registerMany(tools);
-        this.toolRegistry.setActivePlatform(platform);
-
-        const toolNames = tools.map(t => t.name).join(', ');
-        this.logger.info(`[AppDriverFactory] Registered ${tools.length} tools for ${platform}: ${toolNames}`);
-        this.logger.debug(`[AppDriverFactory] Active platform set to: ${this.toolRegistry.getActivePlatform()}`);
-    }
-
-    /**
      * Get available platforms
      */
     getAvailablePlatforms(): PlatformType[] {
         return ['web', 'electron'];
-    }
-
-    private mapCapabilitiesPlatform(platform: Platform): PlatformType {
-        switch (platform) {
-            case Platform.WEB:
-                return 'web';
-            case Platform.ELECTRON:
-                return 'electron';
-            default:
-                throw new Error(`[AppDriverFactory] Unsupported platform capabilities: ${platform}`);
-        }
     }
 
     /**
@@ -214,7 +183,7 @@ export class AppDriverFactory {
                 throw new Error(`Unsupported platform: ${platform}`);
         }
         
-        this.registerDriverTools(driver);
+        this.toolRegistrar.registerDriver(driver);
         return driver;
     }
 }
