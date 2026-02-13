@@ -8,10 +8,10 @@ This audit checks implementation alignment for:
 - UI architecture expectations for early phases (UI-1/UI-2)
 
 ## Overall Status
-- Runtime Phase 1 foundations: Mostly aligned
+- Runtime Phase 1 foundations: Aligned
 - Recovery real behavior sprint: Implemented (manual-only replay + guard + telemetry)
 - UI architecture: Good foundation, partially complete for UI-2
-- Primary risk: Documentation now lags implementation in recovery behavior details
+- Primary risk: timeline and skills/plugins usage tabs are not yet first-class in Run Workspace
 
 ## Runtime Compliance Matrix
 
@@ -76,30 +76,32 @@ Evidence:
 - [src/application/use-cases/RunTestUseCase.recovery.test.ts](src/application/use-cases/RunTestUseCase.recovery.test.ts)
 - [src/application/services/execution/RecoveryReplayGuardService.test.ts](src/application/services/execution/RecoveryReplayGuardService.test.ts)
 
+### 8) Replanning contract (observe-only scaffold)
+Status: Aligned
+Evidence:
+- [src/application/services/execution/ReplanningPolicyService.ts](src/application/services/execution/ReplanningPolicyService.ts)
+- [src/application/use-cases/RunTestUseCase.ts](src/application/use-cases/RunTestUseCase.ts)
+- [src/application/services/execution/ReplanningPolicyService.test.ts](src/application/services/execution/ReplanningPolicyService.test.ts)
+
+### 9) Replay idempotency dedupe ledger
+Status: Aligned
+Evidence:
+- [src/application/services/execution/RecoveryReplayIdempotencyService.ts](src/application/services/execution/RecoveryReplayIdempotencyService.ts)
+- [src/domain/ports/IPersistenceAdapter.ts](src/domain/ports/IPersistenceAdapter.ts)
+- [src/infrastructure/adapters/persistence/SQLiteAdapter.ts](src/infrastructure/adapters/persistence/SQLiteAdapter.ts)
+- [src/application/use-cases/RunTestUseCase.ts](src/application/use-cases/RunTestUseCase.ts)
+
 ## Known Gaps (Phase 1+)
 
-### A) Replanning contract not yet implemented
-Priority: High
-Expected by design docs:
-- trigger conditions and bounded replanning count
-Current:
-- No explicit replanning policy/service wired in run loop.
-
-### B) Idempotency key usage is local decision-only
+### A) Run Workspace timeline tab and usage tabs
 Priority: Medium
 Current:
-- Guard computes idempotency keys per replayable action class.
-- No persisted dedupe ledger keyed by idempotency key.
-Impact:
-- Safe class gating exists, but key-based dedupe semantics are not yet first-class.
+- Run Workspace includes Plan/State/Checkpoints and Safety, but not first-class Timeline or Skills used / Plugins used tabs.
 
-### C) Documentation drift for recovery behavior
-Priority: High
+### B) Compose advanced options extraction depth
+Priority: Medium
 Current:
-- Some ADR/runbook text still describes recovery as scaffold-only preflight.
-- Runtime now includes manual-only replay + telemetry.
-Required:
-- Update docs to reflect current behavior and rollout controls.
+- Compose is now separated as its own workspace shell, but advanced controls remain in incremental rollout mode.
 
 ## UI Architecture Alignment
 
@@ -111,23 +113,22 @@ Required:
   - plan/state/checkpoints tabs
   - safety panel (readiness + policy view)
   - [src/presentation/components/TestRunner.tsx](src/presentation/components/TestRunner.tsx)
-- Compose-adjacent controls currently embedded in Runs sidebar:
-  - [src/presentation/components/TestForm.tsx](src/presentation/components/TestForm.tsx)
+- Dedicated Compose workspace extracted:
+  - [src/presentation/components/ComposeWorkspace.tsx](src/presentation/components/ComposeWorkspace.tsx)
+- Runs workspace extracted:
+  - [src/presentation/components/RunsWorkspace.tsx](src/presentation/components/RunsWorkspace.tsx)
 
 ### Pending for clear component boundaries
-1. Extract dedicated Compose page from TestForm-in-runs pattern.
-2. Introduce explicit view-model layer for run event stream rows and policy badges.
-3. Add Timeline tab as first-class component (currently absent in Run Workspace tabs).
-4. Add Skills used / Plugins used tabs in Run Workspace.
+1. Introduce explicit view-model layer for run event stream rows and policy badges.
+2. Add Timeline tab as first-class component in Run Workspace.
+3. Add Skills used / Plugins used tabs in Run Workspace.
 
 ## Recommended Next Steps
-1. Update ADR/runbook text to mark manual-only replay as implemented under feature flag.
-2. Add ReplanningPolicyService contract with observe-only mode and bounded counters.
-3. Add persisted replay idempotency ledger (optional but recommended before auto-safe).
-4. Refactor UI by extracting Compose into dedicated section and slimming Runs sidebar.
-5. Add a Run Workspace component contract doc for clear UI component ownership.
+1. Add Run Workspace timeline tab and map replay/replanning telemetry into it.
+2. Add Skills used / Plugins used tabs and event mapping contracts.
+3. Add a Run Workspace component contract doc for clear UI component ownership.
 
 ## Validation Snapshot
 Last verification run:
 - typecheck: pass
-- tests: pass (15 files, 52 tests)
+- tests: pass (16 files, 56 tests)

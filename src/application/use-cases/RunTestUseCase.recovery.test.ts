@@ -12,6 +12,7 @@ import { RunRecoveryPolicyService } from '../services/execution/RunRecoveryPolic
 import { CheckpointCompactionService } from '../services/execution/CheckpointCompactionService';
 import { ManualRecoveryBootstrapService } from '../services/execution/ManualRecoveryBootstrapService';
 import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplayGuardService';
+import { RecoveryReplayIdempotencyService } from '../services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
 import { ActionType } from '@domain/enums/ActionType';
 
@@ -109,6 +110,10 @@ function createUseCaseContext(
     const recoveryBootstrap = new ManualRecoveryBootstrapService();
     const recoveryReplayGuard = new RecoveryReplayGuardService();
     const replanningPolicy = new ReplanningPolicyService(logger as any);
+    const replayIdempotency = {
+        shouldExecute: vi.fn().mockResolvedValue(true),
+        markExecuted: vi.fn().mockResolvedValue(undefined)
+    } as unknown as RecoveryReplayIdempotencyService;
 
     const skillRegistry = { get: vi.fn().mockReturnValue(null) };
     const skillGovernance = { isAllowed: vi.fn().mockReturnValue(false) };
@@ -133,6 +138,7 @@ function createUseCaseContext(
         recoveryBootstrap as any,
         recoveryPolicy as any,
         recoveryReplayGuard as any,
+        replayIdempotency as any,
         replanningPolicy as any,
         skillRegistry as any,
         skillGovernance as any,
@@ -151,7 +157,8 @@ function createUseCaseContext(
         readinessPolicy,
         releaseLane,
         persistence,
-        browser
+        browser,
+        replayIdempotency
     };
 }
 
@@ -441,5 +448,45 @@ describe('RunTestUseCase recovery flow', () => {
 
         expect(ctx.executor.executeStep).not.toHaveBeenCalled();
         expect(events.some(e => e.type === 'completed' && e.success === false)).toBe(true);
+    });
+
+    it('dedupes replay when idempotency key already executed', async () => {
+        const checkpointState = {
+            ...WorkflowState.initial(),
+            stepNumber: 1,
+            plan: createPlan([
+                { id: 'a', description: 'pending', status: 'pending', type: 'general' }
+            ])
+        };
+
+        const sourceSteps: TestStep[] = [
+            {
+                id: 'step-1',
+                testRunId: 'recovery-run',
+                stepNumber: 1,
+                actionType: ActionType.WAIT,
+                actionPayload: { type: ActionType.WAIT, durationMs: 100, thought: 'wait' },
+                timestamp: '2026-01-01T00:00:00.000Z'
+            }
+        ];
+
+        const ctx = createUseCaseContext([createCheckpoint(checkpointState)], sourceSteps);
+        vi.mocked(ctx.replayIdempotency.shouldExecute).mockResolvedValue(false);
+
+        const controller = new ExecutionController();
+
+        for await (const _event of ctx.useCase.execute({
+            platformConfig: { platform: 'web', url: 'https://example.com' },
+            prompt: 'dedupe replay',
+            options: {
+                recoveryMode: 'manual-only',
+                recoveryRunId: 'recovery-run'
+            }
+        }, controller)) {
+        }
+
+        expect(ctx.browser.wait).not.toHaveBeenCalled();
+        expect(ctx.replayIdempotency.markExecuted).not.toHaveBeenCalled();
+        expect(ctx.executor.executeStep).toHaveBeenCalledTimes(1);
     });
 });

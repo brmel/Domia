@@ -18,6 +18,7 @@ import { RecoveryReadModelService } from '../services/execution/RecoveryReadMode
 import { ManualRecoveryBootstrapService } from '../services/execution/ManualRecoveryBootstrapService';
 import { RunRecoveryPolicyService, type RecoveryMode } from '../services/execution/RunRecoveryPolicyService';
 import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplayGuardService';
+import { RecoveryReplayIdempotencyService } from '../services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
 import { SkillRegistryService } from '../services/skills/SkillRegistryService';
 import { SkillGovernanceService } from '../services/skills/SkillGovernanceService';
@@ -66,6 +67,7 @@ export class RunTestUseCase {
         @inject(ManualRecoveryBootstrapService) private readonly recoveryBootstrap: ManualRecoveryBootstrapService,
         @inject(RunRecoveryPolicyService) private readonly recoveryPolicy: RunRecoveryPolicyService,
         @inject(RecoveryReplayGuardService) private readonly recoveryReplayGuard: RecoveryReplayGuardService,
+        @inject(RecoveryReplayIdempotencyService) private readonly recoveryReplayIdempotency: RecoveryReplayIdempotencyService,
         @inject(ReplanningPolicyService) private readonly replanningPolicy: ReplanningPolicyService,
         @inject(SkillRegistryService) private readonly skillRegistry: SkillRegistryService,
         @inject(SkillGovernanceService) private readonly skillGovernance: SkillGovernanceService,
@@ -326,7 +328,10 @@ export class RunTestUseCase {
                                 timestamp: new Date().toISOString()
                             };
 
-                            await this.persistence.saveTestStep(step);
+                            const saveStepResult = await this.persistence.saveTestStep(step);
+                            if (saveStepResult.isErr()) {
+                                throw new WorkflowError(`Failed to persist test step: ${saveStepResult.error.message}`);
+                            }
 
                             // Update state
                             currentState = {
@@ -552,6 +557,31 @@ export class RunTestUseCase {
                 continue;
             }
 
+            const scopedIdempotencyKey = `${decision.idempotencyKey}:source-step:${sourceStep.stepNumber}`;
+
+            let shouldExecute = true;
+            try {
+                shouldExecute = await this.recoveryReplayIdempotency.shouldExecute(testRunId, scopedIdempotencyKey);
+            } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error);
+                return {
+                    type: 'failed',
+                    reason: `Idempotency lookup failed at source step ${sourceStep.stepNumber}: ${reason}`,
+                    replayedCount
+                };
+            }
+
+            if (!shouldExecute) {
+                this.logger.debug('[RunTestUseCase] Recovery replay deduped action by idempotency key', {
+                    testRunId,
+                    sourceRunId,
+                    sourceStepNumber: sourceStep.stepNumber,
+                    idempotencyKey: scopedIdempotencyKey,
+                    actionType: action.type
+                });
+                continue;
+            }
+
             try {
                 await this.executeReplayAction(browser, action);
             } catch (error) {
@@ -559,6 +589,17 @@ export class RunTestUseCase {
                 return {
                     type: 'failed',
                     reason: `Execution failed at source step ${sourceStep.stepNumber}: ${reason}`,
+                    replayedCount
+                };
+            }
+
+            try {
+                await this.recoveryReplayIdempotency.markExecuted(testRunId, scopedIdempotencyKey);
+            } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error);
+                return {
+                    type: 'failed',
+                    reason: `Idempotency write failed at source step ${sourceStep.stepNumber}: ${reason}`,
                     replayedCount
                 };
             }
@@ -572,7 +613,14 @@ export class RunTestUseCase {
                 timestamp: new Date().toISOString()
             };
 
-            await this.persistence.saveTestStep(replayStep);
+            const saveReplayStepResult = await this.persistence.saveTestStep(replayStep);
+            if (saveReplayStepResult.isErr()) {
+                return {
+                    type: 'failed',
+                    reason: `Failed to persist replay step at source step ${sourceStep.stepNumber}: ${saveReplayStepResult.error.message}`,
+                    replayedCount
+                };
+            }
 
             nextState = {
                 ...nextState,

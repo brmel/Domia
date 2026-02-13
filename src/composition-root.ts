@@ -34,6 +34,7 @@ import { RecoveryReadModelService } from './application/services/execution/Recov
 import { ManualRecoveryBootstrapService } from './application/services/execution/ManualRecoveryBootstrapService';
 import { RunRecoveryPolicyService } from './application/services/execution/RunRecoveryPolicyService';
 import { RecoveryReplayGuardService } from './application/services/execution/RecoveryReplayGuardService';
+import { RecoveryReplayIdempotencyService } from './application/services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from './application/services/execution/ReplanningPolicyService';
 import { TemporalObservationPolicyService } from './application/services/perception/TemporalObservationPolicyService';
 import { TimelineContextAssembler } from './application/services/perception/TimelineContextAssembler';
@@ -76,6 +77,7 @@ export function registerCoreServices(): void {
     container.registerSingleton(ManualRecoveryBootstrapService);
     container.registerSingleton(RunRecoveryPolicyService);
     container.registerSingleton(RecoveryReplayGuardService);
+    container.registerSingleton(RecoveryReplayIdempotencyService);
     container.registerSingleton(ReplanningPolicyService);
     container.registerSingleton(TemporalObservationPolicyService);
     container.registerSingleton(TimelineContextAssembler);

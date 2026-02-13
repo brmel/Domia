@@ -1,0 +1,37 @@
+import 'reflect-metadata';
+import { describe, expect, it, vi } from 'vitest';
+import { okAsync, errAsync } from 'neverthrow';
+import { PersistenceError } from '@domain/errors';
+import { RecoveryReplayIdempotencyService } from './RecoveryReplayIdempotencyService';
+
+describe('RecoveryReplayIdempotencyService', () => {
+    it('returns false when idempotency key already exists', async () => {
+        const persistence = {
+            hasReplayIdempotencyKey: vi.fn(() => okAsync(true)),
+            saveReplayIdempotencyKey: vi.fn(() => okAsync(undefined))
+        } as any;
+
+        const service = new RecoveryReplayIdempotencyService(persistence);
+        await expect(service.shouldExecute('run-1', 'key-1')).resolves.toBe(false);
+    });
+
+    it('throws when lookup fails', async () => {
+        const persistence = {
+            hasReplayIdempotencyKey: vi.fn(() => errAsync(new PersistenceError('lookup failed'))),
+            saveReplayIdempotencyKey: vi.fn(() => okAsync(undefined))
+        } as any;
+
+        const service = new RecoveryReplayIdempotencyService(persistence);
+        await expect(service.shouldExecute('run-1', 'key-1')).rejects.toThrow('lookup failed');
+    });
+
+    it('marks key and throws when write fails', async () => {
+        const persistence = {
+            hasReplayIdempotencyKey: vi.fn(() => okAsync(false)),
+            saveReplayIdempotencyKey: vi.fn(() => errAsync(new PersistenceError('write failed')))
+        } as any;
+
+        const service = new RecoveryReplayIdempotencyService(persistence);
+        await expect(service.markExecuted('run-1', 'key-1')).rejects.toThrow('write failed');
+    });
+});

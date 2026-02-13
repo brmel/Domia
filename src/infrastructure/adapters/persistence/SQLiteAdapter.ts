@@ -48,11 +48,19 @@ interface WorkflowCheckpointTable {
     created_at: string;
 }
 
+interface ReplayIdempotencyKeyTable {
+    id: Generated<number>;
+    run_id: string;
+    idempotency_key: string;
+    created_at: string;
+}
+
 interface DatabaseSchema {
     test_runs: TestRunTable;
     test_steps: TestStepTable;
     logs: LogTable;
     workflow_checkpoints: WorkflowCheckpointTable;
+    replay_idempotency_keys: ReplayIdempotencyKeyTable;
 }
 
 @injectable()
@@ -115,6 +123,15 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 state_json JSON NOT NULL,
                 reason TEXT NOT NULL DEFAULT 'action_applied',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(run_id) REFERENCES test_runs(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS replay_idempotency_keys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id TEXT NOT NULL,
+                idempotency_key TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(run_id, idempotency_key),
                 FOREIGN KEY(run_id) REFERENCES test_runs(id)
             );
         `);
@@ -315,6 +332,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 await this.db.deleteFrom('test_steps').execute();
                 await this.db.deleteFrom('logs').execute();
                 await this.db.deleteFrom('workflow_checkpoints').execute();
+                await this.db.deleteFrom('replay_idempotency_keys').execute();
                 await this.db.deleteFrom('test_runs').execute();
             })(),
             (e) => new PersistenceError(`Failed to clear history: ${e}`)
@@ -365,5 +383,31 @@ export class SQLiteAdapter implements IPersistenceAdapter {
             reason: row.reason as import('@domain/value-objects/RunLifecycle').RunCheckpointReason,
             state: JSON.parse(row.state_json)
         })));
+    }
+
+    saveReplayIdempotencyKey(runId: string, idempotencyKey: string): ResultAsync<void, PersistenceError> {
+        return ResultAsync.fromPromise(
+            this.db.insertInto('replay_idempotency_keys')
+                .values({
+                    run_id: runId,
+                    idempotency_key: idempotencyKey,
+                    created_at: new Date().toISOString()
+                })
+                .onConflict(oc => oc.columns(['run_id', 'idempotency_key']).doNothing())
+                .execute(),
+            (e) => new PersistenceError(`Failed to save replay idempotency key: ${e}`)
+        ).map(() => undefined);
+    }
+
+    hasReplayIdempotencyKey(runId: string, idempotencyKey: string): ResultAsync<boolean, PersistenceError> {
+        return ResultAsync.fromPromise(
+            this.db.selectFrom('replay_idempotency_keys')
+                .select(['id'])
+                .where('run_id', '=', runId)
+                .where('idempotency_key', '=', idempotencyKey)
+                .limit(1)
+                .executeTakeFirst(),
+            (e) => new PersistenceError(`Failed to query replay idempotency key: ${e}`)
+        ).map(row => Boolean(row));
     }
 }

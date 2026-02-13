@@ -45,4 +45,8 @@ export interface IPersistenceAdapter {
     ): ResultAsync<void, PersistenceError>;
     getCheckpoint(runId: string): ResultAsync<import('@domain/value-objects/WorkflowState').WorkflowState | null, PersistenceError>;
     getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError>;
+
+    // Recovery Replay Idempotency
+    saveReplayIdempotencyKey(runId: string, idempotencyKey: string): ResultAsync<void, PersistenceError>;
+    hasReplayIdempotencyKey(runId: string, idempotencyKey: string): ResultAsync<boolean, PersistenceError>;
 }
