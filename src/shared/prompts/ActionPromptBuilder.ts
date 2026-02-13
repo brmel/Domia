@@ -79,6 +79,17 @@ export function buildActionUserPrompt(context: LLMContext): string {
         })
         .join('\n');
 
+    const temporalWindowStr = context.temporalWindow
+        ? [
+            `Modeled window: ${context.temporalWindow.fromTimestamp} -> ${context.temporalWindow.toTimestamp}`,
+            `Frames: ${context.temporalWindow.frames.length}`,
+            `Summary: ${context.temporalWindow.summary}`,
+            ...context.temporalWindow.frames.slice(-5).map((frame, index) =>
+                `  ${index + 1}. t=${frame.timestamp} interval=${frame.intervalMs} domHash=${frame.domHash ?? 'n/a'} note=${frame.note ?? 'none'}`
+            )
+        ].join('\n')
+        : 'Not available.';
+
     return `GOAL: ${context.goal}
 
 VIEWPORT: ${context.viewport.width}x${context.viewport.height} pixels
@@ -102,6 +113,9 @@ ${formatPlan(context.plan)}
 
 AVAILABLE TOOLS:
 ${availableTools || 'Use the default core actions (click, type, pressKey, scroll, wait, extract, navigate, pass, fail).'}
+
+TEMPORAL TIMELINE:
+${temporalWindowStr}
 
 STEPS REMAINING: ${context.stepsRemaining}
 

@@ -7,6 +7,10 @@ import { AssertionGoalService } from '../assertion/AssertionGoalService';
 import { ToolContractService } from '../tooling/ToolContractService';
 import type { ToolContext } from '@domain/tools/Tool';
 import type { ToolExecutor } from '../tooling/ToolExecutor';
+import type { ILogger } from '@domain/ports';
+import { TemporalObservationPolicyService } from '../perception/TemporalObservationPolicyService';
+import { TimelineContextAssembler } from '../perception/TimelineContextAssembler';
+import type { SnapshotFrame, TimelineContextWindow } from '@domain/value-objects/TemporalObservation';
 
 export type StepExecutionResult =
     | { readonly success: true; readonly terminal: 'pass' }
@@ -34,7 +38,10 @@ export class StepExecutor {
         @inject('ITraceService') private trace: ITraceService,
         @inject(AssertionGoalService) private readonly assertionGoalService: AssertionGoalService,
         @inject(ToolContractService) private readonly toolContractService: ToolContractService,
-        @inject('IToolExecutor') private readonly toolExecutor: ToolExecutor
+        @inject('IToolExecutor') private readonly toolExecutor: ToolExecutor,
+        @inject(TemporalObservationPolicyService) private readonly temporalPolicy: TemporalObservationPolicyService,
+        @inject(TimelineContextAssembler) private readonly timelineAssembler: TimelineContextAssembler,
+        @inject('ILogger') private readonly logger: ILogger
     ) { }
 
     async *executeStep(
@@ -43,7 +50,13 @@ export class StepExecutor {
         browser: IBrowserAutomation,
         url: string,
         initialStepNumber: number = 0,
-        options: { vision: boolean; debugScreenshots: boolean; maxActions: number } = { vision: true, debugScreenshots: false, maxActions: 20 },
+        options: {
+            vision: boolean;
+            debugScreenshots: boolean;
+            maxActions: number;
+            temporalObservation?: boolean;
+            temporalBurstFrames?: number;
+        } = { vision: true, debugScreenshots: false, maxActions: 20, temporalObservation: false, temporalBurstFrames: 3 },
         executionContext?: { toolContext?: ToolContext }
     ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, StepExecutionResult, unknown> {
         let loopCount = 0;
@@ -66,6 +79,8 @@ export class StepExecutor {
                 };
             }
             const frame = frameResult.value;
+
+            const temporalWindow = await this.captureTemporalWindowIfEnabled(browser, frame, options);
 
             const assets = await this.storage.savePerceptionAssets(runId, currentState.stepNumber + 1, frame);
 
@@ -123,7 +138,8 @@ export class StepExecutor {
                 pageTitle: frame.metadata.title,
                 viewport,
                 stepsRemaining: maxActions - loopCount,
-                availableTools: this.toolContractService.getToolDescriptors()
+                availableTools: this.toolContractService.getToolDescriptors(),
+                ...(temporalWindow ? { temporalWindow } : {})
             };
 
             // Trace: Agent Input (Prompt Context)
@@ -208,6 +224,65 @@ export class StepExecutor {
             terminal: 'max_actions',
             code: 'max_actions_reached',
             reason: `Max actions (${maxActions}) reached for step: ${stepGoal}`
+        };
+    }
+
+    private async captureTemporalWindowIfEnabled(
+        browser: IBrowserAutomation,
+        baseFrame: import('@domain/value-objects/PerceptionFrame').PerceptionFrame,
+        options: {
+            vision: boolean;
+            debugScreenshots: boolean;
+            temporalObservation?: boolean;
+            temporalBurstFrames?: number;
+        }
+    ): Promise<TimelineContextWindow | undefined> {
+        const featureEnabled = process.env['DOMIA_ENABLE_TEMPORAL_OBSERVATION'] === 'true';
+        if (!featureEnabled || !options.temporalObservation) {
+            return undefined;
+        }
+
+        const policy = this.temporalPolicy.resolve();
+        const maxFrames = Math.max(1, Math.min(policy.burstMaxFrames, options.temporalBurstFrames ?? policy.burstMaxFrames));
+
+        const timelineFrames: SnapshotFrame[] = [this.toSnapshotFrame(baseFrame, policy.baselineIntervalMs)];
+        let previousTimestamp = baseFrame.timestamp;
+
+        for (let index = 1; index < maxFrames; index++) {
+            await new Promise(resolve => setTimeout(resolve, policy.burstIntervalMs));
+
+            const frameResult = await this.perception.capture(browser, {
+                vision: options.vision || options.debugScreenshots,
+                aria: true,
+                dom: true
+            });
+
+            if (frameResult.isErr()) {
+                this.logger.debug(`[StepExecutor] Temporal capture stopped at frame ${index}: ${frameResult.error.message}`);
+                break;
+            }
+
+            const frame = frameResult.value;
+            const interval = Math.max(1, frame.timestamp - previousTimestamp);
+            previousTimestamp = frame.timestamp;
+
+            timelineFrames.push(this.toSnapshotFrame(frame, interval));
+        }
+
+        return this.timelineAssembler.assemble(baseFrame.id, timelineFrames, policy.maxFramesPerWindow);
+    }
+
+    private toSnapshotFrame(
+        frame: import('@domain/value-objects/PerceptionFrame').PerceptionFrame,
+        intervalMs: number
+    ): SnapshotFrame {
+        const domHash = `${frame.metadata.url}|${frame.metadata.title}|${frame.semantic.dom?.elements?.length ?? 0}`;
+
+        return {
+            timestamp: frame.timestamp,
+            intervalMs,
+            domHash,
+            note: 'perception-capture'
         };
     }
 }

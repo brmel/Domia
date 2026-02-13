@@ -30,6 +30,20 @@ import { RegistryBackedToolExecutor } from './application/services/tooling/Regis
 import { DefaultToolPolicyService } from './application/services/tooling/ToolPolicyService';
 import { ActionToolMapper } from './shared/tooling/ActionToolMapper';
 import { InMemoryRunExecutionLaneService } from './application/services/execution/RunExecutionLaneService';
+import { RunDurabilityService } from './application/services/execution/RunDurabilityService';
+import { RunBudgetPolicyService } from './application/services/execution/RunBudgetPolicyService';
+import { CheckpointCompactionService } from './application/services/execution/CheckpointCompactionService';
+import { RecoveryReadModelService } from './application/services/execution/RecoveryReadModelService';
+import { RunRecoveryPolicyService } from './application/services/execution/RunRecoveryPolicyService';
+import { TemporalObservationPolicyService } from './application/services/perception/TemporalObservationPolicyService';
+import { TimelineContextAssembler } from './application/services/perception/TimelineContextAssembler';
+import { SkillRegistryService } from './application/services/skills/SkillRegistryService';
+import { SkillGovernanceService } from './application/services/skills/SkillGovernanceService';
+import { PluginCapabilityPolicyService } from './application/services/plugins/PluginCapabilityPolicyService';
+import { PluginGatewayService } from './application/services/plugins/PluginGatewayService';
+import { PluginRegistryService } from './application/services/plugins/PluginRegistryService';
+import { ReadinessGateService } from './application/services/hardening/ReadinessGateService';
+import { RuntimeReadinessPolicyService } from './application/services/hardening/RuntimeReadinessPolicyService';
 
 export function registerCoreServices(): void {
     // 1. Core Services (Config & Persistence)
@@ -57,6 +71,20 @@ export function registerCoreServices(): void {
     container.registerSingleton(TestRunLifecycleManager);
     container.registerSingleton(InMemoryRunExecutionLaneService);
     container.register('IRunExecutionLaneService', { useToken: InMemoryRunExecutionLaneService });
+    container.registerSingleton(RunDurabilityService);
+    container.registerSingleton(RunBudgetPolicyService);
+    container.registerSingleton(CheckpointCompactionService);
+    container.registerSingleton(RecoveryReadModelService);
+    container.registerSingleton(RunRecoveryPolicyService);
+    container.registerSingleton(TemporalObservationPolicyService);
+    container.registerSingleton(TimelineContextAssembler);
+    container.registerSingleton(SkillRegistryService);
+    container.registerSingleton(SkillGovernanceService);
+    container.registerSingleton(PluginRegistryService);
+    container.registerSingleton(PluginCapabilityPolicyService);
+    container.registerSingleton(PluginGatewayService);
+    container.registerSingleton(ReadinessGateService);
+    container.registerSingleton(RuntimeReadinessPolicyService);
     container.registerSingleton(ActionToolMapper);
     container.registerSingleton(BrowserActionToolExecutor);
     container.registerSingleton(RegistryBackedToolExecutor);

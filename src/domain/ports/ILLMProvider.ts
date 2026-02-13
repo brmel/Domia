@@ -25,6 +25,7 @@ export interface LLMContext {
     readonly viewport: { readonly width: number; readonly height: number };
     readonly plan?: import('../entities/Plan').Plan;
     readonly availableTools?: readonly LLMToolDescriptor[];
+    readonly temporalWindow?: import('../value-objects/TemporalObservation').TimelineContextWindow;
 }
 
 /**

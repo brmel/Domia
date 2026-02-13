@@ -9,6 +9,20 @@ export interface RunTestInput {
     prompt: string;
     options?: {
         maxSteps?: number;
+        maxDurationMs?: number;
+        maxEstimatedTokens?: number;
+        maxRetries?: number;
+        recoveryMode?: 'observe' | 'manual-only' | 'auto-safe';
+        recoveryRunId?: string;
+        temporalObservation?: boolean;
+        temporalBurstFrames?: number;
+        preferredSkillId?: string;
+        allowedSkillTrustLevels?: ('draft' | 'verified' | 'restricted')[];
+        pluginPreflight?: {
+            pluginId: string;
+            capability: import('../domain/plugins/PluginManifest').PluginCapability;
+        };
+        readinessMode?: 'observe' | 'soft-enforce';
         headless?: boolean;
         vision?: boolean;
         debugScreenshots?: boolean;

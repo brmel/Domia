@@ -2,6 +2,8 @@ import { ResultAsync } from 'neverthrow';
 import { PersistenceError } from '@domain/errors';
 import { AgentAction } from '@domain/value-objects';
 import { TestRun } from '@domain/entities/TestRun';
+import type { RunCheckpointReason } from '@domain/value-objects/RunLifecycle';
+import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 
 // Removed local TestRun interface in favor of Domain Entity
 
@@ -36,6 +38,11 @@ export interface IPersistenceAdapter {
     clearHistory(): ResultAsync<void, PersistenceError>;
 
     // Durable Workflow
-    saveCheckpoint(runId: string, state: import('@domain/value-objects/WorkflowState').WorkflowState): ResultAsync<void, PersistenceError>;
+    saveCheckpoint(
+        runId: string,
+        state: import('@domain/value-objects/WorkflowState').WorkflowState,
+        reason: RunCheckpointReason
+    ): ResultAsync<void, PersistenceError>;
     getCheckpoint(runId: string): ResultAsync<import('@domain/value-objects/WorkflowState').WorkflowState | null, PersistenceError>;
+    getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError>;
 }

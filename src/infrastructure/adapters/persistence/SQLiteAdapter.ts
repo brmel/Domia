@@ -44,6 +44,7 @@ interface WorkflowCheckpointTable {
     id: Generated<number>;
     run_id: string;
     state_json: string;
+    reason: string;
     created_at: string;
 }
 
@@ -112,6 +113,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 run_id TEXT NOT NULL,
                 state_json JSON NOT NULL,
+                reason TEXT NOT NULL DEFAULT 'action_applied',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(run_id) REFERENCES test_runs(id)
             );
@@ -119,6 +121,12 @@ export class SQLiteAdapter implements IPersistenceAdapter {
 
         try {
             database.exec('ALTER TABLE test_steps ADD COLUMN assets_json JSON;');
+        } catch (e) {
+            // Column likely already exists, ignore
+        }
+
+        try {
+            database.exec("ALTER TABLE workflow_checkpoints ADD COLUMN reason TEXT NOT NULL DEFAULT 'action_applied';");
         } catch (e) {
             // Column likely already exists, ignore
         }
@@ -313,12 +321,17 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         ).map(() => undefined);
     }
 
-    saveCheckpoint(runId: string, state: import('@domain/value-objects/WorkflowState').WorkflowState): ResultAsync<void, PersistenceError> {
+    saveCheckpoint(
+        runId: string,
+        state: import('@domain/value-objects/WorkflowState').WorkflowState,
+        reason: import('@domain/value-objects/RunLifecycle').RunCheckpointReason
+    ): ResultAsync<void, PersistenceError> {
         return ResultAsync.fromPromise(
             this.db.insertInto('workflow_checkpoints')
                 .values({
                     run_id: runId,
                     state_json: JSON.stringify(state),
+                    reason,
                     created_at: new Date().toISOString()
                 })
                 .execute(),
@@ -336,5 +349,21 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 .executeTakeFirst(),
             (e) => new PersistenceError(`Failed to get checkpoint: ${e}`)
         ).map(row => row ? JSON.parse(row.state_json) : null);
+    }
+
+    getCheckpointRecords(runId: string): ResultAsync<import('@domain/value-objects/CheckpointReadModel').CheckpointRecord[], PersistenceError> {
+        return ResultAsync.fromPromise(
+            this.db.selectFrom('workflow_checkpoints')
+                .select(['run_id', 'state_json', 'reason', 'created_at'])
+                .where('run_id', '=', runId)
+                .orderBy('created_at', 'asc')
+                .execute(),
+            (e) => new PersistenceError(`Failed to get checkpoint records: ${e}`)
+        ).map(rows => rows.map(row => ({
+            runId: row.run_id,
+            createdAt: row.created_at,
+            reason: row.reason as import('@domain/value-objects/RunLifecycle').RunCheckpointReason,
+            state: JSON.parse(row.state_json)
+        })));
     }
 }
