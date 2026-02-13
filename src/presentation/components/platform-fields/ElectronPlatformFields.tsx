@@ -1,17 +1,21 @@
 import { cn } from '../../../lib/utils';
 import type { FieldRenderProps } from '../../config/platformRegistry';
-import { useState } from 'react';
-import type { ElectronConnection } from '../../../domain/types/PlatformConfig';
+import type {
+  ElectronConnection,
+  ElectronPlatformConfig,
+  ElectronCDPConnection,
+  ElectronExecutableConnection,
+} from '../../../domain/types/PlatformConfig';
 
 export function ElectronPlatformFields({ value, onChange, errors, disabled }: FieldRenderProps): React.ReactElement {
-  const connection: ElectronConnection = value?.connection || { type: 'cdp', cdpUrl: 'http://localhost:9222' };
-  const [connectionType, setConnectionType] = useState<'cdp' | 'executable'>(connection.type);
+  const electronValue = value as Omit<ElectronPlatformConfig, 'platform' | 'prompt'>;
+  const connection: ElectronConnection = electronValue.connection || { type: 'cdp', cdpUrl: 'http://localhost:9222' };
+  const connectionType: 'cdp' | 'executable' = connection.type;
 
   const handleTypeChange = (newType: 'cdp' | 'executable') => {
-    setConnectionType(newType);
     if (newType === 'cdp') {
       onChange({
-        ...value,
+        ...electronValue,
         connection: {
           type: 'cdp',
           cdpUrl: 'http://localhost:9222',
@@ -19,7 +23,7 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
       });
     } else {
       onChange({
-        ...value,
+        ...electronValue,
         connection: {
           type: 'executable',
           executablePath: '',
@@ -28,10 +32,50 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
     }
   };
 
-  const updateConnection = (updates: Partial<ElectronConnection>) => {
+  const updateCdpConnection = (updates: Partial<Omit<ElectronCDPConnection, 'type'>>) => {
+    if (connection.type !== 'cdp') {
+      return;
+    }
+
+    const nextConnection: ElectronCDPConnection = {
+      type: 'cdp',
+      cdpUrl: updates.cdpUrl ?? connection.cdpUrl,
+      ...(updates.windowTitle !== undefined
+        ? { windowTitle: updates.windowTitle }
+        : connection.windowTitle !== undefined
+          ? { windowTitle: connection.windowTitle }
+          : {}),
+    };
+
     onChange({
-      ...value,
-      connection: { ...connection, ...updates }
+      ...electronValue,
+      connection: nextConnection,
+    });
+  };
+
+  const updateExecutableConnection = (updates: Partial<Omit<ElectronExecutableConnection, 'type'>>) => {
+    if (connection.type !== 'executable') {
+      return;
+    }
+
+    const nextConnection: ElectronExecutableConnection = {
+      type: 'executable',
+      executablePath: updates.executablePath ?? connection.executablePath,
+      ...(updates.launchArgs !== undefined
+        ? { launchArgs: updates.launchArgs }
+        : connection.launchArgs !== undefined
+          ? { launchArgs: connection.launchArgs }
+          : {}),
+      ...(updates.windowTitle !== undefined
+        ? { windowTitle: updates.windowTitle }
+        : connection.windowTitle !== undefined
+          ? { windowTitle: connection.windowTitle }
+          : {}),
+    };
+
+    onChange({
+      ...electronValue,
+      connection: nextConnection,
     });
   };
 
@@ -90,7 +134,7 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
             type="text"
             placeholder="http://localhost:9222"
             value={connection.cdpUrl}
-            onChange={(e) => updateConnection({ cdpUrl: e.target.value })}
+            onChange={(e) => updateCdpConnection({ cdpUrl: e.target.value })}
             disabled={disabled}
           />
           {errors['connection.cdpUrl'] && (
@@ -119,7 +163,7 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
               type="text"
               placeholder="/Applications/YourApp.app or C:\Program Files\YourApp\app.exe"
               value={connection.executablePath}
-              onChange={(e) => updateConnection({ executablePath: e.target.value })}
+              onChange={(e) => updateExecutableConnection({ executablePath: e.target.value })}
               disabled={disabled}
             />
             {errors['connection.executablePath'] && (
@@ -140,10 +184,18 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
               onChange={(e) => {
                 if (connection.type === 'executable') {
                   const args = e.target.value ? e.target.value.split(' ') : undefined;
-                  onChange({
-                    ...value,
-                    connection: { ...connection, launchArgs: args }
-                  });
+                  if (args === undefined) {
+                    onChange({
+                      ...electronValue,
+                      connection: {
+                        type: 'executable',
+                        executablePath: connection.executablePath,
+                        ...(connection.windowTitle !== undefined ? { windowTitle: connection.windowTitle } : {}),
+                      },
+                    });
+                  } else {
+                    updateExecutableConnection({ launchArgs: args });
+                  }
                 }
               }}
               disabled={disabled}
@@ -166,11 +218,12 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
           placeholder="App Title"
           value={connection.windowTitle || ''}
           onChange={(e) => {
-            const title = e.target.value || undefined;
-            onChange({
-              ...value,
-              connection: { ...connection, windowTitle: title }
-            });
+            const title = e.target.value;
+            if (connection.type === 'cdp') {
+              updateCdpConnection({ windowTitle: title });
+            } else {
+              updateExecutableConnection({ windowTitle: title });
+            }
           }}
           disabled={disabled}
         />

@@ -7,8 +7,8 @@ import { Button } from './ui/Button';
 import { AgentStatus } from '../../domain/types/AgentStatus';
 import { canStart, canPause, canResume, canStop, isAgentRunning } from '../utils/agentStateUtils';
 import { PlatformSelector } from './PlatformSelector';
-import { getPlatformDefinition } from '../config/platformRegistry';
-import type { PlatformType, PlatformConfig } from '../../domain/types/PlatformConfig';
+import { platformRegistry, type PlatformFieldValue } from '../config/platformRegistry';
+import type { PlatformType, PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../domain/types/PlatformConfig';
 
 interface TestFormProps {
     onOpenHistory: () => void;
@@ -21,7 +21,7 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
     
     // Platform state - default to 'web' for backward compatibility
     const [selectedPlatform, setSelectedPlatform] = useState<PlatformType>('web');
-    const [platformData, setPlatformData] = useState<any>({
+    const [platformData, setPlatformData] = useState<PlatformFieldValue>({
         url: url || '',
     });
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -40,13 +40,42 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
 
     const handlePlatformChange = (newPlatform: PlatformType) => {
         setSelectedPlatform(newPlatform);
-        const definition = getPlatformDefinition(newPlatform);
+        const definition = platformRegistry[newPlatform];
         setPlatformData(definition.defaultValues);
         setFieldErrors({});
     };
 
-    const handleFieldChange = (newData: any) => {
+    const handleFieldChange = (newData: PlatformFieldValue) => {
         setPlatformData(newData);
+    };
+
+    const buildPlatformConfig = (
+        platform: PlatformType,
+        promptValue: string,
+        fieldValue: PlatformFieldValue
+    ): PlatformConfig => {
+        switch (platform) {
+            case 'web': {
+                const webFields = fieldValue as Omit<WebPlatformConfig, 'platform' | 'prompt'>;
+                return {
+                    platform: 'web',
+                    prompt: promptValue,
+                    url: webFields.url,
+                };
+            }
+            case 'electron': {
+                const electronFields = fieldValue as Omit<ElectronPlatformConfig, 'platform' | 'prompt'>;
+                return {
+                    platform: 'electron',
+                    prompt: promptValue,
+                    connection: electronFields.connection,
+                };
+            }
+            default: {
+                const exhaustive: never = platform;
+                throw new Error(`Unsupported platform: ${String(exhaustive)}`);
+            }
+        }
     };
 
     const onSubmit = (e: React.FormEvent): void => {
@@ -57,17 +86,13 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
         }
 
         // Build platform config
-        const platformConfig: PlatformConfig = {
-            platform: selectedPlatform,
-            prompt: prompt,
-            ...platformData,
-        } as PlatformConfig;
+        const platformConfig = buildPlatformConfig(selectedPlatform, prompt, platformData);
 
         // For backward compatibility, also send legacy format
-        const legacyUrl = selectedPlatform === 'web' 
-            ? platformData.url 
-            : selectedPlatform === 'electron' && platformData.connection?.type === 'cdp'
-            ? platformData.connection.cdpUrl
+        const legacyUrl = platformConfig.platform === 'web'
+            ? platformConfig.url
+            : platformConfig.platform === 'electron' && platformConfig.connection.type === 'cdp'
+            ? platformConfig.connection.cdpUrl
             : '';
 
         setStatus(AgentStatus.RUNNING);
@@ -117,7 +142,7 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
     };
 
     const canSubmit = prompt.trim().length > 0 && !isRunning;
-    const platformDefinition = getPlatformDefinition(selectedPlatform);
+    const platformDefinition = platformRegistry[selectedPlatform];
     const PlatformFields = platformDefinition.renderFields;
 
     return (

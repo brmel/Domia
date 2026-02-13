@@ -34,7 +34,7 @@ export class StepExecutor {
             // Perception
             // Capture if either Vision (LLM) or DebugScreenshots is enabled
             const shouldCaptureVision = options.vision || options.debugScreenshots;
-            const frameResult = await this.perception.capture({ vision: shouldCaptureVision, aria: true, dom: true });
+            const frameResult = await this.perception.capture(browser, { vision: shouldCaptureVision, aria: true, dom: true });
             if (frameResult.isErr()) return err(new Error(`Perception failed: ${frameResult.error.message}`));
             const frame = frameResult.value;
 

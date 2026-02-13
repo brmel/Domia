@@ -1,6 +1,21 @@
 import { spawn, ChildProcess } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import * as net from 'net';
+
+export async function getFreePort(): Promise<number> {
+    return new Promise((resolve, reject) => {
+        const server = net.createServer();
+        server.unref();
+        server.on('error', reject);
+        server.listen(0, () => {
+            const port = (server.address() as net.AddressInfo).port;
+            server.close(() => {
+                resolve(port);
+            });
+        });
+    });
+}
 
 export interface CLITestConfig {
     url?: string;
@@ -29,6 +44,21 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
     try {
         const args = ['run'];
         
+        // Dynamic port allocation for Electron tests
+        let envUpdates: Record<string, string> = {};
+
+        if (config.executablePath) {
+            const port = await getFreePort();
+            envUpdates['ELECTRON_REMOTE_DEBUGGING_PORT'] = port.toString();
+            
+            // Allow launch args to override or append
+            const launchArgs = config.launchArgs || [];
+            // Note: We rely on env var to set port to avoid "bad option" errors with packaged apps
+            
+            // Pass back to config for args generation below
+            config.launchArgs = launchArgs;
+        }
+
         if (config.url) {
             args.push('--url', config.url);
         } else if (config.cdpUrl) {
@@ -38,6 +68,11 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
             }
         } else if (config.executablePath) {
             args.push('--executable-path', config.executablePath);
+            if (config.launchArgs) {
+                // Join args with comma for CLI parsing compatibility if needed, or pass multiple fields?
+                // RunCommand expects comma-separated string for --launch-args
+                args.push('--launch-args', config.launchArgs.join(','));
+            }
             if (config.windowTitle) {
                 args.push('--window-title', config.windowTitle);
             }
@@ -58,7 +93,7 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
             args.push('--screenshots');
         }
         
-        const result = await spawnCLI(args);
+        const result = await spawnCLI(args, envUpdates);
         const duration = Date.now() - startTime;
         
         const output = result.stdout + result.stderr;
@@ -90,14 +125,14 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
     }
 }
 
-function spawnCLI(args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+function spawnCLI(args: string[], extraEnv: Record<string, string> = {}): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     return new Promise((resolve) => {
         let stdout = '';
         let stderr = '';
         
         const cli = spawn('npm', ['run', 'cli', '--', ...args], {
             cwd: process.cwd(),
-            env: { ...process.env, NODE_OPTIONS: '--no-deprecation' }
+            env: { ...process.env, ...extraEnv, NODE_OPTIONS: '--no-deprecation' }
         });
         
         cli.stdout?.on('data', (data) => {
@@ -148,29 +183,31 @@ function extractErrors(output: string): string[] {
 
 export async function launchElectronApp(appPath: string, cdpPort: number = 9222): Promise<ChildProcess> {
     return new Promise((resolve, reject) => {
-        const app = spawn(appPath, [`--remote-debugging-port=${cdpPort}`], {
+        // Use Env Var instead of flag to avoid "bad option" errors
+        const env = { ...process.env, ELECTRON_REMOTE_DEBUGGING_PORT: cdpPort.toString() };
+
+        const app = spawn(appPath, [], {
             detached: false,
-            stdio: 'pipe'
+            stdio: 'pipe',
+            env
         });
         
         app.stdout?.on('data', (data) => {
             const output = data.toString();
             console.log(`[Electron App] ${output}`);
-            
-            if (output.includes('ready') || output.includes('started')) {
-                resolve(app);
-            }
         });
-        
+
         app.stderr?.on('data', (data) => {
-            console.error(`[Electron App Error] ${data}`);
+            console.error(`[Electron App Error] ${data.toString()}`);
         });
         
         app.on('error', (error) => {
             reject(error);
         });
-        
-        setTimeout(() => resolve(app), 30000);
+
+        // Give it a small delay to crash if it's going to crash immediately, catch startup errors
+        // but verify startup externally (e.g. via waitForCDP)
+        setTimeout(() => resolve(app), 2000);
     });
 }
 

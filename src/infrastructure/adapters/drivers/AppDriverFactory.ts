@@ -1,4 +1,4 @@
-import { injectable, inject, container } from 'tsyringe';
+import { injectable, inject } from 'tsyringe';
 import { IAppDriver } from '../../../domain/ports/IAppDriver';
 import type { ILogger } from '../../../domain/ports';
 import { WebDriver } from './WebDriver';
@@ -6,6 +6,7 @@ import { ElectronDriver, ElectronConnectionConfig } from './ElectronDriver';
 import { ToolRegistry } from '../../../domain/tools/ToolRegistry';
 import type { PlatformConfig } from '../../../domain/types/PlatformConfig';
 import { PlatformType } from '../../../domain/tools/ToolMetadata';
+import { Platform } from '../../../domain/constants/PlatformConstants';
 
 /**
  * Configuration for driver creation from PlatformConfig
@@ -40,7 +41,9 @@ export interface DriverConfig {
 export class AppDriverFactory {
     constructor(
         @inject('ILogger') private readonly logger: ILogger,
-        @inject(ToolRegistry) private readonly toolRegistry: ToolRegistry
+        @inject(ToolRegistry) private readonly toolRegistry: ToolRegistry,
+        @inject(WebDriver) private readonly webDriver: WebDriver,
+        @inject(ElectronDriver) private readonly electronDriver: ElectronDriver
     ) { }
 
     /**
@@ -86,7 +89,7 @@ export class AppDriverFactory {
             throw new Error('[AppDriverFactory] Invalid platform config for WebDriver');
         }
 
-        const driver = container.resolve(WebDriver);
+        const driver = this.webDriver;
         
         // Connect with web-specific options
         const connectResult = await driver.connect({
@@ -109,14 +112,14 @@ export class AppDriverFactory {
             throw new Error('[AppDriverFactory] Invalid platform config for ElectronDriver');
         }
 
-        const driver = container.resolve(ElectronDriver);
+        const driver = this.electronDriver;
         const connection = config.platformConfig.connection;
 
         // Handle different connection types
         if (connection.type === 'cdp') {
             const connectConfig: ElectronConnectionConfig = {
                 cdpUrl: connection.cdpUrl,
-                windowTitle: connection.windowTitle,
+                ...(connection.windowTitle !== undefined ? { windowTitle: connection.windowTitle } : {}),
             };
             
             const connectResult = await driver.connect(connectConfig);
@@ -129,8 +132,8 @@ export class AppDriverFactory {
         } else {
             const launchConfig: ElectronConnectionConfig = {
                 executablePath: connection.executablePath,
-                launchArgs: connection.launchArgs,
-                windowTitle: connection.windowTitle,
+                ...(connection.launchArgs !== undefined ? { launchArgs: connection.launchArgs } : {}),
+                ...(connection.windowTitle !== undefined ? { windowTitle: connection.windowTitle } : {}),
             };
             
             const launchResult = await driver.connect(launchConfig);
@@ -150,7 +153,7 @@ export class AppDriverFactory {
      */
     private registerDriverTools(driver: IAppDriver): void {
         const tools = driver.getTools();
-        const platform = driver.getCapabilities().platform as unknown as PlatformType;
+        const platform = this.mapCapabilitiesPlatform(driver.getCapabilities().platform);
 
         this.logger.debug(`[AppDriverFactory] Registering ${tools.length} tools for platform: ${platform}`);
 
@@ -170,6 +173,17 @@ export class AppDriverFactory {
         return ['web', 'electron'];
     }
 
+    private mapCapabilitiesPlatform(platform: Platform): PlatformType {
+        switch (platform) {
+            case Platform.WEB:
+                return 'web';
+            case Platform.ELECTRON:
+                return 'electron';
+            default:
+                throw new Error(`[AppDriverFactory] Unsupported platform capabilities: ${platform}`);
+        }
+    }
+
     /**
      * Create driver from legacy config format (backward compatibility)
      * @deprecated Use createDriver with PlatformConfig instead
@@ -181,7 +195,7 @@ export class AppDriverFactory {
         
         switch (platform) {
             case 'web':
-                driver = container.resolve(WebDriver);
+                driver = this.webDriver;
                 const webResult = await driver.connect(connectionOptions);
                 if (webResult.isErr()) {
                     throw new Error(`WebDriver connection failed: ${webResult.error.message}`);
@@ -189,7 +203,7 @@ export class AppDriverFactory {
                 break;
                 
             case 'electron':
-                driver = container.resolve(ElectronDriver);
+                driver = this.electronDriver;
                 const electronResult = await driver.connect(connectionOptions);
                 if (electronResult.isErr()) {
                     throw new Error(`ElectronDriver connection failed: ${electronResult.error.message}`);

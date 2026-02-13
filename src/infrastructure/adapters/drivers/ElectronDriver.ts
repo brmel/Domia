@@ -1,5 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
+import { spawn, ChildProcess } from 'child_process';
 import { chromium, Browser, Page } from 'playwright';
 import { z } from 'zod';
 import { IAppDriver, AppCapabilities } from '../../../domain/ports/IAppDriver';
@@ -16,6 +17,9 @@ import { CDPValidator } from '../../../domain/validators/CDPValidator';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { CommonWebToolsFactory } from './CommonWebToolsFactory';
 import { PlatformType, ToolScope } from '@domain/tools/ToolMetadata';
+import { PlaywrightAdapter } from '../browser/PlaywrightAdapter';
+import { IBrowserAutomation } from '../../../domain/ports';
+import { okAsync } from 'neverthrow';
 
 export interface ElectronConnectionConfig {
     readonly cdpUrl?: string;
@@ -29,6 +33,7 @@ export interface ElectronConnectionConfig {
 @injectable()
 export class ElectronDriver implements IAppDriver {
     private browser: Browser | null = null;
+    private appProcess: ChildProcess | null = null;
     private readonly windowManager: ElectronWindowManager;
 
     constructor(
@@ -93,24 +98,75 @@ export class ElectronDriver implements IAppDriver {
     
     private async doLaunch(config: ElectronConnectionConfig): Promise<void> {
         this.logger.info(`[ElectronDriver] Launching Electron app: ${config.executablePath}`);
+        this.logger.info(`[ElectronDriver] Env Port: ${process.env['ELECTRON_REMOTE_DEBUGGING_PORT']}`);
 
         try {
-            // When launching a packaged Electron app, we must ignore default Chrome arguments
-            // as they might cause the app to crash or reject the flags.
-            // We ensure remote debugging is enabled.
-            const defaultArgs = ['--remote-debugging-port=9222'];
-            const args = [
-                ...(config.launchArgs || []),
-                // Only add default port if not already provided
-                ...(config.launchArgs?.some(a => a.includes('remote-debugging-port')) ? [] : defaultArgs)
-            ];
+            const port = process.env['ELECTRON_REMOTE_DEBUGGING_PORT'];
 
-            this.browser = await chromium.launch({
-                executablePath: config.executablePath!,
-                args,
-                timeout: config.connectionTimeout || CDP_CONSTANTS.CONNECTION_TIMEOUT_MS,
-                ignoreDefaultArgs: true
-            });
+            if (port) {
+                this.logger.info(`[ElectronDriver] Spawning process manually with port ${port}`);
+
+                // CRITICAL: process.env contains ELECTRON_RUN_AS_NODE=1 because the CLI runs via electron.
+                // We MUST remove this when spawning the actual packaged app, otherwise it runs as Node
+                // and fails to launch the app logic/CDP server.
+                const env = { ...process.env };
+                delete env['ELECTRON_RUN_AS_NODE'];
+
+                this.appProcess = spawn(config.executablePath!, config.launchArgs || [], {
+                    env, 
+                    detached: false,
+                    stdio: 'pipe'
+                });
+
+                this.logger.info(`[ElectronDriver] Process spawned with PID: ${this.appProcess.pid}`);
+
+                this.appProcess.stdout?.on('data', (data) => {
+                    this.logger.info(`[Electron App] ${data.toString()}`);
+                });
+                
+                this.appProcess.stderr?.on('data', (data) => {
+                    this.logger.warn(`[Electron App Err] ${data.toString()}`);
+                });
+
+                const cdpUrl = `http://127.0.0.1:${port}`;
+                let connected = false;
+                let lastError;
+
+                for (let i = 0; i < 20; i++) {
+                    try {
+                        this.browser = await chromium.connectOverCDP(cdpUrl, {
+                            timeout: config.connectionTimeout || 5000
+                        });
+                        connected = true;
+                        break;
+                    } catch (err) {
+                        lastError = err;
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                }
+
+                if (!connected) {
+                    throw new Error(`Failed to connect to manually spawned Electron app after retries: ${lastError}`);
+                }
+            } else {
+                // When launching a packaged Electron app, we must ignore default Chrome arguments
+                // as they might cause the app to crash or reject the flags.
+                // We ensure remote debugging is enabled.
+                const defaultArgs = ['--remote-debugging-port=9222'];
+
+                const args = [
+                    ...(config.launchArgs || []),
+                    // Only add default port if not already provided
+                    ...(config.launchArgs?.some(a => a.includes('remote-debugging-port')) ? [] : defaultArgs)
+                ];
+
+                this.browser = await chromium.launch({
+                    executablePath: config.executablePath!,
+                    args,
+                    timeout: config.connectionTimeout || CDP_CONSTANTS.CONNECTION_TIMEOUT_MS,
+                    ignoreDefaultArgs: true
+                });
+            }
 
             this.logger.debug('[ElectronDriver] App launched successfully');
             await this.discoverWindows();
@@ -136,6 +192,12 @@ export class ElectronDriver implements IAppDriver {
                 this.logger.warn(`[ElectronDriver] Error closing browser: ${err}`);
             });
             this.browser = null;
+        }
+
+        if (this.appProcess) {
+            this.logger.info('[ElectronDriver] Killing spawned app process');
+            this.appProcess.kill();
+            this.appProcess = null;
         }
     }
 
@@ -509,9 +571,28 @@ export class ElectronDriver implements IAppDriver {
      * Note: ElectronDriver doesn't use MonoBrowserAdapter like WebDriver,
      * so this creates a minimal adapter around the active window.
      */
-    getBrowserAutomation(): import('../../../domain/ports').IBrowserAutomation {
-        // For now, throw an error - ElectronDriver should be used directly
-        // or we need to implement a proper adapter
-        throw new Error('[ElectronDriver] getBrowserAutomation() not yet implemented. Use Electron tools directly.');
+    getBrowserAutomation(): IBrowserAutomation {
+        const win = this.windowManager.getActiveWindow();
+        if (!win) {
+             throw new Error('[ElectronDriver] No active window available for browser automation.');
+        }
+        
+        const adapter = new AttachedPlaywrightAdapter(
+             {} as any, 
+             this.logger
+        );
+        adapter.setPage(win.page);
+        return adapter;
+    }
+}
+
+class AttachedPlaywrightAdapter extends PlaywrightAdapter {
+    setPage(page: Page) {
+        (this as any).page = page;
+        (this as any).browser = page.context().browser();
+    }
+
+    override launch(): ResultAsync<void, NavigationError> {
+        return okAsync(undefined);
     }
 }

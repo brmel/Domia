@@ -1,6 +1,4 @@
 
-import { ZodSchema } from 'zod';
-import { ResultAsync } from 'neverthrow';
 import { IBrowserAutomation, ILogger, IExecutionController } from '../ports';
 import { IAppDriver } from '../ports/IAppDriver';
 import type { PlatformType } from './ToolMetadata';

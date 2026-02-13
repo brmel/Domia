@@ -1,8 +1,10 @@
 import { cn } from '../../../lib/utils';
 import type { FieldRenderProps } from '../../config/platformRegistry';
+import type { WebPlatformConfig } from '../../../domain/types/PlatformConfig';
 
 export function WebPlatformFields({ value, onChange, errors, disabled }: FieldRenderProps): React.ReactElement {
-  const url = value?.url || '';
+  const webValue = value as Omit<WebPlatformConfig, 'platform' | 'prompt'>;
+  const url = webValue.url || '';
 
   return (
     <div className="flex flex-col gap-2">
@@ -20,7 +22,7 @@ export function WebPlatformFields({ value, onChange, errors, disabled }: FieldRe
           type="text"
           placeholder="google.com"
           value={url}
-          onChange={(e) => onChange({ ...value, url: e.target.value })}
+          onChange={(e) => onChange({ ...webValue, url: e.target.value })}
           disabled={disabled}
           autoFocus
         />

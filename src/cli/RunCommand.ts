@@ -142,7 +142,7 @@ export class RunCommand {
                         // Electron executable mode
                         const parsedLaunchArgs = launchArgs 
                             ? launchArgs.split(',').map((arg: string) => arg.trim())
-                            : ['--remote-debugging-port=9222'];
+                            : [];
                             
                         platformConfig = {
                             platform: 'electron',

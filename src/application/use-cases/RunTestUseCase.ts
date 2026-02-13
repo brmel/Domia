@@ -1,7 +1,6 @@
 
 import { injectable, inject } from 'tsyringe';
 import { errAsync } from 'neverthrow';
-import { DomiaGateway } from '../gateway/DomiaGateway';
 import { IBrowserAutomation } from '../../domain/ports';
 import { UrlFactory, WorkflowState } from '../../domain/value-objects';
 import { ExecutionController } from '../controllers/ExecutionController';
@@ -14,21 +13,19 @@ import { StepExecutor } from '../services/execution/StepExecutor';
 import { PlanItemStatus } from '@domain/entities/Plan';
 import { TestStep } from '../../domain/ports';
 import { v4 as uuidv4 } from 'uuid';
-import { AppDriverFactory } from '../../infrastructure/adapters/drivers/AppDriverFactory';
-import type { IAppDriver } from '../../domain/ports/IAppDriver';
 import type { ILogger } from '../../domain/ports';
+import { PlatformSessionFactory } from '../services/platform/PlatformSessionFactory';
 
 
 @injectable()
 export class RunTestUseCase {
     constructor(
-        @inject(DomiaGateway) private gateway: DomiaGateway,
         @inject(TestRunLifecycleManager) private lifecycleManager: TestRunLifecycleManager,
         @inject(WorkflowPlanner) private planner: WorkflowPlanner,
         @inject(StepExecutor) private executor: StepExecutor,
         @inject('IPersistenceAdapter') private persistence: import('../../domain/ports').IPersistenceAdapter,
         @inject('ITraceService') private trace: import('../../domain/ports/ITraceService').ITraceService,
-        @inject(AppDriverFactory) private driverFactory: AppDriverFactory,
+        @inject(PlatformSessionFactory) private readonly sessionFactory: PlatformSessionFactory,
         @inject('ILogger') private logger: ILogger
     ) { }
 
@@ -40,13 +37,13 @@ export class RunTestUseCase {
         }
         
         // Extract URL for test run initialization (legacy requirement)
-        const url = input.platformConfig?.platform === 'web' 
-            ? input.platformConfig.url 
+        const url = input.platformConfig?.platform === 'web'
+            ? input.platformConfig.url
             : input.platformConfig?.platform === 'electron' && input.platformConfig.connection.type === 'cdp'
-            ? input.platformConfig.connection.cdpUrl
-            : input.platformConfig?.platform === 'electron' && input.platformConfig.connection.type === 'executable'
-            ? 'electron://app'
-            : input.url;
+                ? input.platformConfig.connection.cdpUrl
+                : input.platformConfig?.platform === 'electron' && input.platformConfig.connection.type === 'executable'
+                    ? 'electron://app'
+                    : input.url;
 
         if (!url) {
             yield { type: 'error', error: new WorkflowError('Could not determine URL from input') };
@@ -61,40 +58,13 @@ export class RunTestUseCase {
         const testRunId = initResult.value;
         yield { type: 'started', testRunId };
 
-        // Allocate Driver - use new platform-aware flow if platformConfig provided
-        let driver: IAppDriver | null = null;
         let browser: IBrowserAutomation | undefined;
-        let node;
+        let disposeSession: (() => Promise<void>) | undefined;
         
         try {
-            if (input.platformConfig) {
-                // NEW FLOW: Use AppDriverFactory with platform config
-                this.logger.info(`[RunTestUseCase] Using platform: ${input.platformConfig.platform}`);
-                
-                driver = await this.driverFactory.createDriver({
-                    platformConfig: input.platformConfig,
-                    ...(input.options && { options: input.options })
-                });
-                
-                // Get browser automation interface for backward compatibility
-                try {
-                    browser = driver.getBrowserAutomation();
-                } catch (error) {
-                    // Electron doesn't support getBrowserAutomation yet
-                    this.logger.warn('[RunTestUseCase] Driver does not support getBrowserAutomation, skipping browser-based flow');
-                    throw new WorkflowError('Electron platform not fully integrated yet. Please use web platform or CDP mode.');
-                }
-            } else {
-                // LEGACY FLOW: Use old node/browser allocation
-                this.logger.warn('[RunTestUseCase] Using legacy browser allocation flow');
-                node = await this.gateway.allocateSession(testRunId);
-                const browserResult = await node.allocate();
-                if (browserResult.isErr()) {
-                    throw new WorkflowError(`Failed to allocate browser: ${browserResult.error.message}`);
-                }
-                browser = browserResult.value;
-                await browser.launch({ headless: input.options?.headless ?? true });
-            }
+            const session = await this.sessionFactory.createSession(input, testRunId);
+            browser = session.browser;
+            disposeSession = session.dispose;
             
             if (!browser) {
                 throw new WorkflowError('Failed to initialize browser automation interface');
@@ -102,8 +72,9 @@ export class RunTestUseCase {
         } catch (error) {
             const err = error instanceof Error ? error : new Error(String(error));
             yield { type: 'error', error: new WorkflowError(`Error initializing session: ${err.message}`) };
-            if (driver) await driver.disconnect();
-            if (node && !browser) await this.gateway.releaseSession(testRunId);
+            if (disposeSession) {
+                await disposeSession();
+            }
             return;
         }
 
@@ -234,17 +205,10 @@ export class RunTestUseCase {
             await this.lifecycleManager.failTestRun(testRunId, msg);
             yield { type: 'error', error: error instanceof Error ? error : new Error(msg) };
         } finally {
-            // Cleanup: close browser/driver and release session
-            if (driver) {
-                await driver.disconnect().catch(err => 
-                    this.logger.warn(`[RunTestUseCase] Error disconnecting driver: ${err}`)
+            if (disposeSession) {
+                await disposeSession().catch(err =>
+                    this.logger.warn(`[RunTestUseCase] Error during session cleanup: ${String(err)}`)
                 );
-            } else if (browser) {
-                await browser.close();
-            }
-            
-            if (node) {
-                await this.gateway.releaseSession(testRunId);
             }
 
             // Flush and finalize traces

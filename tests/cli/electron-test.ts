@@ -7,7 +7,8 @@ import {
     waitForCDP,
     getElectronAppPath,
     buildElectronApp,
-    logTestResult
+    logTestResult,
+    getFreePort
 } from './helpers/cli-test-helpers';
 import type { ChildProcess } from 'child_process';
 
@@ -31,14 +32,15 @@ async function testCDPMode() {
     
     let app: ChildProcess | null = null;
     try {
-        app = await launchElectronApp(appPath, 9222);
-        if (!(await waitForCDP(9222, 30000))) {
+        const port = await getFreePort();
+        app = await launchElectronApp(appPath, port);
+        if (!(await waitForCDP(port, 30000))) {
             console.error('CDP not available');
             return false;
         }
         
         const result = await runCLITest({
-            cdpUrl: 'http://localhost:9222',
+            cdpUrl: `http://localhost:${port}`,
             windowTitle: 'Auto-QA',
             prompt: 'make sure we have the button start agent appearing',
             maxSteps: 5
@@ -60,9 +62,9 @@ async function testExecutableMode() {
         return false;
     }
     
+    // Note: runCLITest handles dynamic port allocation and env var injection
     const result = await runCLITest({
         executablePath: appPath,
-        launchArgs: ['--remote-debugging-port=9222'],
         windowTitle: 'Auto-QA',
         prompt: 'make sure we have the button start agent appearing',
         maxSteps: 5

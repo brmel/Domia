@@ -1,13 +1,22 @@
-import type { BasePlatformConfig, PlatformType } from '../../domain/types/PlatformConfig';
+import type {
+  BasePlatformConfig,
+  PlatformType,
+  WebPlatformConfig,
+  ElectronPlatformConfig,
+} from '../../domain/types/PlatformConfig';
 import { WebPlatformFields } from '../components/platform-fields/WebPlatformFields';
 import { ElectronPlatformFields } from '../components/platform-fields/ElectronPlatformFields';
+
+export type PlatformFieldValue =
+  | Omit<WebPlatformConfig, 'platform' | 'prompt'>
+  | Omit<ElectronPlatformConfig, 'platform' | 'prompt'>;
 
 /**
  * Props passed to platform-specific field renderers
  */
 export interface FieldRenderProps {
-  value: any;
-  onChange: (value: any) => void;
+  value: PlatformFieldValue;
+  onChange: (value: PlatformFieldValue) => void;
   errors: Record<string, string>;
   disabled: boolean;
 }
@@ -33,7 +42,13 @@ export interface PlatformDefinition<T extends BasePlatformConfig> {
  * Central registry of all supported platforms
  * Add new platforms here
  */
-export const platformRegistry: Record<PlatformType, PlatformDefinition<any>> = {
+type WebFieldValue = Omit<WebPlatformConfig, 'platform' | 'prompt'>;
+type ElectronFieldValue = Omit<ElectronPlatformConfig, 'platform' | 'prompt'>;
+
+export const platformRegistry: {
+  web: PlatformDefinition<WebPlatformConfig> & { defaultValues: WebFieldValue };
+  electron: PlatformDefinition<ElectronPlatformConfig> & { defaultValues: ElectronFieldValue };
+} = {
   web: {
     type: 'web',
     label: 'Web Browser',
@@ -58,18 +73,18 @@ export const platformRegistry: Record<PlatformType, PlatformDefinition<any>> = {
       },
     },
   },
-} as const;
+};
 
 /**
  * Get all available platforms
  */
-export function getAvailablePlatforms(): PlatformDefinition<any>[] {
+export function getAvailablePlatforms(): Array<PlatformDefinition<BasePlatformConfig>> {
   return Object.values(platformRegistry);
 }
 
 /**
  * Get specific platform definition
  */
-export function getPlatformDefinition(type: PlatformType): PlatformDefinition<any> {
+export function getPlatformDefinition(type: PlatformType): PlatformDefinition<BasePlatformConfig> {
   return platformRegistry[type];
 }
