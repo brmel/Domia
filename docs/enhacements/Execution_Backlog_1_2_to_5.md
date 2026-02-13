@@ -16,6 +16,7 @@ All items above are architecture scaffolding only.
 No heavy runtime behavior was introduced in these milestones.
 
 See `Implementation_Kickoff_Runbook.md` for rollout flags, environment profiles, and the recommended first real-work sprint.
+See `UI_Architecture_and_Experience_Plan.md` for the feature-heavy UI structure and phased operator UX rollout.
 
 ## Next Implementation Track (when approved)
 
@@ -25,3 +26,4 @@ See `Implementation_Kickoff_Runbook.md` for rollout flags, environment profiles,
 4. Wire skills into planner with allowlist
 5. Wire plugin gateway behind strict policy + human approval gates
 6. Enforce readiness gates in CI/CD or release command
+7. Deliver UI-1 and UI-2 from the UI architecture plan (Runs, Run Workspace, readiness/policy visibility)

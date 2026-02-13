@@ -54,6 +54,10 @@ The goal is to prepare the codebase structure, boundaries, contracts, controls, 
    - Event-sourced execution logs + projections for debugging and compliance.
    - Reliability SLOs and security telemetry.
 
+7. **Operator Experience Plane (UI)**
+  - Provides a scalable control center for runs, skills, plugins, governance, and observability.
+  - Uses progressive disclosure so advanced controls do not overload baseline workflows.
+
 ---
 
 ## Roadmap Overview
@@ -65,6 +69,8 @@ The goal is to prepare the codebase structure, boundaries, contracts, controls, 
 - **Phase 5**: Hardening, validation, and enterprise readiness
 
 Each phase below focuses first on architecture preparation and interfaces, not full behavior implementation.
+
+UI and operator workflows are defined in `UI_Architecture_and_Experience_Plan.md` and should progress in lockstep with runtime phases.
 
 ---
 

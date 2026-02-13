@@ -10,6 +10,7 @@ import { EventEmitter } from 'events';
 import { RunTestInput } from '../src/application/dtos';
 import { FileTraceExporter } from '../src/infrastructure/services/exporters/FileTraceExporter';
 import { PlatformConfigSchema } from '../src/shared/validation';
+import { RuntimeReadinessPolicyService } from '../src/application/services/hardening/RuntimeReadinessPolicyService';
 import debug from 'debug';
 
 const t = initTRPC.create({ isServer: true });
@@ -115,6 +116,49 @@ export const appRouter = t.router({
                 };
             });
         }),
+
+        getCheckpoints: t.procedure
+            .input(z.object({ runId: z.string() }))
+            .query(async ({ input }) => {
+                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+                const checkpointsResult = await persistence.getCheckpointRecords(input.runId);
+
+                if (checkpointsResult.isErr()) {
+                    throw new Error(checkpointsResult.error.message);
+                }
+
+                return checkpointsResult.value;
+            }),
+
+        getReadiness: t.procedure
+            .input(z.object({ runId: z.string() }))
+            .query(async ({ input }) => {
+                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+                const runResult = await persistence.getTestRun(input.runId);
+
+                if (runResult.isErr()) {
+                    throw new Error(runResult.error.message);
+                }
+
+                const run = runResult.value;
+                if (!run) {
+                    throw new Error(`Run not found: ${input.runId}`);
+                }
+
+                const readinessPolicy = container.resolve(RuntimeReadinessPolicyService);
+                const decision = readinessPolicy.assess(
+                    {
+                        prompt: run.prompt,
+                        options: {}
+                    },
+                    run.url
+                );
+
+                return {
+                    runId: run.id,
+                    ...decision
+                };
+            }),
     }),
 
     desktop: t.router({

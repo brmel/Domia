@@ -50,7 +50,7 @@ export function CognitiveTraceView({ trace }: CognitiveTraceViewProps) {
                             </div>
                             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Reasoning & Action</span>
                         </div>
-                        <div className="ml-10 bg-gradient-to-br from-[#1e1e1e] to-[#252525] border border-purple-900/30 rounded-lg p-4 text-sm text-gray-200 shadow-sm relative overflow-hidden">
+                        <div className="ml-10 bg-linear-to-br from-[#1e1e1e] to-[#252525] border border-purple-900/30 rounded-lg p-4 text-sm text-gray-200 shadow-sm relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
 
                             {trace.agentOutput.thought && (
