@@ -15,18 +15,20 @@ import { VisualContext } from '../../domain/value-objects/VisualContext';
 @injectable()
 export class PerceptionPipeline implements IPerceptionPipeline {
     constructor(
-        @inject('IBrowserAutomation') private browser: IBrowserAutomation,
         @inject('ILogger') private logger: ILogger,
         @inject(VisionSensor) private visionSensor: VisionSensor,
         @inject(DomSensor) private domSensor: DomSensor,
         @inject(AriaSensor) private ariaSensor: AriaSensor
     ) { }
 
-    capture(options: import('@domain/ports/IPerceptionPipeline').PerceptionOptions = { vision: true, aria: true, dom: true }): ResultAsync<PerceptionFrame, SnapshotError> {
+    capture(
+        browser: IBrowserAutomation,
+        options: import('@domain/ports/IPerceptionPipeline').PerceptionOptions = { vision: true, aria: true, dom: true }
+    ): ResultAsync<PerceptionFrame, SnapshotError> {
         this.logger.info(`[PerceptionPipeline] Starting capture sequence (Options: ${JSON.stringify(options)})`);
 
         // Simplified capture without pausing to improve stability
-        const adapter = this.browser as any;
+        const adapter = browser as any;
         const page = adapter.page;
 
         const capturePromise = page

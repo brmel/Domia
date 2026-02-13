@@ -8,7 +8,6 @@ export class TraceService implements ITraceService {
 
     constructor() { }
 
-    /** Adds an exporter to the composite. */
     addExporter(exporter: ITraceExporter): void {
         this.exporters.push(exporter);
     }

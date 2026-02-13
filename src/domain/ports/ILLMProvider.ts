@@ -2,6 +2,16 @@ import { ResultAsync } from 'neverthrow';
 import { LLMError } from '../errors';
 import { AgentAction, DOMSnapshot } from '../value-objects';
 
+export interface LLMToolDescriptor {
+    readonly name: string;
+    readonly description: string;
+    readonly category?: string | undefined;
+    readonly platforms?: readonly string[] | undefined;
+    readonly terminal?: boolean | undefined;
+    readonly safety?: 'safe' | 'caution' | 'restricted' | undefined;
+    readonly sideEffects?: readonly ('none' | 'ui' | 'filesystem' | 'network' | 'system')[] | undefined;
+}
+
 /**
  * Context provided to LLM for action generation
  */
@@ -14,6 +24,7 @@ export interface LLMContext {
     readonly stepsRemaining: number;
     readonly viewport: { readonly width: number; readonly height: number };
     readonly plan?: import('../entities/Plan').Plan;
+    readonly availableTools?: readonly LLMToolDescriptor[];
 }
 
 /**

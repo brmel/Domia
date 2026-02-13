@@ -42,28 +42,14 @@ export class TestRunLifecycleManager {
     async finalizeTestRun(id: TestRunId, success: boolean, summary?: string): Promise<void> {
         this.logger.info(`Test run complete. Success: ${success}`);
 
-        // We need to fetch the existing run to update it properly using DDD, 
-        // but PersistenceAdapter.updateTestRun takes Partial<TestRun>.
-        // Using the entity helpers returns a new TestRun object.
-        // For now, we'll manually construct the status strict object to satisfy the type, 
-        // or fetch -> update -> save if we want to be pure. 
-        // Given existing updateTestRun signature, let's just push the status object.
-
-        // Actually, TestRun.pass/fail return a whole TestRun. 
-        // Use persistence.getTestRun(id) -> update -> save would be better but checking constraints.
-        // Let's stick to updateTestRun with correct types.
-
         const status: import('@domain/entities/TestRun').TestRunStatus = success
-            ? { type: 'passed', summary: summary || 'Test completed successfully', duration: 0 } // Duration calc is tricky without fetching start time.
+            ? { type: 'passed', summary: summary || 'Test completed successfully', duration: 0 }
             : { type: 'failed', error: summary || 'Unknown error', duration: 0 };
-
-        // Note: Duration is 0 here because we aren't fetching the original run to calc diff.
-        // Ideally we should fetch, but for "Cleanup" task, let's just make types match.
 
         await this.persistence.updateTestRun(id, {
             status,
             completedAt: new Date().toISOString()
-        } as any); // explicit cast if Partial<TestRun> issues arise, but ideally strictly typed.
+        } as any);
     }
 
     async failTestRun(id: TestRunId, message: string): Promise<void> {

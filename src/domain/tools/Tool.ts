@@ -1,22 +1,55 @@
 
-import { ZodSchema } from 'zod';
-import { ResultAsync } from 'neverthrow';
 import { IBrowserAutomation, ILogger, IExecutionController } from '../ports';
+import { IAppDriver } from '../ports/IAppDriver';
+import type { PlatformType } from './ToolMetadata';
+
+/**
+ * Platform-specific context information
+ */
+export interface PlatformContext {
+    /** For Electron: window IDs, CDP connection details */
+    electron?: {
+        windowId?: string;
+        cdpEndpoint?: string;
+        windows?: Array<{ id: string; title: string }>;
+    };
+    
+    /** For Web: browser context, extensions, tabs */
+    web?: {
+        browserContext?: string;
+        extensions?: string[];
+        tabId?: string;
+    };
+    
+    /** For Mobile: device info, orientation */
+    mobile?: {
+        deviceId?: string;
+        orientation?: 'portrait' | 'landscape';
+        platform?: 'ios' | 'android';
+    };
+}
 
 /**
  * Context passed to every tool execution.
- * Allows tools to access shared resources like the browser, logger, etc.
+ * Contains everything a tool needs to execute within a platform
  */
 export interface ToolContext {
+    /** Deprecated: Use driver instead */
     browser?: IBrowserAutomation;
+    
+    /** Unified driver interface (required for new tools) */
+    driver: IAppDriver;
+    
+    /** Current platform (required for polymorphic tools) */
+    platform: PlatformType;
+    
+    /** Platform-specific metadata and context */
+    platformContext?: PlatformContext;
+    
+    /** Logger for debugging and tracing */
     logger?: ILogger;
+    
+    /** Execution controller for cancellation */
     controller?: IExecutionController;
 }
 
-export interface Tool<TParams = unknown, TResult = unknown> {
-    readonly name: string;
-    readonly description: string;
-    readonly schema: ZodSchema<TParams>;
-
-    execute(params: TParams, context: ToolContext): ResultAsync<TResult, Error>;
-}

@@ -9,7 +9,7 @@ import { observable } from '@trpc/server/observable';
 import { EventEmitter } from 'events';
 import { RunTestInput } from '../src/application/dtos';
 import { FileTraceExporter } from '../src/infrastructure/services/exporters/FileTraceExporter';
-// Debug library handling
+import { PlatformConfigSchema } from '../src/shared/validation';
 import debug from 'debug';
 
 const t = initTRPC.create({ isServer: true });
@@ -18,7 +18,8 @@ let currentController: ExecutionController | null = null;
 const eventEmitter = new EventEmitter();
 
 const runInputSchema = z.object({
-    url: z.string(),
+    url: z.string().optional(),
+    platformConfig: PlatformConfigSchema.optional(),
     prompt: z.string(),
     options: z.object({
         headless: z.boolean().optional(),

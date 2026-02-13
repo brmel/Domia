@@ -94,11 +94,23 @@ This roadmap balances **long-term vision** with **concrete, shippable milestones
 * Native menu and dialog interaction
 * File system assertions (exports, downloads)
 
-### Sub-Steps
+### Architecture Strategy: The "Driver-Tool" Pattern
+* **Black-Box Testing**: Interact via CDP (`--remote-debugging-port`), effectively treating the app as a specialized browser instance.
+* **Unified Driver**: Introduce `IAppDriver` to abstract differences between Web (Puppeteer/Playwright) and Electron (CDP).
+* **Dynamic Tooling**: Replace hardcoded actions with a `ToolRegistry` that feeds the LLM.
 
-* Electron browser adapter
-* Window and process lifecycle hooks
-* OS-level file access adapter
+### Sub-Steps: Implementation
+1.  **Core Abstraction**:
+    *   Create `IAppDriver` interface (connect, disconnect, getCapabilities).
+    *   Create `ToolRegistry` and `ToolDefinition` (schema + executor).
+2.  **Driver Implementation**:
+    *   Refactor `IBrowserAutomation` into `WebDriver`.
+    *   Create `ElectronDriver` using `chromium.connectOverCDP`.
+3.  **Prompt Engineering**:
+    *   Update `LLMPromptUtils` to build prompts dynamically from `ToolRegistry`.
+    *   Update `LangChainAdapter` to use registry-based validation.
+4.  **Lifecycle**:
+    *   Handle external app launching and attaching via CLI args.
 
 ### Success Criteria
 

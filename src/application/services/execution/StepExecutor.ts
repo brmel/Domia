@@ -1,10 +1,28 @@
 import { injectable, inject } from 'tsyringe';
-import { Result, ok, err } from 'neverthrow';
 import type { ILLMProvider, IBrowserAutomation, LLMContext, IPerceptionPipeline, IStorageService, ITraceService } from '@domain/ports';
 import { AgentAction } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
 import { LoopDetectorService } from './LoopDetectorService';
-import { UrlFactory } from '@domain/value-objects';
+import { AssertionGoalService } from '../assertion/AssertionGoalService';
+import { ToolContractService } from '../tooling/ToolContractService';
+import type { ToolContext } from '@domain/tools/Tool';
+import type { ToolExecutor } from '../tooling/ToolExecutor';
+
+export type StepExecutionResult =
+    | { readonly success: true; readonly terminal: 'pass' }
+    | {
+        readonly success: false;
+        readonly terminal: 'fail' | 'error' | 'max_actions';
+        readonly code:
+        | 'assertion_fail'
+        | 'perception_error'
+        | 'llm_error'
+        | 'loop_detected'
+        | 'action_execution_error'
+        | 'agent_fail'
+        | 'max_actions_reached';
+        readonly reason: string;
+    };
 
 @injectable()
 export class StepExecutor {
@@ -13,7 +31,10 @@ export class StepExecutor {
         @inject(LoopDetectorService) private loopDetector: LoopDetectorService,
         @inject('IPerceptionPipeline') private perception: IPerceptionPipeline,
         @inject('IStorageService') private storage: IStorageService,
-        @inject('ITraceService') private trace: ITraceService
+        @inject('ITraceService') private trace: ITraceService,
+        @inject(AssertionGoalService) private readonly assertionGoalService: AssertionGoalService,
+        @inject(ToolContractService) private readonly toolContractService: ToolContractService,
+        @inject('IToolExecutor') private readonly toolExecutor: ToolExecutor
     ) { }
 
     async *executeStep(
@@ -22,8 +43,9 @@ export class StepExecutor {
         browser: IBrowserAutomation,
         url: string,
         initialStepNumber: number = 0,
-        options: { vision: boolean; debugScreenshots: boolean; maxActions: number } = { vision: true, debugScreenshots: false, maxActions: 20 }
-    ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, Result<void, Error>, unknown> {
+        options: { vision: boolean; debugScreenshots: boolean; maxActions: number } = { vision: true, debugScreenshots: false, maxActions: 20 },
+        executionContext?: { toolContext?: ToolContext }
+    ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, StepExecutionResult, unknown> {
         let loopCount = 0;
         let currentState: { history: AgentAction[], stepNumber: number } = { history: [], stepNumber: initialStepNumber };
         const maxActions = options.maxActions;
@@ -34,13 +56,17 @@ export class StepExecutor {
             // Perception
             // Capture if either Vision (LLM) or DebugScreenshots is enabled
             const shouldCaptureVision = options.vision || options.debugScreenshots;
-            const frameResult = await this.perception.capture({ vision: shouldCaptureVision, aria: true, dom: true });
-            if (frameResult.isErr()) return err(new Error(`Perception failed: ${frameResult.error.message}`));
+            const frameResult = await this.perception.capture(browser, { vision: shouldCaptureVision, aria: true, dom: true });
+            if (frameResult.isErr()) {
+                return {
+                    success: false,
+                    terminal: 'error',
+                    code: 'perception_error',
+                    reason: `Perception failed: ${frameResult.error.message}`
+                };
+            }
             const frame = frameResult.value;
 
-            // Save Assets
-            // We use standard storage pathing. Actions are usually 1-to-1 with perception in this loop?
-            // stepNumber in WorkflowState is monotonic.
             const assets = await this.storage.savePerceptionAssets(runId, currentState.stepNumber + 1, frame);
 
             // Trace: Perception Metadata
@@ -56,14 +82,38 @@ export class StepExecutor {
 
             const viewport = await browser.getViewportSize();
 
-            // Map Frame to DOMSnapshot for LLM (Legacy compatibility)
-            // ONLY include screenshot if Vision is enabled for LLM
             const snapshot: import('@domain/value-objects').DOMSnapshot = {
                 ...frame.semantic.dom,
                 screenshot: options.vision && frame.vision.primaryScreenshot ? frame.vision.primaryScreenshot.toString('base64') : undefined,
                 screenshots: options.vision ? frame.vision.screenshots.map(b => b.toString('base64')) : [],
                 accessibilityTree: frame.semantic.accessibility
             };
+
+            const deterministicAction = this.assertionGoalService.evaluate(stepGoal, snapshot);
+            if (deterministicAction) {
+                await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
+                    agentOutput: {
+                        thought: deterministicAction.thought || '',
+                        action: deterministicAction,
+                        rawResponse: 'deterministic-assertion-evaluator'
+                    }
+                });
+
+                yield { type: 'action', action: deterministicAction, assets };
+
+                if (deterministicAction.type === ActionType.PASS) {
+                    return { success: true, terminal: 'pass' };
+                }
+
+                if (deterministicAction.type === ActionType.FAIL) {
+                    return {
+                        success: false,
+                        terminal: 'fail',
+                        code: 'assertion_fail',
+                        reason: deterministicAction.reason
+                    };
+                }
+            }
 
             const context: LLMContext = {
                 goal: stepGoal,
@@ -72,7 +122,8 @@ export class StepExecutor {
                 currentUrl: url,
                 pageTitle: frame.metadata.title,
                 viewport,
-                stepsRemaining: maxActions - loopCount
+                stepsRemaining: maxActions - loopCount,
+                availableTools: this.toolContractService.getToolDescriptors()
             };
 
             // Trace: Agent Input (Prompt Context)
@@ -89,7 +140,12 @@ export class StepExecutor {
                 await this.trace.traceReasoning(runId, currentState.stepNumber, {
                     agentOutput: { thought: 'LLM Failed', action: null, rawResponse: actionResult.error.message }
                 });
-                return err(new Error(`LLM failed: ${actionResult.error.message}`));
+                return {
+                    success: false,
+                    terminal: 'error',
+                    code: 'llm_error',
+                    reason: `LLM failed: ${actionResult.error.message}`
+                };
             }
             const action = actionResult.value;
 
@@ -103,13 +159,29 @@ export class StepExecutor {
             });
 
             if (this.loopDetector.isLoop(currentState.history, action)) {
-                return err(new Error(`Loop detected. Action '${action.type}' repeated too many times.`));
+                return {
+                    success: false,
+                    terminal: 'error',
+                    code: 'loop_detected',
+                    reason: `Loop detected. Action '${action.type}' repeated too many times.`
+                };
             }
 
             yield { type: 'action', action, assets };
 
-            const execResult = await this.executeAction(browser, action);
-            if (execResult.isErr()) return err(new Error(`Action execution failed: ${execResult.error.message}`));
+            const execResult = await this.toolExecutor.execute(action, {
+                browser,
+                currentUrl: url,
+                ...(executionContext?.toolContext ? { toolContext: executionContext.toolContext } : {})
+            });
+            if (execResult.isErr()) {
+                return {
+                    success: false,
+                    terminal: 'error',
+                    code: 'action_execution_error',
+                    reason: `Action execution failed: ${execResult.error.message}`
+                };
+            }
 
             currentState = {
                 ...currentState,
@@ -119,50 +191,23 @@ export class StepExecutor {
             loopCount++;
 
             if (action.type === ActionType.PASS) {
-                return ok(undefined);
+                return { success: true, terminal: 'pass' };
             }
             if (action.type === ActionType.FAIL) {
-                return err(new Error(action.reason));
+                return {
+                    success: false,
+                    terminal: 'fail',
+                    code: 'agent_fail',
+                    reason: action.reason
+                };
             }
         }
 
-        return err(new Error(`Max actions (${maxActions}) reached for step: ${stepGoal}`));
-    }
-
-    private async executeAction(browser: IBrowserAutomation, action: AgentAction): Promise<Result<void, Error>> {
-        try {
-            switch (action.type) {
-                case ActionType.CLICK:
-                    (await browser.click(action.elementId)).mapErr(e => { throw new Error(e.message) });
-                    break;
-                case ActionType.TYPE:
-                    (await browser.type(action.elementId, action.text)).mapErr(e => { throw new Error(e.message) });
-                    if (action.submit) {
-                        (await browser.pressKey('Enter')).mapErr(e => { throw new Error(e.message) });
-                    }
-                    break;
-                case ActionType.PRESS_KEY:
-                    (await browser.pressKey(action.key)).mapErr(e => { throw new Error(e.message) });
-                    break;
-                case ActionType.SCROLL:
-                    (await browser.scroll(action.direction)).mapErr(e => { throw new Error(e.message) });
-                    break;
-                case ActionType.WAIT:
-                    (await browser.wait(action.durationMs)).mapErr(e => { throw new Error(e.message) });
-                    break;
-                case ActionType.NAVIGATE: {
-                    const navUrlResult = UrlFactory.create(action.url);
-                    if (navUrlResult.isErr()) throw new Error(`Invalid URL: ${navUrlResult.error.message}`);
-                    (await browser.navigateTo(navUrlResult.value)).mapErr(e => { throw new Error(e.message) });
-                    break;
-                }
-                case ActionType.EXTRACT:
-                    (await browser.extractText(action.elementId)).mapErr(e => { throw new Error(e.message) });
-                    break;
-            }
-            return ok(undefined);
-        } catch (e: unknown) {
-            return err(e instanceof Error ? e : new Error(String(e)));
-        }
+        return {
+            success: false,
+            terminal: 'max_actions',
+            code: 'max_actions_reached',
+            reason: `Max actions (${maxActions}) reached for step: ${stepGoal}`
+        };
     }
 }

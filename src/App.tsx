@@ -23,9 +23,8 @@ function App(): JSX.Element {
             <ResizableSidebar initialWidth={350} minWidth={300} maxWidth={600}>
                 {activeSidebar === 'config' ? (
                     <>
-                        <div className="p-6 border-b border-gray-100 bg-white">
-                            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Domia</h1>
-                            <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wider">Autonomous Web Agent</p>
+                        <div className="px-4 py-3 border-b border-gray-100 bg-white flex items-center justify-between">
+                            <h1 className="text-xl font-bold tracking-tight text-gray-900">Domia</h1>
                         </div>
                         <div className="flex-1 overflow-y-auto p-0 bg-white">
                             <TestForm
@@ -51,12 +50,12 @@ function App(): JSX.Element {
             {/* Main Content - Execution & Logs */}
             <main className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50 min-w-0">
                 {/* Top: Cinema Mode Viewport (50% height) */}
-                <section className="flex-[3] relative border-b border-gray-200 bg-gray-100/50 p-6 overflow-hidden flex flex-col">
+                <section className="flex-3 relative border-b border-gray-200 bg-gray-100/50 p-6 overflow-hidden flex flex-col">
                     <LiveView />
                 </section>
 
                 {/* Bottom: Terminal Logs (40% height -> 50%) */}
-                <section className="flex-[3] bg-white flex flex-col overflow-hidden min-h-0">
+                <section className="flex-3 bg-white flex flex-col overflow-hidden min-h-0">
                     <TestRunner />
                 </section>
             </main>

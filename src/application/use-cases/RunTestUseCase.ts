@@ -1,7 +1,5 @@
 
 import { injectable, inject } from 'tsyringe';
-import { errAsync } from 'neverthrow';
-import { DomiaGateway } from '../gateway/DomiaGateway';
 import { IBrowserAutomation } from '../../domain/ports';
 import { UrlFactory, WorkflowState } from '../../domain/value-objects';
 import { ExecutionController } from '../controllers/ExecutionController';
@@ -10,48 +8,92 @@ import { TestRunLifecycleManager } from '../services/TestRunLifecycleManager';
 import { RunTestInput, RunTestOutput } from '../dtos';
 import { TestRunState } from '../../domain/enums/TestRunState';
 import { WorkflowPlanner } from '../services/planning/WorkflowPlanner';
-import { StepExecutor } from '../services/execution/StepExecutor';
+import { StepExecutor, type StepExecutionResult } from '../services/execution/StepExecutor';
+import type { RunExecutionLaneService } from '../services/execution/RunExecutionLaneService';
 import { PlanItemStatus } from '@domain/entities/Plan';
 import { TestStep } from '../../domain/ports';
 import { v4 as uuidv4 } from 'uuid';
+import type { ILogger } from '../../domain/ports';
+import { PlatformSessionFactory } from '../services/platform/PlatformSessionFactory';
+import type { ToolContext } from '../../domain/tools/Tool';
 
 
 @injectable()
 export class RunTestUseCase {
     constructor(
-        @inject(DomiaGateway) private gateway: DomiaGateway,
         @inject(TestRunLifecycleManager) private lifecycleManager: TestRunLifecycleManager,
         @inject(WorkflowPlanner) private planner: WorkflowPlanner,
         @inject(StepExecutor) private executor: StepExecutor,
         @inject('IPersistenceAdapter') private persistence: import('../../domain/ports').IPersistenceAdapter,
-        @inject('ITraceService') private trace: import('../../domain/ports/ITraceService').ITraceService
+        @inject('ITraceService') private trace: import('../../domain/ports/ITraceService').ITraceService,
+        @inject(PlatformSessionFactory) private readonly sessionFactory: PlatformSessionFactory,
+        @inject('IRunExecutionLaneService') private readonly laneService: RunExecutionLaneService,
+        @inject('ILogger') private logger: ILogger
     ) { }
 
     async *execute(input: RunTestInput, controller: ExecutionController): AsyncGenerator<RunTestOutput, void, unknown> {
-        // Initialize Test Run
-        const initResult = await this.lifecycleManager.initializeTestRun(input.url, input.prompt);
+        // Validate input: Either URL or platformConfig must be provided
+        if (!input.url && !input.platformConfig) {
+            yield { type: 'error', error: new WorkflowError('No platform configuration provided. Either provide url or platformConfig.') };
+            return;
+        }
+        
+        // Extract URL for test run initialization (legacy requirement)
+        const url = input.platformConfig?.platform === 'web'
+            ? input.platformConfig.url
+            : input.platformConfig?.platform === 'electron' && input.platformConfig.connection.type === 'cdp'
+                ? input.platformConfig.connection.cdpUrl
+                : input.platformConfig?.platform === 'electron' && input.platformConfig.connection.type === 'executable'
+                    ? 'electron://app'
+                    : input.url;
+
+        if (!url) {
+            yield { type: 'error', error: new WorkflowError('Could not determine URL from input') };
+            return;
+        }
+
+        const laneKey = this.resolveLaneKey(input, url);
+        const releaseLane = await this.laneService.acquire(laneKey);
+
+        const initResult = await this.lifecycleManager.initializeTestRun(url, input.prompt);
         if (initResult.isErr()) {
+            releaseLane();
             yield { type: 'error', error: initResult.error };
             return;
         }
         const testRunId = initResult.value;
         yield { type: 'started', testRunId };
 
-        // Allocate Session (Node)
-        let node;
         let browser: IBrowserAutomation | undefined;
+        let disposeSession: (() => Promise<void>) | undefined;
+        let shouldNavigate = true;
+        let stepToolContext: ToolContext | undefined;
+        
         try {
-            node = await this.gateway.allocateSession(testRunId);
-            const browserResult = await node.allocate();
-            if (browserResult.isErr()) {
-                throw new WorkflowError(`Failed to allocate browser: ${browserResult.error.message}`);
+            const session = await this.sessionFactory.createSession(input, testRunId);
+            browser = session.browser;
+            disposeSession = session.dispose;
+            shouldNavigate = session.shouldNavigate;
+
+            if (session.driver) {
+                stepToolContext = {
+                    browser,
+                    driver: session.driver,
+                    platform: session.driver.getCapabilities().platform,
+                    logger: this.logger
+                };
             }
-            browser = browserResult.value;
-            await browser.launch({ headless: input.options?.headless ?? true });
+            
+            if (!browser) {
+                throw new WorkflowError('Failed to initialize browser automation interface');
+            }
         } catch (error) {
             const err = error instanceof Error ? error : new Error(String(error));
             yield { type: 'error', error: new WorkflowError(`Error initializing session: ${err.message}`) };
-            if (node && !browser) await this.gateway.releaseSession(testRunId);
+            if (disposeSession) {
+                await disposeSession();
+            }
+            releaseLane();
             return;
         }
 
@@ -60,24 +102,26 @@ export class RunTestUseCase {
         let completed = false;
         let finalSummary: string | undefined;
         let hasVerificationFailure = false;
+        let terminalError: Error | null = null;
 
         try {
-            const urlResult = UrlFactory.create(input.url);
+            const urlResult = UrlFactory.create(url);
             if (urlResult.isErr()) throw new WorkflowError(`Invalid URL: ${urlResult.error.message}`);
 
             yield { type: 'thinking' }; // Loading state
 
-            const navResult = await browser.navigateTo(urlResult.value);
-            if (navResult.isErr()) throw new WorkflowError(`Navigation failed: ${navResult.error.message}`);
+            if (shouldNavigate) {
+                const navResult = await browser.navigateTo(urlResult.value);
+                if (navResult.isErr()) throw new WorkflowError(`Navigation failed: ${navResult.error.message}`);
+            } else {
+                await browser.waitForDOMStable();
+            }
 
             // 1. Planning Phase
             yield { type: 'thinking' };
             const planResult = await this.planner.plan(input.prompt);
 
             if (planResult.isErr()) {
-                // Fallback to unstructured execution if planning fails? 
-                // For now, let's treat it as a hard failure or maybe just log and proceed without plan?
-                // The requirement is to refactor TO hierarchical workflow, so let's fail if plan fails.
                 throw new WorkflowError(`Planning failed: ${planResult.error.message}`);
             }
 
@@ -105,18 +149,22 @@ export class RunTestUseCase {
                 currentState = { ...currentState, plan: { ...plan, items: updatedItems } };
                 yield { type: 'state_updated', state: currentState };
 
-
-                // Execute Item
-                // We define executing a plan item as executing a "step" in StepExecutor
-                // Pass current global step number to ensure artifacts are numbered correctly
                 const executionOptions = {
                     vision: input.options?.vision ?? true,
                     debugScreenshots: input.options?.debugScreenshots ?? false,
                     maxActions: input.options?.maxSteps ?? 20
                 };
 
-                const stepGen = this.executor.executeStep(testRunId, item.description, browser, input.url, currentState.stepNumber, executionOptions);
-                let result: import('neverthrow').Result<void, Error> | undefined;
+                const stepGen = this.executor.executeStep(
+                    testRunId,
+                    item.description,
+                    browser,
+                    url,
+                    currentState.stepNumber,
+                    executionOptions,
+                    { ...(stepToolContext ? { toolContext: stepToolContext } : {}) }
+                );
+                let result: StepExecutionResult | undefined;
 
                 try {
                     const iterator = stepGen[Symbol.asyncIterator]();
@@ -150,13 +198,18 @@ export class RunTestUseCase {
                         }
                         next = await iterator.next();
                     }
-                    result = next.value; // This is the return value (Result<void, Error>)
+                    result = next.value;
                 } catch (e) {
-                    // Catch unexpected iterator errors
-                    result = errAsync(e instanceof Error ? e : new Error(String(e))) as any; // Cast to match result type
+                    const iteratorError = e instanceof Error ? e : new Error(String(e));
+                    result = {
+                        success: false,
+                        terminal: 'error',
+                        code: 'action_execution_error',
+                        reason: `Step iterator failed: ${iteratorError.message}`
+                    };
                 }
 
-                if (result && result.isOk()) {
+                if (result && result.success) {
                     // Mark Success
                     const successItem = { ...item, status: 'completed' as PlanItemStatus } as import('@domain/entities/Plan').PlanItem;
                     const successItems = [...updatedItems];
@@ -165,17 +218,7 @@ export class RunTestUseCase {
                     yield { type: 'state_updated', state: currentState };
                 } else {
                     // Step Failed
-                    const errorMsg = result ? result.error.message : "Unknown error";
-
-                    // User Request: "Steps are expected to always pass... unless there is an unexpected bug"
-                    // "If a test that fails, then it should be in the agent steps and final result."
-                    // So we mark the PLAN ITEM as completed (because the agent *attempted* it), 
-                    // but we treat the FAILURE as part of the execution history/result.
-
-                    // We will mark it as 'completed' in the UI Plan, but log the error.
-                    // Actually, if we mark it completed, the user might see a green check.
-                    // User said: "not plan steps that should always pass"
-                    // So yes, mark plan item as completed.
+                    const errorMsg = result ? `${result.code}: ${result.reason}` : 'unknown_error: Unknown error';
 
                     const completedWithFailureItem = { ...item, status: 'completed' as PlanItemStatus } as import('@domain/entities/Plan').PlanItem;
                     const newItems = [...updatedItems];
@@ -197,17 +240,24 @@ export class RunTestUseCase {
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
             await this.lifecycleManager.failTestRun(testRunId, msg);
-            yield { type: 'error', error: error instanceof Error ? error : new Error(msg) };
+            terminalError = error instanceof Error ? error : new Error(msg);
         } finally {
-            if (browser) await browser.close();
-            await this.gateway.releaseSession(testRunId);
+            if (disposeSession) {
+                await disposeSession().catch(err =>
+                    this.logger.warn(`[RunTestUseCase] Error during session cleanup: ${String(err)}`)
+                );
+            }
+
+            releaseLane();
 
             // Flush and finalize traces
             await this.trace.endTrace();
 
             // Final status update
-            // Global Status Logic: Fail if cancelled OR if hasVerificationFailure is true.
-            if (controller.state === TestRunState.CANCELLED) {
+            // Emit exactly one terminal event.
+            if (terminalError) {
+                yield { type: 'error', error: terminalError };
+            } else if (controller.state === TestRunState.CANCELLED) {
                 yield { type: 'completed', success: false, summary: "Test cancelled by user." };
                 await this.lifecycleManager.finalizeTestRun(testRunId, false, "Test cancelled by user.");
             } else if (completed) {
@@ -216,5 +266,28 @@ export class RunTestUseCase {
                 await this.lifecycleManager.finalizeTestRun(testRunId, isGlobalSuccess, finalSummary);
             }
         }
+    }
+
+    private resolveLaneKey(input: RunTestInput, resolvedUrl: string): string {
+        const platformConfig = input.platformConfig;
+        const platform = platformConfig?.platform;
+
+        if (!platformConfig) {
+            return `legacy:web:${resolvedUrl}`;
+        }
+
+        if (platform === 'web') {
+            return `platform:web:${platformConfig.url}`;
+        }
+
+        if (platform === 'electron') {
+            if (platformConfig.connection.type === 'cdp') {
+                return `platform:electron:cdp:${platformConfig.connection.cdpUrl}`;
+            }
+
+            return `platform:electron:executable:${platformConfig.connection.executablePath}`;
+        }
+
+        return `legacy:web:${resolvedUrl}`;
     }
 }
