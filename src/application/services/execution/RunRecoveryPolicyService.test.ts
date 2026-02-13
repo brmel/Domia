@@ -40,4 +40,16 @@ describe('RunRecoveryPolicyService', () => {
 
         expect(decision.shouldRecover).toBe(true);
     });
+
+    it('returns recover decision in manual-only when resumable', () => {
+        const decision = service.decide({
+            runId: 'r1',
+            canResume: true,
+            lastStableStepNumber: 5,
+            suggestedStartStep: 5,
+            reason: 'checkpoint'
+        }, 'manual-only');
+
+        expect(decision.shouldRecover).toBe(true);
+    });
 });

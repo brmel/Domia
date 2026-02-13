@@ -1,40 +1,32 @@
 import { inject, injectable } from 'tsyringe';
 import type { RunTestInput } from '../../dtos';
 import type { ILogger, IBrowserAutomation } from '../../../domain/ports';
-import type { INode } from '../../../domain/ports';
 import { WorkflowError } from '../../../domain/errors';
 import { AppDriverFactory } from '../../../infrastructure/adapters/drivers/AppDriverFactory';
-import { DomiaGateway } from '../../gateway/DomiaGateway';
+import type { DriverConfig } from '../../../infrastructure/adapters/drivers/AppDriverFactory';
 import type { PlatformSession } from './PlatformSession';
 
 @injectable()
 export class PlatformSessionFactory {
     constructor(
         @inject(AppDriverFactory) private readonly driverFactory: AppDriverFactory,
-        @inject(DomiaGateway) private readonly gateway: DomiaGateway,
         @inject('ILogger') private readonly logger: ILogger
     ) {}
 
-    async createSession(input: RunTestInput, testRunId: string): Promise<PlatformSession> {
-        if (input.platformConfig) {
-            return this.createPlatformSession(input);
-        }
-
-        return this.createLegacyWebSession(input, testRunId);
+    async createSession(input: RunTestInput): Promise<PlatformSession> {
+        return this.createPlatformSession(input);
     }
 
     private async createPlatformSession(input: RunTestInput): Promise<PlatformSession> {
         const platformConfig = input.platformConfig;
 
-        if (!platformConfig) {
-            throw new WorkflowError('Platform configuration is required for platform session creation');
-        }
-
         this.logger.info(`[PlatformSessionFactory] Creating session for platform: ${platformConfig.platform}`);
+
+        const driverOptions = this.toDriverOptions(input.options);
 
         const driver = await this.driverFactory.createDriver({
             platformConfig,
-            ...(input.options && { options: input.options })
+            ...(driverOptions ? { options: driverOptions } : {})
         });
 
         let browser: IBrowserAutomation;
@@ -63,36 +55,6 @@ export class PlatformSessionFactory {
         };
     }
 
-    private async createLegacyWebSession(input: RunTestInput, testRunId: string): Promise<PlatformSession> {
-        const url = input.url;
-        if (!url) {
-            throw new WorkflowError('URL is required when no platform configuration is provided');
-        }
-
-        this.logger.warn('[PlatformSessionFactory] Using legacy web session allocation flow');
-
-        const node: INode = await this.gateway.allocateSession(testRunId);
-        const browserResult = await node.allocate();
-        if (browserResult.isErr()) {
-            throw new WorkflowError(`Failed to allocate browser: ${browserResult.error.message}`);
-        }
-
-        const browser = browserResult.value;
-        await browser.launch({ headless: input.options?.headless ?? true });
-
-        return {
-            executionUrl: url,
-            shouldNavigate: true,
-            browser,
-            dispose: async () => {
-                await browser.close().catch(() => undefined);
-                await this.gateway.releaseSession(testRunId).catch(err => {
-                    this.logger.warn(`[PlatformSessionFactory] Error releasing legacy session: ${String(err)}`);
-                });
-            }
-        };
-    }
-
     private getExecutionUrlFromInput(input: RunTestInput): string {
         if (input.platformConfig?.platform === 'web') {
             return input.platformConfig.url;
@@ -104,10 +66,21 @@ export class PlatformSessionFactory {
                 : 'electron://app';
         }
 
-        if (input.url) {
-            return input.url;
+        throw new WorkflowError('Unable to resolve execution URL from provided input');
+    }
+
+    private toDriverOptions(options: RunTestInput['options']): DriverConfig['options'] | undefined {
+        if (!options) {
+            return undefined;
         }
 
-        throw new WorkflowError('Unable to resolve execution URL from provided input');
+        const driverOptions: DriverConfig['options'] = {
+            ...(options.headless !== undefined ? { headless: options.headless } : {}),
+            ...(options.maxSteps !== undefined ? { maxSteps: options.maxSteps } : {}),
+            ...(options.vision !== undefined ? { vision: options.vision } : {}),
+            ...(options.debugScreenshots !== undefined ? { debugScreenshots: options.debugScreenshots } : {})
+        };
+
+        return Object.keys(driverOptions).length > 0 ? driverOptions : undefined;
     }
 }

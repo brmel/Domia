@@ -5,7 +5,6 @@ export type { IViewHost, ViewOptions } from './IViewHost';
 export * from './IPersistenceAdapter';
 export * from './IConfigService';
 export * from './IExecutionController';
-export * from './INode';
 export * from './IPerceptionPipeline';
 export * from './ISensor';
 export * from './IStorageService';

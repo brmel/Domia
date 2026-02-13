@@ -14,9 +14,6 @@ import { ConfigService } from './infrastructure/config/ConfigService';
 import { SQLiteAdapter } from './infrastructure/adapters/persistence/SQLiteAdapter';
 import { TestRunLifecycleManager } from './application/services/TestRunLifecycleManager';
 
-import { LocalBrowserNode } from './infrastructure/nodes/LocalBrowserNode';
-import { DomiaGateway } from './application/gateway/DomiaGateway';
-
 import { PerceptionPipeline } from './infrastructure/perception/PerceptionPipeline';
 import { VisionSensor } from './infrastructure/perception/sensors/VisionSensor';
 import { DomSensor } from './infrastructure/perception/sensors/DomSensor';
@@ -34,7 +31,10 @@ import { RunDurabilityService } from './application/services/execution/RunDurabi
 import { RunBudgetPolicyService } from './application/services/execution/RunBudgetPolicyService';
 import { CheckpointCompactionService } from './application/services/execution/CheckpointCompactionService';
 import { RecoveryReadModelService } from './application/services/execution/RecoveryReadModelService';
+import { ManualRecoveryBootstrapService } from './application/services/execution/ManualRecoveryBootstrapService';
 import { RunRecoveryPolicyService } from './application/services/execution/RunRecoveryPolicyService';
+import { RecoveryReplayGuardService } from './application/services/execution/RecoveryReplayGuardService';
+import { ReplanningPolicyService } from './application/services/execution/ReplanningPolicyService';
 import { TemporalObservationPolicyService } from './application/services/perception/TemporalObservationPolicyService';
 import { TimelineContextAssembler } from './application/services/perception/TimelineContextAssembler';
 import { SkillRegistryService } from './application/services/skills/SkillRegistryService';
@@ -53,7 +53,6 @@ export function registerCoreServices(): void {
 
     // Browser / Driver Automation
     container.registerSingleton(PlaywrightAdapter);
-    container.register('IBrowserAutomation', { useToken: PlaywrightAdapter }); // Legacy/Internal
 
     // New App Driver Architecture
     container.registerSingleton(WebDriver);
@@ -61,8 +60,7 @@ export function registerCoreServices(): void {
     container.registerSingleton(AppDriverFactory);
     container.registerSingleton(ToolRegistry);
     
-    // Default to WebDriver for backward compatibility
-    // Use AppDriverFactory.createDriver() to switch platforms dynamically
+    // Default app driver binding
     container.register('IAppDriver', { useToken: WebDriver });
 
     container.registerSingleton('ILogger', ConsoleLogger);
@@ -75,7 +73,10 @@ export function registerCoreServices(): void {
     container.registerSingleton(RunBudgetPolicyService);
     container.registerSingleton(CheckpointCompactionService);
     container.registerSingleton(RecoveryReadModelService);
+    container.registerSingleton(ManualRecoveryBootstrapService);
     container.registerSingleton(RunRecoveryPolicyService);
+    container.registerSingleton(RecoveryReplayGuardService);
+    container.registerSingleton(ReplanningPolicyService);
     container.registerSingleton(TemporalObservationPolicyService);
     container.registerSingleton(TimelineContextAssembler);
     container.registerSingleton(SkillRegistryService);
@@ -103,10 +104,6 @@ export function registerCoreServices(): void {
     container.register('IToolCallingProvider', { useClass: LangChainToolCallingProvider });
     container.register('ILLMProvider', { useClass: LangChainAdapter });
     container.register('RunTestUseCase', { useClass: RunTestUseCase });
-
-    // Enterprise Architecture Services
-    container.registerSingleton(LocalBrowserNode);
-    container.registerSingleton(DomiaGateway);
 
     // Perception System
     container.registerSingleton(VisionSensor);
@@ -136,10 +133,6 @@ export function registerCoreServices(): void {
     // Always enable debug exporter (let the 'debug' package handle filtering via DEBUG env var)
     traceService.addExporter(new DebugExporter());
 
-    // Auto-register local node
-    const gateway = container.resolve(DomiaGateway);
-    const localNode = container.resolve(LocalBrowserNode);
-    gateway.registerNode(localNode);
 }
 
 export { container };

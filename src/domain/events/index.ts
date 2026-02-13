@@ -9,6 +9,7 @@ export type {
     ErrorEvent,
     CancelledEvent,
     CompletedEvent,
+    RecoveryReplayEvent,
 } from './TestRunEvent';
 
 export type { CancellationToken } from './CancellationToken';

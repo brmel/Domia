@@ -11,10 +11,6 @@ export const WebConfigSchema = z.object({
       }
       return val;
     }),
-  prompt: z.string()
-    .trim()
-    .min(1, "Test instructions are required")
-    .max(5000, "Instructions too long"),
 });
 
 export type WebConfig = z.infer<typeof WebConfigSchema>;

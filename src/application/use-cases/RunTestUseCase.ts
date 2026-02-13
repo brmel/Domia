@@ -7,6 +7,7 @@ import { WorkflowError } from '../../domain/errors';
 import { TestRunLifecycleManager } from '../services/TestRunLifecycleManager';
 import { RunTestInput, RunTestOutput } from '../dtos';
 import { TestRunState } from '../../domain/enums/TestRunState';
+import { ActionType } from '../../domain/enums/ActionType';
 import { WorkflowPlanner } from '../services/planning/WorkflowPlanner';
 import { StepExecutor, type StepExecutionResult } from '../services/execution/StepExecutor';
 import type { RunExecutionLaneService } from '../services/execution/RunExecutionLaneService';
@@ -14,19 +15,38 @@ import { RunDurabilityService } from '../services/execution/RunDurabilityService
 import { RunBudgetPolicyService } from '../services/execution/RunBudgetPolicyService';
 import { CheckpointCompactionService } from '../services/execution/CheckpointCompactionService';
 import { RecoveryReadModelService } from '../services/execution/RecoveryReadModelService';
+import { ManualRecoveryBootstrapService } from '../services/execution/ManualRecoveryBootstrapService';
 import { RunRecoveryPolicyService, type RecoveryMode } from '../services/execution/RunRecoveryPolicyService';
+import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplayGuardService';
+import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
 import { SkillRegistryService } from '../services/skills/SkillRegistryService';
 import { SkillGovernanceService } from '../services/skills/SkillGovernanceService';
 import { PluginRegistryService } from '../services/plugins/PluginRegistryService';
 import { PluginGatewayService } from '../services/plugins/PluginGatewayService';
 import { RuntimeReadinessPolicyService } from '../services/hardening/RuntimeReadinessPolicyService';
-import { PlanItemStatus } from '@domain/entities/Plan';
+import type { Plan, PlanItem, PlanItemStatus } from '@domain/entities/Plan';
 import { TestStep } from '../../domain/ports';
+import type { AgentAction } from '../../domain/value-objects';
 import { v4 as uuidv4 } from 'uuid';
 import type { ILogger } from '../../domain/ports';
 import { PlatformSessionFactory } from '../services/platform/PlatformSessionFactory';
 import type { ToolContext } from '../../domain/tools/Tool';
 import type { RunLifecycleState } from '@domain/value-objects/RunLifecycle';
+
+interface RecoveryBootstrapContext {
+    readonly sourceRunId: string;
+    readonly state: WorkflowState;
+    readonly plan?: Plan;
+    readonly startPlanIndex: number;
+}
+
+type RecoveryReplayOutcome =
+    | { readonly type: 'ok'; readonly state: WorkflowState; readonly replayedCount: number }
+    | { readonly type: 'cancelled'; readonly state: WorkflowState; readonly replayedCount: number }
+    | { readonly type: 'blocked'; readonly reason: string; readonly replayedCount: number }
+    | { readonly type: 'failed'; readonly reason: string; readonly replayedCount: number };
+
+type StepFailureCode = Extract<StepExecutionResult, { success: false }>['code'];
 
 
 @injectable()
@@ -43,7 +63,10 @@ export class RunTestUseCase {
         @inject(RunBudgetPolicyService) private readonly budgetPolicy: RunBudgetPolicyService,
         @inject(CheckpointCompactionService) private readonly checkpointCompaction: CheckpointCompactionService,
         @inject(RecoveryReadModelService) private readonly recoveryReadModel: RecoveryReadModelService,
+        @inject(ManualRecoveryBootstrapService) private readonly recoveryBootstrap: ManualRecoveryBootstrapService,
         @inject(RunRecoveryPolicyService) private readonly recoveryPolicy: RunRecoveryPolicyService,
+        @inject(RecoveryReplayGuardService) private readonly recoveryReplayGuard: RecoveryReplayGuardService,
+        @inject(ReplanningPolicyService) private readonly replanningPolicy: ReplanningPolicyService,
         @inject(SkillRegistryService) private readonly skillRegistry: SkillRegistryService,
         @inject(SkillGovernanceService) private readonly skillGovernance: SkillGovernanceService,
         @inject(PluginRegistryService) private readonly pluginRegistry: PluginRegistryService,
@@ -53,25 +76,7 @@ export class RunTestUseCase {
     ) { }
 
     async *execute(input: RunTestInput, controller: ExecutionController): AsyncGenerator<RunTestOutput, void, unknown> {
-        // Validate input: Either URL or platformConfig must be provided
-        if (!input.url && !input.platformConfig) {
-            yield { type: 'error', error: new WorkflowError('No platform configuration provided. Either provide url or platformConfig.') };
-            return;
-        }
-        
-        // Extract URL for test run initialization (legacy requirement)
-        const url = input.platformConfig?.platform === 'web'
-            ? input.platformConfig.url
-            : input.platformConfig?.platform === 'electron' && input.platformConfig.connection.type === 'cdp'
-                ? input.platformConfig.connection.cdpUrl
-                : input.platformConfig?.platform === 'electron' && input.platformConfig.connection.type === 'executable'
-                    ? 'electron://app'
-                    : input.url;
-
-        if (!url) {
-            yield { type: 'error', error: new WorkflowError('Could not determine URL from input') };
-            return;
-        }
+        const url = this.resolveRunUrl(input.platformConfig);
 
         const readinessDecision = this.readinessPolicy.assess(input, url);
         if (readinessDecision.blocked) {
@@ -79,7 +84,7 @@ export class RunTestUseCase {
             return;
         }
 
-        const laneKey = this.resolveLaneKey(input, url);
+        const laneKey = this.resolveLaneKey(input);
         const releaseLane = await this.laneService.acquire(laneKey);
 
         const initResult = await this.lifecycleManager.initializeTestRun(url, input.prompt);
@@ -94,13 +99,9 @@ export class RunTestUseCase {
         const runStartMs = Date.now();
         let estimatedTokensUsed = 0;
         const retryCount = 0;
-
-        await this.evaluateRecoveryScaffold(input);
+        const recoveryContext = await this.resolveRecoveryContext(input);
         this.evaluateSkillScaffold(input, testRunId);
         this.evaluatePluginScaffold(input, testRunId);
-
-        await this.durability.checkpoint(testRunId, WorkflowState.initial(), 'run_initialized');
-        yield { type: 'started', testRunId };
 
         let browser: IBrowserAutomation | undefined;
         let disposeSession: (() => Promise<void>) | undefined;
@@ -108,14 +109,13 @@ export class RunTestUseCase {
         let stepToolContext: ToolContext | undefined;
         
         try {
-            const session = await this.sessionFactory.createSession(input, testRunId);
+            const session = await this.sessionFactory.createSession(input);
             browser = session.browser;
             disposeSession = session.dispose;
             shouldNavigate = session.shouldNavigate;
 
             if (session.driver) {
                 stepToolContext = {
-                    browser,
                     driver: session.driver,
                     platform: session.driver.getCapabilities().platform,
                     logger: this.logger
@@ -136,10 +136,26 @@ export class RunTestUseCase {
         }
 
         // Initialize State
-        let currentState = WorkflowState.initial();
+        let currentState = recoveryContext?.state ?? WorkflowState.initial();
+        const recoveryTargetStepNumber = recoveryContext?.state.stepNumber ?? 0;
+
+        if (recoveryContext) {
+            currentState = {
+                ...currentState,
+                stepNumber: 0,
+                history: []
+            };
+        }
+
+        const resumedPlan = recoveryContext?.plan;
+        const startPlanIndex = recoveryContext?.startPlanIndex ?? 0;
+
+        await this.durability.checkpoint(testRunId, currentState, 'run_initialized');
+        yield { type: 'started', testRunId };
         let completed = false;
         let finalSummary: string | undefined;
         let hasVerificationFailure = false;
+        let replanCount = 0;
         let terminalError: Error | null = null;
 
         try {
@@ -155,16 +171,94 @@ export class RunTestUseCase {
                 await browser.waitForDOMStable();
             }
 
+            if (recoveryContext) {
+                yield {
+                    type: 'recovery_replay',
+                    telemetry: {
+                        sourceRunId: recoveryContext.sourceRunId,
+                        targetStepNumber: recoveryTargetStepNumber,
+                        replayedCount: 0,
+                        status: 'started'
+                    }
+                };
+
+                const replayOutcome = await this.replayRecoveryActions({
+                    testRunId,
+                    sourceRunId: recoveryContext.sourceRunId,
+                    browser,
+                    controller,
+                    state: currentState,
+                    targetStepNumber: recoveryTargetStepNumber
+                });
+
+                if (replayOutcome.type === 'ok' || replayOutcome.type === 'cancelled') {
+                    yield {
+                        type: 'recovery_replay',
+                        telemetry: {
+                            sourceRunId: recoveryContext.sourceRunId,
+                            targetStepNumber: recoveryTargetStepNumber,
+                            replayedCount: replayOutcome.replayedCount,
+                            status: replayOutcome.type === 'ok' ? 'completed' : 'cancelled'
+                        }
+                    };
+                } else {
+                    yield {
+                        type: 'recovery_replay',
+                        telemetry: {
+                            sourceRunId: recoveryContext.sourceRunId,
+                            targetStepNumber: recoveryTargetStepNumber,
+                            replayedCount: replayOutcome.replayedCount,
+                            status: replayOutcome.type,
+                            reason: replayOutcome.reason
+                        }
+                    };
+                }
+
+                if (replayOutcome.type === 'blocked') {
+                    throw new WorkflowError(`Recovery replay blocked: ${replayOutcome.reason}`);
+                }
+
+                if (replayOutcome.type === 'failed') {
+                    throw new WorkflowError(`Recovery replay failed: ${replayOutcome.reason}`);
+                }
+
+                currentState = replayOutcome.state;
+                yield { type: 'state_updated', state: currentState };
+
+                this.logger.info('[RunTestUseCase] Recovery replay completed', {
+                    testRunId,
+                    sourceRunId: recoveryContext.sourceRunId,
+                    replayedCount: replayOutcome.replayedCount
+                });
+
+                if (replayOutcome.type === 'cancelled') {
+                    return;
+                }
+            }
+
             // 1. Planning Phase
             yield { type: 'thinking' };
             runLifecycle = this.durability.transition(testRunId, runLifecycle, 'planning');
-            const planResult = await this.planner.plan(input.prompt);
+            let plan: Plan;
 
-            if (planResult.isErr()) {
-                throw new WorkflowError(`Planning failed: ${planResult.error.message}`);
+            if (resumedPlan) {
+                plan = resumedPlan;
+                this.logger.info('[RunTestUseCase] Recovery bootstrap reusing checkpoint plan', {
+                    testRunId,
+                    sourceRunId: recoveryContext?.sourceRunId,
+                    startPlanIndex,
+                    planItems: resumedPlan.items.length
+                });
+            } else {
+                const planResult = await this.planner.plan(input.prompt);
+
+                if (planResult.isErr()) {
+                    throw new WorkflowError(`Planning failed: ${planResult.error.message}`);
+                }
+
+                plan = planResult.value;
             }
 
-            const plan = planResult.value;
             estimatedTokensUsed += Math.ceil(input.prompt.length / 4);
             currentState = { ...currentState, plan };
             yield { type: 'state_updated', state: currentState };
@@ -172,7 +266,7 @@ export class RunTestUseCase {
             runLifecycle = this.durability.transition(testRunId, runLifecycle, 'executing');
 
             // 2. Execution Phase
-            for (let i = 0; i < plan.items.length; i++) {
+            for (let i = startPlanIndex; i < plan.items.length; i++) {
                 const item = plan.items[i];
                 if (!item) continue;
 
@@ -189,10 +283,10 @@ export class RunTestUseCase {
                 }
 
                 // Update Item Status to Running
-                const runningItem = { ...item, status: 'active' as PlanItemStatus } as import('@domain/entities/Plan').PlanItem;
+                const runningItem: PlanItem = { ...item, status: 'active' as PlanItemStatus };
                 const updatedItems = [...plan.items];
                 updatedItems[i] = runningItem;
-                currentState = { ...currentState, plan: { ...plan, items: updatedItems } };
+                currentState = { ...currentState, activeItemId: runningItem.id, plan: { ...plan, items: updatedItems } };
                 yield { type: 'state_updated', state: currentState };
 
                 const executionOptions = {
@@ -267,20 +361,29 @@ export class RunTestUseCase {
 
                 if (result && result.success) {
                     // Mark Success
-                    const successItem = { ...item, status: 'completed' as PlanItemStatus } as import('@domain/entities/Plan').PlanItem;
+                    const successItem: PlanItem = { ...item, status: 'completed' as PlanItemStatus };
                     const successItems = [...updatedItems];
                     successItems[i] = successItem;
-                    currentState = { ...currentState, plan: { ...plan, items: successItems } };
+                    currentState = { ...this.clearActiveItem(currentState), plan: { ...plan, items: successItems } };
                     yield { type: 'state_updated', state: currentState };
                 } else {
                     // Step Failed
                     const errorMsg = result ? `${result.code}: ${result.reason}` : 'unknown_error: Unknown error';
+                    const replanningTrigger = result ? this.mapResultCodeToReplanningTrigger(result.code) : undefined;
 
-                    const completedWithFailureItem = { ...item, status: 'completed' as PlanItemStatus } as import('@domain/entities/Plan').PlanItem;
+                    this.replanningPolicy.logIfSuggested({
+                        runId: testRunId,
+                        replanCount,
+                        ...(replanningTrigger ? { trigger: replanningTrigger } : {})
+                    });
+
+                    const completedWithFailureItem: PlanItem = { ...item, status: 'completed' as PlanItemStatus };
                     const newItems = [...updatedItems];
                     newItems[i] = completedWithFailureItem;
-                    currentState = { ...currentState, plan: { ...plan, items: newItems } };
+                    currentState = { ...this.clearActiveItem(currentState), plan: { ...plan, items: newItems } };
                     yield { type: 'state_updated', state: currentState };
+
+                    replanCount += 1;
 
                     console.warn(`[RunTestUseCase] Step failed verification: ${errorMsg}`);
                     finalSummary = `Verification failed: ${errorMsg}`;
@@ -332,12 +435,12 @@ export class RunTestUseCase {
         }
     }
 
-    private async evaluateRecoveryScaffold(input: RunTestInput): Promise<void> {
+    private async resolveRecoveryContext(input: RunTestInput): Promise<RecoveryBootstrapContext | null> {
         const recoveryFeatureEnabled = process.env['DOMIA_ENABLE_RECOVERY_SCAFFOLD'] === 'true';
         const recoveryRunId = input.options?.recoveryRunId?.trim();
 
         if (!recoveryFeatureEnabled || !recoveryRunId) {
-            return;
+            return null;
         }
 
         const checkpoints = await this.durability.getCheckpointRecords(recoveryRunId);
@@ -354,6 +457,189 @@ export class RunTestUseCase {
             checkpointCount: checkpoints.length,
             compactedCheckpointCount: compactedView.compacted.length
         });
+
+        if (!decision.shouldRecover || recoveryMode !== 'manual-only') {
+            return null;
+        }
+
+        const latest = compactedView.latest;
+        if (!latest) {
+            this.logger.warn('[RunTestUseCase] Recovery bootstrap skipped: latest checkpoint unavailable', {
+                recoveryRunId,
+                recoveryMode
+            });
+            return null;
+        }
+
+        const bootstrap = this.recoveryBootstrap.bootstrapFromCheckpoint(latest.state);
+
+        this.logger.info('[RunTestUseCase] Recovery bootstrap applied from latest checkpoint', {
+            recoveryRunId,
+            stepNumber: bootstrap.state.stepNumber,
+            status: bootstrap.state.status,
+            startPlanIndex: bootstrap.startPlanIndex,
+            hasPlan: Boolean(bootstrap.state.plan)
+        });
+
+        return {
+            sourceRunId: recoveryRunId,
+            state: bootstrap.state,
+            ...(bootstrap.state.plan ? { plan: bootstrap.state.plan } : {}),
+            startPlanIndex: bootstrap.startPlanIndex
+        };
+    }
+
+    private clearActiveItem(state: WorkflowState): WorkflowState {
+        const { activeItemId: _removed, ...withoutActiveItem } = state;
+        return withoutActiveItem;
+    }
+
+    private async replayRecoveryActions(params: {
+        testRunId: string;
+        sourceRunId: string;
+        browser: IBrowserAutomation;
+        controller: ExecutionController;
+        state: WorkflowState;
+        targetStepNumber: number;
+    }): Promise<RecoveryReplayOutcome> {
+        const { testRunId, sourceRunId, browser, controller, state, targetStepNumber } = params;
+
+        if (targetStepNumber <= 0) {
+            return { type: 'ok', state, replayedCount: 0 };
+        }
+
+        const stepsResult = await this.persistence.getTestSteps(sourceRunId);
+        if (stepsResult.isErr()) {
+            return { type: 'failed', reason: stepsResult.error.message, replayedCount: 0 };
+        }
+
+        const sourceSteps = stepsResult.value;
+        if (sourceSteps.length < targetStepNumber) {
+            return {
+                type: 'failed',
+                reason: `Checkpoint step target (${targetStepNumber}) exceeds available source steps (${sourceSteps.length})`,
+                replayedCount: 0
+            };
+        }
+
+        let replayedCount = 0;
+        let nextState = state;
+
+        for (const sourceStep of sourceSteps.slice(0, targetStepNumber)) {
+            if (controller.state === TestRunState.CANCELLED) {
+                return { type: 'cancelled', state: nextState, replayedCount };
+            }
+
+            const action = sourceStep.actionPayload;
+            const decision = this.recoveryReplayGuard.decide(action);
+
+            if (decision.decision === 'block') {
+                return {
+                    type: 'blocked',
+                    reason: `${decision.reason} at source step ${sourceStep.stepNumber}`,
+                    replayedCount
+                };
+            }
+
+            if (decision.decision === 'skip') {
+                this.logger.debug('[RunTestUseCase] Recovery replay skipped action', {
+                    testRunId,
+                    sourceRunId,
+                    sourceStepNumber: sourceStep.stepNumber,
+                    actionType: action.type,
+                    reason: decision.reason
+                });
+                continue;
+            }
+
+            try {
+                await this.executeReplayAction(browser, action);
+            } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error);
+                return {
+                    type: 'failed',
+                    reason: `Execution failed at source step ${sourceStep.stepNumber}: ${reason}`,
+                    replayedCount
+                };
+            }
+
+            const replayStep: TestStep = {
+                id: uuidv4(),
+                testRunId,
+                stepNumber: nextState.stepNumber + 1,
+                actionType: action.type,
+                actionPayload: action,
+                timestamp: new Date().toISOString()
+            };
+
+            await this.persistence.saveTestStep(replayStep);
+
+            nextState = {
+                ...nextState,
+                stepNumber: nextState.stepNumber + 1,
+                history: [...nextState.history, action]
+            };
+            replayedCount += 1;
+
+            await this.durability.checkpoint(testRunId, nextState, 'action_applied');
+        }
+
+        return { type: 'ok', state: nextState, replayedCount };
+    }
+
+    private async executeReplayAction(browser: IBrowserAutomation, action: AgentAction): Promise<void> {
+        switch (action.type) {
+            case ActionType.WAIT: {
+                const result = await browser.wait(action.durationMs);
+                if (result.isErr()) {
+                    throw new WorkflowError(`wait failed: ${result.error.message}`);
+                }
+                return;
+            }
+
+            case ActionType.SCROLL: {
+                const result = await browser.scroll(action.direction);
+                if (result.isErr()) {
+                    throw new WorkflowError(`scroll failed: ${result.error.message}`);
+                }
+                return;
+            }
+
+            case ActionType.EXTRACT: {
+                const result = await browser.extractText(action.elementId);
+                if (result.isErr()) {
+                    throw new WorkflowError(`extract failed: ${result.error.message}`);
+                }
+                return;
+            }
+
+            case ActionType.NAVIGATE: {
+                const urlResult = UrlFactory.create(action.url);
+                if (urlResult.isErr()) {
+                    throw new WorkflowError(`navigate failed: invalid url '${action.url}'`);
+                }
+
+                const result = await browser.navigateTo(urlResult.value);
+                if (result.isErr()) {
+                    throw new WorkflowError(`navigate failed: ${result.error.message}`);
+                }
+                return;
+            }
+
+            case ActionType.PASS:
+            case ActionType.FAIL:
+                return;
+
+            case ActionType.CLICK:
+            case ActionType.TYPE:
+            case ActionType.PRESS_KEY:
+                throw new WorkflowError(`non-idempotent replay action blocked: ${action.type}`);
+
+            default: {
+                const exhaustiveCheck: never = action;
+                throw new WorkflowError(`unsupported replay action: ${String(exhaustiveCheck)}`);
+            }
+        }
     }
 
     private async logCheckpointCompactionSummary(runId: string): Promise<void> {
@@ -366,6 +652,29 @@ export class RunTestUseCase {
             compactedCheckpoints: compactedView.compacted.length,
             latestReason: compactedView.latest?.reason
         });
+    }
+
+    private mapResultCodeToReplanningTrigger(
+        code: StepFailureCode
+    ): import('../services/execution/ReplanningPolicyService').ReplanningTrigger | undefined {
+        switch (code) {
+            case 'loop_detected':
+                return 'loop_detected';
+            case 'action_execution_error':
+                return 'action_execution_error';
+            case 'assertion_fail':
+            case 'agent_fail':
+                return 'assertion_fail';
+            case 'max_actions_reached':
+                return 'max_actions_reached';
+            case 'perception_error':
+            case 'llm_error':
+                return undefined;
+            default: {
+                const exhaustiveCheck: never = code;
+                return exhaustiveCheck;
+            }
+        }
     }
 
     private evaluateSkillScaffold(input: RunTestInput, runId: string): void {
@@ -430,13 +739,22 @@ export class RunTestUseCase {
         });
     }
 
-    private resolveLaneKey(input: RunTestInput, resolvedUrl: string): string {
-        const platformConfig = input.platformConfig;
-        const platform = platformConfig?.platform;
-
-        if (!platformConfig) {
-            return `legacy:web:${resolvedUrl}`;
+    private resolveRunUrl(platformConfig: RunTestInput['platformConfig']): string {
+        if (platformConfig.platform === 'web') {
+            return platformConfig.url;
         }
+
+        if (platformConfig.connection.type === 'cdp') {
+            return platformConfig.connection.cdpUrl;
+        }
+
+        return 'electron://app';
+    }
+
+    private resolveLaneKey(input: RunTestInput): string {
+        const platformConfig = input.platformConfig;
+
+        const platform = platformConfig.platform;
 
         if (platform === 'web') {
             return `platform:web:${platformConfig.url}`;
@@ -450,6 +768,7 @@ export class RunTestUseCase {
             return `platform:electron:executable:${platformConfig.connection.executablePath}`;
         }
 
-        return `legacy:web:${resolvedUrl}`;
+        const exhaustiveCheck: never = platform;
+        return `unsupported:${String(exhaustiveCheck)}`;
     }
 }

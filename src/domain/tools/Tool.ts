@@ -1,5 +1,5 @@
 
-import { IBrowserAutomation, ILogger, IExecutionController } from '../ports';
+import { ILogger, IExecutionController } from '../ports';
 import { IAppDriver } from '../ports/IAppDriver';
 import type { PlatformType } from './ToolMetadata';
 
@@ -34,9 +34,6 @@ export interface PlatformContext {
  * Contains everything a tool needs to execute within a platform
  */
 export interface ToolContext {
-    /** Deprecated: Use driver instead */
-    browser?: IBrowserAutomation;
-    
     /** Unified driver interface (required for new tools) */
     driver: IAppDriver;
     

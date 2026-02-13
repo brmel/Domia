@@ -3,7 +3,7 @@ import type { FieldRenderProps } from '../../config/platformRegistry';
 import type { WebPlatformConfig } from '../../../domain/types/PlatformConfig';
 
 export function WebPlatformFields({ value, onChange, errors, disabled }: FieldRenderProps): React.ReactElement {
-  const webValue = value as Omit<WebPlatformConfig, 'platform' | 'prompt'>;
+  const webValue = value as Omit<WebPlatformConfig, 'platform'>;
   const url = webValue.url || '';
 
   return (

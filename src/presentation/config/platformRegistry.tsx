@@ -1,6 +1,5 @@
 import type {
   BasePlatformConfig,
-  PlatformType,
   WebPlatformConfig,
   ElectronPlatformConfig,
 } from '../../domain/types/PlatformConfig';
@@ -8,8 +7,8 @@ import { WebPlatformFields } from '../components/platform-fields/WebPlatformFiel
 import { ElectronPlatformFields } from '../components/platform-fields/ElectronPlatformFields';
 
 export type PlatformFieldValue =
-  | Omit<WebPlatformConfig, 'platform' | 'prompt'>
-  | Omit<ElectronPlatformConfig, 'platform' | 'prompt'>;
+  | Omit<WebPlatformConfig, 'platform'>
+  | Omit<ElectronPlatformConfig, 'platform'>;
 
 /**
  * Props passed to platform-specific field renderers
@@ -35,15 +34,15 @@ export interface PlatformDefinition<T extends BasePlatformConfig> {
   renderFields: React.ComponentType<FieldRenderProps>;
   
   // Default values for new instances
-  defaultValues: Omit<T, 'platform' | 'prompt'>;
+  defaultValues: Omit<T, 'platform'>;
 }
 
 /**
  * Central registry of all supported platforms
  * Add new platforms here
  */
-type WebFieldValue = Omit<WebPlatformConfig, 'platform' | 'prompt'>;
-type ElectronFieldValue = Omit<ElectronPlatformConfig, 'platform' | 'prompt'>;
+type WebFieldValue = Omit<WebPlatformConfig, 'platform'>;
+type ElectronFieldValue = Omit<ElectronPlatformConfig, 'platform'>;
 
 export const platformRegistry: {
   web: PlatformDefinition<WebPlatformConfig> & { defaultValues: WebFieldValue };
@@ -80,11 +79,4 @@ export const platformRegistry: {
  */
 export function getAvailablePlatforms(): Array<PlatformDefinition<BasePlatformConfig>> {
   return Object.values(platformRegistry);
-}
-
-/**
- * Get specific platform definition
- */
-export function getPlatformDefinition(type: PlatformType): PlatformDefinition<BasePlatformConfig> {
-  return platformRegistry[type];
 }

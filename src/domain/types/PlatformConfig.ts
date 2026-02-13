@@ -2,7 +2,6 @@ export type PlatformType = 'web' | 'electron';
 
 export interface BasePlatformConfig {
   platform: PlatformType;
-  prompt: string;
 }
 
 export interface WebPlatformConfig extends BasePlatformConfig {

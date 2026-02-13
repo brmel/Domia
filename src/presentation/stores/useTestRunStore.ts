@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { TestRunEvent } from '@domain/events';
 import type { AgentAction, TestRunId } from '@domain/value-objects';
 import type { Plan } from '@domain/entities/Plan';
+import type { RecoveryReplayTelemetry } from '@application/dtos';
 import { AgentStatus } from '../../domain/types/AgentStatus';
 
 /**
@@ -28,6 +29,9 @@ export interface TestRunStoreState {
     // Input Persistence
     url: string;
     prompt: string;
+
+    // Recovery Replay Telemetry
+    recoveryReplay: RecoveryReplayTelemetry | null;
 }
 
 interface TestRunActions {
@@ -56,6 +60,7 @@ const initialState: TestRunStoreState = {
     history: [],
     url: 'https://ibraverse.ca',
     prompt: 'verify that brahim is smiling',
+    recoveryReplay: null,
 };
 
 export const useTestRunStore = create<TestRunStore>((set) => ({
@@ -97,6 +102,10 @@ export const useTestRunStore = create<TestRunStore>((set) => ({
                     plan: event.state.plan || state.plan,
                     currentAction: null
                 }));
+                break;
+
+            case 'recovery_replay':
+                set({ recoveryReplay: event.telemetry });
                 break;
 
             case 'completed':

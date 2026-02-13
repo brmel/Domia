@@ -41,7 +41,7 @@ export interface ToolMetadata {
     /** Whether this is a terminal tool (ends test execution) */
     readonly terminal?: boolean;
     
-    /** Version for backward compatibility */
+    /** Optional semantic version */
     readonly version?: string;
     
     /** Tags for additional categorization */

@@ -4,7 +4,6 @@ import type { ILogger } from '../../../domain/ports';
 import { WebDriver } from './WebDriver';
 import { ElectronDriver, ElectronConnectionConfig } from './ElectronDriver';
 import type { PlatformConfig } from '../../../domain/types/PlatformConfig';
-import { PlatformType } from '../../../domain/tools/ToolMetadata';
 import { DriverToolRegistrar } from './DriverToolRegistrar';
 
 /**
@@ -146,44 +145,4 @@ export class AppDriverFactory {
         return driver;
     }
 
-    /**
-     * Get available platforms
-     */
-    getAvailablePlatforms(): PlatformType[] {
-        return ['web', 'electron'];
-    }
-
-    /**
-     * Create driver from legacy config format (backward compatibility)
-     * @deprecated Use createDriver with PlatformConfig instead
-     */
-    async createDriverLegacy(platform: PlatformType, connectionOptions?: any): Promise<IAppDriver> {
-        this.logger.warn('[AppDriverFactory] Using deprecated legacy driver creation');
-        
-        let driver: IAppDriver;
-        
-        switch (platform) {
-            case 'web':
-                driver = this.webDriver;
-                const webResult = await driver.connect(connectionOptions);
-                if (webResult.isErr()) {
-                    throw new Error(`WebDriver connection failed: ${webResult.error.message}`);
-                }
-                break;
-                
-            case 'electron':
-                driver = this.electronDriver;
-                const electronResult = await driver.connect(connectionOptions);
-                if (electronResult.isErr()) {
-                    throw new Error(`ElectronDriver connection failed: ${electronResult.error.message}`);
-                }
-                break;
-                
-            default:
-                throw new Error(`Unsupported platform: ${platform}`);
-        }
-        
-        this.toolRegistrar.registerDriver(driver);
-        return driver;
-    }
 }

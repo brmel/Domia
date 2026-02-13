@@ -8,7 +8,7 @@ import type {
 } from '../../../domain/types/PlatformConfig';
 
 export function ElectronPlatformFields({ value, onChange, errors, disabled }: FieldRenderProps): React.ReactElement {
-  const electronValue = value as Omit<ElectronPlatformConfig, 'platform' | 'prompt'>;
+  const electronValue = value as Omit<ElectronPlatformConfig, 'platform'>;
   const connection: ElectronConnection = electronValue.connection || { type: 'cdp', cdpUrl: 'http://localhost:9222' };
   const connectionType: 'cdp' | 'executable' = connection.type;
 

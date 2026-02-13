@@ -1,16 +1,11 @@
-import { TestForm } from './presentation/components/TestForm';
-import { TestRunner } from './presentation/components/TestRunner';
-import { LiveView } from './presentation/components/LiveView';
-import { ResizableSidebar } from './presentation/components/ResizableSidebar';
 import { useTestRunStore } from './presentation/stores';
 import { canInteract } from './presentation/utils/agentStateUtils';
 
 import { useState } from 'react';
-import { HistorySidebar } from './presentation/components/HistorySidebar';
-import { SettingsSidebar } from './presentation/components/SettingsSidebar';
-import { StepInspector } from './presentation/components/StepInspector';
 import { AppSectionPlaceholder } from './presentation/components/AppSectionPlaceholder';
 import { SegmentedControl } from './presentation/components/ui/SegmentedControl';
+import { RunsWorkspace } from './presentation/components/RunsWorkspace';
+import { ComposeWorkspace } from './presentation/components/ComposeWorkspace';
 
 type AppSection = 'runs' | 'compose' | 'skills' | 'plugins' | 'governance' | 'observability';
 
@@ -31,59 +26,13 @@ function App(): JSX.Element {
     const { status } = useTestRunStore();
     const isInteractionDisabled = !canInteract(status);
 
-    const renderRunsWorkspace = (): JSX.Element => (
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-            <ResizableSidebar initialWidth={350} minWidth={300} maxWidth={600}>
-                {activeSidebar === 'config' ? (
-                    <>
-                        <div className="px-4 py-3 border-b border-gray-100 bg-white flex items-center justify-between">
-                            <h1 className="text-xl font-bold tracking-tight text-gray-900">Domia</h1>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-0 bg-white">
-                            <TestForm
-                                onOpenHistory={() => setActiveSidebar('history')}
-                                onOpenModelSettings={() => setActiveSidebar('settings_model')}
-                            />
-                        </div>
-                    </>
-                ) : activeSidebar === 'history' ? (
-                    <HistorySidebar
-                        onClose={() => setActiveSidebar('config')}
-                        disabled={isInteractionDisabled}
-                    />
-                ) : (
-                    <SettingsSidebar
-                        onClose={() => setActiveSidebar('config')}
-                        initialTab={activeSidebar === 'settings_model' ? 'model' : 'debug'}
-                        disabled={isInteractionDisabled}
-                    />
-                )}
-            </ResizableSidebar>
-
-            <main className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50 min-w-0">
-                <section className="flex-3 relative border-b border-gray-200 bg-gray-100/50 p-6 overflow-hidden flex flex-col">
-                    <LiveView />
-                </section>
-
-                <section className="flex-3 bg-white flex flex-col overflow-hidden min-h-0">
-                    <TestRunner />
-                </section>
-            </main>
-            <StepInspector />
-        </div>
-    );
-
     const renderPlaceholder = (section: Exclude<AppSection, 'runs'>): JSX.Element => {
         if (section === 'compose') {
             return (
-                <AppSectionPlaceholder
-                    title="Compose"
-                    description="Compose will become the dedicated authoring workspace for prompts, target configuration, and advanced run options with readiness preview before start."
-                    nextSteps={[
-                        'Extract authoring controls from Runs into a standalone compose workflow.',
-                        'Add collapsed advanced options for temporal, recovery, skills, and plugin preflight.',
-                        'Add pre-run readiness hints in observe mode.'
-                    ]}
+                <ComposeWorkspace
+                    activeSidebar={activeSidebar}
+                    setActiveSidebar={setActiveSidebar}
+                    isInteractionDisabled={isInteractionDisabled}
                 />
             );
         }
@@ -160,7 +109,7 @@ function App(): JSX.Element {
                 </header>
 
                 <div className="flex-1 min-h-0">
-                    {activeSection === 'runs' ? renderRunsWorkspace() : renderPlaceholder(activeSection)}
+                    {activeSection === 'runs' ? <RunsWorkspace /> : renderPlaceholder(activeSection)}
                 </div>
             </div>
         </div>

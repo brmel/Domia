@@ -10,7 +10,7 @@ import { SectionBlock } from './ui/SectionBlock';
 
 
 export function TestRunner(): React.ReactElement {
-    const { status, currentAction, plan, history, success, summary, errorMessage, handleEvent, testRunId: runId } =
+    const { status, currentAction, plan, history, success, summary, errorMessage, handleEvent, testRunId: runId, recoveryReplay } =
         useTestRunStore();
     const { open } = useStepInspectorStore();
     const [rightRailTab, setRightRailTab] = useState<'execution' | 'safety'>('execution');
@@ -302,6 +302,13 @@ export function TestRunner(): React.ReactElement {
                                 <InfoCard label="Run Status" value={status} />
                                 <InfoCard label="History Length" value={`${history.length} action(s)`} />
                                 <InfoCard label="Current Action" value={currentAction?.type ?? 'None'} />
+                                <InfoCard
+                                    label="Recovery Replay"
+                                    value={recoveryReplay
+                                        ? `${recoveryReplay.status} (${recoveryReplay.replayedCount}/${recoveryReplay.targetStepNumber})`
+                                        : 'Not active'}
+                                    detail={recoveryReplay?.reason}
+                                />
                                 <InfoCard
                                     label="Terminal Summary"
                                     value={<span className="font-normal text-gray-800 line-clamp-4 whitespace-pre-wrap">{summary || errorMessage || 'Not available yet'}</span>}

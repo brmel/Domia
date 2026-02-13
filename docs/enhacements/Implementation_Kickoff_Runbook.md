@@ -14,8 +14,8 @@ Move from scaffold-only behavior to real implementation in controlled stages, wi
 ### Recovery
 - Flag: `DOMIA_ENABLE_RECOVERY_SCAFFOLD`
 - Input options: `recoveryRunId`, `recoveryMode`
-- Current behavior: decision/logging preflight only
-- Real work next: add manual-only replay executor using compacted checkpoints
+- Current behavior: manual-only replay executor with idempotency guard and replay telemetry
+- Real work next: persisted idempotency dedupe ledger and auto-safe rollout preparation
 
 ### Temporal Observation
 - Flag: `DOMIA_ENABLE_TEMPORAL_OBSERVATION`
@@ -63,11 +63,11 @@ Move from scaffold-only behavior to real implementation in controlled stages, wi
 - Roll out by capability cohort and monitor logs.
 - Enable soft-enforce only after 1-2 stable staging cycles.
 
-## First Real Work Sprint (Suggested)
-1. Implement manual-only recovery replay (no auto-safe).
-2. Add idempotency guards for replayable action classes.
-3. Add integration tests for replay success/failure/cancel boundaries.
-4. Publish run-level telemetry for replay and checkpoint compaction.
+## Next Real Work Sprint (Suggested)
+1. Add replanning policy scaffold wiring (observe-only suggestions).
+2. Add persisted idempotency dedupe ledger for replay keys.
+3. Add integration tests for replay + replanning interaction boundaries.
+4. Publish replay and replanning telemetry into operator timeline views.
 
 ## Pre-Commit Checklist
 - `npm run typecheck`

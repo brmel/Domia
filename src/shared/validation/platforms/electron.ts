@@ -31,10 +31,6 @@ const ElectronConnectionSchema = z.discriminatedUnion('type', [
 export const ElectronConfigSchema = z.object({
   platform: z.literal('electron'),
   connection: ElectronConnectionSchema,
-  prompt: z.string()
-    .trim()
-    .min(1, "Test instructions are required")
-    .max(5000, "Instructions too long"),
 });
 
 export type ElectronConfig = z.infer<typeof ElectronConfigSchema>;

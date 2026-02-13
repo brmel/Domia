@@ -29,7 +29,7 @@ export class RunRecoveryPolicyService {
         }
 
         return {
-            shouldRecover: mode === 'auto-safe',
+            shouldRecover: mode === 'manual-only' || mode === 'auto-safe',
             mode,
             reason: model.reason
         };

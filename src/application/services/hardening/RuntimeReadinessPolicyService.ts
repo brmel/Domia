@@ -1,6 +1,6 @@
 import { inject, injectable } from 'tsyringe';
 import type { IConfigService, ILogger } from '@domain/ports';
-import type { RunTestInput } from '@application/dtos';
+import type { RunOptions } from '@shared/validation';
 import { ReadinessGateService, type ReadinessReport } from './ReadinessGateService';
 
 export type RuntimeReadinessMode = 'observe' | 'soft-enforce';
@@ -12,6 +12,11 @@ export interface RuntimeReadinessDecision {
     readonly message?: string;
 }
 
+export interface RuntimeReadinessInput {
+    readonly prompt: string;
+    readonly options?: RunOptions;
+}
+
 @injectable()
 export class RuntimeReadinessPolicyService {
     constructor(
@@ -20,7 +25,7 @@ export class RuntimeReadinessPolicyService {
         @inject('ILogger') private readonly logger: ILogger
     ) {}
 
-    assess(input: RunTestInput, resolvedUrl: string): RuntimeReadinessDecision {
+    assess(input: RuntimeReadinessInput, resolvedUrl: string): RuntimeReadinessDecision {
         const enabled = process.env['DOMIA_ENABLE_READINESS_GATES'] === 'true';
         const mode = this.resolveMode(input.options?.readinessMode);
 

@@ -19,7 +19,7 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
     const { status, setStatus, url, prompt, setPrompt } = useTestRunStore();
     const isRunning = isAgentRunning(status);
     
-    // Platform state - default to 'web' for backward compatibility
+    // Platform state
     const [selectedPlatform, setSelectedPlatform] = useState<PlatformType>('web');
     const [platformData, setPlatformData] = useState<PlatformFieldValue>({
         url: url || '',
@@ -51,23 +51,20 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
 
     const buildPlatformConfig = (
         platform: PlatformType,
-        promptValue: string,
         fieldValue: PlatformFieldValue
     ): PlatformConfig => {
         switch (platform) {
             case 'web': {
-                const webFields = fieldValue as Omit<WebPlatformConfig, 'platform' | 'prompt'>;
+                const webFields = fieldValue as Omit<WebPlatformConfig, 'platform'>;
                 return {
                     platform: 'web',
-                    prompt: promptValue,
                     url: webFields.url,
                 };
             }
             case 'electron': {
-                const electronFields = fieldValue as Omit<ElectronPlatformConfig, 'platform' | 'prompt'>;
+                const electronFields = fieldValue as Omit<ElectronPlatformConfig, 'platform'>;
                 return {
                     platform: 'electron',
-                    prompt: promptValue,
                     connection: electronFields.connection,
                 };
             }
@@ -86,19 +83,11 @@ export function TestForm({ onOpenHistory, onOpenModelSettings }: TestFormProps):
         }
 
         // Build platform config
-        const platformConfig = buildPlatformConfig(selectedPlatform, prompt, platformData);
-
-        // For backward compatibility, also send legacy format
-        const legacyUrl = platformConfig.platform === 'web'
-            ? platformConfig.url
-            : platformConfig.platform === 'electron' && platformConfig.connection.type === 'cdp'
-            ? platformConfig.connection.cdpUrl
-            : '';
+        const platformConfig = buildPlatformConfig(selectedPlatform, platformData);
 
         setStatus(AgentStatus.RUNNING);
         
         const finalData = {
-            url: legacyUrl, // Backward compatibility
             platformConfig,
             prompt,
             options: {

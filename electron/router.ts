@@ -9,7 +9,7 @@ import { observable } from '@trpc/server/observable';
 import { EventEmitter } from 'events';
 import { RunTestInput } from '../src/application/dtos';
 import { FileTraceExporter } from '../src/infrastructure/services/exporters/FileTraceExporter';
-import { PlatformConfigSchema } from '../src/shared/validation';
+import { RunInputSchema } from '../src/shared/validation';
 import { RuntimeReadinessPolicyService } from '../src/application/services/hardening/RuntimeReadinessPolicyService';
 import debug from 'debug';
 
@@ -18,26 +18,11 @@ const t = initTRPC.create({ isServer: true });
 let currentController: ExecutionController | null = null;
 const eventEmitter = new EventEmitter();
 
-const runInputSchema = z.object({
-    url: z.string().optional(),
-    platformConfig: PlatformConfigSchema.optional(),
-    prompt: z.string(),
-    options: z.object({
-        headless: z.boolean().optional(),
-        maxSteps: z.number().optional(),
-        provider: z.string().optional(),
-        verbose: z.boolean().optional(),
-        debug: z.boolean().optional(),
-        vision: z.boolean().optional(),
-        debugScreenshots: z.boolean().optional()
-    }).optional()
-});
-
 export const appRouter = t.router({
     test: t.router({
         run: t.procedure
-            .input(runInputSchema)
-            .mutation(async ({ input }: { input: z.infer<typeof runInputSchema> }) => {
+            .input(RunInputSchema)
+            .mutation(async ({ input }: { input: z.infer<typeof RunInputSchema> }) => {
                 const useCase = container.resolve<RunTestUseCase>('RunTestUseCase');
                 if (currentController) {
                     currentController.stop();

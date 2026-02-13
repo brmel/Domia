@@ -591,7 +591,7 @@ export class ElectronDriver implements IAppDriver {
     }
 
     /**
-     * Get browser automation interface (backward compatibility)
+     * Get browser automation interface for execution services.
      * Note: ElectronDriver doesn't use MonoBrowserAdapter like WebDriver,
      * so this creates a minimal adapter around the active window.
      */

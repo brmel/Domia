@@ -1,4 +1,4 @@
-export type SkillTrustLevel = 'draft' | 'verified' | 'restricted' | 'deprecated';
+export type SkillTrustLevel = 'draft' | 'verified' | 'restricted';
 
 export interface SkillSchema {
     readonly input: Record<string, unknown>;
