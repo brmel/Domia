@@ -46,6 +46,8 @@ import { SkillGovernanceService } from './application/services/skills/SkillGover
 import { PluginCapabilityPolicyService } from './application/services/plugins/PluginCapabilityPolicyService';
 import { PluginGatewayService } from './application/services/plugins/PluginGatewayService';
 import { PluginRegistryService } from './application/services/plugins/PluginRegistryService';
+import { PluginExecutionAdapterRegistryService } from './application/services/plugins/PluginExecutionAdapterRegistryService';
+import { PluginApprovalService } from './application/services/plugins/PluginApprovalService';
 import { ReadinessGateService } from './application/services/hardening/ReadinessGateService';
 import { RuntimeReadinessPolicyService } from './application/services/hardening/RuntimeReadinessPolicyService';
 import { WorkflowExecutionService } from './application/services/workflow/WorkflowExecutionService';
@@ -97,6 +99,8 @@ export function registerCoreServices(): void {
     container.registerSingleton(SkillGovernanceService);
     container.registerSingleton(PluginRegistryService);
     container.registerSingleton(PluginCapabilityPolicyService);
+    container.registerSingleton(PluginExecutionAdapterRegistryService);
+    container.registerSingleton(PluginApprovalService);
     container.registerSingleton(PluginGatewayService);
     container.registerSingleton(ReadinessGateService);
     container.registerSingleton(RuntimeReadinessPolicyService);
