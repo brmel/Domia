@@ -68,6 +68,7 @@ export class StepExecutor {
             vision: boolean;
             debugScreenshots: boolean;
             maxActions: number;
+            supervisedTerminalPass?: boolean;
             temporalObservation?: boolean;
             temporalMode?: TemporalObservationMode;
             temporalBurstFrames?: number;
@@ -271,7 +272,7 @@ export class StepExecutor {
 
             yield { type: 'action', action, assets };
 
-            if (action.type === ActionType.PASS) {
+            if (action.type === ActionType.PASS && !options.supervisedTerminalPass) {
                 return { success: true, terminal: 'pass' };
             }
 
@@ -281,6 +282,8 @@ export class StepExecutor {
             if (action.type === ActionType.FAIL) {
                 executionOutcome = 'not_executed';
                 executionError = action.reason;
+            } else if (action.type === ActionType.PASS && options.supervisedTerminalPass) {
+                executionOutcome = 'not_executed';
             } else {
                 const viewportValidationError = this.validateActionAgainstViewport(action, viewport);
                 if (viewportValidationError) {

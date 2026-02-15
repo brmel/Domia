@@ -29,6 +29,7 @@ export const RunOptionsSchema = z.object({
   temporalPromptTokenBudget: z.number().int().positive().optional(),
   temporalRedactSensitive: z.boolean().optional(),
   temporalPersistWindow: z.boolean().optional(),
+  supervisedExecution: z.boolean().optional(),
   preferredSkillId: z.string().trim().min(1).optional(),
   allowedSkillTrustLevels: z.array(z.enum(['draft', 'verified', 'restricted'])).optional(),
   pluginPreflight: z.object({

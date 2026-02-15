@@ -334,6 +334,7 @@ export class RunTestUseCase {
                     vision: input.options?.vision ?? true,
                     debugScreenshots: input.options?.debugScreenshots ?? false,
                     maxActions: input.options?.maxSteps ?? 20,
+                    supervisedTerminalPass: input.options?.supervisedExecution ?? false,
                     temporalObservation: input.options?.temporalObservation ?? false,
                     temporalMode: input.options?.temporalMode ?? 'adaptive',
                     ...(input.options?.temporalBurstFrames !== undefined ? { temporalBurstFrames: input.options.temporalBurstFrames } : {}),
