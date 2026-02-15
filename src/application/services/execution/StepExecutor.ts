@@ -32,6 +32,13 @@ export type StepExecutionResult =
         readonly reason: string;
     };
 
+export interface StepEvaluationTelemetry {
+    readonly evaluation: LLMEvaluationDecision;
+    readonly attemptedAction: AgentAction;
+    readonly executionOutcome: 'executed' | 'execution_error' | 'not_executed';
+    readonly executionError?: string;
+}
+
 @injectable()
 export class StepExecutor {
     constructor(
@@ -73,7 +80,7 @@ export class StepExecutor {
         } = { vision: true, debugScreenshots: false, maxActions: 20, temporalObservation: false, temporalBurstFrames: 3 },
         executionContext?: {
             toolContext?: ToolContext;
-            onEvaluation?: (evaluation: LLMEvaluationDecision) => void | Promise<void>;
+            onEvaluation?: (telemetry: StepEvaluationTelemetry) => void | Promise<void>;
         }
     ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, StepExecutionResult, unknown> {
         let loopCount = 0;
@@ -314,7 +321,12 @@ export class StepExecutor {
             const evaluation = evaluationResult.value;
 
             if (executionContext?.onEvaluation) {
-                await executionContext.onEvaluation(evaluation);
+                await executionContext.onEvaluation({
+                    evaluation,
+                    attemptedAction: action,
+                    executionOutcome,
+                    ...(executionError ? { executionError } : {})
+                });
             }
 
             await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {

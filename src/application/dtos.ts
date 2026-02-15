@@ -32,6 +32,15 @@ export type RunTestOutput =
     | { type: 'started'; testRunId: TestRunId }
     | { type: 'observing' }
     | { type: 'thinking' }
+    | {
+        type: 'evaluating';
+        actionType: AgentAction['type'];
+        decision: 'sub_task_success' | 'need_retry' | 'need_reformulate';
+        summary: string;
+        advice?: string;
+        executionOutcome: 'executed' | 'execution_error' | 'not_executed';
+        executionError?: string;
+    }
     | { type: 'acting'; action: AgentAction }
     | { type: 'state_updated'; state: import('../domain/value-objects').WorkflowState }
     | { type: 'recovery_replay'; telemetry: RecoveryReplayTelemetry }

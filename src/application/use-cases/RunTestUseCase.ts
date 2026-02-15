@@ -9,6 +9,7 @@ import { RunTestInput, RunTestOutput } from '../dtos';
 import { TestRunState } from '../../domain/enums/TestRunState';
 import { WorkflowPlanner } from '../services/planning/WorkflowPlanner';
 import { StepExecutor, type StepExecutionResult } from '../services/execution/StepExecutor';
+import type { StepEvaluationTelemetry } from '../services/execution/StepExecutor';
 import type { RunExecutionLaneService } from '../services/execution/RunExecutionLaneService';
 import { RunDurabilityService } from '../services/execution/RunDurabilityService';
 import { RunBudgetPolicyService } from '../services/execution/RunBudgetPolicyService';
@@ -32,7 +33,6 @@ import { PluginRegistryService } from '../services/plugins/PluginRegistryService
 import { PluginGatewayService } from '../services/plugins/PluginGatewayService';
 import { RuntimeReadinessPolicyService } from '../services/hardening/RuntimeReadinessPolicyService';
 import type { Plan, PlanItem, PlanItemStatus } from '@domain/entities/Plan';
-import type { LLMEvaluationDecision } from '@domain/value-objects';
 import { TestStep } from '../../domain/ports';
 import { v4 as uuidv4 } from 'uuid';
 import type { ILogger } from '../../domain/ports';
@@ -345,7 +345,7 @@ export class RunTestUseCase {
                     ...(input.options?.temporalPersistWindow !== undefined ? { temporalPersistWindow: input.options.temporalPersistWindow } : {})
                 };
 
-                let pendingEvaluation: LLMEvaluationDecision | undefined;
+                let pendingEvaluation: StepEvaluationTelemetry | undefined;
 
                 const stepGen = this.executor.executeStep(
                     testRunId,
@@ -356,8 +356,8 @@ export class RunTestUseCase {
                     executionOptions,
                     {
                         ...(stepToolContext ? { toolContext: stepToolContext } : {}),
-                        onEvaluation: (evaluation: LLMEvaluationDecision) => {
-                            pendingEvaluation = evaluation;
+                        onEvaluation: (evaluationTelemetry: StepEvaluationTelemetry) => {
+                            pendingEvaluation = evaluationTelemetry;
                         }
                     }
                 );
@@ -369,11 +369,22 @@ export class RunTestUseCase {
                     let next = await iterator.next();
                     while (!next.done) {
                         if (pendingEvaluation) {
+                            const evaluation = pendingEvaluation.evaluation;
+                            yield {
+                                type: 'evaluating',
+                                actionType: pendingEvaluation.attemptedAction.type,
+                                decision: evaluation.decision,
+                                summary: evaluation.summary,
+                                ...(evaluation.advice ? { advice: evaluation.advice } : {}),
+                                executionOutcome: pendingEvaluation.executionOutcome,
+                                ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {})
+                            };
+
                             currentState = {
                                 ...currentState,
                                 status: 'validating',
-                                evaluatorAdvice: pendingEvaluation.advice ?? pendingEvaluation.summary,
-                                lastEvaluation: pendingEvaluation
+                                evaluatorAdvice: evaluation.advice ?? evaluation.summary,
+                                lastEvaluation: evaluation
                             };
                             pendingEvaluation = undefined;
                             yield { type: 'state_updated', state: currentState };
@@ -445,11 +456,22 @@ export class RunTestUseCase {
                     }
 
                     if (pendingEvaluation) {
+                        const evaluation = pendingEvaluation.evaluation;
+                        yield {
+                            type: 'evaluating',
+                            actionType: pendingEvaluation.attemptedAction.type,
+                            decision: evaluation.decision,
+                            summary: evaluation.summary,
+                            ...(evaluation.advice ? { advice: evaluation.advice } : {}),
+                            executionOutcome: pendingEvaluation.executionOutcome,
+                            ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {})
+                        };
+
                         currentState = {
                             ...currentState,
                             status: 'validating',
-                            evaluatorAdvice: pendingEvaluation.advice ?? pendingEvaluation.summary,
-                            lastEvaluation: pendingEvaluation
+                            evaluatorAdvice: evaluation.advice ?? evaluation.summary,
+                            lastEvaluation: evaluation
                         };
                         pendingEvaluation = undefined;
                         yield { type: 'state_updated', state: currentState };

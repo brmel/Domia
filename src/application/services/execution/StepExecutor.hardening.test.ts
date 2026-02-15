@@ -949,8 +949,16 @@ describe('StepExecutor hardening', () => {
 
         expect(onEvaluation).toHaveBeenCalledTimes(1);
         expect(onEvaluation).toHaveBeenCalledWith({
-            decision: 'sub_task_success',
-            summary: 'Goal satisfied'
+            evaluation: {
+                decision: 'sub_task_success',
+                summary: 'Goal satisfied'
+            },
+            attemptedAction: {
+                type: ActionType.WAIT,
+                durationMs: 100,
+                thought: 'wait before evaluate'
+            },
+            executionOutcome: 'executed'
         });
     });
 });
