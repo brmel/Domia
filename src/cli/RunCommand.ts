@@ -9,6 +9,7 @@ import { RunTestUseCase } from '../application/use-cases';
 import { ExecutionController } from '../application/controllers/ExecutionController';
 import { ConsoleViewHost } from '../infrastructure/adapters/view/ConsoleViewHost';
 import { TraceService } from '../infrastructure/services/TraceService';
+import type { PlatformConfig } from '../domain/types/PlatformConfig';
 
 export class RunCommand {
     static register(program: Command): void {
@@ -34,11 +35,15 @@ export class RunCommand {
 
                 // Update ConfigService with CLI flags
                 const configService = container.resolve<import('../domain/ports/IConfigService').IConfigService>('IConfigService');
+                const currentConfig = configService.get();
                 const updates = {
                     ai: {
+                        provider: currentConfig.ai.provider,
+                        model: currentConfig.ai.model,
+                        ...(currentConfig.ai.apiKey ? { apiKey: currentConfig.ai.apiKey } : {}),
                         visionEnabled: !!vision,
                         debugScreenshots: !!screenshots
-                    } as any
+                    }
                 };
                 configService.update(updates);
 
@@ -109,14 +114,13 @@ export class RunCommand {
                     });
 
                     // Build platform config
-                    let platformConfig: any;
+                    let platformConfig: PlatformConfig;
                     
                     if (url) {
                         // Web platform
                         platformConfig = {
                             platform: 'web',
-                            url,
-                            prompt
+                            url
                         };
                     } else if (cdpUrl) {
                         // Electron CDP mode
@@ -126,8 +130,7 @@ export class RunCommand {
                                 type: 'cdp',
                                 cdpUrl,
                                 ...(windowTitle && { windowTitle })
-                            },
-                            prompt
+                            }
                         };
                     } else if (executablePath) {
                         // Electron executable mode
@@ -142,8 +145,7 @@ export class RunCommand {
                                 executablePath,
                                 launchArgs: parsedLaunchArgs,
                                 ...(windowTitle && { windowTitle })
-                            },
-                            prompt
+                            }
                         };
                     } else {
                         throw new Error('Must provide either --url, --cdp-url, or --executable-path');

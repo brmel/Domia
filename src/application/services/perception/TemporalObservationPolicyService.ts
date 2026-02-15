@@ -111,9 +111,9 @@ export class TemporalObservationPolicyService {
         return signal.interactionInFlight || signal.recentAssertionMismatch || signal.domVelocity >= 0.7;
     }
 
-    private sanitize(value: number | undefined, fallback: number): number {
+    private sanitize(value: number | undefined, defaultValue: number): number {
         if (!Number.isFinite(value) || !value || value <= 0) {
-            return fallback;
+            return defaultValue;
         }
         return Math.floor(value);
     }

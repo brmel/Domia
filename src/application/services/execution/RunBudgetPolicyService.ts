@@ -86,17 +86,17 @@ export class RunBudgetPolicyService {
         return `Run budget exceeded (${assessment.exceeded.join(', ')}). actions=${snapshot.actionsTaken}/${limits.maxActions}, durationMs=${snapshot.elapsedMs}/${limits.maxDurationMs}, tokens=${snapshot.estimatedTokensUsed}/${limits.maxEstimatedTokens}, retries=${snapshot.retryCount}/${limits.maxRetries}`;
     }
 
-    private safePositiveInt(value: number | undefined, fallback: number): number {
+    private safePositiveInt(value: number | undefined, defaultValue: number): number {
         if (!Number.isFinite(value) || !value || value <= 0) {
-            return fallback;
+            return defaultValue;
         }
 
         return Math.floor(value);
     }
 
-    private safeNonNegativeInt(value: number | undefined, fallback: number): number {
+    private safeNonNegativeInt(value: number | undefined, defaultValue: number): number {
         if (!Number.isFinite(value) || value === undefined || value < 0) {
-            return fallback;
+            return defaultValue;
         }
 
         return Math.floor(value);

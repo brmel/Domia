@@ -205,7 +205,7 @@ describe('RunTestUseCase recovery flow', () => {
         const events: RunTestOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
-            prompt: 'fallback planning',
+            prompt: 'replan from scratch',
             options: {
                 recoveryMode: 'manual-only',
                 recoveryRunId: 'missing-run'

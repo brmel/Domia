@@ -2,6 +2,7 @@ import { injectable, inject } from 'tsyringe';
 import { Result, ok, err } from 'neverthrow';
 import { TestRunIdFactory, TestRunId, UrlFactory } from '@domain/value-objects';
 import { TestRun } from '@domain/entities/TestRun';
+import type { TestRunStatus } from '@domain/entities/TestRun';
 import type { IPersistenceAdapter, ILogger } from '@domain/ports';
 
 @injectable()
@@ -42,27 +43,31 @@ export class TestRunLifecycleManager {
     async finalizeTestRun(id: TestRunId, success: boolean, summary?: string): Promise<void> {
         this.logger.info(`Test run complete. Success: ${success}`);
 
-        const status: import('@domain/entities/TestRun').TestRunStatus = success
+        const status: TestRunStatus = success
             ? { type: 'passed', summary: summary || 'Test completed successfully', duration: 0 }
             : { type: 'failed', error: summary || 'Unknown error', duration: 0 };
 
-        await this.persistence.updateTestRun(id, {
+        const updates: Partial<TestRun> = {
             status,
-            completedAt: new Date().toISOString()
-        } as any);
+            updatedAt: new Date()
+        };
+
+        await this.persistence.updateTestRun(id, updates);
     }
 
     async failTestRun(id: TestRunId, message: string): Promise<void> {
         this.logger.warn(`Test run failed: ${message}`);
-        const status: import('@domain/entities/TestRun').TestRunStatus = {
+        const status: TestRunStatus = {
             type: 'failed',
             error: message,
             duration: 0
         };
 
-        await this.persistence.updateTestRun(id, {
+        const updates: Partial<TestRun> = {
             status,
-            completedAt: new Date().toISOString()
-        } as any);
+            updatedAt: new Date()
+        };
+
+        await this.persistence.updateTestRun(id, updates);
     }
 }

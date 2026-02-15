@@ -44,7 +44,10 @@ const layerRules = [
     }
 ];
 
-const forbiddenRuntimeMarkers = [/\blegacy\b/i, /\bdeprecated\b/i];
+const forbiddenRuntimeMarkers = [/\blegacy\b/i, /\bdeprecated\b/i, /\bfallback\b/i];
+const allowedMarkerContexts = [
+    /userAgentFallback/
+];
 
 async function walkFiles(dir) {
     const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -105,9 +108,20 @@ function applyRuntimeMarkerRules(filePath, content) {
         return;
     }
 
-    for (const marker of forbiddenRuntimeMarkers) {
-        if (marker.test(content)) {
-            violations.push(`[runtime-markers] ${filePath} contains forbidden marker: ${marker}`);
+    const lines = content.split(/\r?\n/);
+    for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index] ?? '';
+
+        for (const marker of forbiddenRuntimeMarkers) {
+            if (!marker.test(line)) {
+                continue;
+            }
+
+            if (allowedMarkerContexts.some((allowPattern) => allowPattern.test(line))) {
+                continue;
+            }
+
+            violations.push(`[runtime-markers] ${filePath}:${index + 1} contains forbidden marker: ${marker}`);
         }
     }
 }

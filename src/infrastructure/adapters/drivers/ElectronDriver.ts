@@ -365,7 +365,12 @@ export class ElectronDriver implements IAppDriver {
 
                             try {
                                 await activeWindow.page.evaluate((path) => {
-                                    const electron = (window as any).electron;
+                                    const bridgeWindow = window as unknown as {
+                                        electron?: {
+                                            clickMenu?: (menuPath: string) => Promise<unknown> | unknown;
+                                        };
+                                    };
+                                    const electron = bridgeWindow.electron;
                                     if (electron && electron.clickMenu) {
                                         return electron.clickMenu(path);
                                     }

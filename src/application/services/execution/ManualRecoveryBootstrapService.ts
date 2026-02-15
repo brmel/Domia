@@ -45,7 +45,7 @@ export class ManualRecoveryBootstrapService {
     }
 
     private resolveWorkflowStatus(
-        fallback: WorkflowStatus,
+        currentStatus: WorkflowStatus,
         items: readonly PlanItem[],
         activeStatus?: PlanItemStatus
     ): WorkflowStatus {
@@ -54,7 +54,7 @@ export class ManualRecoveryBootstrapService {
         }
 
         if (items.length === 0) {
-            return fallback;
+            return currentStatus;
         }
 
         if (items.some(item => item.status === 'failed')) {
@@ -73,7 +73,7 @@ export class ManualRecoveryBootstrapService {
             return 'planning';
         }
 
-        return fallback;
+        return currentStatus;
     }
 
     private mapPlanItemStatus(status: PlanItemStatus): WorkflowStatus {
