@@ -31,6 +31,10 @@ RULES:
 3. Action types must be lowercase: "click", "type", "pass", "fail", etc.
 4. To pass, return action: { "type": "pass", "summary": "Goal achieved" }
 5. To fail, return action: { "type": "fail", "reason": "Cannot proceed because..." }
+6. The CURRENT PAGE URL is always provided below. Never fail because URL is missing.
+7. Use navigate only when a page change is truly required; do not navigate to empty or relative URLs. If navigating, use a full http/https URL.
+8. Do not fail on the first uncertainty. Re-check state and try one alternative action when feasible before returning fail.
+9. Avoid repeating scroll when the page state is unchanged; after a few no-progress attempts, choose a different action or fail with a clear reason.
 
 Respond by calling exactly one tool.`;
 
@@ -79,6 +83,17 @@ export function buildActionUserPrompt(context: LLMContext): string {
         })
         .join('\n');
 
+    const temporalWindowStr = context.temporalWindow
+        ? [
+            `Modeled window: ${context.temporalWindow.fromTimestamp} -> ${context.temporalWindow.toTimestamp}`,
+            `Frames: ${context.temporalWindow.frames.length}`,
+            `Summary: ${context.temporalWindow.summary}`,
+            ...context.temporalWindow.frames.slice(-5).map((frame, index) =>
+                `  ${index + 1}. t=${frame.timestamp} interval=${frame.intervalMs} domHash=${frame.domHash ?? 'n/a'} note=${frame.note ?? 'none'}`
+            )
+        ].join('\n')
+        : 'Not available.';
+
     return `GOAL: ${context.goal}
 
 VIEWPORT: ${context.viewport.width}x${context.viewport.height} pixels
@@ -102,6 +117,9 @@ ${formatPlan(context.plan)}
 
 AVAILABLE TOOLS:
 ${availableTools || 'Use the default core actions (click, type, pressKey, scroll, wait, extract, navigate, pass, fail).'}
+
+TEMPORAL TIMELINE:
+${temporalWindowStr}
 
 STEPS REMAINING: ${context.stepsRemaining}
 

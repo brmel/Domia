@@ -50,7 +50,7 @@ export function CognitiveTraceView({ trace }: CognitiveTraceViewProps) {
                             </div>
                             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Reasoning & Action</span>
                         </div>
-                        <div className="ml-10 bg-gradient-to-br from-[#1e1e1e] to-[#252525] border border-purple-900/30 rounded-lg p-4 text-sm text-gray-200 shadow-sm relative overflow-hidden">
+                        <div className="ml-10 bg-linear-to-br from-[#1e1e1e] to-[#252525] border border-purple-900/30 rounded-lg p-4 text-sm text-gray-200 shadow-sm relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
 
                             {trace.agentOutput.thought && (
@@ -72,6 +72,26 @@ export function CognitiveTraceView({ trace }: CognitiveTraceViewProps) {
                 )}
 
                 {/* Errors */}
+                {trace.temporal && (
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-emerald-900/50 flex items-center justify-center text-emerald-300">
+                                ⏱️
+                            </div>
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Temporal Window</span>
+                        </div>
+                        <div className="ml-10 bg-[#1e1e1e] border border-emerald-900/30 rounded-lg p-4 text-xs text-gray-300">
+                            <div><span className="text-emerald-300 font-bold">Mode:</span> {trace.temporal.mode ?? 'adaptive'}</div>
+                            <div><span className="text-emerald-300 font-bold">Frames:</span> {trace.temporal.frameCount}</div>
+                            <div><span className="text-emerald-300 font-bold">Window:</span> {trace.temporal.fromTimestamp} → {trace.temporal.toTimestamp}</div>
+                            {trace.temporal.tokenEstimate !== undefined && (
+                                <div><span className="text-emerald-300 font-bold">Estimated Tokens:</span> {trace.temporal.tokenEstimate}</div>
+                            )}
+                            <div className="mt-2 text-gray-400">{trace.temporal.summary}</div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Metadata sensors */}
                 {trace.sensorData && (
                     <div className="flex justify-end">

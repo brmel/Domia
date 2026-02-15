@@ -14,9 +14,6 @@ import { ConfigService } from './infrastructure/config/ConfigService';
 import { SQLiteAdapter } from './infrastructure/adapters/persistence/SQLiteAdapter';
 import { TestRunLifecycleManager } from './application/services/TestRunLifecycleManager';
 
-import { LocalBrowserNode } from './infrastructure/nodes/LocalBrowserNode';
-import { DomiaGateway } from './application/gateway/DomiaGateway';
-
 import { PerceptionPipeline } from './infrastructure/perception/PerceptionPipeline';
 import { VisionSensor } from './infrastructure/perception/sensors/VisionSensor';
 import { DomSensor } from './infrastructure/perception/sensors/DomSensor';
@@ -25,11 +22,37 @@ import { FileSystemStorage } from './infrastructure/storage/FileSystemStorage';
 import { TraceService } from './infrastructure/services/TraceService';
 import { FileTraceExporter } from './infrastructure/services/exporters/FileTraceExporter';
 import { DebugExporter } from './infrastructure/services/exporters/DebugExporter';
-import { BrowserActionToolExecutor } from './application/services/tooling/BrowserActionToolExecutor';
 import { RegistryBackedToolExecutor } from './application/services/tooling/RegistryBackedToolExecutor';
 import { DefaultToolPolicyService } from './application/services/tooling/ToolPolicyService';
 import { ActionToolMapper } from './shared/tooling/ActionToolMapper';
 import { InMemoryRunExecutionLaneService } from './application/services/execution/RunExecutionLaneService';
+import { RunDurabilityService } from './application/services/execution/RunDurabilityService';
+import { RunBudgetPolicyService } from './application/services/execution/RunBudgetPolicyService';
+import { CheckpointCompactionService } from './application/services/execution/CheckpointCompactionService';
+import { RecoveryReadModelService } from './application/services/execution/RecoveryReadModelService';
+import { ManualRecoveryBootstrapService } from './application/services/execution/ManualRecoveryBootstrapService';
+import { RunRecoveryPolicyService } from './application/services/execution/RunRecoveryPolicyService';
+import { RecoveryReplayGuardService } from './application/services/execution/RecoveryReplayGuardService';
+import { RecoveryReplayIdempotencyService } from './application/services/execution/RecoveryReplayIdempotencyService';
+import { ReplanningPolicyService } from './application/services/execution/ReplanningPolicyService';
+import { TemporalObservationPolicyService } from './application/services/perception/TemporalObservationPolicyService';
+import { TimelineContextAssembler } from './application/services/perception/TimelineContextAssembler';
+import { TemporalContextSelectorService } from './application/services/perception/TemporalContextSelectorService';
+import { TemporalPrivacyFilterService } from './application/services/perception/TemporalPrivacyFilterService';
+import { TemporalPromptAssemblerService } from './application/services/perception/TemporalPromptAssemblerService';
+import { SkillRegistryService } from './application/services/skills/SkillRegistryService';
+import { SkillGovernanceService } from './application/services/skills/SkillGovernanceService';
+import { PluginCapabilityPolicyService } from './application/services/plugins/PluginCapabilityPolicyService';
+import { PluginGatewayService } from './application/services/plugins/PluginGatewayService';
+import { PluginRegistryService } from './application/services/plugins/PluginRegistryService';
+import { ReadinessGateService } from './application/services/hardening/ReadinessGateService';
+import { RuntimeReadinessPolicyService } from './application/services/hardening/RuntimeReadinessPolicyService';
+import { WorkflowExecutionService } from './application/services/workflow/WorkflowExecutionService';
+import { WorkflowDefinitionService } from './application/services/workflow/WorkflowDefinitionService';
+import { WorkflowRunOrchestratorService } from './application/services/workflow/WorkflowRunOrchestratorService';
+import { WorkflowStepGovernanceService } from './application/services/workflow/WorkflowStepGovernanceService';
+import { WorkflowStepRunnerService } from './application/services/workflow/WorkflowStepRunnerService';
+import { WorkflowStepPolicyService } from './application/services/workflow/WorkflowStepPolicyService';
 
 export function registerCoreServices(): void {
     // 1. Core Services (Config & Persistence)
@@ -39,7 +62,6 @@ export function registerCoreServices(): void {
 
     // Browser / Driver Automation
     container.registerSingleton(PlaywrightAdapter);
-    container.register('IBrowserAutomation', { useToken: PlaywrightAdapter }); // Legacy/Internal
 
     // New App Driver Architecture
     container.registerSingleton(WebDriver);
@@ -47,8 +69,7 @@ export function registerCoreServices(): void {
     container.registerSingleton(AppDriverFactory);
     container.registerSingleton(ToolRegistry);
     
-    // Default to WebDriver for backward compatibility
-    // Use AppDriverFactory.createDriver() to switch platforms dynamically
+    // Default app driver binding
     container.register('IAppDriver', { useToken: WebDriver });
 
     container.registerSingleton('ILogger', ConsoleLogger);
@@ -57,8 +78,34 @@ export function registerCoreServices(): void {
     container.registerSingleton(TestRunLifecycleManager);
     container.registerSingleton(InMemoryRunExecutionLaneService);
     container.register('IRunExecutionLaneService', { useToken: InMemoryRunExecutionLaneService });
+    container.registerSingleton(RunDurabilityService);
+    container.registerSingleton(RunBudgetPolicyService);
+    container.registerSingleton(CheckpointCompactionService);
+    container.registerSingleton(RecoveryReadModelService);
+    container.registerSingleton(ManualRecoveryBootstrapService);
+    container.registerSingleton(RunRecoveryPolicyService);
+    container.registerSingleton(RecoveryReplayGuardService);
+    container.registerSingleton(RecoveryReplayIdempotencyService);
+    container.registerSingleton(ReplanningPolicyService);
+    container.registerSingleton(TemporalObservationPolicyService);
+    container.registerSingleton(TimelineContextAssembler);
+    container.registerSingleton(TemporalContextSelectorService);
+    container.registerSingleton(TemporalPrivacyFilterService);
+    container.registerSingleton(TemporalPromptAssemblerService);
+    container.registerSingleton(SkillRegistryService);
+    container.registerSingleton(SkillGovernanceService);
+    container.registerSingleton(PluginRegistryService);
+    container.registerSingleton(PluginCapabilityPolicyService);
+    container.registerSingleton(PluginGatewayService);
+    container.registerSingleton(ReadinessGateService);
+    container.registerSingleton(RuntimeReadinessPolicyService);
+    container.registerSingleton(WorkflowDefinitionService);
+    container.registerSingleton(WorkflowStepPolicyService);
+    container.registerSingleton(WorkflowStepGovernanceService);
+    container.registerSingleton(WorkflowStepRunnerService);
+    container.registerSingleton(WorkflowRunOrchestratorService);
+    container.registerSingleton(WorkflowExecutionService);
     container.registerSingleton(ActionToolMapper);
-    container.registerSingleton(BrowserActionToolExecutor);
     container.registerSingleton(RegistryBackedToolExecutor);
     container.registerSingleton(DefaultToolPolicyService);
     container.register('IToolPolicyService', { useToken: DefaultToolPolicyService });
@@ -75,10 +122,6 @@ export function registerCoreServices(): void {
     container.register('IToolCallingProvider', { useClass: LangChainToolCallingProvider });
     container.register('ILLMProvider', { useClass: LangChainAdapter });
     container.register('RunTestUseCase', { useClass: RunTestUseCase });
-
-    // Enterprise Architecture Services
-    container.registerSingleton(LocalBrowserNode);
-    container.registerSingleton(DomiaGateway);
 
     // Perception System
     container.registerSingleton(VisionSensor);
@@ -108,10 +151,6 @@ export function registerCoreServices(): void {
     // Always enable debug exporter (let the 'debug' package handle filtering via DEBUG env var)
     traceService.addExporter(new DebugExporter());
 
-    // Auto-register local node
-    const gateway = container.resolve(DomiaGateway);
-    const localNode = container.resolve(LocalBrowserNode);
-    gateway.registerNode(localNode);
 }
 
 export { container };

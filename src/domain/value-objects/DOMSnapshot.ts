@@ -30,7 +30,7 @@ export interface DOMSnapshot {
     };
     readonly elements: readonly DOMElement[];
     readonly accessibilityTree?: import('./AriaNode').AriaNode | null;
-    readonly screenshot?: string | undefined; // Primary (legacy)
+    readonly screenshot?: string | undefined;
     readonly screenshots?: string[]; // All available screenshots
     readonly timestamp: Date;
 }

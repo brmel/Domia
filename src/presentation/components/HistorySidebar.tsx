@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { trpc } from '../../lib/trpc';
 import type { TestStep } from '@domain/ports';
 import { useStepInspectorStore } from '../stores/useStepInspectorStore';
+import { Button } from './ui/Button';
 
 interface HistorySidebarProps {
     onClose: () => void;
@@ -44,13 +45,16 @@ export function HistorySidebar({ onClose, disabled = false }: HistorySidebarProp
 
         return (
             <div className="flex flex-col h-full bg-white">
-                <div className="border-b border-gray-100 p-4 bg-gray-50/50">
-                    <button
+                <div className="border-b border-gray-100 p-5 bg-gray-50/50">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setSelectedRunId(null)}
-                        className="text-xs font-medium text-gray-500 hover:text-gray-900 flex items-center gap-1.5 transition-colors mb-2"
+                        className="mb-2 px-0 text-gray-500 hover:text-gray-900"
                     >
-                        <span>←</span> Back to List
-                    </button>
+                        <span>←</span> Back to list
+                    </Button>
                     <h3 className="font-bold text-gray-900 text-base leading-tight">{run.prompt}</h3>
                     <div className="mt-2 flex items-center gap-2">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${run.status.type === 'passed' ? 'bg-green-100 text-green-700' :
@@ -58,34 +62,46 @@ export function HistorySidebar({ onClose, disabled = false }: HistorySidebarProp
                             }`}>
                             {run.status.type}
                         </span>
-                        <span className="text-[10px] text-gray-400 font-mono">
+                        <span className="text-xs text-gray-400 font-mono">
                             {run.startedAt ? run.startedAt.toLocaleString() : 'N/A'}
                         </span>
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    <div className="bg-gray-50 p-3 rounded-md text-sm border border-gray-100">
+                <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                    <div className="bg-gray-50 p-4 rounded-md text-sm border border-gray-100">
                         <p className="mb-1"><strong className="font-semibold text-gray-700">URL:</strong> <span className="text-blue-600">{run.url}</span></p>
                         {summary && <p className="mt-2 text-gray-600 leading-relaxed">{summary}</p>}
                     </div>
 
                     <div>
                         <h4 className="font-medium text-xs text-gray-500 uppercase tracking-wider mb-3">Timeline ({run.steps?.length || 0})</h4>
-                        <div className="space-y-3 relative before:absolute before:inset-y-0 before:left-2 before:w-0.5 before:bg-gray-100">
+                        <div className="space-y-4 relative before:absolute before:inset-y-0 before:left-2 before:w-0.5 before:bg-gray-100">
                             {run.steps?.map((step: TestStep) => (
                                 <div key={step.id} className="relative pl-6">
                                     <div className="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-white border-2 border-blue-100 z-10"></div>
                                     <div
                                         onClick={() => useStepInspectorStore.getState().open(runId, step.stepNumber)}
-                                        className="border border-gray-200 rounded-lg p-3 bg-white shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-300 group"
+                                        className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-300 group"
                                     >
                                         <div className="flex justify-between items-center mb-1.5">
                                             <span className="font-semibold text-gray-800 text-sm group-hover:text-blue-600">Step {step.stepNumber}: {step.actionType}</span>
                                             <span className="text-gray-400 font-mono text-[10px]">{new Date(step.timestamp).toLocaleTimeString()}</span>
                                         </div>
-                                        <div className="bg-gray-50 rounded p-2 overflow-x-auto border border-gray-100 group-hover:bg-blue-50/30 transition-colors">
-                                            <pre className="text-[10px] text-gray-600 font-mono leading-tight">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                useStepInspectorStore.getState().open(runId, step.stepNumber);
+                                            }}
+                                            className="mb-2 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                        >
+                                            Inspect
+                                        </Button>
+                                        <div className="bg-gray-50 rounded p-3 overflow-x-auto border border-gray-100 group-hover:bg-blue-50/30 transition-colors max-h-52">
+                                            <pre className="text-xs text-gray-600 font-mono leading-tight">
                                                 {JSON.stringify(step.actionPayload, null, 2)}
                                             </pre>
                                         </div>
@@ -105,14 +121,17 @@ export function HistorySidebar({ onClose, disabled = false }: HistorySidebarProp
                 <h2 className="text-xl font-bold flex items-center gap-2 text-gray-900">
                     <span>📜</span> History
                 </h2>
-                <button
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={onClose}
                     disabled={disabled}
-                    className="p-1.5 hover:bg-gray-100 text-gray-400 hover:text-gray-700 rounded-full transition-colors disabled:opacity-50"
+                    className="p-1.5 rounded-full text-gray-400 hover:text-gray-700"
                     title="Close History"
                 >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
+                </Button>
             </div>
 
             <div className="flex-1 overflow-hidden relative">
@@ -124,12 +143,15 @@ export function HistorySidebar({ onClose, disabled = false }: HistorySidebarProp
                     <div className="absolute inset-0 overflow-y-auto p-4">
                         <div className="flex justify-between items-center mb-4">
                             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{runs.length} Runs</span>
-                            <button
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
                                 onClick={handleClearHistory}
-                                className="text-[10px] text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition-colors font-medium"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
                             >
-                                Clear All
-                            </button>
+                                Clear history
+                            </Button>
                         </div>
 
                         {loading && <div className="text-center text-gray-400 py-8 text-sm">Loading runs...</div>}
@@ -141,12 +163,12 @@ export function HistorySidebar({ onClose, disabled = false }: HistorySidebarProp
                                 className="group mb-2 border border-gray-100 rounded-lg p-3 hover:bg-blue-50/50 hover:border-blue-200 cursor-pointer transition-all active:scale-[0.99]"
                             >
                                 <div className="flex justify-between items-start mb-1.5">
-                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${run.status.type === 'passed' ? 'bg-green-100 text-green-700' :
+                                    <span className={`px-1.5 py-0.5 rounded text-xs font-bold uppercase tracking-wide ${run.status.type === 'passed' ? 'bg-green-100 text-green-700' :
                                         run.status.type === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
                                         }`}>
                                         {run.status.type}
                                     </span>
-                                    <span className="text-[10px] text-gray-400 font-mono">
+                                    <span className="text-xs text-gray-400 font-mono">
                                         {run.startedAt ? new Date(run.startedAt).toLocaleDateString() : 'N/A'}
                                     </span>
                                 </div>

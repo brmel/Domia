@@ -1,66 +1,142 @@
-import { TestForm } from './presentation/components/TestForm';
-import { TestRunner } from './presentation/components/TestRunner';
-import { LiveView } from './presentation/components/LiveView';
-import { ResizableSidebar } from './presentation/components/ResizableSidebar';
 import { useTestRunStore } from './presentation/stores';
 import { canInteract } from './presentation/utils/agentStateUtils';
 
-import { useState } from 'react';
-import { HistorySidebar } from './presentation/components/HistorySidebar';
-import { SettingsSidebar } from './presentation/components/SettingsSidebar';
+import { useEffect, useState } from 'react';
+import { AppSectionPlaceholder } from './presentation/components/AppSectionPlaceholder';
+import { SegmentedControl } from './presentation/components/ui/SegmentedControl';
+import { RunsWorkspace } from './presentation/components/RunsWorkspace';
+import { ComposeWorkspace } from './presentation/components/ComposeWorkspace';
+import { WorkflowWorkspace } from './presentation/components/WorkflowWorkspace';
 import { StepInspector } from './presentation/components/StepInspector';
+import { AgentStatus } from './domain/types/AgentStatus';
+
+type AppSection = 'runs' | 'compose' | 'workflow' | 'skills' | 'plugins' | 'governance' | 'observability';
+
+const SECTION_TABS: ReadonlyArray<{ id: AppSection; label: string }> = [
+    { id: 'runs', label: 'Runs' },
+    { id: 'compose', label: 'Compose' },
+    { id: 'workflow', label: 'Workflow' },
+    { id: 'skills', label: 'Skills · Not available' },
+    { id: 'plugins', label: 'Plugins · Not available' },
+    { id: 'governance', label: 'Governance · Not available' },
+    { id: 'observability', label: 'Observability · Not available' }
+];
 
 
 function App(): JSX.Element {
-    // Determine which sidebar content is active: 'config' | 'history' | 'settings_model' | 'settings_debug'
-    const [activeSidebar, setActiveSidebar] = useState<'config' | 'history' | 'settings_model' | 'settings_debug'>('config');
+    const [activeSidebar, setActiveSidebar] = useState<'config' | 'history' | 'settings_debug'>('config');
+    const [activeSection, setActiveSection] = useState<AppSection>('runs');
     const { status } = useTestRunStore();
     const isInteractionDisabled = !canInteract(status);
 
+    useEffect(() => {
+        if (
+            activeSection === 'compose'
+            && (status === AgentStatus.RUNNING || status === AgentStatus.PAUSED)
+        ) {
+            setActiveSection('runs');
+        }
+    }, [activeSection, status]);
+
+    const renderPlaceholder = (section: Exclude<AppSection, 'runs'>): JSX.Element => {
+        if (section === 'compose') {
+            return (
+                <ComposeWorkspace
+                    activeSidebar={activeSidebar}
+                    setActiveSidebar={setActiveSidebar}
+                    isInteractionDisabled={isInteractionDisabled}
+                />
+            );
+        }
+
+        if (section === 'workflow') {
+            return <WorkflowWorkspace />;
+        }
+
+        if (section === 'skills') {
+            return (
+                <AppSectionPlaceholder
+                    title="Skills"
+                    unavailable
+                    description="Reusable execution patterns with trust-aware governance and lifecycle controls."
+                    nextSteps={[
+                        'Add registry table (id, version, trust, last used).',
+                        'Add skill details (schema, preconditions, postconditions).',
+                        'Add promotion workflow from draft to verified.'
+                    ]}
+                />
+            );
+        }
+
+        if (section === 'plugins') {
+            return (
+                <AppSectionPlaceholder
+                    title="Plugins"
+                    unavailable
+                    description="Capability-first operations across SSH, filesystem, and device connectors with policy controls."
+                    nextSteps={[
+                        'Add plugin catalog with trust and capability matrix.',
+                        'Add policy decision visibility per invocation.',
+                        'Add runtime controls for rate limit and kill switch.'
+                    ]}
+                />
+            );
+        }
+
+        if (section === 'governance') {
+            return (
+                <AppSectionPlaceholder
+                    title="Governance"
+                    unavailable
+                    description="Centralized allow, deny, and escalate policies for high-risk operations."
+                    nextSteps={[
+                        'Add versioned policy editor for tools, skills, and plugins.',
+                        'Add decision simulator for hypothetical requests.',
+                        'Add approval queue for escalated actions.'
+                    ]}
+                />
+            );
+        }
+
+        return (
+            <AppSectionPlaceholder
+                title="Observability"
+                unavailable
+                description="Run reliability, performance, and policy telemetry with drill-down diagnostics."
+                nextSteps={[
+                    'Add pass rate and duration trend panels.',
+                    'Add retry, token, and temporal overhead views.',
+                    'Add exportable audit trail filters.'
+                ]}
+            />
+        );
+    };
+
     return (
         <div className="flex h-screen w-screen overflow-hidden bg-gray-50 text-gray-900 font-sans">
-            {/* Resizable Sidebar Container */}
-            <ResizableSidebar initialWidth={350} minWidth={300} maxWidth={600}>
-                {activeSidebar === 'config' ? (
-                    <>
-                        <div className="px-4 py-3 border-b border-gray-100 bg-white flex items-center justify-between">
-                            <h1 className="text-xl font-bold tracking-tight text-gray-900">Domia</h1>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-0 bg-white">
-                            <TestForm
-                                onOpenHistory={() => setActiveSidebar('history')}
-                                onOpenModelSettings={() => setActiveSidebar('settings_model')}
-                            />
-                        </div>
-                    </>
-                ) : activeSidebar === 'history' ? (
-                    <HistorySidebar
-                        onClose={() => setActiveSidebar('config')}
-                        disabled={isInteractionDisabled}
-                    />
-                ) : (
-                    <SettingsSidebar
-                        onClose={() => setActiveSidebar('config')}
-                        initialTab={activeSidebar === 'settings_model' ? 'model' : 'debug'}
-                        disabled={isInteractionDisabled}
-                    />
-                )}
-            </ResizableSidebar>
+            <div className="flex flex-col h-full w-full min-w-0">
+                <header className="h-14 bg-white border-b border-gray-200 px-4 flex items-center justify-between">
+                    <div className="text-sm font-bold tracking-tight text-gray-900">Domia Control Plane</div>
+                    <nav>
+                        <SegmentedControl
+                            items={SECTION_TABS.map((tab) => ({ value: tab.id, label: tab.label }))}
+                            value={activeSection}
+                            onChange={setActiveSection}
+                            className="rounded-lg"
+                            itemClassName="px-3 py-1.5 text-xs"
+                        />
+                    </nav>
+                </header>
 
-            {/* Main Content - Execution & Logs */}
-            <main className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50 min-w-0">
-                {/* Top: Cinema Mode Viewport (50% height) */}
-                <section className="flex-3 relative border-b border-gray-200 bg-gray-100/50 p-6 overflow-hidden flex flex-col">
-                    <LiveView />
-                </section>
+                <div className="flex-1 min-h-0 h-full">
+                    {activeSection === 'runs'
+                        ? <RunsWorkspace />
+                        : renderPlaceholder(activeSection)}
+                </div>
 
-                {/* Bottom: Terminal Logs (40% height -> 50%) */}
-                <section className="flex-3 bg-white flex flex-col overflow-hidden min-h-0">
-                    <TestRunner />
-                </section>
-            </main>
-            <StepInspector />
-        </div >
+                <StepInspector />
+            </div>
+        </div>
     );
 }
 

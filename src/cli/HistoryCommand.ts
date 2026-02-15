@@ -76,8 +76,9 @@ export class HistoryCommand {
 
                 steps.forEach(step => {
                     console.log(`[${step.stepNumber}] ${chalk.cyan(step.actionType)}`);
-                    if (step.actionPayload && (step.actionPayload as any).thought) {
-                        console.log(chalk.dim(`    Thought: ${(step.actionPayload as any).thought}`));
+                    const thought = 'thought' in step.actionPayload ? step.actionPayload.thought : undefined;
+                    if (thought) {
+                        console.log(chalk.dim(`    Thought: ${thought}`));
                     }
                 });
             });

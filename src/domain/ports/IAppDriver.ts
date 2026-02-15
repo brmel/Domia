@@ -50,9 +50,7 @@ export interface IAppDriver {
 
     /**
      * getBrowserAutomation
-     * Returns the underlying IBrowserAutomation interface for backward compatibility.
-     * This allows existing code that uses IBrowserAutomation to work with IAppDriver.
-     * @deprecated This is a temporary bridge - prefer using IAppDriver methods directly
+     * Returns the underlying IBrowserAutomation interface used by current execution services.
      */
     getBrowserAutomation(): import('./IBrowserAutomation').IBrowserAutomation;
 }

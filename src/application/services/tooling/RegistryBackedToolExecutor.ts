@@ -4,7 +4,6 @@ import type { AgentAction } from '@domain/value-objects';
 import type { ILogger } from '@domain/ports';
 import type { ToolExecutionContext, ToolExecutor } from './ToolExecutor';
 import { ToolContractService } from './ToolContractService';
-import { BrowserActionToolExecutor } from './BrowserActionToolExecutor';
 import { ActionToolMapper } from '@shared/tooling/ActionToolMapper';
 import type { ToolPolicyService } from './ToolPolicyService';
 
@@ -12,7 +11,6 @@ import type { ToolPolicyService } from './ToolPolicyService';
 export class RegistryBackedToolExecutor implements ToolExecutor {
     constructor(
         @inject(ToolContractService) private readonly toolContractService: ToolContractService,
-        @inject(BrowserActionToolExecutor) private readonly browserFallback: BrowserActionToolExecutor,
         @inject(ActionToolMapper) private readonly actionToolMapper: ActionToolMapper,
         @inject('IToolPolicyService') private readonly toolPolicyService: ToolPolicyService,
         @inject('ILogger') private readonly logger: ILogger
@@ -29,8 +27,7 @@ export class RegistryBackedToolExecutor implements ToolExecutor {
         if (mapped && context.toolContext) {
             const invokeResult = await this.toolContractService.invokeTool(mapped, context.toolContext);
             if (invokeResult.isErr()) {
-                this.logger.debug(`[RegistryBackedToolExecutor] Tool invocation failed for ${mapped.toolName}, falling back: ${invokeResult.error.message}`);
-                return this.browserFallback.execute(action, context);
+                return err(new Error(`Tool invocation failed for '${mapped.toolName}': ${invokeResult.error.message}`));
             }
 
             const toolResult = invokeResult.value;
@@ -41,6 +38,10 @@ export class RegistryBackedToolExecutor implements ToolExecutor {
             return err(new Error(toolResult.error ?? toolResult.message ?? `Tool '${toolResult.toolName}' failed`));
         }
 
-        return this.browserFallback.execute(action, context);
+        this.logger.warn('[RegistryBackedToolExecutor] No registry tool mapping available for action.', {
+            actionType: action.type,
+            hasToolContext: Boolean(context.toolContext)
+        });
+        return err(new Error(`No registry tool mapping available for action '${action.type}'.`));
     }
 }

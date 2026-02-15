@@ -7,6 +7,14 @@ import { AssertionGoalService } from '../assertion/AssertionGoalService';
 import { ToolContractService } from '../tooling/ToolContractService';
 import type { ToolContext } from '@domain/tools/Tool';
 import type { ToolExecutor } from '../tooling/ToolExecutor';
+import type { ILogger } from '@domain/ports';
+import { TemporalObservationPolicyService } from '../perception/TemporalObservationPolicyService';
+import { TimelineContextAssembler } from '../perception/TimelineContextAssembler';
+import type { SnapshotFrame, TimelineContextWindow } from '@domain/value-objects/TemporalObservation';
+import type { TemporalObservationMode } from '../perception/TemporalObservationPolicyService';
+import { TemporalContextSelectorService } from '../perception/TemporalContextSelectorService';
+import { TemporalPrivacyFilterService } from '../perception/TemporalPrivacyFilterService';
+import { TemporalPromptAssemblerService } from '../perception/TemporalPromptAssemblerService';
 
 export type StepExecutionResult =
     | { readonly success: true; readonly terminal: 'pass' }
@@ -34,7 +42,13 @@ export class StepExecutor {
         @inject('ITraceService') private trace: ITraceService,
         @inject(AssertionGoalService) private readonly assertionGoalService: AssertionGoalService,
         @inject(ToolContractService) private readonly toolContractService: ToolContractService,
-        @inject('IToolExecutor') private readonly toolExecutor: ToolExecutor
+        @inject('IToolExecutor') private readonly toolExecutor: ToolExecutor,
+        @inject(TemporalObservationPolicyService) private readonly temporalPolicy: TemporalObservationPolicyService,
+        @inject(TimelineContextAssembler) private readonly timelineAssembler: TimelineContextAssembler,
+        @inject(TemporalContextSelectorService) private readonly temporalSelector: TemporalContextSelectorService,
+        @inject(TemporalPrivacyFilterService) private readonly temporalPrivacyFilter: TemporalPrivacyFilterService,
+        @inject(TemporalPromptAssemblerService) private readonly temporalPromptAssembler: TemporalPromptAssemblerService,
+        @inject('ILogger') private readonly logger: ILogger
     ) { }
 
     async *executeStep(
@@ -43,10 +57,27 @@ export class StepExecutor {
         browser: IBrowserAutomation,
         url: string,
         initialStepNumber: number = 0,
-        options: { vision: boolean; debugScreenshots: boolean; maxActions: number } = { vision: true, debugScreenshots: false, maxActions: 20 },
+        options: {
+            vision: boolean;
+            debugScreenshots: boolean;
+            maxActions: number;
+            temporalObservation?: boolean;
+            temporalMode?: TemporalObservationMode;
+            temporalBurstFrames?: number;
+            temporalBaselineIntervalMs?: number;
+            temporalBurstIntervalMs?: number;
+            temporalMaxFramesPerWindow?: number;
+            temporalPromptTokenBudget?: number;
+            temporalRedactSensitive?: boolean;
+            temporalPersistWindow?: boolean;
+        } = { vision: true, debugScreenshots: false, maxActions: 20, temporalObservation: false, temporalBurstFrames: 3 },
         executionContext?: { toolContext?: ToolContext }
     ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, StepExecutionResult, unknown> {
         let loopCount = 0;
+        let consecutiveFailSignals = 0;
+        let consecutiveScrollActions = 0;
+        let stagnantSnapshotCount = 0;
+        let previousSnapshotSignature: string | null = null;
         let currentState: { history: AgentAction[], stepNumber: number } = { history: [], stepNumber: initialStepNumber };
         const maxActions = options.maxActions;
 
@@ -66,8 +97,27 @@ export class StepExecutor {
                 };
             }
             const frame = frameResult.value;
+            const runtimeUrl = frame.metadata.url || url;
 
-            const assets = await this.storage.savePerceptionAssets(runId, currentState.stepNumber + 1, frame);
+            const temporalWindow = await this.captureTemporalWindowIfEnabled(runId, browser, frame, options);
+
+            let assets: Record<string, string> = {};
+            try {
+                assets = await this.storage.savePerceptionAssets(runId, currentState.stepNumber + 1, frame);
+            } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error);
+                this.logger.warn(`[StepExecutor] Non-fatal perception asset persistence error: ${reason}`);
+            }
+
+            if (temporalWindow && options.temporalPersistWindow !== false) {
+                try {
+                    const timelineAsset = await this.storage.saveTemporalWindow(runId, currentState.stepNumber + 1, temporalWindow);
+                    assets = { ...assets, ...timelineAsset };
+                } catch (error) {
+                    const reason = error instanceof Error ? error.message : String(error);
+                    this.logger.warn(`[StepExecutor] Non-fatal temporal window persistence error: ${reason}`);
+                }
+            }
 
             // Trace: Perception Metadata
             await this.trace.tracePerception(runId, currentState.stepNumber + 1, {
@@ -77,7 +127,18 @@ export class StepExecutor {
                     ariaPresent: !!frame.semantic.accessibility,
                     visionPresent: frame.vision.count > 0,
                     metadata: frame.metadata
-                }
+                },
+                ...(temporalWindow ? {
+                    temporal: {
+                        ...(temporalWindow.mode ? { mode: temporalWindow.mode } : {}),
+                        frameCount: temporalWindow.frames.length,
+                        fromTimestamp: temporalWindow.fromTimestamp,
+                        toTimestamp: temporalWindow.toTimestamp,
+                        summary: temporalWindow.summary,
+                        ...(temporalWindow.tokenEstimate !== undefined ? { tokenEstimate: temporalWindow.tokenEstimate } : {}),
+                        ...(temporalWindow.redactionApplied !== undefined ? { redactionApplied: temporalWindow.redactionApplied } : {})
+                    }
+                } : {})
             });
 
             const viewport = await browser.getViewportSize();
@@ -88,6 +149,14 @@ export class StepExecutor {
                 screenshots: options.vision ? frame.vision.screenshots.map(b => b.toString('base64')) : [],
                 accessibilityTree: frame.semantic.accessibility
             };
+
+            const snapshotSignature = this.buildSnapshotSignature(snapshot, runtimeUrl);
+            if (previousSnapshotSignature && snapshotSignature === previousSnapshotSignature) {
+                stagnantSnapshotCount += 1;
+            } else {
+                stagnantSnapshotCount = 0;
+            }
+            previousSnapshotSignature = snapshotSignature;
 
             const deterministicAction = this.assertionGoalService.evaluate(stepGoal, snapshot);
             if (deterministicAction) {
@@ -119,19 +188,24 @@ export class StepExecutor {
                 goal: stepGoal,
                 snapshot,
                 previousActions: currentState.history,
-                currentUrl: url,
+                currentUrl: runtimeUrl,
                 pageTitle: frame.metadata.title,
                 viewport,
                 stepsRemaining: maxActions - loopCount,
-                availableTools: this.toolContractService.getToolDescriptors()
+                availableTools: this.toolContractService.getToolDescriptors(),
+                ...(temporalWindow ? { temporalWindow } : {})
             };
 
             // Trace: Agent Input (Prompt Context)
             await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
                 agentInput: {
                     goal: stepGoal,
-                    currentUrl: url,
-                    promptPreview: JSON.stringify(context).substring(0, 500) + '...'
+                    currentUrl: runtimeUrl,
+                        promptPreview: JSON.stringify(context).substring(0, 500) + '...',
+                        ...(temporalWindow ? {
+                            timelineSummary: temporalWindow.summary,
+                            timelineFrameCount: temporalWindow.frames.length
+                        } : {})
                 }
             });
 
@@ -158,7 +232,7 @@ export class StepExecutor {
                 }
             });
 
-            if (this.loopDetector.isLoop(currentState.history, action)) {
+            if (action.type !== ActionType.FAIL && this.loopDetector.isLoop(currentState.history, action)) {
                 return {
                     success: false,
                     terminal: 'error',
@@ -167,11 +241,55 @@ export class StepExecutor {
                 };
             }
 
+            if (action.type === ActionType.SCROLL) {
+                consecutiveScrollActions += 1;
+
+                const noProgressScrollLoop = stagnantSnapshotCount >= 3 && consecutiveScrollActions >= 3;
+                if (noProgressScrollLoop) {
+                    return {
+                        success: false,
+                        terminal: 'error',
+                        code: 'loop_detected',
+                        reason: 'No observable page change after repeated scroll actions.'
+                    };
+                }
+            } else {
+                consecutiveScrollActions = 0;
+            }
+
             yield { type: 'action', action, assets };
+
+            if (action.type === ActionType.PASS) {
+                return { success: true, terminal: 'pass' };
+            }
+
+            if (action.type === ActionType.FAIL) {
+                consecutiveFailSignals += 1;
+
+                const canRetryAfterFail = consecutiveFailSignals < 2 && loopCount < maxActions - 1;
+                if (canRetryAfterFail) {
+                    currentState = {
+                        ...currentState,
+                        history: [...currentState.history, action],
+                        stepNumber: currentState.stepNumber + 1
+                    };
+                    loopCount++;
+                    continue;
+                }
+
+                return {
+                    success: false,
+                    terminal: 'fail',
+                    code: 'agent_fail',
+                    reason: action.reason
+                };
+            }
+
+            consecutiveFailSignals = 0;
 
             const execResult = await this.toolExecutor.execute(action, {
                 browser,
-                currentUrl: url,
+                currentUrl: runtimeUrl,
                 ...(executionContext?.toolContext ? { toolContext: executionContext.toolContext } : {})
             });
             if (execResult.isErr()) {
@@ -189,18 +307,6 @@ export class StepExecutor {
                 stepNumber: currentState.stepNumber + 1
             };
             loopCount++;
-
-            if (action.type === ActionType.PASS) {
-                return { success: true, terminal: 'pass' };
-            }
-            if (action.type === ActionType.FAIL) {
-                return {
-                    success: false,
-                    terminal: 'fail',
-                    code: 'agent_fail',
-                    reason: action.reason
-                };
-            }
         }
 
         return {
@@ -209,5 +315,114 @@ export class StepExecutor {
             code: 'max_actions_reached',
             reason: `Max actions (${maxActions}) reached for step: ${stepGoal}`
         };
+    }
+
+    private async captureTemporalWindowIfEnabled(
+        runId: string,
+        browser: IBrowserAutomation,
+        baseFrame: import('@domain/value-objects/PerceptionFrame').PerceptionFrame,
+        options: {
+            vision: boolean;
+            debugScreenshots: boolean;
+            temporalObservation?: boolean;
+            temporalMode?: TemporalObservationMode;
+            temporalBurstFrames?: number;
+            temporalBaselineIntervalMs?: number;
+            temporalBurstIntervalMs?: number;
+            temporalMaxFramesPerWindow?: number;
+            temporalPromptTokenBudget?: number;
+            temporalRedactSensitive?: boolean;
+        }
+    ): Promise<TimelineContextWindow | undefined> {
+        const capturePlan = this.temporalPolicy.planCapture({
+            featureEnabled: true,
+            requested: Boolean(options.temporalObservation),
+            ...(options.temporalMode ? { mode: options.temporalMode } : {}),
+            signal: {
+                domVelocity: 0.5,
+                interactionInFlight: false,
+                recentAssertionMismatch: false
+            },
+            overrides: {
+                ...(options.temporalBaselineIntervalMs ? { baselineIntervalMs: options.temporalBaselineIntervalMs } : {}),
+                ...(options.temporalBurstIntervalMs ? { burstIntervalMs: options.temporalBurstIntervalMs } : {}),
+                ...(options.temporalBurstFrames ? { burstMaxFrames: options.temporalBurstFrames } : {}),
+                ...(options.temporalMaxFramesPerWindow ? { maxFramesPerWindow: options.temporalMaxFramesPerWindow } : {})
+            }
+        });
+
+        if (!capturePlan.enabled) {
+            return undefined;
+        }
+
+        const timelineFrames: SnapshotFrame[] = [this.toSnapshotFrame(baseFrame, options.temporalBaselineIntervalMs ?? 1000)];
+        let previousTimestamp = baseFrame.timestamp;
+
+        for (let index = 1; index < capturePlan.maxFrames; index++) {
+            await new Promise(resolve => setTimeout(resolve, capturePlan.burstIntervalMs));
+
+            const frameResult = await this.perception.capture(browser, {
+                vision: options.vision || options.debugScreenshots,
+                aria: true,
+                dom: true
+            });
+
+            if (frameResult.isErr()) {
+                this.logger.debug(`[StepExecutor] Temporal capture stopped at frame ${index}: ${frameResult.error.message}`);
+                break;
+            }
+
+            const frame = frameResult.value;
+            const interval = Math.max(1, frame.timestamp - previousTimestamp);
+            previousTimestamp = frame.timestamp;
+
+            timelineFrames.push(this.toSnapshotFrame(frame, interval));
+        }
+
+        const assembled = this.timelineAssembler.assemble(runId, timelineFrames, capturePlan.maxFramesPerWindow);
+        const selected = this.temporalSelector.select(assembled.frames, { maxFrames: capturePlan.maxFramesPerWindow });
+        const redacted = this.temporalPrivacyFilter.redact(selected.frames, { enabled: options.temporalRedactSensitive ?? true });
+
+        return this.temporalPromptAssembler.assemble({
+            runId,
+            mode: capturePlan.mode,
+            frames: redacted.frames,
+            maxFramesPerWindow: capturePlan.maxFramesPerWindow,
+            droppedFrameCount: selected.droppedFrameCount,
+            redactionApplied: redacted.redactionApplied,
+            ...(options.temporalPromptTokenBudget !== undefined ? { tokenBudget: options.temporalPromptTokenBudget } : {})
+        });
+    }
+
+    private toSnapshotFrame(
+        frame: import('@domain/value-objects/PerceptionFrame').PerceptionFrame,
+        intervalMs: number
+    ): SnapshotFrame {
+        const domHash = `${frame.metadata.url}|${frame.metadata.title}|${frame.semantic.dom?.elements?.length ?? 0}`;
+
+        return {
+            timestamp: frame.timestamp,
+            intervalMs,
+            domHash,
+            note: 'perception-capture'
+        };
+    }
+
+    private buildSnapshotSignature(snapshot: import('@domain/value-objects').DOMSnapshot, currentUrl: string): string {
+        const topElements = snapshot.elements
+            .slice(0, 25)
+            .map((element) => `${element.tag}:${(element.role ?? '').toLowerCase()}:${this.normalizeForSignature(element.text).slice(0, 48)}`)
+            .join('|');
+
+        return [
+            this.normalizeForSignature(currentUrl),
+            this.normalizeForSignature(snapshot.title),
+            String(snapshot.elements.length),
+            topElements
+        ].join('::');
+    }
+
+    private normalizeForSignature(input: string): string {
+        return input.toLowerCase().replace(/\s+/g, ' ').trim();
     }
 }

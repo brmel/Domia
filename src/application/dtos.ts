@@ -2,17 +2,30 @@
 import { AgentAction, TestRunId } from '../domain/value-objects';
 import { WorkflowError } from '../domain/errors';
 import type { PlatformConfig } from '../domain/types/PlatformConfig';
+import type { RunOptions } from '../shared/validation';
 
 export interface RunTestInput {
-    url?: string;
-    platformConfig?: PlatformConfig;
+    platformConfig: PlatformConfig;
     prompt: string;
-    options?: {
-        maxSteps?: number;
-        headless?: boolean;
-        vision?: boolean;
-        debugScreenshots?: boolean;
-    };
+    options?: RunOptions;
+}
+
+export interface RecoveryReplayTelemetry {
+    sourceRunId: string;
+    targetStepNumber: number;
+    replayedCount: number;
+    status: 'started' | 'completed' | 'cancelled' | 'blocked' | 'failed';
+    reason?: string;
+}
+
+export interface ReplanningTelemetry {
+    runId: string;
+    trigger?: 'loop_detected' | 'action_execution_error' | 'assertion_fail' | 'max_actions_reached';
+    status: 'suggested' | 'suppressed';
+    reason: string;
+    mode: 'observe';
+    replanCount: number;
+    maxReplansPerRun: number;
 }
 
 export type RunTestOutput =
@@ -21,5 +34,7 @@ export type RunTestOutput =
     | { type: 'thinking' }
     | { type: 'acting'; action: AgentAction }
     | { type: 'state_updated'; state: import('../domain/value-objects').WorkflowState }
+    | { type: 'recovery_replay'; telemetry: RecoveryReplayTelemetry }
+    | { type: 'replanning'; telemetry: ReplanningTelemetry }
     | { type: 'completed'; success: boolean; summary?: string }
     | { type: 'error'; error: WorkflowError | Error };

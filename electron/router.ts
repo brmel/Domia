@@ -9,34 +9,34 @@ import { observable } from '@trpc/server/observable';
 import { EventEmitter } from 'events';
 import { RunTestInput } from '../src/application/dtos';
 import { FileTraceExporter } from '../src/infrastructure/services/exporters/FileTraceExporter';
-import { PlatformConfigSchema } from '../src/shared/validation';
+import { TraceService } from '../src/infrastructure/services/TraceService';
+import { RunInputSchema } from '../src/shared/validation';
+import { RuntimeReadinessPolicyService } from '../src/application/services/hardening/RuntimeReadinessPolicyService';
+import {
+    CreateNextWorkflowVersionInputSchema,
+    CreateWorkflowInputSchema,
+    GetWorkflowRunDetailsInputSchema,
+    PublishWorkflowInputSchema,
+    StartWorkflowRunInputSchema,
+    UpdateWorkflowInputSchema
+} from '../src/shared/validation/workflow';
+import { WorkflowExecutionService } from '../src/application/services/workflow/WorkflowExecutionService';
+import { WorkflowDefinitionService } from '../src/application/services/workflow/WorkflowDefinitionService';
+import type { PlatformConfig } from '../src/domain/types/PlatformConfig';
 import debug from 'debug';
 
 const t = initTRPC.create({ isServer: true });
 
 let currentController: ExecutionController | null = null;
+let currentWorkflowController: ExecutionController | null = null;
+let currentWorkflowExecutionToken = 0;
 const eventEmitter = new EventEmitter();
-
-const runInputSchema = z.object({
-    url: z.string().optional(),
-    platformConfig: PlatformConfigSchema.optional(),
-    prompt: z.string(),
-    options: z.object({
-        headless: z.boolean().optional(),
-        maxSteps: z.number().optional(),
-        provider: z.string().optional(),
-        verbose: z.boolean().optional(),
-        debug: z.boolean().optional(),
-        vision: z.boolean().optional(),
-        debugScreenshots: z.boolean().optional()
-    }).optional()
-});
 
 export const appRouter = t.router({
     test: t.router({
         run: t.procedure
-            .input(runInputSchema)
-            .mutation(async ({ input }: { input: z.infer<typeof runInputSchema> }) => {
+            .input(RunInputSchema)
+            .mutation(async ({ input }: { input: z.infer<typeof RunInputSchema> }) => {
                 const useCase = container.resolve<RunTestUseCase>('RunTestUseCase');
                 if (currentController) {
                     currentController.stop();
@@ -48,14 +48,9 @@ export const appRouter = t.router({
                 }
 
                 if (input.options?.verbose) {
-                    const traceService = container.resolve<import('../src/domain/ports/ITraceService').ITraceService>('ITraceService');
+                    const traceService = container.resolve(TraceService);
                     const storage = container.resolve<import('../src/domain/ports/IStorageService').IStorageService>('IStorageService');
-
-                    // Cast to concrete TraceService to access addExporter
-                    const concreteTrace = traceService as import('../src/infrastructure/services/TraceService').TraceService;
-                    if (concreteTrace.addExporter) {
-                        concreteTrace.addExporter(new FileTraceExporter(storage));
-                    }
+                    traceService.addExporter(new FileTraceExporter(storage));
                 }
 
                 try {
@@ -115,6 +110,49 @@ export const appRouter = t.router({
                 };
             });
         }),
+
+        getCheckpoints: t.procedure
+            .input(z.object({ runId: z.string() }))
+            .query(async ({ input }) => {
+                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+                const checkpointsResult = await persistence.getCheckpointRecords(input.runId);
+
+                if (checkpointsResult.isErr()) {
+                    throw new Error(checkpointsResult.error.message);
+                }
+
+                return checkpointsResult.value;
+            }),
+
+        getReadiness: t.procedure
+            .input(z.object({ runId: z.string() }))
+            .query(async ({ input }) => {
+                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+                const runResult = await persistence.getTestRun(input.runId);
+
+                if (runResult.isErr()) {
+                    throw new Error(runResult.error.message);
+                }
+
+                const run = runResult.value;
+                if (!run) {
+                    throw new Error(`Run not found: ${input.runId}`);
+                }
+
+                const readinessPolicy = container.resolve(RuntimeReadinessPolicyService);
+                const decision = readinessPolicy.assess(
+                    {
+                        prompt: run.prompt,
+                        options: {}
+                    },
+                    run.url
+                );
+
+                return {
+                    runId: run.id,
+                    ...decision
+                };
+            }),
     }),
 
     desktop: t.router({
@@ -167,6 +205,198 @@ export const appRouter = t.router({
             })
     }),
 
+    workflow: t.router({
+        create: t.procedure
+            .input(CreateWorkflowInputSchema)
+            .mutation(async ({ input }) => {
+                const definitionService = container.resolve(WorkflowDefinitionService);
+                const definition = await definitionService.createDraft({
+                    name: input.name,
+                    ...(input.description ? { description: input.description } : {}),
+                    platformConfig: toPlatformConfig(input.platformConfig),
+                    steps: input.steps.map((step) => ({
+                        name: step.name,
+                        prompt: step.prompt,
+                        continueOnFailure: step.continueOnFailure,
+                        ...(step.options ? { options: step.options } : {})
+                    }))
+                });
+                return { id: definition.id };
+            }),
+
+        update: t.procedure
+            .input(UpdateWorkflowInputSchema)
+            .mutation(async ({ input }) => {
+                const definitionService = container.resolve(WorkflowDefinitionService);
+                const definition = await definitionService.updateDraft({
+                    id: input.id,
+                    name: input.name,
+                    ...(input.description ? { description: input.description } : {}),
+                    ...(input.platformConfig ? { platformConfig: toPlatformConfig(input.platformConfig) } : {}),
+                    steps: input.steps.map((step) => ({
+                        ...(step.id ? { id: step.id } : {}),
+                        name: step.name,
+                        prompt: step.prompt,
+                        continueOnFailure: step.continueOnFailure,
+                        ...(step.options ? { options: step.options } : {})
+                    }))
+                });
+
+                return definition;
+            }),
+
+        publish: t.procedure
+            .input(PublishWorkflowInputSchema)
+            .mutation(async ({ input }) => {
+                const definitionService = container.resolve(WorkflowDefinitionService);
+                return definitionService.publishDraft(input.workflowDefinitionId);
+            }),
+
+        createNextVersion: t.procedure
+            .input(CreateNextWorkflowVersionInputSchema)
+            .mutation(async ({ input }) => {
+                const definitionService = container.resolve(WorkflowDefinitionService);
+                return definitionService.createNextDraftVersion(input.sourceWorkflowDefinitionId);
+            }),
+
+        getDefinition: t.procedure
+            .input(z.object({ workflowDefinitionId: z.string().trim().min(1) }))
+            .query(async ({ input }) => {
+                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+                const result = await persistence.getWorkflowDefinition(input.workflowDefinitionId);
+
+                if (result.isErr()) {
+                    throw new Error(result.error.message);
+                }
+
+                return result.value;
+            }),
+
+        getDefinitions: t.procedure
+            .input(z.object({ limit: z.number().int().positive().optional() }).optional())
+            .query(async ({ input }) => {
+                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+                const result = await persistence.getWorkflowDefinitions(input?.limit);
+
+                if (result.isErr()) {
+                    throw new Error(result.error.message);
+                }
+
+                return result.value;
+            }),
+
+        getRuns: t.procedure
+            .input(z.object({ limit: z.number().int().positive().optional() }).optional())
+            .query(async ({ input }) => {
+                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+                const runsResult = await persistence.getWorkflowRuns(input?.limit);
+
+                if (runsResult.isErr()) {
+                    throw new Error(runsResult.error.message);
+                }
+
+                return runsResult.value;
+            }),
+
+        getStepRuns: t.procedure
+            .input(z.object({ workflowRunId: z.string().trim().min(1) }))
+            .query(async ({ input }) => {
+                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+                const stepRunsResult = await persistence.getWorkflowStepRuns(input.workflowRunId);
+
+                if (stepRunsResult.isErr()) {
+                    throw new Error(stepRunsResult.error.message);
+                }
+
+                return stepRunsResult.value;
+            }),
+
+        getRunDetails: t.procedure
+            .input(GetWorkflowRunDetailsInputSchema)
+            .query(async ({ input }) => {
+                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+                const runResult = await persistence.getWorkflowRun(input.workflowRunId);
+                if (runResult.isErr()) {
+                    throw new Error(runResult.error.message);
+                }
+
+                if (!runResult.value) {
+                    return null;
+                }
+
+                const stepRunsResult = await persistence.getWorkflowStepRuns(input.workflowRunId);
+                if (stepRunsResult.isErr()) {
+                    throw new Error(stepRunsResult.error.message);
+                }
+
+                return {
+                    run: runResult.value,
+                    stepRuns: stepRunsResult.value
+                };
+            }),
+
+        start: t.procedure
+            .input(StartWorkflowRunInputSchema)
+            .mutation(async ({ input }) => {
+                if (currentWorkflowController) {
+                    currentWorkflowController.stop();
+                }
+                currentWorkflowController = new ExecutionController();
+                currentWorkflowExecutionToken += 1;
+                const executionToken = currentWorkflowExecutionToken;
+
+                const workflowExecutionService = container.resolve(WorkflowExecutionService);
+
+                (async () => {
+                    const generator = workflowExecutionService.executeWorkflow(input.workflowDefinitionId, currentWorkflowController as ExecutionController);
+                    for await (const event of generator) {
+                        if (executionToken !== currentWorkflowExecutionToken) {
+                            break;
+                        }
+                        eventEmitter.emit('workflow:update', event);
+                    }
+                })().catch((error) => {
+                    if (executionToken !== currentWorkflowExecutionToken) {
+                        return;
+                    }
+                    eventEmitter.emit('workflow:update', {
+                        type: 'workflow_failed',
+                        workflowRunId: 'unknown',
+                        reason: String(error)
+                    });
+                }).finally(() => {
+                    if (executionToken === currentWorkflowExecutionToken) {
+                        currentWorkflowController = null;
+                    }
+                });
+
+                return { success: true };
+            }),
+
+        cancel: t.procedure.mutation(() => {
+            if (!currentWorkflowController) {
+                return { success: false, message: 'No workflow running' };
+            }
+
+            currentWorkflowController.stop();
+            currentWorkflowExecutionToken += 1;
+            currentWorkflowController = null;
+            return { success: true };
+        }),
+
+        onUpdate: t.procedure.subscription(() => {
+            return observable<{ type: string; [key: string]: any }>((emit) => {
+                const onUpdate = (data: any) => {
+                    emit.next(data);
+                };
+                eventEmitter.on('workflow:update', onUpdate);
+                return () => {
+                    eventEmitter.off('workflow:update', onUpdate);
+                };
+            });
+        })
+    }),
+
     settings: t.router({
         get: t.procedure.query(() => {
             const configService = container.resolve<ConfigService>(ConfigService);
@@ -183,3 +413,34 @@ export const appRouter = t.router({
 });
 
 export type AppRouter = typeof appRouter;
+
+function toPlatformConfig(value: z.infer<typeof RunInputSchema.shape.platformConfig>): PlatformConfig {
+    if (value.platform === 'web') {
+        return {
+            platform: 'web',
+            url: value.url
+        };
+    }
+
+    const connection = value.connection;
+    if (connection.type === 'cdp') {
+        return {
+            platform: 'electron',
+            connection: {
+                type: 'cdp',
+                cdpUrl: connection.cdpUrl,
+                ...(connection.windowTitle ? { windowTitle: connection.windowTitle } : {})
+            }
+        };
+    }
+
+    return {
+        platform: 'electron',
+        connection: {
+            type: 'executable',
+            executablePath: connection.executablePath,
+            ...(connection.launchArgs ? { launchArgs: connection.launchArgs } : {}),
+            ...(connection.windowTitle ? { windowTitle: connection.windowTitle } : {})
+        }
+    };
+}

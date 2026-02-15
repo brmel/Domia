@@ -8,39 +8,24 @@ export class AriaSensor implements ISensor<AriaNode | null> {
     public readonly name = 'AriaSensor';
 
     async capture(page: Page): Promise<AriaNode | null> {
-        if (!page) return null;
-
-        // Try standard Playwright API first
-        if ((page as any).accessibility) {
-            try {
-                return await (page as any).accessibility.snapshot({ interestingOnly: false }) as AriaNode;
-            } catch (e) {
-                // Fall through to CDP
-            }
+        if (!page) {
+            return null;
         }
 
-        // Fallback: Use CDP directly
+        const pageWithAccessibility = page as unknown as {
+            accessibility?: {
+                snapshot(options: { interestingOnly: boolean }): Promise<AriaNode | null>;
+            };
+        };
+        const accessibility = pageWithAccessibility.accessibility;
+        if (!accessibility) {
+            return null;
+        }
+
         try {
-            const session = await page.context().newCDPSession(page);
-            await session.send('Accessibility.enable');
-            const { nodes } = await session.send('Accessibility.getFullAXTree');
-            await session.detach();
-
-            if (!nodes || nodes.length === 0) return null;
-
-            return {
-                role: 'root',
-                name: 'CDP Fallback Tree',
-                children: nodes.map(n => ({
-                    role: n.role?.value || 'unknown',
-                    name: n.name?.value || '',
-                    description: n.description?.value
-                }))
-            } as any;
-        } catch (e) {
-            // this.logger.warn(`[AriaSensor] Failed to compute AX tree: ${e}`);
-            // Return empty node to prevent downstream null checks
-            return { role: 'ROOT', name: 'Empty', children: [] };
+            return await accessibility.snapshot({ interestingOnly: false });
+        } catch {
+            return null;
         }
     }
 }

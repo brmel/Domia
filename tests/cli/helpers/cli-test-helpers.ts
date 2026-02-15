@@ -259,11 +259,11 @@ export function getElectronAppPath(): string | null {
     let appPath: string;
     
     if (platform === 'darwin') {
-        appPath = './release/mac/Auto-QA.app/Contents/MacOS/Auto-QA';
+        appPath = './release/mac/Domia.app/Contents/MacOS/Domia';
     } else if (platform === 'win32') {
-        appPath = './release/win-unpacked/Auto-QA.exe';
+        appPath = './release/win-unpacked/Domia.exe';
     } else {
-        appPath = './release/linux-unpacked/auto-qa';
+        appPath = './release/linux-unpacked/domia';
     }
     
     if (existsSync(join(process.cwd(), appPath))) {

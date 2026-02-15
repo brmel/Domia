@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import { ResultAsync, okAsync } from 'neverthrow';
+import { ResultAsync, okAsync, errAsync } from 'neverthrow';
 import { IAppDriver, AppCapabilities } from '../../../domain/ports/IAppDriver';
 import { AppSnapshot } from '../../../domain/value-objects/AppSnapshot';
 import { DOMElement } from '../../../domain/value-objects/DOMSnapshot';
@@ -8,7 +8,7 @@ import { PlaywrightAdapter } from '../browser/PlaywrightAdapter';
 import type { ILogger } from '../../../domain/ports';
 import { DomScanner } from '../../perception/DomScanner';
 import { SmartScrollCapture } from '../../perception/SmartScrollCapture';
-import { ElementIdFactory } from '../../../domain/value-objects/Brand';
+import { ElementIdFactory, UrlFactory } from '../../../domain/value-objects/Brand';
 import { Platform } from '../../../domain/constants/PlatformConstants';
 import { PlatformType, ToolScope } from '../../../domain/tools/ToolMetadata';
 import { z } from 'zod';
@@ -22,9 +22,8 @@ export class WebDriver implements IAppDriver {
         @inject('ILogger') private logger: ILogger
     ) { }
 
-    connect(config?: any): ResultAsync<void, Error> {
+    connect(config?: { headless?: boolean }): ResultAsync<void, Error> {
         this.logger.debug('[WebDriver] Connecting via PlaywrightAdapter');
-        // Retrieve launch options from config or defaults
         const headless = config?.headless ?? true;
         return this.playwright.launch({ headless })
             .mapErr(e => new Error(`WebDriver connect failed: ${e.message}`));
@@ -45,8 +44,7 @@ export class WebDriver implements IAppDriver {
     }
 
     async captureSnapshot(): Promise<AppSnapshot> {
-        const adapter = this.playwright as any;
-        const page = adapter.page;
+        const page = this.playwright.getPage();
 
         if (!page) {
             throw new Error("WebDriver: Browser not connected or page not available");
@@ -158,7 +156,12 @@ export class WebDriver implements IAppDriver {
                     terminal: false
                 },
                 execute: (params: { url: string }) => {
-                    return this.playwright.navigateTo(params.url as any)
+                    const urlResult = UrlFactory.create(params.url);
+                    if (urlResult.isErr()) {
+                        return errAsync(new Error(urlResult.error.message));
+                    }
+
+                    return this.playwright.navigateTo(urlResult.value)
                         .map(() => ({ success: true, message: `Navigated to ${params.url}` } as ActionResult))
                         .mapErr(err => new Error(err.message));
                 }

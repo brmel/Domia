@@ -10,12 +10,36 @@ import { TestRunState } from '../../domain/enums/TestRunState';
 import { WorkflowPlanner } from '../services/planning/WorkflowPlanner';
 import { StepExecutor, type StepExecutionResult } from '../services/execution/StepExecutor';
 import type { RunExecutionLaneService } from '../services/execution/RunExecutionLaneService';
-import { PlanItemStatus } from '@domain/entities/Plan';
+import { RunDurabilityService } from '../services/execution/RunDurabilityService';
+import { RunBudgetPolicyService } from '../services/execution/RunBudgetPolicyService';
+import { CheckpointCompactionService } from '../services/execution/CheckpointCompactionService';
+import { RecoveryReadModelService } from '../services/execution/RecoveryReadModelService';
+import { ManualRecoveryBootstrapService } from '../services/execution/ManualRecoveryBootstrapService';
+import { RunRecoveryPolicyService } from '../services/execution/RunRecoveryPolicyService';
+import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplayGuardService';
+import { RecoveryReplayIdempotencyService } from '../services/execution/RecoveryReplayIdempotencyService';
+import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
+import {
+    resolveRecoveryContext as resolveRecoveryContextForRun,
+    replayRecoveryActions as replayRecoveryActionsForRun,
+    type RecoveryBootstrapContext,
+    type RecoveryReplayOutcome,
+    type RunRecoveryDependencies
+} from '../services/execution/RunRecoveryOrchestration';
+import { SkillRegistryService } from '../services/skills/SkillRegistryService';
+import { SkillGovernanceService } from '../services/skills/SkillGovernanceService';
+import { PluginRegistryService } from '../services/plugins/PluginRegistryService';
+import { PluginGatewayService } from '../services/plugins/PluginGatewayService';
+import { RuntimeReadinessPolicyService } from '../services/hardening/RuntimeReadinessPolicyService';
+import type { Plan, PlanItem, PlanItemStatus } from '@domain/entities/Plan';
 import { TestStep } from '../../domain/ports';
 import { v4 as uuidv4 } from 'uuid';
 import type { ILogger } from '../../domain/ports';
 import { PlatformSessionFactory } from '../services/platform/PlatformSessionFactory';
 import type { ToolContext } from '../../domain/tools/Tool';
+import type { RunLifecycleState } from '@domain/value-objects/RunLifecycle';
+
+type StepFailureCode = Extract<StepExecutionResult, { success: false }>['code'];
 
 
 @injectable()
@@ -28,31 +52,47 @@ export class RunTestUseCase {
         @inject('ITraceService') private trace: import('../../domain/ports/ITraceService').ITraceService,
         @inject(PlatformSessionFactory) private readonly sessionFactory: PlatformSessionFactory,
         @inject('IRunExecutionLaneService') private readonly laneService: RunExecutionLaneService,
+        @inject(RunDurabilityService) private readonly durability: RunDurabilityService,
+        @inject(RunBudgetPolicyService) private readonly budgetPolicy: RunBudgetPolicyService,
+        @inject(CheckpointCompactionService) private readonly checkpointCompaction: CheckpointCompactionService,
+        @inject(RecoveryReadModelService) private readonly recoveryReadModel: RecoveryReadModelService,
+        @inject(ManualRecoveryBootstrapService) private readonly recoveryBootstrap: ManualRecoveryBootstrapService,
+        @inject(RunRecoveryPolicyService) private readonly recoveryPolicy: RunRecoveryPolicyService,
+        @inject(RecoveryReplayGuardService) private readonly recoveryReplayGuard: RecoveryReplayGuardService,
+        @inject(RecoveryReplayIdempotencyService) private readonly recoveryReplayIdempotency: RecoveryReplayIdempotencyService,
+        @inject(ReplanningPolicyService) private readonly replanningPolicy: ReplanningPolicyService,
+        @inject(SkillRegistryService) private readonly skillRegistry: SkillRegistryService,
+        @inject(SkillGovernanceService) private readonly skillGovernance: SkillGovernanceService,
+        @inject(PluginRegistryService) private readonly pluginRegistry: PluginRegistryService,
+        @inject(PluginGatewayService) private readonly pluginGateway: PluginGatewayService,
+        @inject(RuntimeReadinessPolicyService) private readonly readinessPolicy: RuntimeReadinessPolicyService,
         @inject('ILogger') private logger: ILogger
     ) { }
 
+    private getRecoveryDependencies(): RunRecoveryDependencies {
+        return {
+            persistence: this.persistence,
+            durability: this.durability,
+            checkpointCompaction: this.checkpointCompaction,
+            recoveryReadModel: this.recoveryReadModel,
+            recoveryBootstrap: this.recoveryBootstrap,
+            recoveryPolicy: this.recoveryPolicy,
+            recoveryReplayGuard: this.recoveryReplayGuard,
+            recoveryReplayIdempotency: this.recoveryReplayIdempotency,
+            logger: this.logger
+        };
+    }
+
     async *execute(input: RunTestInput, controller: ExecutionController): AsyncGenerator<RunTestOutput, void, unknown> {
-        // Validate input: Either URL or platformConfig must be provided
-        if (!input.url && !input.platformConfig) {
-            yield { type: 'error', error: new WorkflowError('No platform configuration provided. Either provide url or platformConfig.') };
-            return;
-        }
-        
-        // Extract URL for test run initialization (legacy requirement)
-        const url = input.platformConfig?.platform === 'web'
-            ? input.platformConfig.url
-            : input.platformConfig?.platform === 'electron' && input.platformConfig.connection.type === 'cdp'
-                ? input.platformConfig.connection.cdpUrl
-                : input.platformConfig?.platform === 'electron' && input.platformConfig.connection.type === 'executable'
-                    ? 'electron://app'
-                    : input.url;
+        const url = this.resolveRunUrl(input.platformConfig);
 
-        if (!url) {
-            yield { type: 'error', error: new WorkflowError('Could not determine URL from input') };
+        const readinessDecision = this.readinessPolicy.assess(input, url);
+        if (readinessDecision.blocked) {
+            yield { type: 'error', error: new WorkflowError(readinessDecision.message ?? 'Readiness gate blocked the run.') };
             return;
         }
 
-        const laneKey = this.resolveLaneKey(input, url);
+        const laneKey = this.resolveLaneKey(input);
         const releaseLane = await this.laneService.acquire(laneKey);
 
         const initResult = await this.lifecycleManager.initializeTestRun(url, input.prompt);
@@ -62,7 +102,14 @@ export class RunTestUseCase {
             return;
         }
         const testRunId = initResult.value;
-        yield { type: 'started', testRunId };
+        let runLifecycle: RunLifecycleState = 'initialized';
+        const budgetLimits = this.budgetPolicy.resolveLimits(input.options);
+        const runStartMs = Date.now();
+        let estimatedTokensUsed = 0;
+        const retryCount = 0;
+        const recoveryContext = await this.resolveRecoveryContext(input);
+        this.evaluateSkillScaffold(input, testRunId);
+        this.evaluatePluginScaffold(input, testRunId);
 
         let browser: IBrowserAutomation | undefined;
         let disposeSession: (() => Promise<void>) | undefined;
@@ -70,14 +117,13 @@ export class RunTestUseCase {
         let stepToolContext: ToolContext | undefined;
         
         try {
-            const session = await this.sessionFactory.createSession(input, testRunId);
+            const session = await this.sessionFactory.createSession(input);
             browser = session.browser;
             disposeSession = session.dispose;
             shouldNavigate = session.shouldNavigate;
 
             if (session.driver) {
                 stepToolContext = {
-                    browser,
                     driver: session.driver,
                     platform: session.driver.getCapabilities().platform,
                     logger: this.logger
@@ -98,11 +144,30 @@ export class RunTestUseCase {
         }
 
         // Initialize State
-        let currentState = WorkflowState.initial();
+        let currentState = recoveryContext?.state ?? WorkflowState.initial();
+        const recoveryTargetStepNumber = recoveryContext?.state.stepNumber ?? 0;
+
+        if (recoveryContext) {
+            currentState = {
+                ...currentState,
+                stepNumber: 0,
+                history: []
+            };
+        }
+
+        const resumedPlan = recoveryContext?.plan;
+        const startPlanIndex = recoveryContext?.startPlanIndex ?? 0;
+
+        await this.durability.checkpoint(testRunId, currentState, 'run_initialized');
+        yield { type: 'started', testRunId };
         let completed = false;
         let finalSummary: string | undefined;
-        let hasVerificationFailure = false;
+        let hasUnresolvedVerificationFailure = false;
+        let consecutiveStepFailures = 0;
+        let replanCount = 0;
+        let terminalPassSummary: string | undefined;
         let terminalError: Error | null = null;
+        const maxConsecutiveStepFailures = this.replanningPolicy.resolveLimits().maxReplansPerRun + 1;
 
         try {
             const urlResult = UrlFactory.create(url);
@@ -117,42 +182,166 @@ export class RunTestUseCase {
                 await browser.waitForDOMStable();
             }
 
-            // 1. Planning Phase
-            yield { type: 'thinking' };
-            const planResult = await this.planner.plan(input.prompt);
+            if (recoveryContext) {
+                yield {
+                    type: 'recovery_replay',
+                    telemetry: {
+                        sourceRunId: recoveryContext.sourceRunId,
+                        targetStepNumber: recoveryTargetStepNumber,
+                        replayedCount: 0,
+                        status: 'started'
+                    }
+                };
 
-            if (planResult.isErr()) {
-                throw new WorkflowError(`Planning failed: ${planResult.error.message}`);
+                const replayOutcome = await this.replayRecoveryActions({
+                    testRunId,
+                    sourceRunId: recoveryContext.sourceRunId,
+                    browser,
+                    controller,
+                    state: currentState,
+                    targetStepNumber: recoveryTargetStepNumber
+                });
+
+                if (replayOutcome.type === 'ok' || replayOutcome.type === 'cancelled') {
+                    yield {
+                        type: 'recovery_replay',
+                        telemetry: {
+                            sourceRunId: recoveryContext.sourceRunId,
+                            targetStepNumber: recoveryTargetStepNumber,
+                            replayedCount: replayOutcome.replayedCount,
+                            status: replayOutcome.type === 'ok' ? 'completed' : 'cancelled'
+                        }
+                    };
+                } else {
+                    yield {
+                        type: 'recovery_replay',
+                        telemetry: {
+                            sourceRunId: recoveryContext.sourceRunId,
+                            targetStepNumber: recoveryTargetStepNumber,
+                            replayedCount: replayOutcome.replayedCount,
+                            status: replayOutcome.type,
+                            reason: replayOutcome.reason
+                        }
+                    };
+                }
+
+                if (replayOutcome.type === 'blocked') {
+                    throw new WorkflowError(`Recovery replay blocked: ${replayOutcome.reason}`);
+                }
+
+                if (replayOutcome.type === 'failed') {
+                    throw new WorkflowError(`Recovery replay failed: ${replayOutcome.reason}`);
+                }
+
+                currentState = replayOutcome.state;
+                yield { type: 'state_updated', state: currentState };
+
+                this.logger.info('[RunTestUseCase] Recovery replay completed', {
+                    testRunId,
+                    sourceRunId: recoveryContext.sourceRunId,
+                    replayedCount: replayOutcome.replayedCount
+                });
+
+                if (replayOutcome.type === 'cancelled') {
+                    return;
+                }
             }
 
-            const plan = planResult.value;
-            currentState = { ...currentState, plan };
+            // 1. Planning Phase
+            currentState = this.withWorkflowStatus(currentState, 'planning');
             yield { type: 'state_updated', state: currentState };
+            yield { type: 'thinking' };
+            runLifecycle = this.durability.transition(testRunId, runLifecycle, 'planning');
+            let plan: Plan;
+
+            if (resumedPlan) {
+                plan = resumedPlan;
+                this.logger.info('[RunTestUseCase] Recovery bootstrap reusing checkpoint plan', {
+                    testRunId,
+                    sourceRunId: recoveryContext?.sourceRunId,
+                    startPlanIndex,
+                    planItems: resumedPlan.items.length
+                });
+            } else {
+                const planResult = await this.planner.plan(input.prompt);
+
+                if (planResult.isErr()) {
+                    throw new WorkflowError(`Planning failed: ${planResult.error.message}`);
+                }
+
+                plan = planResult.value;
+            }
+
+            estimatedTokensUsed += Math.ceil(input.prompt.length / 4);
+            currentState = { ...currentState, plan, status: 'thinking' };
+            yield { type: 'state_updated', state: currentState };
+            await this.durability.checkpoint(testRunId, currentState, 'plan_ready');
+            runLifecycle = this.durability.transition(testRunId, runLifecycle, 'executing');
 
             // 2. Execution Phase
-            for (let i = 0; i < plan.items.length; i++) {
+            for (let i = startPlanIndex; i < plan.items.length; i++) {
                 const item = plan.items[i];
                 if (!item) continue;
 
                 // Check Pause/Cancel
                 if (controller.state === TestRunState.PAUSED) {
+                    runLifecycle = this.durability.transition(testRunId, runLifecycle, 'paused');
+                    await this.durability.checkpoint(testRunId, currentState, 'pause_requested');
                     await controller.waitForResume();
+                    runLifecycle = this.durability.transition(testRunId, runLifecycle, 'executing');
+                    await this.durability.checkpoint(testRunId, currentState, 'resume_requested');
                 }
                 if (controller.state === TestRunState.CANCELLED) {
                     break;
                 }
 
+                const preStepBudgetAssessment = this.budgetPolicy.evaluate(testRunId, budgetLimits, {
+                    actionsTaken: currentState.stepNumber,
+                    elapsedMs: Date.now() - runStartMs,
+                    estimatedTokensUsed,
+                    retryCount
+                });
+
+                if (preStepBudgetAssessment.status === 'exceeded') {
+                    throw new WorkflowError(
+                        this.budgetPolicy.formatExceededMessage(
+                            budgetLimits,
+                            {
+                                actionsTaken: currentState.stepNumber,
+                                elapsedMs: Date.now() - runStartMs,
+                                estimatedTokensUsed,
+                                retryCount
+                            },
+                            preStepBudgetAssessment
+                        )
+                    );
+                }
+
                 // Update Item Status to Running
-                const runningItem = { ...item, status: 'active' as PlanItemStatus } as import('@domain/entities/Plan').PlanItem;
+                const runningItem: PlanItem = { ...item, status: 'active' as PlanItemStatus };
                 const updatedItems = [...plan.items];
                 updatedItems[i] = runningItem;
-                currentState = { ...currentState, plan: { ...plan, items: updatedItems } };
+                currentState = {
+                    ...currentState,
+                    status: 'observing',
+                    activeItemId: runningItem.id,
+                    plan: { ...plan, items: updatedItems }
+                };
                 yield { type: 'state_updated', state: currentState };
 
                 const executionOptions = {
                     vision: input.options?.vision ?? true,
                     debugScreenshots: input.options?.debugScreenshots ?? false,
-                    maxActions: input.options?.maxSteps ?? 20
+                    maxActions: input.options?.maxSteps ?? 20,
+                    temporalObservation: input.options?.temporalObservation ?? false,
+                    temporalMode: input.options?.temporalMode ?? 'adaptive',
+                    ...(input.options?.temporalBurstFrames !== undefined ? { temporalBurstFrames: input.options.temporalBurstFrames } : {}),
+                    ...(input.options?.temporalBaselineIntervalMs !== undefined ? { temporalBaselineIntervalMs: input.options.temporalBaselineIntervalMs } : {}),
+                    ...(input.options?.temporalBurstIntervalMs !== undefined ? { temporalBurstIntervalMs: input.options.temporalBurstIntervalMs } : {}),
+                    ...(input.options?.temporalMaxFramesPerWindow !== undefined ? { temporalMaxFramesPerWindow: input.options.temporalMaxFramesPerWindow } : {}),
+                    ...(input.options?.temporalPromptTokenBudget !== undefined ? { temporalPromptTokenBudget: input.options.temporalPromptTokenBudget } : {}),
+                    ...(input.options?.temporalRedactSensitive !== undefined ? { temporalRedactSensitive: input.options.temporalRedactSensitive } : {}),
+                    ...(input.options?.temporalPersistWindow !== undefined ? { temporalPersistWindow: input.options.temporalPersistWindow } : {})
                 };
 
                 const stepGen = this.executor.executeStep(
@@ -165,6 +354,7 @@ export class RunTestUseCase {
                     { ...(stepToolContext ? { toolContext: stepToolContext } : {}) }
                 );
                 let result: StepExecutionResult | undefined;
+                let observedTerminalPass = false;
 
                 try {
                     const iterator = stepGen[Symbol.asyncIterator]();
@@ -184,23 +374,63 @@ export class RunTestUseCase {
                                 timestamp: new Date().toISOString()
                             };
 
-                            await this.persistence.saveTestStep(step);
+                            const saveStepResult = await this.persistence.saveTestStep(step);
+                            if (saveStepResult.isErr()) {
+                                throw new WorkflowError(`Failed to persist test step: ${saveStepResult.error.message}`);
+                            }
 
                             // Update state
                             currentState = {
                                 ...currentState,
+                                status: 'acting',
                                 stepNumber: currentState.stepNumber + 1,
                                 history: [...currentState.history, action]
                             };
+                            estimatedTokensUsed += Math.ceil(JSON.stringify(action).length / 4);
                             yield { type: 'state_updated', state: currentState };
+                            await this.durability.checkpoint(testRunId, currentState, 'action_applied');
+
+                            if (action.type === 'pass') {
+                                observedTerminalPass = true;
+                                terminalPassSummary = 'summary' in action && typeof action.summary === 'string'
+                                    ? action.summary
+                                    : 'Test completed successfully.';
+                            }
+
+                            const budgetAssessment = this.budgetPolicy.evaluate(testRunId, budgetLimits, {
+                                actionsTaken: currentState.stepNumber,
+                                elapsedMs: Date.now() - runStartMs,
+                                estimatedTokensUsed,
+                                retryCount
+                            });
+
+                            if (budgetAssessment.status === 'exceeded') {
+                                throw new WorkflowError(
+                                    this.budgetPolicy.formatExceededMessage(
+                                        budgetLimits,
+                                        {
+                                            actionsTaken: currentState.stepNumber,
+                                            elapsedMs: Date.now() - runStartMs,
+                                            estimatedTokensUsed,
+                                            retryCount
+                                        },
+                                        budgetAssessment
+                                    )
+                                );
+                            }
 
                             yield { type: 'acting', action: next.value.action };
                         }
                         next = await iterator.next();
                     }
                     result = next.value;
+                    currentState = this.withWorkflowStatus(currentState, 'validating');
+                    yield { type: 'state_updated', state: currentState };
                 } catch (e) {
                     const iteratorError = e instanceof Error ? e : new Error(String(e));
+                    if (iteratorError instanceof WorkflowError && iteratorError.message.startsWith('Run budget exceeded')) {
+                        throw iteratorError;
+                    }
                     result = {
                         success: false,
                         terminal: 'error',
@@ -211,26 +441,83 @@ export class RunTestUseCase {
 
                 if (result && result.success) {
                     // Mark Success
-                    const successItem = { ...item, status: 'completed' as PlanItemStatus } as import('@domain/entities/Plan').PlanItem;
+                    const successItem: PlanItem = { ...item, status: 'completed' as PlanItemStatus };
                     const successItems = [...updatedItems];
                     successItems[i] = successItem;
-                    currentState = { ...currentState, plan: { ...plan, items: successItems } };
+                    currentState = {
+                        ...this.clearActiveItem(currentState),
+                        status: 'idle',
+                        plan: { ...plan, items: successItems }
+                    };
                     yield { type: 'state_updated', state: currentState };
+                    consecutiveStepFailures = 0;
+                    hasUnresolvedVerificationFailure = false;
+                    finalSummary = undefined;
+
+                    if (observedTerminalPass) {
+                        finalSummary = terminalPassSummary ?? 'Test completed successfully.';
+                        break;
+                    }
                 } else {
                     // Step Failed
                     const errorMsg = result ? `${result.code}: ${result.reason}` : 'unknown_error: Unknown error';
+                    const replanningTrigger = result ? this.mapResultCodeToReplanningTrigger(result.code) : undefined;
+                    const replanningAssessment = this.replanningPolicy.assess({
+                        runId: testRunId,
+                        replanCount,
+                        ...(replanningTrigger ? { trigger: replanningTrigger } : {})
+                    });
 
-                    const completedWithFailureItem = { ...item, status: 'completed' as PlanItemStatus } as import('@domain/entities/Plan').PlanItem;
+                    if (replanningAssessment.suggested) {
+                        this.logger.warn('[ReplanningPolicyService] Replanning suggested (observe-only scaffold)', {
+                            runId: testRunId,
+                            trigger: replanningTrigger,
+                            replanCount,
+                            reason: replanningAssessment.reason
+                        });
+                    }
+
+                    const replanningLimits = this.replanningPolicy.resolveLimits();
+                    yield {
+                        type: 'replanning',
+                        telemetry: {
+                            runId: testRunId,
+                            ...(replanningTrigger ? { trigger: replanningTrigger } : {}),
+                            status: replanningAssessment.suggested ? 'suggested' : 'suppressed',
+                            reason: replanningAssessment.reason,
+                            mode: replanningAssessment.mode,
+                            replanCount,
+                            maxReplansPerRun: replanningLimits.maxReplansPerRun
+                        }
+                    };
+
+                    const completedWithFailureItem: PlanItem = { ...item, status: 'completed' as PlanItemStatus };
                     const newItems = [...updatedItems];
                     newItems[i] = completedWithFailureItem;
-                    currentState = { ...currentState, plan: { ...plan, items: newItems } };
+                    currentState = {
+                        ...this.clearActiveItem(currentState),
+                        status: 'failed',
+                        error: errorMsg,
+                        plan: { ...plan, items: newItems }
+                    };
                     yield { type: 'state_updated', state: currentState };
+
+                    replanCount += 1;
+                    consecutiveStepFailures += 1;
 
                     console.warn(`[RunTestUseCase] Step failed verification: ${errorMsg}`);
                     finalSummary = `Verification failed: ${errorMsg}`;
-                    hasVerificationFailure = true;
-                    // We DO NOT throw here anymore. We continue execution or finish.
-                    // Since this is likely the last step (verification), we just proceed.
+                    hasUnresolvedVerificationFailure = true;
+
+                    if (consecutiveStepFailures >= maxConsecutiveStepFailures) {
+                        this.logger.warn('[RunTestUseCase] Halting run after consecutive failed steps', {
+                            runId: testRunId,
+                            consecutiveStepFailures,
+                            maxConsecutiveStepFailures
+                        });
+                        finalSummary = `Stopped after ${consecutiveStepFailures} consecutive failed steps: ${errorMsg}`;
+                        break;
+                    }
                 }
             }
 
@@ -256,25 +543,180 @@ export class RunTestUseCase {
             // Final status update
             // Emit exactly one terminal event.
             if (terminalError) {
+                currentState = this.withWorkflowStatus(currentState, 'failed', terminalError.message);
+                runLifecycle = this.durability.transition(testRunId, runLifecycle, 'failed');
+                await this.durability.checkpoint(testRunId, currentState, 'terminal_failure');
                 yield { type: 'error', error: terminalError };
             } else if (controller.state === TestRunState.CANCELLED) {
+                currentState = this.withWorkflowStatus(currentState, 'idle', 'cancelled');
+                runLifecycle = this.durability.transition(testRunId, runLifecycle, 'cancelled');
+                await this.durability.checkpoint(testRunId, currentState, 'terminal_cancelled');
                 yield { type: 'completed', success: false, summary: "Test cancelled by user." };
                 await this.lifecycleManager.finalizeTestRun(testRunId, false, "Test cancelled by user.");
             } else if (completed) {
-                const isGlobalSuccess = !hasVerificationFailure;
+                currentState = this.withWorkflowStatus(currentState, hasUnresolvedVerificationFailure ? 'failed' : 'completed', hasUnresolvedVerificationFailure ? finalSummary : undefined);
+                runLifecycle = this.durability.transition(testRunId, runLifecycle, hasUnresolvedVerificationFailure ? 'failed' : 'completed');
+                await this.durability.checkpoint(testRunId, currentState, hasUnresolvedVerificationFailure ? 'terminal_failure' : 'terminal_success');
+                const isGlobalSuccess = !hasUnresolvedVerificationFailure;
                 yield { type: 'completed', success: isGlobalSuccess, ...(finalSummary ? { summary: finalSummary } : {}) };
                 await this.lifecycleManager.finalizeTestRun(testRunId, isGlobalSuccess, finalSummary);
+            }
+
+            await this.logCheckpointCompactionSummary(testRunId);
+        }
+    }
+
+    private async resolveRecoveryContext(input: RunTestInput): Promise<RecoveryBootstrapContext | null> {
+        return resolveRecoveryContextForRun(this.getRecoveryDependencies(), input);
+    }
+
+    private clearActiveItem(state: WorkflowState): WorkflowState {
+        const { activeItemId: _removed, ...withoutActiveItem } = state;
+        return withoutActiveItem;
+    }
+
+    private withWorkflowStatus(
+        state: WorkflowState,
+        status: WorkflowState['status'],
+        error?: string
+    ): WorkflowState {
+        return {
+            ...state,
+            status,
+            ...(error ? { error } : {})
+        };
+    }
+
+    private async replayRecoveryActions(params: {
+        testRunId: string;
+        sourceRunId: string;
+        browser: IBrowserAutomation;
+        controller: ExecutionController;
+        state: WorkflowState;
+        targetStepNumber: number;
+    }): Promise<RecoveryReplayOutcome> {
+        return replayRecoveryActionsForRun(this.getRecoveryDependencies(), params);
+    }
+
+    private async logCheckpointCompactionSummary(runId: string): Promise<void> {
+        const checkpoints = await this.durability.getCheckpointRecords(runId);
+        const compactedView = this.checkpointCompaction.compact(runId, checkpoints);
+
+        this.logger.debug('[RunTestUseCase] Checkpoint compaction summary', {
+            runId,
+            totalCheckpoints: checkpoints.length,
+            compactedCheckpoints: compactedView.compacted.length,
+            latestReason: compactedView.latest?.reason
+        });
+    }
+
+    private mapResultCodeToReplanningTrigger(
+        code: StepFailureCode
+    ): import('../services/execution/ReplanningPolicyService').ReplanningTrigger | undefined {
+        switch (code) {
+            case 'loop_detected':
+                return 'loop_detected';
+            case 'action_execution_error':
+                return 'action_execution_error';
+            case 'assertion_fail':
+            case 'agent_fail':
+                return 'assertion_fail';
+            case 'max_actions_reached':
+                return 'max_actions_reached';
+            case 'perception_error':
+            case 'llm_error':
+                return undefined;
+            default: {
+                const exhaustiveCheck: never = code;
+                return exhaustiveCheck;
             }
         }
     }
 
-    private resolveLaneKey(input: RunTestInput, resolvedUrl: string): string {
-        const platformConfig = input.platformConfig;
-        const platform = platformConfig?.platform;
-
-        if (!platformConfig) {
-            return `legacy:web:${resolvedUrl}`;
+    private evaluateSkillScaffold(input: RunTestInput, runId: string): void {
+        const skillId = input.options?.preferredSkillId?.trim();
+        if (!skillId) {
+            return;
         }
+
+        try {
+            const skill = this.skillRegistry.get(skillId);
+            if (!skill) {
+                this.logger.warn('[RunTestUseCase] Skill preflight skipped: skill not found', { runId, skillId });
+                return;
+            }
+
+            const allowedTrustLevels = input.options?.allowedSkillTrustLevels ?? ['verified'];
+            const allowed = this.skillGovernance.isAllowed(skill, allowedTrustLevels);
+
+            this.logger.info('[RunTestUseCase] Skill preflight evaluated', {
+                runId,
+                skillId,
+                skillTrust: skill.trust,
+                allowed
+            });
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            this.logger.warn('[RunTestUseCase] Skill preflight failed non-fatally', { runId, skillId, reason });
+        }
+    }
+
+    private evaluatePluginScaffold(input: RunTestInput, runId: string): void {
+        const preflight = input.options?.pluginPreflight;
+        if (!preflight) {
+            return;
+        }
+
+        try {
+            const manifest = this.pluginRegistry.get(preflight.pluginId);
+            if (!manifest) {
+                this.logger.warn('[RunTestUseCase] Plugin preflight skipped: plugin not found', {
+                    runId,
+                    pluginId: preflight.pluginId
+                });
+                return;
+            }
+
+            const result = this.pluginGateway.invoke(manifest, {
+                runId,
+                pluginId: preflight.pluginId,
+                capability: preflight.capability,
+                payload: {}
+            });
+
+            this.logger.info('[RunTestUseCase] Plugin preflight evaluated', {
+                runId,
+                pluginId: preflight.pluginId,
+                capability: preflight.capability,
+                success: result.success,
+                message: result.message
+            });
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            this.logger.warn('[RunTestUseCase] Plugin preflight failed non-fatally', {
+                runId,
+                pluginId: preflight.pluginId,
+                reason
+            });
+        }
+    }
+
+    private resolveRunUrl(platformConfig: RunTestInput['platformConfig']): string {
+        if (platformConfig.platform === 'web') {
+            return platformConfig.url;
+        }
+
+        if (platformConfig.connection.type === 'cdp') {
+            return platformConfig.connection.cdpUrl;
+        }
+
+        return 'electron://app';
+    }
+
+    private resolveLaneKey(input: RunTestInput): string {
+        const platformConfig = input.platformConfig;
+
+        const platform = platformConfig.platform;
 
         if (platform === 'web') {
             return `platform:web:${platformConfig.url}`;
@@ -288,6 +730,7 @@ export class RunTestUseCase {
             return `platform:electron:executable:${platformConfig.connection.executablePath}`;
         }
 
-        return `legacy:web:${resolvedUrl}`;
+        const exhaustiveCheck: never = platform;
+        return `unsupported:${String(exhaustiveCheck)}`;
     }
 }

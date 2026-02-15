@@ -3,11 +3,19 @@ import { useTestRunStore } from '../stores';
 
 export const LiveViewContainer: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);
+    const isRunningRef = useRef(false);
+    const performUpdateRef = useRef<(() => void) | null>(null);
     const { status } = useTestRunStore();
     const isRunning = status === 'running';
 
     useEffect(() => {
-        if (!containerRef.current) return;
+        isRunningRef.current = isRunning;
+    }, [isRunning]);
+
+    useEffect(() => {
+        if (!containerRef.current) {
+            return;
+        }
 
         const container = containerRef.current;
         let debounceTimer: NodeJS.Timeout;
@@ -23,11 +31,12 @@ export const LiveViewContainer: React.FC = () => {
             };
 
             if (bounds.width > 0 && bounds.height > 0) {
-                console.log('[LiveViewContainer] Sending bounds:', bounds, 'isRunning:', isRunning);
-                if (isRunning) {
+                const running = isRunningRef.current;
+                console.log('[LiveViewContainer] Sending bounds:', bounds, 'isRunning:', running);
+                if (running) {
                     window.electron?.agentView?.show(bounds);
                 } else {
-                    window.electron?.agentView?.resize(bounds);
+                    window.electron?.agentView?.hide();
                 }
             } else {
                 console.warn('[LiveViewContainer] Invalid bounds calculated:', bounds);
@@ -39,10 +48,10 @@ export const LiveViewContainer: React.FC = () => {
             debounceTimer = setTimeout(performUpdate, 16); // Debounce at ~60fps
         };
 
-        // Initial update (immediate, but could be debounced too, sticking to immediate for responsiveness)
-        if (isRunning) {
-            performUpdate();
-        }
+        performUpdateRef.current = performUpdate;
+
+        // Initial bounds sync
+        performUpdate();
 
         const observer = new ResizeObserver(updateBounds);
         observer.observe(container);
@@ -52,14 +61,19 @@ export const LiveViewContainer: React.FC = () => {
             clearTimeout(debounceTimer);
             observer.disconnect();
             window.removeEventListener('resize', updateBounds);
-            // Hide the view when the component stops running (or unmounts)
-            if (isRunning) {
-                window.electron?.agentView?.hide();
-            }
+            performUpdateRef.current = null;
         };
+    }, []);
+
+    useEffect(() => {
+        if (isRunning) {
+            performUpdateRef.current?.();
+        } else {
+            window.electron?.agentView?.hide();
+        }
     }, [isRunning]);
 
-    // Ensure view is hidden on unmount (redundant safety)
+    // Ensure view is hidden on unmount
     useEffect(() => {
         return (): void => {
             window.electron?.agentView?.hide();
@@ -69,9 +83,8 @@ export const LiveViewContainer: React.FC = () => {
     return (
         <div
             ref={containerRef}
-            className="w-full h-full bg-transparent absolute inset-0 border-2 border-transparent data-[debug=true]:border-red-500"
-            data-debug="true"
-            style={{ minHeight: '100px', zIndex: isRunning ? 10 : -1 }}
+            className={`w-full h-full bg-transparent absolute inset-0 ${isRunning ? 'z-10' : 'z-0 opacity-0 pointer-events-none'}`}
+            style={{ minHeight: '100px' }}
         />
     );
 };

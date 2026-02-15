@@ -15,11 +15,6 @@ export class VisionSensor implements ISensor<{ screenshots: Buffer[]; mimeType: 
     async capture(page: Page): Promise<{ screenshots: Buffer[]; mimeType: string }> {
         const screenshots = await this.smartCapture.capture(page);
 
-        // Fallback if capture returns empty (shouldn't happen but for type safety)
-        if (screenshots.length === 0) {
-            return { screenshots: [], mimeType: 'image/jpeg' };
-        }
-
         return {
             screenshots,
             mimeType: 'image/jpeg'
