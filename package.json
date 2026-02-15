@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts,.tsx",
     "test": "vitest run",
+    "check:architecture": "node scripts/check-architecture.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:cli": "tsx tests/cli/run-cli-tests.ts",
