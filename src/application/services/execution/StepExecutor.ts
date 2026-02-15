@@ -272,17 +272,23 @@ export class StepExecutor {
                 executionOutcome = 'not_executed';
                 executionError = action.reason;
             } else {
-                const execResult = await this.toolExecutor.execute(action, {
-                    browser,
-                    currentUrl: runtimeUrl,
-                    ...(executionContext?.toolContext ? { toolContext: executionContext.toolContext } : {})
-                });
-
-                if (execResult.isErr()) {
+                const viewportValidationError = this.validateActionAgainstViewport(action, viewport);
+                if (viewportValidationError) {
                     executionOutcome = 'execution_error';
-                    executionError = execResult.error.message;
+                    executionError = viewportValidationError;
                 } else {
-                    executionOutcome = 'executed';
+                    const execResult = await this.toolExecutor.execute(action, {
+                        browser,
+                        currentUrl: runtimeUrl,
+                        ...(executionContext?.toolContext ? { toolContext: executionContext.toolContext } : {})
+                    });
+
+                    if (execResult.isErr()) {
+                        executionOutcome = 'execution_error';
+                        executionError = execResult.error.message;
+                    } else {
+                        executionOutcome = 'executed';
+                    }
                 }
             }
 
@@ -469,5 +475,31 @@ export class StepExecutor {
 
     private normalizeForSignature(input: string): string {
         return input.toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+
+    private validateActionAgainstViewport(
+        action: AgentAction,
+        viewport: { width: number; height: number }
+    ): string | undefined {
+        const isInBounds = (x: number, y: number): boolean => (
+            Number.isFinite(x)
+            && Number.isFinite(y)
+            && x >= 0
+            && y >= 0
+            && x < viewport.width
+            && y < viewport.height
+        );
+
+        switch (action.type) {
+            case ActionType.MOUSE_MOVE:
+            case ActionType.MOUSE_CLICK_LEFT:
+            case ActionType.MOUSE_CLICK_RIGHT:
+                if (!isInBounds(action.x, action.y)) {
+                    return `Viewport safety check failed for '${action.type}': coordinates (${action.x}, ${action.y}) are outside viewport ${viewport.width}x${viewport.height}`;
+                }
+                return undefined;
+            default:
+                return undefined;
+        }
     }
 }
