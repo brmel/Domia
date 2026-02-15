@@ -4,6 +4,8 @@ import { trpc } from '../../lib/trpc';
 import { JsonTreeView } from './JsonTreeView';
 import { CognitiveTraceView } from './CognitiveTraceView';
 import { cn } from '../../lib/utils';
+import { Button } from './ui/Button';
+import { SegmentedControl } from './ui/SegmentedControl';
 
 export function StepInspector(): JSX.Element | null {
     const { isOpen, runId, stepNumber, close } = useStepInspectorStore();
@@ -43,14 +45,17 @@ export function StepInspector(): JSX.Element | null {
                         </div>
                     </div>
 
-                    <button
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={close}
-                        className="group p-2 rounded-full hover:bg-gray-100 transition-colors duration-200"
+                        className="rounded-full p-2"
                     >
-                        <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
-                    </button>
+                    </Button>
                 </div>
 
                 {/* Content Area */}
@@ -58,7 +63,7 @@ export function StepInspector(): JSX.Element | null {
                     {isLoading && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                             <div className="w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
-                            <span className="text-gray-500 font-medium text-sm animate-pulse">Retrieving Artifacts...</span>
+                            <span className="text-gray-500 font-medium text-sm animate-pulse">Retrieving artifacts...</span>
                         </div>
                     )}
 
@@ -118,32 +123,25 @@ function InspectorContent({ artifacts }: { artifacts: any }) {
 
     // Tabs configuration
     const tabs = [
-        { id: 'vision', label: 'Vision', icon: '👁️', count: artifacts.screenshots?.length ?? 0 },
-        { id: 'semantic', label: 'Semantic', icon: '🌳', count: (domTree ? 1 : 0) + (accessibilityTree ? 1 : 0) },
-        { id: 'trace', label: 'Trace', icon: '🧠', count: traceData ? 1 : 0 },
+        { id: 'vision', label: 'Vision', icon: '👁️' },
+        { id: 'semantic', label: 'Semantic', icon: '🌳' },
+        { id: 'trace', label: 'Trace', icon: '🧠' },
     ] as const;
 
     return (
         <div className="flex flex-col h-full">
             {/* Tab Navigation */}
-            <div className="flex items-center px-6 border-b border-gray-200 bg-white">
-                {tabs.map(tab => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={cn(
-                            "relative px-4 py-4 text-sm font-medium transition-colors flex items-center gap-2",
-                            activeTab === tab.id ? "text-blue-600" : "text-gray-500 hover:text-gray-800"
-                        )}
-                    >
-                        <span>{tab.icon}</span>
-                        <span>{tab.label}</span>
-                        {/* Active Indicator */}
-                        {activeTab === tab.id && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full"></div>
-                        )}
-                    </button>
-                ))}
+            <div className="px-6 py-3 border-b border-gray-200 bg-white">
+                <SegmentedControl
+                    items={tabs.map((tab) => ({
+                        value: tab.id,
+                        label: `${tab.icon} ${tab.label}`
+                    }))}
+                    value={activeTab}
+                    onChange={setActiveTab}
+                    className="bg-gray-50"
+                    activeItemClassName="bg-white text-blue-700"
+                />
             </div>
 
             {/* Tab Panels */}
@@ -170,7 +168,7 @@ function InspectorContent({ artifacts }: { artifacts: any }) {
                     ) : (
                         <EmptyState
                             icon="📷"
-                            title="No Screenshot"
+                            title="No screenshot"
                             description="Visual capture was disabled or failed for this step."
                         />
                     )}
@@ -228,7 +226,7 @@ function InspectorContent({ artifacts }: { artifacts: any }) {
                     ) : (
                         <EmptyState
                             icon="🧩"
-                            title="No Trace Data"
+                            title="No trace data"
                             description="Cognitive tracing information is missing for this step."
                         />
                     )}

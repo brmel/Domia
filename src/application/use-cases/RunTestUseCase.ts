@@ -163,8 +163,10 @@ export class RunTestUseCase {
         let completed = false;
         let finalSummary: string | undefined;
         let hasVerificationFailure = false;
+        let consecutiveStepFailures = 0;
         let replanCount = 0;
         let terminalError: Error | null = null;
+        const maxConsecutiveStepFailures = this.replanningPolicy.resolveLimits().maxReplansPerRun + 1;
 
         try {
             const urlResult = UrlFactory.create(url);
@@ -245,6 +247,8 @@ export class RunTestUseCase {
             }
 
             // 1. Planning Phase
+            currentState = this.withWorkflowStatus(currentState, 'planning');
+            yield { type: 'state_updated', state: currentState };
             yield { type: 'thinking' };
             runLifecycle = this.durability.transition(testRunId, runLifecycle, 'planning');
             let plan: Plan;
@@ -268,7 +272,7 @@ export class RunTestUseCase {
             }
 
             estimatedTokensUsed += Math.ceil(input.prompt.length / 4);
-            currentState = { ...currentState, plan };
+            currentState = { ...currentState, plan, status: 'thinking' };
             yield { type: 'state_updated', state: currentState };
             await this.durability.checkpoint(testRunId, currentState, 'plan_ready');
             runLifecycle = this.durability.transition(testRunId, runLifecycle, 'executing');
@@ -316,7 +320,12 @@ export class RunTestUseCase {
                 const runningItem: PlanItem = { ...item, status: 'active' as PlanItemStatus };
                 const updatedItems = [...plan.items];
                 updatedItems[i] = runningItem;
-                currentState = { ...currentState, activeItemId: runningItem.id, plan: { ...plan, items: updatedItems } };
+                currentState = {
+                    ...currentState,
+                    status: 'observing',
+                    activeItemId: runningItem.id,
+                    plan: { ...plan, items: updatedItems }
+                };
                 yield { type: 'state_updated', state: currentState };
 
                 const executionOptions = {
@@ -371,6 +380,7 @@ export class RunTestUseCase {
                             // Update state
                             currentState = {
                                 ...currentState,
+                                status: 'acting',
                                 stepNumber: currentState.stepNumber + 1,
                                 history: [...currentState.history, action]
                             };
@@ -405,6 +415,8 @@ export class RunTestUseCase {
                         next = await iterator.next();
                     }
                     result = next.value;
+                    currentState = this.withWorkflowStatus(currentState, 'validating');
+                    yield { type: 'state_updated', state: currentState };
                 } catch (e) {
                     const iteratorError = e instanceof Error ? e : new Error(String(e));
                     if (iteratorError instanceof WorkflowError && iteratorError.message.startsWith('Run budget exceeded')) {
@@ -423,8 +435,13 @@ export class RunTestUseCase {
                     const successItem: PlanItem = { ...item, status: 'completed' as PlanItemStatus };
                     const successItems = [...updatedItems];
                     successItems[i] = successItem;
-                    currentState = { ...this.clearActiveItem(currentState), plan: { ...plan, items: successItems } };
+                    currentState = {
+                        ...this.clearActiveItem(currentState),
+                        status: 'idle',
+                        plan: { ...plan, items: successItems }
+                    };
                     yield { type: 'state_updated', state: currentState };
+                    consecutiveStepFailures = 0;
                 } else {
                     // Step Failed
                     const errorMsg = result ? `${result.code}: ${result.reason}` : 'unknown_error: Unknown error';
@@ -461,16 +478,30 @@ export class RunTestUseCase {
                     const completedWithFailureItem: PlanItem = { ...item, status: 'completed' as PlanItemStatus };
                     const newItems = [...updatedItems];
                     newItems[i] = completedWithFailureItem;
-                    currentState = { ...this.clearActiveItem(currentState), plan: { ...plan, items: newItems } };
+                    currentState = {
+                        ...this.clearActiveItem(currentState),
+                        status: 'failed',
+                        error: errorMsg,
+                        plan: { ...plan, items: newItems }
+                    };
                     yield { type: 'state_updated', state: currentState };
 
                     replanCount += 1;
+                    consecutiveStepFailures += 1;
 
                     console.warn(`[RunTestUseCase] Step failed verification: ${errorMsg}`);
                     finalSummary = `Verification failed: ${errorMsg}`;
                     hasVerificationFailure = true;
-                    // We DO NOT throw here anymore. We continue execution or finish.
-                    // Since this is likely the last step (verification), we just proceed.
+
+                    if (consecutiveStepFailures >= maxConsecutiveStepFailures) {
+                        this.logger.warn('[RunTestUseCase] Halting run after consecutive failed steps', {
+                            runId: testRunId,
+                            consecutiveStepFailures,
+                            maxConsecutiveStepFailures
+                        });
+                        finalSummary = `Stopped after ${consecutiveStepFailures} consecutive failed steps: ${errorMsg}`;
+                        break;
+                    }
                 }
             }
 
@@ -496,15 +527,18 @@ export class RunTestUseCase {
             // Final status update
             // Emit exactly one terminal event.
             if (terminalError) {
+                currentState = this.withWorkflowStatus(currentState, 'failed', terminalError.message);
                 runLifecycle = this.durability.transition(testRunId, runLifecycle, 'failed');
                 await this.durability.checkpoint(testRunId, currentState, 'terminal_failure');
                 yield { type: 'error', error: terminalError };
             } else if (controller.state === TestRunState.CANCELLED) {
+                currentState = this.withWorkflowStatus(currentState, 'idle', 'cancelled');
                 runLifecycle = this.durability.transition(testRunId, runLifecycle, 'cancelled');
                 await this.durability.checkpoint(testRunId, currentState, 'terminal_cancelled');
                 yield { type: 'completed', success: false, summary: "Test cancelled by user." };
                 await this.lifecycleManager.finalizeTestRun(testRunId, false, "Test cancelled by user.");
             } else if (completed) {
+                currentState = this.withWorkflowStatus(currentState, hasVerificationFailure ? 'failed' : 'completed', hasVerificationFailure ? finalSummary : undefined);
                 runLifecycle = this.durability.transition(testRunId, runLifecycle, hasVerificationFailure ? 'failed' : 'completed');
                 await this.durability.checkpoint(testRunId, currentState, hasVerificationFailure ? 'terminal_failure' : 'terminal_success');
                 const isGlobalSuccess = !hasVerificationFailure;
@@ -523,6 +557,18 @@ export class RunTestUseCase {
     private clearActiveItem(state: WorkflowState): WorkflowState {
         const { activeItemId: _removed, ...withoutActiveItem } = state;
         return withoutActiveItem;
+    }
+
+    private withWorkflowStatus(
+        state: WorkflowState,
+        status: WorkflowState['status'],
+        error?: string
+    ): WorkflowState {
+        return {
+            ...state,
+            status,
+            ...(error ? { error } : {})
+        };
     }
 
     private async replayRecoveryActions(params: {

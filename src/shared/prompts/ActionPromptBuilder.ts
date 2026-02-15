@@ -31,6 +31,9 @@ RULES:
 3. Action types must be lowercase: "click", "type", "pass", "fail", etc.
 4. To pass, return action: { "type": "pass", "summary": "Goal achieved" }
 5. To fail, return action: { "type": "fail", "reason": "Cannot proceed because..." }
+6. The CURRENT PAGE URL is always provided below. Never fail because URL is missing.
+7. If you need to navigate, use the CURRENT PAGE URL unless the goal explicitly asks for a different URL.
+8. Do not fail on the first uncertainty. Re-check state and try one alternative action when feasible before returning fail.
 
 Respond by calling exactly one tool.`;
 

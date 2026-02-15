@@ -1,6 +1,7 @@
 import { cn } from '../../lib/utils';
 import { getAvailablePlatforms } from '../config/platformRegistry';
 import type { PlatformType } from '../../domain/types/PlatformConfig';
+import { Button } from './ui/Button';
 
 interface PlatformSelectorProps {
   value: PlatformType;
@@ -18,22 +19,21 @@ export function PlatformSelector({ value, onChange, disabled }: PlatformSelector
       </label>
       <div className="grid grid-cols-2 gap-2">
         {platforms.map((platform) => (
-          <button
+          <Button
             key={platform.type}
             type="button"
             onClick={() => onChange(platform.type)}
             disabled={disabled}
+            variant={value === platform.type ? 'primary' : 'secondary'}
+            size="md"
             className={cn(
-              "flex flex-row items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all",
-              value === platform.type
-                ? "bg-blue-50 border-blue-500"
-                : "bg-white border-gray-300 hover:border-gray-400",
+              "flex flex-row items-center justify-center gap-2",
               disabled && "opacity-50 cursor-not-allowed"
             )}
           >
             <span className="text-base leading-none">{platform.icon}</span>
             <span className="text-sm font-medium text-gray-900 leading-none">{platform.label}</span>
-          </button>
+          </Button>
         ))}
       </div>
     </div>

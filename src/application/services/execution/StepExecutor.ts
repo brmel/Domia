@@ -74,6 +74,7 @@ export class StepExecutor {
         executionContext?: { toolContext?: ToolContext }
     ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, StepExecutionResult, unknown> {
         let loopCount = 0;
+        let consecutiveFailSignals = 0;
         let currentState: { history: AgentAction[], stepNumber: number } = { history: [], stepNumber: initialStepNumber };
         const maxActions = options.maxActions;
 
@@ -93,6 +94,7 @@ export class StepExecutor {
                 };
             }
             const frame = frameResult.value;
+            const runtimeUrl = frame.metadata.url || url;
 
             const temporalWindow = await this.captureTemporalWindowIfEnabled(runId, browser, frame, options);
 
@@ -175,7 +177,7 @@ export class StepExecutor {
                 goal: stepGoal,
                 snapshot,
                 previousActions: currentState.history,
-                currentUrl: url,
+                currentUrl: runtimeUrl,
                 pageTitle: frame.metadata.title,
                 viewport,
                 stepsRemaining: maxActions - loopCount,
@@ -187,7 +189,7 @@ export class StepExecutor {
             await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
                 agentInput: {
                     goal: stepGoal,
-                    currentUrl: url,
+                    currentUrl: runtimeUrl,
                         promptPreview: JSON.stringify(context).substring(0, 500) + '...',
                         ...(temporalWindow ? {
                             timelineSummary: temporalWindow.summary,
@@ -219,7 +221,7 @@ export class StepExecutor {
                 }
             });
 
-            if (this.loopDetector.isLoop(currentState.history, action)) {
+            if (action.type !== ActionType.FAIL && this.loopDetector.isLoop(currentState.history, action)) {
                 return {
                     success: false,
                     terminal: 'error',
@@ -235,6 +237,19 @@ export class StepExecutor {
             }
 
             if (action.type === ActionType.FAIL) {
+                consecutiveFailSignals += 1;
+
+                const canRetryAfterFail = consecutiveFailSignals < 2 && loopCount < maxActions - 1;
+                if (canRetryAfterFail) {
+                    currentState = {
+                        ...currentState,
+                        history: [...currentState.history, action],
+                        stepNumber: currentState.stepNumber + 1
+                    };
+                    loopCount++;
+                    continue;
+                }
+
                 return {
                     success: false,
                     terminal: 'fail',
@@ -243,9 +258,11 @@ export class StepExecutor {
                 };
             }
 
+            consecutiveFailSignals = 0;
+
             const execResult = await this.toolExecutor.execute(action, {
                 browser,
-                currentUrl: url,
+                currentUrl: runtimeUrl,
                 ...(executionContext?.toolContext ? { toolContext: executionContext.toolContext } : {})
             });
             if (execResult.isErr()) {

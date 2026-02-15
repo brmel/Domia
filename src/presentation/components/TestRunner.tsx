@@ -8,6 +8,7 @@ import { SegmentedControl } from './ui/SegmentedControl';
 import { InfoCard } from './ui/InfoCard';
 import { SectionBlock } from './ui/SectionBlock';
 import { RunTimelineView } from './RunTimelineView';
+import { Button } from './ui/Button';
 
 
 export function TestRunner(): React.ReactElement {
@@ -220,7 +221,7 @@ export function TestRunner(): React.ReactElement {
                                 )}
                                 {checkpointRecords.map((checkpoint) => (
                                     <div key={checkpoint.id} className="rounded-lg border border-gray-200 p-3 bg-gray-50">
-                                        <div className="text-[11px] font-semibold text-gray-700 uppercase tracking-wide">{checkpoint.reason}</div>
+                                        <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{checkpoint.reason}</div>
                                         <div className="mt-1 text-xs text-gray-600">{checkpoint.detail}</div>
                                     </div>
                                 ))}
@@ -261,7 +262,7 @@ export function TestRunner(): React.ReactElement {
                                     <div className="grid grid-cols-2 gap-2">
                                         {policyFlags.map((flag) => (
                                             <div key={flag.label} className="rounded-md border border-gray-200 px-2 py-1.5 bg-gray-50">
-                                                <div className="text-[11px] text-gray-600 capitalize">{flag.label}</div>
+                                                <div className="text-xs text-gray-600 capitalize">{flag.label}</div>
                                                 <div className={cn('text-xs font-semibold', flag.enabled ? 'text-green-700' : 'text-gray-500')}>
                                                     {flag.enabled ? 'Enabled' : 'Disabled'}
                                                 </div>
@@ -279,7 +280,7 @@ export function TestRunner(): React.ReactElement {
                                             <div key={event.id} className="rounded-md border border-gray-200 px-2 py-1.5 bg-gray-50 flex items-center justify-between">
                                                 <span className="text-xs text-gray-700">{event.action}</span>
                                                 <span className={cn(
-                                                    'text-[11px] font-semibold uppercase',
+                                                    'text-xs font-semibold uppercase',
                                                     event.decision === 'allow' && 'text-green-700',
                                                     event.decision === 'deny' && 'text-red-700',
                                                     event.decision === 'observe' && 'text-blue-700'
@@ -318,13 +319,16 @@ export function TestRunner(): React.ReactElement {
                         </div>
 
                         {status === AgentStatus.RUNNING && (
-                            <button
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => cancelMutation.mutate()}
                                 disabled={cancelMutation.isPending}
-                                className="text-xs font-medium text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-md transition-colors border border-transparent hover:border-red-100 disabled:opacity-50"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
                             >
                                 {cancelMutation.isPending ? 'Stopping...' : 'Stop Agent'}
-                            </button>
+                            </Button>
                         )}
                     </div>
 
@@ -393,22 +397,20 @@ export function TestRunner(): React.ReactElement {
                                             )}>
                                                 {action.type}
                                             </span>
-                                            {/* Hover prompt to inspect */}
-                                            <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-blue-500 font-medium bg-blue-50 px-1.5 py-0.5 rounded">
-                                                OPEN
-                                            </span>
 
-                                            <button
+                                            <Button
                                                 type="button"
+                                                variant="outline"
+                                                size="sm"
                                                 onClick={(event) => {
                                                     event.stopPropagation();
                                                     handleOpenInspect(stepNum);
                                                 }}
                                                 disabled={!runId}
-                                                className="ml-auto rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                                                className="ml-auto border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
                                             >
                                                 Inspect
-                                            </button>
+                                            </Button>
                                         </div>
 
                                         {/* Show thought for history items too if available */}

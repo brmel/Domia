@@ -15,7 +15,7 @@ interface ComposeWorkspaceProps {
 export function ComposeWorkspace({ activeSidebar, setActiveSidebar, isInteractionDisabled }: ComposeWorkspaceProps): React.ReactElement {
     if (activeSidebar === 'history') {
         return (
-            <div className="flex flex-1 min-h-0 overflow-hidden bg-white">
+            <div className="h-full min-h-0 overflow-hidden bg-white">
                 <main className="flex-1 min-w-0">
                     <HistorySidebar
                         onClose={() => setActiveSidebar('config')}
@@ -27,7 +27,7 @@ export function ComposeWorkspace({ activeSidebar, setActiveSidebar, isInteractio
     }
 
     return (
-        <div className="flex flex-1 min-h-0 overflow-hidden bg-gray-50">
+        <div className="h-full min-h-0 flex overflow-hidden bg-gray-50">
             {activeSidebar === 'settings_debug' ? (
                 <ResizableSidebar initialWidth={360} minWidth={320} maxWidth={600}>
                     <SettingsSidebar

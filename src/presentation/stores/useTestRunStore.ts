@@ -1,9 +1,12 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { TestRunEvent } from '@domain/events';
 import type { AgentAction, TestRunId } from '@domain/value-objects';
 import type { Plan } from '@domain/entities/Plan';
 import type { RecoveryReplayTelemetry, ReplanningTelemetry } from '@application/dtos';
 import { AgentStatus } from '../../domain/types/AgentStatus';
+import type { PlatformType } from '../../domain/types/PlatformConfig';
+import type { PlatformFieldValue } from '../config/platformRegistry';
 
 /**
  * TestRun state for UI
@@ -29,6 +32,16 @@ export interface TestRunStoreState {
     // Input Persistence
     url: string;
     prompt: string;
+    selectedPlatform: PlatformType;
+    platformData: PlatformFieldValue;
+    temporalObservation: boolean;
+    temporalMode: 'off' | 'baseline' | 'adaptive' | 'forensic';
+    temporalBaselineIntervalMs: number;
+    temporalBurstIntervalMs: number;
+    temporalMaxFramesPerWindow: number;
+    temporalPromptTokenBudget: number;
+    temporalRedactSensitive: boolean;
+    temporalPersistWindow: boolean;
 
     // Recovery Replay Telemetry
     recoveryReplay: RecoveryReplayTelemetry | null;
@@ -41,6 +54,16 @@ interface TestRunActions {
 
     setUrl: (url: string) => void;
     setPrompt: (prompt: string) => void;
+    setSelectedPlatform: (platform: PlatformType) => void;
+    setPlatformData: (data: PlatformFieldValue) => void;
+    setTemporalObservation: (value: boolean) => void;
+    setTemporalMode: (value: 'off' | 'baseline' | 'adaptive' | 'forensic') => void;
+    setTemporalBaselineIntervalMs: (value: number) => void;
+    setTemporalBurstIntervalMs: (value: number) => void;
+    setTemporalMaxFramesPerWindow: (value: number) => void;
+    setTemporalPromptTokenBudget: (value: number) => void;
+    setTemporalRedactSensitive: (value: boolean) => void;
+    setTemporalPersistWindow: (value: boolean) => void;
     setStatus: (status: AgentStatus) => void;
 
     // Event handling
@@ -61,17 +84,47 @@ const initialState: TestRunStoreState = {
     history: [],
     url: 'https://ibraverse.ca',
     prompt: 'verify that brahim is smiling',
+    selectedPlatform: 'web',
+    platformData: { url: 'https://ibraverse.ca' },
+    temporalObservation: false,
+    temporalMode: 'adaptive',
+    temporalBaselineIntervalMs: 1000,
+    temporalBurstIntervalMs: 120,
+    temporalMaxFramesPerWindow: 12,
+    temporalPromptTokenBudget: 400,
+    temporalRedactSensitive: true,
+    temporalPersistWindow: true,
     recoveryReplay: null,
     replanningEvents: [],
 };
 
-export const useTestRunStore = create<TestRunStore>((set) => ({
+export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
     ...initialState,
 
     reset: (): void => set(initialState),
 
-    setUrl: (url: string) => set({ url }),
+    setUrl: (url: string) => set((state) => ({
+        url,
+        platformData: state.selectedPlatform === 'web'
+            ? { ...(state.platformData as { url?: string }), url }
+            : state.platformData
+    })),
     setPrompt: (prompt: string) => set({ prompt }),
+    setSelectedPlatform: (selectedPlatform: PlatformType) => set({ selectedPlatform }),
+    setPlatformData: (platformData: PlatformFieldValue) => set({
+        platformData,
+        ...(get().selectedPlatform === 'web' && 'url' in platformData && typeof platformData.url === 'string'
+            ? { url: platformData.url }
+            : {})
+    }),
+    setTemporalObservation: (temporalObservation: boolean) => set({ temporalObservation }),
+    setTemporalMode: (temporalMode: 'off' | 'baseline' | 'adaptive' | 'forensic') => set({ temporalMode }),
+    setTemporalBaselineIntervalMs: (temporalBaselineIntervalMs: number) => set({ temporalBaselineIntervalMs }),
+    setTemporalBurstIntervalMs: (temporalBurstIntervalMs: number) => set({ temporalBurstIntervalMs }),
+    setTemporalMaxFramesPerWindow: (temporalMaxFramesPerWindow: number) => set({ temporalMaxFramesPerWindow }),
+    setTemporalPromptTokenBudget: (temporalPromptTokenBudget: number) => set({ temporalPromptTokenBudget }),
+    setTemporalRedactSensitive: (temporalRedactSensitive: boolean) => set({ temporalRedactSensitive }),
+    setTemporalPersistWindow: (temporalPersistWindow: boolean) => set({ temporalPersistWindow }),
 
     setStatus: (status: AgentStatus): void => set({ status }),
 
@@ -145,4 +198,20 @@ export const useTestRunStore = create<TestRunStore>((set) => ({
                 break;
         }
     },
+}), {
+    name: 'domia-compose-draft-v1',
+    partialize: (state) => ({
+        url: state.url,
+        prompt: state.prompt,
+        selectedPlatform: state.selectedPlatform,
+        platformData: state.platformData,
+        temporalObservation: state.temporalObservation,
+        temporalMode: state.temporalMode,
+        temporalBaselineIntervalMs: state.temporalBaselineIntervalMs,
+        temporalBurstIntervalMs: state.temporalBurstIntervalMs,
+        temporalMaxFramesPerWindow: state.temporalMaxFramesPerWindow,
+        temporalPromptTokenBudget: state.temporalPromptTokenBudget,
+        temporalRedactSensitive: state.temporalRedactSensitive,
+        temporalPersistWindow: state.temporalPersistWindow
+    })
 }));

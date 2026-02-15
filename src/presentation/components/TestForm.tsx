@@ -16,23 +16,33 @@ interface TestFormProps {
 
 export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps): React.ReactElement {
     const utils = trpc.useUtils();
-    const { status, setStatus, url, prompt, setPrompt } = useTestRunStore();
+    const {
+        status,
+        setStatus,
+        prompt,
+        setPrompt,
+        selectedPlatform,
+        setSelectedPlatform,
+        platformData,
+        setPlatformData,
+        temporalObservation,
+        setTemporalObservation,
+        temporalMode,
+        setTemporalMode,
+        temporalBaselineIntervalMs,
+        setTemporalBaselineIntervalMs,
+        temporalBurstIntervalMs,
+        setTemporalBurstIntervalMs,
+        temporalMaxFramesPerWindow,
+        setTemporalMaxFramesPerWindow,
+        temporalPromptTokenBudget,
+        setTemporalPromptTokenBudget,
+        temporalRedactSensitive,
+        setTemporalRedactSensitive,
+        temporalPersistWindow,
+        setTemporalPersistWindow
+    } = useTestRunStore();
     const isRunning = isAgentRunning(status);
-
-    const [temporalObservation, setTemporalObservation] = useState(false);
-    const [temporalMode, setTemporalMode] = useState<'off' | 'baseline' | 'adaptive' | 'forensic'>('adaptive');
-    const [temporalBaselineIntervalMs, setTemporalBaselineIntervalMs] = useState(1000);
-    const [temporalBurstIntervalMs, setTemporalBurstIntervalMs] = useState(120);
-    const [temporalMaxFramesPerWindow, setTemporalMaxFramesPerWindow] = useState(12);
-    const [temporalPromptTokenBudget, setTemporalPromptTokenBudget] = useState(400);
-    const [temporalRedactSensitive, setTemporalRedactSensitive] = useState(true);
-    const [temporalPersistWindow, setTemporalPersistWindow] = useState(true);
-    
-    // Platform state
-    const [selectedPlatform, setSelectedPlatform] = useState<PlatformType>('web');
-    const [platformData, setPlatformData] = useState<PlatformFieldValue>({
-        url: url || '',
-    });
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
     const runMutation = trpc.test.run.useMutation({
@@ -86,6 +96,60 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
 
     const handleFieldChange = (newData: PlatformFieldValue) => {
         setPlatformData(newData);
+        if (Object.keys(fieldErrors).length > 0) {
+            setFieldErrors({});
+        }
+    };
+
+    const validatePlatformData = (platform: PlatformType, data: PlatformFieldValue): Record<string, string> => {
+        const nextErrors: Record<string, string> = {};
+
+        if (platform === 'web') {
+            const webData = data as Omit<WebPlatformConfig, 'platform'>;
+            const rawUrl = (webData.url || '').trim();
+            if (!rawUrl) {
+                nextErrors['url'] = 'URL is required';
+                return nextErrors;
+            }
+
+            try {
+                new URL(rawUrl);
+            } catch {
+                nextErrors['url'] = 'Enter a valid URL (https://...)';
+            }
+
+            return nextErrors;
+        }
+
+        const electronData = data as Omit<ElectronPlatformConfig, 'platform'>;
+        const connection = electronData.connection;
+        if (!connection) {
+            nextErrors['connection.type'] = 'Connection is required';
+            return nextErrors;
+        }
+
+        if (connection.type === 'cdp') {
+            const cdpUrl = (connection.cdpUrl || '').trim();
+            if (!cdpUrl) {
+                nextErrors['connection.cdpUrl'] = 'CDP URL is required';
+                return nextErrors;
+            }
+
+            try {
+                new URL(cdpUrl);
+            } catch {
+                nextErrors['connection.cdpUrl'] = 'Enter a valid CDP URL';
+            }
+
+            return nextErrors;
+        }
+
+        const executablePath = (connection.executablePath || '').trim();
+        if (!executablePath) {
+            nextErrors['connection.executablePath'] = 'Executable path is required';
+        }
+
+        return nextErrors;
     };
 
     const buildPlatformConfig = (
@@ -116,6 +180,13 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
 
     const onSubmit = (e: React.FormEvent): void => {
         e.preventDefault();
+
+        const validationErrors = validatePlatformData(selectedPlatform, platformData);
+        if (Object.keys(validationErrors).length > 0) {
+            setFieldErrors(validationErrors);
+            return;
+        }
+        setFieldErrors({});
         
         if (!canStart(status) || !prompt.trim()) {
             return;

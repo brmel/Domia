@@ -1,5 +1,6 @@
 import { cn } from '../../../lib/utils';
 import type { FieldRenderProps } from '../../config/platformRegistry';
+import { SegmentedControl } from '../ui/SegmentedControl';
 import type {
   ElectronConnection,
   ElectronPlatformConfig,
@@ -86,36 +87,17 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
         <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           Connection Type
         </label>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => handleTypeChange('cdp')}
-            disabled={disabled}
-            className={cn(
-              "flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all border",
-              connectionType === 'cdp'
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-gray-700 border-gray-300 hover:border-gray-400",
-              disabled && "opacity-50 cursor-not-allowed"
-            )}
-          >
-            🔗 Remote Debug (CDP)
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTypeChange('executable')}
-            disabled={disabled}
-            className={cn(
-              "flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all border",
-              connectionType === 'executable'
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white text-gray-700 border-gray-300 hover:border-gray-400",
-              disabled && "opacity-50 cursor-not-allowed"
-            )}
-          >
-            📦 Launch App
-          </button>
-        </div>
+        <SegmentedControl
+          items={[
+            { value: 'cdp', label: '🔗 Remote Debug (CDP)' },
+            { value: 'executable', label: '📦 Launch App' }
+          ] as const}
+          value={connectionType}
+          onChange={handleTypeChange}
+          fullWidth
+          className={cn(disabled && 'opacity-50 pointer-events-none')}
+          activeItemClassName="bg-blue-600 text-white"
+        />
       </div>
 
       {/* CDP URL Input */}
