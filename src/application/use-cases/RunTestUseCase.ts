@@ -548,7 +548,14 @@ export class RunTestUseCase {
                     };
 
                     if (replanningAssessment.shouldReplan) {
-                        const replanPrompt = this.buildReplanPrompt(input.prompt, plan, item.description, errorMsg);
+                        const replanPrompt = this.buildReplanPrompt(
+                            input.prompt,
+                            plan,
+                            item.description,
+                            errorMsg,
+                            currentState.lastEvaluation,
+                            currentState.evaluatorAdvice
+                        );
                         const replannedResult = await this.planner.plan(replanPrompt);
 
                         if (replannedResult.isOk() && replannedResult.value.items.length > 0) {
@@ -722,16 +729,34 @@ export class RunTestUseCase {
         }
     }
 
-    private buildReplanPrompt(originalPrompt: string, currentPlan: Plan, failedStepDescription: string, failureReason: string): string {
+    private buildReplanPrompt(
+        originalPrompt: string,
+        currentPlan: Plan,
+        failedStepDescription: string,
+        failureReason: string,
+        lastEvaluation?: import('@domain/value-objects').LLMEvaluationDecision,
+        evaluatorAdvice?: string
+    ): string {
         const planOutline = currentPlan.items
             .map(item => `- [${item.status}] ${item.description}`)
             .join('\n');
+
+        const evaluationContext = lastEvaluation
+            ? [
+                `Evaluator decision: ${lastEvaluation.decision}`,
+                `Evaluator summary: ${lastEvaluation.summary}`,
+                ...(lastEvaluation.advice ? [`Evaluator advice: ${lastEvaluation.advice}`] : [])
+            ].join('\n')
+            : 'No explicit evaluator decision captured for this failure.';
 
         return [
             `Original request: ${originalPrompt}`,
             'Current plan execution failed and must be replanned.',
             `Failed step: ${failedStepDescription}`,
             `Failure reason: ${failureReason}`,
+            'Evaluator context:',
+            evaluationContext,
+            ...(evaluatorAdvice ? ['Latest evaluator advice in workflow state:', evaluatorAdvice] : []),
             'Previous plan:',
             planOutline,
             'Produce a revised plan that avoids repeating failed assumptions and keeps the same overall objective.'
