@@ -838,4 +838,119 @@ describe('StepExecutor hardening', () => {
         expect(toolExecutor.execute).not.toHaveBeenCalled();
         expect(llmProvider.generateEvaluation).toHaveBeenCalledTimes(1);
     });
+
+    it('invokes evaluation callback with evaluator decision payload', async () => {
+        const llmProvider = {
+            generateAction: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: {
+                    type: ActionType.WAIT,
+                    durationMs: 100,
+                    thought: 'wait before evaluate'
+                }
+            }),
+            generateEvaluation: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: {
+                    decision: 'sub_task_success',
+                    summary: 'Goal satisfied'
+                }
+            })
+        };
+
+        const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
+        const perception = {
+            capture: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: {
+                    id: 'frame-1',
+                    timestamp: Date.now(),
+                    metadata: {
+                        url: 'https://example.com',
+                        title: 'Example',
+                        viewport: { width: 1200, height: 800 }
+                    },
+                    vision: { count: 0, screenshots: [], primaryScreenshot: undefined },
+                    semantic: {
+                        dom: {
+                            url: 'https://example.com',
+                            title: 'Example',
+                            rootElements: { html: {}, body: {} },
+                            elements: []
+                        },
+                        accessibility: null
+                    }
+                }
+            })
+        };
+
+        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}), saveTemporalWindow: vi.fn().mockResolvedValue({}) };
+        const trace = {
+            startTrace: vi.fn().mockResolvedValue(undefined),
+            endTrace: vi.fn().mockResolvedValue(undefined),
+            tracePerception: vi.fn().mockResolvedValue(undefined),
+            traceReasoning: vi.fn().mockResolvedValue(undefined)
+        };
+        const assertionGoalService = { evaluate: vi.fn().mockReturnValue(null) };
+        const toolContractService = { getToolDescriptors: vi.fn().mockReturnValue([]) };
+        const toolExecutor = {
+            execute: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: undefined
+            })
+        };
+        const temporalPolicy = {
+            planCapture: vi.fn().mockReturnValue({
+                mode: 'off',
+                enabled: false,
+                maxFrames: 1,
+                burstIntervalMs: 1,
+                maxFramesPerWindow: 1
+            })
+        };
+        const timelineAssembler = { assemble: vi.fn() };
+        const temporalSelector = { select: vi.fn() };
+        const temporalPrivacyFilter = { redact: vi.fn() };
+        const temporalPromptAssembler = { assemble: vi.fn() };
+        const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+        const onEvaluation = vi.fn();
+
+        const executor = new StepExecutor(
+            llmProvider as any,
+            loopDetector as any,
+            perception as any,
+            storage as any,
+            trace as any,
+            assertionGoalService as any,
+            toolContractService as any,
+            toolExecutor as any,
+            temporalPolicy as any,
+            timelineAssembler as any,
+            temporalSelector as any,
+            temporalPrivacyFilter as any,
+            temporalPromptAssembler as any,
+            logger as any
+        );
+
+        const browser = { getViewportSize: vi.fn().mockResolvedValue({ width: 1200, height: 800 }) };
+        const generator = executor.executeStep(
+            'run-eval-callback',
+            'verify',
+            browser as any,
+            'https://example.com',
+            0,
+            { vision: false, debugScreenshots: false, maxActions: 5 },
+            { onEvaluation }
+        );
+
+        await generator.next();
+        await generator.next();
+
+        expect(onEvaluation).toHaveBeenCalledTimes(1);
+        expect(onEvaluation).toHaveBeenCalledWith({
+            decision: 'sub_task_success',
+            summary: 'Goal satisfied'
+        });
+    });
 });

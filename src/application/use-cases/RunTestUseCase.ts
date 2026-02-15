@@ -32,6 +32,7 @@ import { PluginRegistryService } from '../services/plugins/PluginRegistryService
 import { PluginGatewayService } from '../services/plugins/PluginGatewayService';
 import { RuntimeReadinessPolicyService } from '../services/hardening/RuntimeReadinessPolicyService';
 import type { Plan, PlanItem, PlanItemStatus } from '@domain/entities/Plan';
+import type { LLMEvaluationDecision } from '@domain/value-objects';
 import { TestStep } from '../../domain/ports';
 import { v4 as uuidv4 } from 'uuid';
 import type { ILogger } from '../../domain/ports';
@@ -344,6 +345,8 @@ export class RunTestUseCase {
                     ...(input.options?.temporalPersistWindow !== undefined ? { temporalPersistWindow: input.options.temporalPersistWindow } : {})
                 };
 
+                let pendingEvaluation: LLMEvaluationDecision | undefined;
+
                 const stepGen = this.executor.executeStep(
                     testRunId,
                     item.description,
@@ -351,7 +354,12 @@ export class RunTestUseCase {
                     url,
                     currentState.stepNumber,
                     executionOptions,
-                    { ...(stepToolContext ? { toolContext: stepToolContext } : {}) }
+                    {
+                        ...(stepToolContext ? { toolContext: stepToolContext } : {}),
+                        onEvaluation: (evaluation: LLMEvaluationDecision) => {
+                            pendingEvaluation = evaluation;
+                        }
+                    }
                 );
                 let result: StepExecutionResult | undefined;
                 let observedTerminalPass = false;
@@ -360,6 +368,18 @@ export class RunTestUseCase {
                     const iterator = stepGen[Symbol.asyncIterator]();
                     let next = await iterator.next();
                     while (!next.done) {
+                        if (pendingEvaluation) {
+                            currentState = {
+                                ...currentState,
+                                status: 'validating',
+                                evaluatorAdvice: pendingEvaluation.advice ?? pendingEvaluation.summary,
+                                lastEvaluation: pendingEvaluation
+                            };
+                            pendingEvaluation = undefined;
+                            yield { type: 'state_updated', state: currentState };
+                            await this.durability.checkpoint(testRunId, currentState, 'action_applied');
+                        }
+
                         if (next.value.type === 'action') {
                             const action = next.value.action;
                             const assets = next.value.assets; // These are paths from StepExecutor
@@ -423,6 +443,19 @@ export class RunTestUseCase {
                         }
                         next = await iterator.next();
                     }
+
+                    if (pendingEvaluation) {
+                        currentState = {
+                            ...currentState,
+                            status: 'validating',
+                            evaluatorAdvice: pendingEvaluation.advice ?? pendingEvaluation.summary,
+                            lastEvaluation: pendingEvaluation
+                        };
+                        pendingEvaluation = undefined;
+                        yield { type: 'state_updated', state: currentState };
+                        await this.durability.checkpoint(testRunId, currentState, 'action_applied');
+                    }
+
                     result = next.value;
                     currentState = this.withWorkflowStatus(currentState, 'validating');
                     yield { type: 'state_updated', state: currentState };

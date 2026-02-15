@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import type { ILLMProvider, IBrowserAutomation, LLMContext, IPerceptionPipeline, IStorageService, ITraceService } from '@domain/ports';
-import { AgentAction } from '@domain/value-objects';
+import { AgentAction, LLMEvaluationDecision } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
 import { LoopDetectorService } from './LoopDetectorService';
 import { AssertionGoalService } from '../assertion/AssertionGoalService';
@@ -71,7 +71,10 @@ export class StepExecutor {
             temporalRedactSensitive?: boolean;
             temporalPersistWindow?: boolean;
         } = { vision: true, debugScreenshots: false, maxActions: 20, temporalObservation: false, temporalBurstFrames: 3 },
-        executionContext?: { toolContext?: ToolContext }
+        executionContext?: {
+            toolContext?: ToolContext;
+            onEvaluation?: (evaluation: LLMEvaluationDecision) => void | Promise<void>;
+        }
     ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, StepExecutionResult, unknown> {
         let loopCount = 0;
         let consecutiveScrollActions = 0;
@@ -309,6 +312,10 @@ export class StepExecutor {
             }
 
             const evaluation = evaluationResult.value;
+
+            if (executionContext?.onEvaluation) {
+                await executionContext.onEvaluation(evaluation);
+            }
 
             await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
                 agentOutput: {
