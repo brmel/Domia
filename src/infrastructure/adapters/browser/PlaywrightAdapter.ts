@@ -13,7 +13,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
 
 
     constructor(
-        @inject('IViewHost') private viewHost: IViewHost,
+        @inject('IViewHost') private viewHost: IViewHost | undefined,
         @inject('ILogger') private logger: ILogger
     ) { }
 
@@ -33,10 +33,12 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         }
 
         let wsEndpoint: string | null = null;
-        try {
-            wsEndpoint = await this.viewHost.getCDPWebSocketURL();
-        } catch (error) {
-            this.logger.debug('[PlaywrightAdapter] ViewHost does not support CDP, falling back to standalone launch');
+        if (this.viewHost) {
+            try {
+                wsEndpoint = await this.viewHost.getCDPWebSocketURL();
+            } catch (error) {
+                this.logger.debug('[PlaywrightAdapter] ViewHost does not support CDP, falling back to standalone launch');
+            }
         }
 
         if (wsEndpoint) {
@@ -250,6 +252,11 @@ export class PlaywrightAdapter implements IBrowserAutomation {
 
     getPage(): Page | null {
         return this.page;
+    }
+
+    setAttachedPage(page: Page): void {
+        this.page = page;
+        this.browser = page.context().browser();
     }
 
     private findElement(elementId: ElementId): ResultAsync<ElementHandle, InteractionError> {

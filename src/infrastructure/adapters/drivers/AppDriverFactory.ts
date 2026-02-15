@@ -67,8 +67,7 @@ export class AppDriverFactory {
                 break;
 
             default:
-                const _exhaustive: never = config.platformConfig;
-                throw new Error(`[AppDriverFactory] Unsupported platform: ${(_exhaustive as any).platform}`);
+                throw new Error(`[AppDriverFactory] Unsupported platform: ${String(platform)}`);
         }
 
         this.toolRegistrar.registerDriver(driver);

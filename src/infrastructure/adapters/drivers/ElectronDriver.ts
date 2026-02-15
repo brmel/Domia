@@ -20,7 +20,6 @@ import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
 import { PlatformType, ToolScope } from '@domain/tools/ToolMetadata';
 import { PlaywrightAdapter } from '../browser/PlaywrightAdapter';
 import { IBrowserAutomation } from '../../../domain/ports';
-import { okAsync } from 'neverthrow';
 import { retryAsync } from '@shared/reliability/retry';
 import { RETRY_PROFILES, isTransientElectronConnectError } from '@shared/reliability/retryProfiles';
 
@@ -600,23 +599,9 @@ export class ElectronDriver implements IAppDriver {
         if (!win) {
              throw new Error('[ElectronDriver] No active window available for browser automation.');
         }
-        
-        const adapter = new AttachedPlaywrightAdapter(
-             {} as any, 
-             this.logger
-        );
-        adapter.setPage(win.page);
+
+        const adapter = new PlaywrightAdapter(undefined, this.logger);
+        adapter.setAttachedPage(win.page);
         return adapter;
-    }
-}
-
-class AttachedPlaywrightAdapter extends PlaywrightAdapter {
-    setPage(page: Page) {
-        (this as any).page = page;
-        (this as any).browser = page.context().browser();
-    }
-
-    override launch(): ResultAsync<void, NavigationError> {
-        return okAsync(undefined);
     }
 }
