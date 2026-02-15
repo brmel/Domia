@@ -83,4 +83,51 @@ describe('FileSystemStorage temporal window (high-level)', () => {
 
         await fs.remove(artifactsDir);
     });
+
+    it('evicts oldest temporal windows when run byte budget is exceeded', async () => {
+        const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'domia-temporal-budget-'));
+        const storage = new FileSystemStorage({
+            get: () => ({
+                paths: {
+                    artifactsDir
+                },
+                limits: {
+                    temporalWindowRetentionCount: 10,
+                    temporalWindowMaxBytesPerRun: 800
+                }
+            })
+        } as any);
+
+        const runId = 'run-temporal-budget';
+        const largeNote = 'x'.repeat(420);
+
+        for (const stepNumber of [1, 2, 3]) {
+            await storage.saveTemporalWindow(runId, stepNumber, {
+                runId,
+                fromTimestamp: 1000,
+                toTimestamp: 1400,
+                summary: `window-${stepNumber}`,
+                mode: 'adaptive',
+                selectedFrameCount: 1,
+                droppedFrameCount: 0,
+                tokenEstimate: 10,
+                redactionApplied: false,
+                frames: [{ timestamp: 1400, intervalMs: 200, domHash: `hash-${stepNumber}`, note: largeNote }]
+            });
+        }
+
+        const stepsDir = path.join(artifactsDir, runId, 'steps');
+        const files = (await fs.readdir(stepsDir)).filter((file) => file.endsWith('_timeline.json'));
+
+        expect(files.length).toBeGreaterThan(0);
+        expect(files).toContain('3_timeline.json');
+        expect(files).not.toContain('1_timeline.json');
+
+        const totalSize = (await Promise.all(files.map(async (file) => (await fs.stat(path.join(stepsDir, file))).size)))
+            .reduce((sum, size) => sum + size, 0);
+
+        expect(totalSize).toBeLessThanOrEqual(800);
+
+        await fs.remove(artifactsDir);
+    });
 });

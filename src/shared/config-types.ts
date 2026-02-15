@@ -30,7 +30,13 @@ export const DomiaConfigSchema = z.object({
         maxSteps: z.number().default(20),
         delayBetweenSteps: z.number().default(1000),
         temporalWindowRetentionCount: z.number().int().positive().default(30),
-    }).default({ maxSteps: 20, delayBetweenSteps: 1000, temporalWindowRetentionCount: 30 }),
+        temporalWindowMaxBytesPerRun: z.number().int().positive().default(2_000_000),
+    }).default({
+        maxSteps: 20,
+        delayBetweenSteps: 1000,
+        temporalWindowRetentionCount: 30,
+        temporalWindowMaxBytesPerRun: 2_000_000
+    }),
 });
 
 export type DomiaConfig = z.infer<typeof DomiaConfigSchema>;

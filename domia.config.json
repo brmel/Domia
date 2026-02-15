@@ -25,6 +25,7 @@
   "limits": {
     "maxSteps": 20,
     "delayBetweenSteps": 1000,
-    "temporalWindowRetentionCount": 30
+    "temporalWindowRetentionCount": 30,
+    "temporalWindowMaxBytesPerRun": 2000000
   }
 }
