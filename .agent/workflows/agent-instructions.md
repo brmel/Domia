@@ -1,5 +1,5 @@
 ---
-description: Mandatory rules for all code contributions to Auto-QA
+description: Mandatory rules for all code contributions to Domia
 ---
 
 # Agent Rules

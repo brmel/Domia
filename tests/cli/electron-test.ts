@@ -41,7 +41,7 @@ async function testCDPMode() {
         
         const result = await runCLITest({
             cdpUrl: `http://localhost:${port}`,
-            windowTitle: 'Auto-QA',
+            windowTitle: 'Domia',
             prompt: 'make sure we have the button start agent appearing',
             maxSteps: 5
         });
@@ -65,7 +65,7 @@ async function testExecutableMode() {
     // Note: runCLITest handles dynamic port allocation and env var injection
     const result = await runCLITest({
         executablePath: appPath,
-        windowTitle: 'Auto-QA',
+        windowTitle: 'Domia',
         prompt: 'make sure we have the button start agent appearing',
         maxSteps: 5
     });

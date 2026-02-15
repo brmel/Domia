@@ -72,7 +72,7 @@ export class ElectronWindowSelectionPolicy {
             score += 5;
         }
 
-        if (normalizedTitle.includes('auto-qa') || normalizedTitle.includes('domia') || normalizedTitle.includes('agent')) {
+        if (normalizedTitle.includes('domia') || normalizedTitle.includes('agent')) {
             score += 10;
         }
 
