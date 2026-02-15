@@ -27,6 +27,18 @@ export class BrowserActionToolExecutor implements ToolExecutor {
                 case ActionType.SCROLL:
                     (await browser.scroll(action.direction)).mapErr(e => { throw new Error(e.message); });
                     break;
+                case ActionType.MOUSE_MOVE:
+                    (await browser.mouseMove(action.x, action.y)).mapErr(e => { throw new Error(e.message); });
+                    break;
+                case ActionType.MOUSE_CLICK_LEFT:
+                    (await browser.mouseClick(action.x, action.y, 'left')).mapErr(e => { throw new Error(e.message); });
+                    break;
+                case ActionType.MOUSE_CLICK_RIGHT:
+                    (await browser.mouseClick(action.x, action.y, 'right')).mapErr(e => { throw new Error(e.message); });
+                    break;
+                case ActionType.MOUSE_SCROLL:
+                    (await browser.mouseScroll(action.deltaX, action.deltaY)).mapErr(e => { throw new Error(e.message); });
+                    break;
                 case ActionType.WAIT:
                     (await browser.wait(action.durationMs)).mapErr(e => { throw new Error(e.message); });
                     break;

@@ -17,16 +17,16 @@ function createService() {
 }
 
 describe('ReplanningPolicyService', () => {
-    it('resolves observe-only default limits', () => {
+    it('resolves active default limits', () => {
         const { service } = createService();
 
         const limits = service.resolveLimits();
 
-        expect(limits.mode).toBe('observe');
+        expect(limits.mode).toBe('active');
         expect(limits.maxReplansPerRun).toBe(2);
     });
 
-    it('suggests replanning for trigger while remaining non-blocking', () => {
+    it('approves replanning when trigger is present and budget remains', () => {
         const { service } = createService();
 
         const assessment = service.assess({
@@ -35,9 +35,8 @@ describe('ReplanningPolicyService', () => {
             trigger: 'loop_detected'
         });
 
-        expect(assessment.mode).toBe('observe');
-        expect(assessment.shouldReplan).toBe(false);
-        expect(assessment.suggested).toBe(true);
+        expect(assessment.mode).toBe('active');
+        expect(assessment.shouldReplan).toBe(true);
     });
 
     it('does not suggest when replanning budget is exhausted', () => {
@@ -49,11 +48,11 @@ describe('ReplanningPolicyService', () => {
             trigger: 'action_execution_error'
         });
 
-        expect(assessment.suggested).toBe(false);
+        expect(assessment.shouldReplan).toBe(false);
         expect(assessment.reason).toContain('budget exhausted');
     });
 
-    it('logs warning when replanning is suggested', () => {
+    it('logs warning when replanning is approved', () => {
         const { service, logger } = createService();
 
         service.logIfSuggested({

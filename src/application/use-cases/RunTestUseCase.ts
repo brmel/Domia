@@ -468,8 +468,8 @@ export class RunTestUseCase {
                         ...(replanningTrigger ? { trigger: replanningTrigger } : {})
                     });
 
-                    if (replanningAssessment.suggested) {
-                        this.logger.warn('[ReplanningPolicyService] Replanning suggested (observe-only scaffold)', {
+                    if (replanningAssessment.shouldReplan) {
+                        this.logger.warn('[ReplanningPolicyService] Replanning approved (active mode)', {
                             runId: testRunId,
                             trigger: replanningTrigger,
                             replanCount,
@@ -483,7 +483,7 @@ export class RunTestUseCase {
                         telemetry: {
                             runId: testRunId,
                             ...(replanningTrigger ? { trigger: replanningTrigger } : {}),
-                            status: replanningAssessment.suggested ? 'suggested' : 'suppressed',
+                            status: replanningAssessment.shouldReplan ? 'executed' : 'suppressed',
                             reason: replanningAssessment.reason,
                             mode: replanningAssessment.mode,
                             replanCount,
@@ -491,7 +491,40 @@ export class RunTestUseCase {
                         }
                     };
 
-                    const completedWithFailureItem: PlanItem = { ...item, status: 'completed' as PlanItemStatus };
+                    if (replanningAssessment.shouldReplan) {
+                        const replanPrompt = this.buildReplanPrompt(input.prompt, plan, item.description, errorMsg);
+                        const replannedResult = await this.planner.plan(replanPrompt);
+
+                        if (replannedResult.isOk() && replannedResult.value.items.length > 0) {
+                            plan = replannedResult.value;
+                            const clearedState = this.clearActiveItem(currentState);
+                            const { error: _error, ...stateWithoutError } = clearedState;
+                            currentState = {
+                                ...stateWithoutError,
+                                status: 'thinking',
+                                plan
+                            };
+                            yield { type: 'state_updated', state: currentState };
+                            await this.durability.checkpoint(testRunId, currentState, 'plan_ready');
+
+                            replanCount += 1;
+                            consecutiveStepFailures = 0;
+                            hasUnresolvedVerificationFailure = false;
+                            finalSummary = undefined;
+                            i = -1;
+                            continue;
+                        }
+
+                        const plannerError = replannedResult.isErr()
+                            ? replannedResult.error.message
+                            : 'Replanned output contained no actionable items';
+                        this.logger.warn('[RunTestUseCase] Replanning attempt failed; continuing failure path', {
+                            runId: testRunId,
+                            reason: plannerError
+                        });
+                    }
+
+                    const completedWithFailureItem: PlanItem = { ...item, status: 'failed' as PlanItemStatus };
                     const newItems = [...updatedItems];
                     newItems[i] = completedWithFailureItem;
                     currentState = {
@@ -631,6 +664,22 @@ export class RunTestUseCase {
                 return exhaustiveCheck;
             }
         }
+    }
+
+    private buildReplanPrompt(originalPrompt: string, currentPlan: Plan, failedStepDescription: string, failureReason: string): string {
+        const planOutline = currentPlan.items
+            .map(item => `- [${item.status}] ${item.description}`)
+            .join('\n');
+
+        return [
+            `Original request: ${originalPrompt}`,
+            'Current plan execution failed and must be replanned.',
+            `Failed step: ${failedStepDescription}`,
+            `Failure reason: ${failureReason}`,
+            'Previous plan:',
+            planOutline,
+            'Produce a revised plan that avoids repeating failed assumptions and keeps the same overall objective.'
+        ].join('\n\n');
     }
 
     private evaluateSkillScaffold(input: RunTestInput, runId: string): void {

@@ -255,6 +255,22 @@ async function executeReplayAction(browser: IBrowserAutomation, action: AgentAct
             return;
         }
 
+        case ActionType.MOUSE_MOVE: {
+            const result = await browser.mouseMove(action.x, action.y);
+            if (result.isErr()) {
+                throw new WorkflowError(`mouse_move failed: ${result.error.message}`);
+            }
+            return;
+        }
+
+        case ActionType.MOUSE_SCROLL: {
+            const result = await browser.mouseScroll(action.deltaX, action.deltaY);
+            if (result.isErr()) {
+                throw new WorkflowError(`mouse_scroll failed: ${result.error.message}`);
+            }
+            return;
+        }
+
         case ActionType.EXTRACT: {
             const result = await browser.extractText(action.elementId);
             if (result.isErr()) {
@@ -283,6 +299,8 @@ async function executeReplayAction(browser: IBrowserAutomation, action: AgentAct
         case ActionType.CLICK:
         case ActionType.TYPE:
         case ActionType.PRESS_KEY:
+        case ActionType.MOUSE_CLICK_LEFT:
+        case ActionType.MOUSE_CLICK_RIGHT:
             throw new WorkflowError(`non-idempotent replay action blocked: ${action.type}`);
 
         default: {

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ActionType } from '@domain/enums/ActionType';
 import { ElementIdFactory } from '@domain/value-objects';
 import type { AgentAction } from '@domain/value-objects';
+import type { LLMEvaluationDecision } from '@domain/value-objects';
 import type { LLMToolDescriptor, ToolCallDefinition } from '@domain/ports';
 import type { ToolContext } from '@domain/tools/Tool';
 
@@ -36,6 +37,26 @@ export class ActionToolMapper {
                 schema: z.object({ direction: z.enum(['up', 'down']) })
             },
             {
+                name: ActionType.MOUSE_MOVE,
+                description: 'Move mouse cursor to viewport coordinates (x, y).',
+                schema: z.object({ x: z.number(), y: z.number() })
+            },
+            {
+                name: ActionType.MOUSE_CLICK_LEFT,
+                description: 'Left-click at viewport coordinates (x, y).',
+                schema: z.object({ x: z.number(), y: z.number() })
+            },
+            {
+                name: ActionType.MOUSE_CLICK_RIGHT,
+                description: 'Right-click at viewport coordinates (x, y).',
+                schema: z.object({ x: z.number(), y: z.number() })
+            },
+            {
+                name: ActionType.MOUSE_SCROLL,
+                description: 'Scroll at current cursor position using wheel deltas.',
+                schema: z.object({ deltaX: z.number().optional(), deltaY: z.number() })
+            },
+            {
                 name: ActionType.WAIT,
                 description: 'Wait for UI/network settling before the next action. Prefer short waits.',
                 schema: z.object({ durationMs: z.number().optional() })
@@ -67,6 +88,10 @@ export class ActionToolMapper {
             ActionType.CLICK,
             ActionType.TYPE,
             ActionType.SCROLL,
+            ActionType.MOUSE_MOVE,
+            ActionType.MOUSE_CLICK_LEFT,
+            ActionType.MOUSE_CLICK_RIGHT,
+            ActionType.MOUSE_SCROLL,
             ActionType.WAIT,
             ActionType.NAVIGATE,
             ActionType.PASS,
@@ -81,6 +106,10 @@ export class ActionToolMapper {
         if (availableNames.has('click_element')) mappedByRegistry.add(ActionType.CLICK);
         if (availableNames.has('type_text')) mappedByRegistry.add(ActionType.TYPE);
         if (availableNames.has('scroll_page')) mappedByRegistry.add(ActionType.SCROLL);
+        if (availableNames.has('mouse_move')) mappedByRegistry.add(ActionType.MOUSE_MOVE);
+        if (availableNames.has('mouse_click_left')) mappedByRegistry.add(ActionType.MOUSE_CLICK_LEFT);
+        if (availableNames.has('mouse_click_right')) mappedByRegistry.add(ActionType.MOUSE_CLICK_RIGHT);
+        if (availableNames.has('mouse_scroll')) mappedByRegistry.add(ActionType.MOUSE_SCROLL);
         if (availableNames.has('wait')) mappedByRegistry.add(ActionType.WAIT);
         if (availableNames.has('navigate_to')) mappedByRegistry.add(ActionType.NAVIGATE);
         if (availableNames.has('press_key') || availableNames.has('pressKey')) mappedByRegistry.add(ActionType.PRESS_KEY);
@@ -112,6 +141,34 @@ export class ActionToolMapper {
                     type: ActionType.SCROLL,
                     direction: args['direction'] === 'up' ? 'up' : 'down',
                     thought: 'Tool call: scroll'
+                };
+            case ActionType.MOUSE_MOVE:
+                return {
+                    type: ActionType.MOUSE_MOVE,
+                    x: Number(args['x'] ?? 0),
+                    y: Number(args['y'] ?? 0),
+                    thought: 'Tool call: mouse_move'
+                };
+            case ActionType.MOUSE_CLICK_LEFT:
+                return {
+                    type: ActionType.MOUSE_CLICK_LEFT,
+                    x: Number(args['x'] ?? 0),
+                    y: Number(args['y'] ?? 0),
+                    thought: 'Tool call: mouse_click_left'
+                };
+            case ActionType.MOUSE_CLICK_RIGHT:
+                return {
+                    type: ActionType.MOUSE_CLICK_RIGHT,
+                    x: Number(args['x'] ?? 0),
+                    y: Number(args['y'] ?? 0),
+                    thought: 'Tool call: mouse_click_right'
+                };
+            case ActionType.MOUSE_SCROLL:
+                return {
+                    type: ActionType.MOUSE_SCROLL,
+                    deltaX: Number(args['deltaX'] ?? 0),
+                    deltaY: Number(args['deltaY'] ?? 0),
+                    thought: 'Tool call: mouse_scroll'
                 };
             case ActionType.WAIT:
                 return {
@@ -148,6 +205,50 @@ export class ActionToolMapper {
         }
     }
 
+    getEvaluationToolDefinitions(): ToolCallDefinition[] {
+        return [
+            {
+                name: 'sub_task_success',
+                description: 'Sub-task objective is satisfied with current evidence.',
+                schema: z.object({ summary: z.string().min(1) })
+            },
+            {
+                name: 'need_retry',
+                description: 'Sub-task should retry the same objective with tactical advice.',
+                schema: z.object({ summary: z.string().min(1), advice: z.string().min(1) })
+            },
+            {
+                name: 'need_reformulate',
+                description: 'Current objective is blocked and should be reformulated.',
+                schema: z.object({ summary: z.string().min(1), advice: z.string().min(1).optional() })
+            }
+        ];
+    }
+
+    mapModelToolCallToEvaluationDecision(name: string, args: Record<string, unknown>): LLMEvaluationDecision {
+        switch (name) {
+            case 'sub_task_success':
+                return {
+                    decision: 'sub_task_success',
+                    summary: String(args['summary'] ?? 'Sub-task completed')
+                };
+            case 'need_retry':
+                return {
+                    decision: 'need_retry',
+                    summary: String(args['summary'] ?? 'Retry required'),
+                    advice: String(args['advice'] ?? 'Retry with an alternative interaction strategy')
+                };
+            case 'need_reformulate':
+                return {
+                    decision: 'need_reformulate',
+                    summary: String(args['summary'] ?? 'Objective blocked'),
+                    ...(typeof args['advice'] === 'string' ? { advice: args['advice'] } : {})
+                };
+            default:
+                throw new Error(`Unknown evaluator tool call: ${name}`);
+        }
+    }
+
     mapActionToRegistryToolCall(action: AgentAction, toolContext?: ToolContext): MappedToolRequest | undefined {
         const platform = toolContext?.platform;
         const windowId = toolContext?.platformContext?.electron?.windowId;
@@ -177,6 +278,42 @@ export class ActionToolMapper {
                     toolName: 'scroll_page',
                     input: {
                         direction: action.direction,
+                        ...electronWindowPayload
+                    }
+                };
+            case ActionType.MOUSE_MOVE:
+                return {
+                    toolName: 'mouse_move',
+                    input: {
+                        x: action.x,
+                        y: action.y,
+                        ...electronWindowPayload
+                    }
+                };
+            case ActionType.MOUSE_CLICK_LEFT:
+                return {
+                    toolName: 'mouse_click_left',
+                    input: {
+                        x: action.x,
+                        y: action.y,
+                        ...electronWindowPayload
+                    }
+                };
+            case ActionType.MOUSE_CLICK_RIGHT:
+                return {
+                    toolName: 'mouse_click_right',
+                    input: {
+                        x: action.x,
+                        y: action.y,
+                        ...electronWindowPayload
+                    }
+                };
+            case ActionType.MOUSE_SCROLL:
+                return {
+                    toolName: 'mouse_scroll',
+                    input: {
+                        deltaX: action.deltaX,
+                        deltaY: action.deltaY,
                         ...electronWindowPayload
                     }
                 };

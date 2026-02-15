@@ -1,10 +1,11 @@
 import type { LLMContext } from '@domain/ports';
 import { ActionType } from '@domain/enums/ActionType';
+import type { LLMEvaluationContext } from '@domain/ports';
 
 export const ACTION_SYSTEM_PROMPT = `You are an autonomous web testing agent. You interact with web pages to verify conditions and achieve goals.
     
 CAPABILITIES:
-- You can click, type, pressKey, scroll, wait, and extract data.
+- You can click, type, pressKey, scroll, wait, extract data, and use coordinate mouse controls.
 - You receive bounding box coordinates for every element.
 - You receive the viewport dimensions to calculate positions.
 
@@ -13,6 +14,10 @@ TOOLS:
 - type
 - pressKey
 - scroll
+- mouse_move
+- mouse_click_left
+- mouse_click_right
+- mouse_scroll
 - wait
 - extract
 - navigate
@@ -37,6 +42,21 @@ RULES:
 9. Avoid repeating scroll when the page state is unchanged; after a few no-progress attempts, choose a different action or fail with a clear reason.
 
 Respond by calling exactly one tool.`;
+
+export const EVALUATION_SYSTEM_PROMPT = `You are the evaluator stage of a browser testing agent.
+
+You DO NOT execute tools. You only decide one of:
+- sub_task_success: the current step objective is satisfied.
+- need_retry: keep the same objective, retry with a concrete short advice.
+- need_reformulate: current objective is blocked/invalid, reformulate with a concise reason and advice.
+
+Rules:
+1. Prefer evidence-based outcomes from current snapshot, URL/title, and latest attempted action.
+2. If execution failed due to transient interaction issues, usually choose need_retry.
+3. If step objective is impossible or contradicted by page state, choose need_reformulate.
+4. Keep summary/advice concise and actionable.
+
+Respond by calling exactly one evaluator tool.`;
 
 export function buildActionUserPrompt(context: LLMContext): string {
     const elementsStr = context.snapshot.elements
@@ -116,12 +136,46 @@ CURRENT PLAN:
 ${formatPlan(context.plan)}
 
 AVAILABLE TOOLS:
-${availableTools || 'Use the default core actions (click, type, pressKey, scroll, wait, extract, navigate, pass, fail).'}
+${availableTools || 'Use the default core actions (click, type, pressKey, scroll, mouse_move, mouse_click_left, mouse_click_right, mouse_scroll, wait, extract, navigate, pass, fail).'}
 
 TEMPORAL TIMELINE:
 ${temporalWindowStr}
 
 STEPS REMAINING: ${context.stepsRemaining}
 
+ADVICE FROM EVALUATOR:
+${context.advice ?? 'None'}
+
 Analyze the elements and their positions, then respond by calling exactly one tool:`;
+}
+
+export function buildEvaluationUserPrompt(context: LLMEvaluationContext): string {
+    const attemptedAction = JSON.stringify(context.attemptedAction);
+    const previousActions = context.previousActions
+        .slice(-6)
+        .map((a, index) => `${index + 1}. ${a.type}`)
+        .join('\n');
+
+    return `STEP GOAL: ${context.goal}
+
+CURRENT PAGE:
+URL: ${context.currentUrl}
+Title: ${context.pageTitle}
+
+ATTEMPTED ACTION:
+${attemptedAction}
+
+EXECUTION OUTCOME: ${context.executionOutcome}
+EXECUTION ERROR: ${context.executionError ?? 'None'}
+
+PREVIOUS ACTIONS:
+${previousActions || 'None'}
+
+CURRENT EVALUATOR ADVICE CONTEXT:
+${context.advice ?? 'None'}
+
+KEY ELEMENTS COUNT: ${context.snapshot.elements.length}
+STEPS REMAINING: ${context.stepsRemaining}
+
+Decide by calling exactly one evaluator tool.`;
 }

@@ -74,10 +74,11 @@ export class StepExecutor {
         executionContext?: { toolContext?: ToolContext }
     ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, StepExecutionResult, unknown> {
         let loopCount = 0;
-        let consecutiveFailSignals = 0;
         let consecutiveScrollActions = 0;
         let stagnantSnapshotCount = 0;
         let previousSnapshotSignature: string | null = null;
+        let adviceForNextAttempt: string | undefined;
+        let consecutiveEvaluatorRetries = 0;
         let currentState: { history: AgentAction[], stepNumber: number } = { history: [], stepNumber: initialStepNumber };
         const maxActions = options.maxActions;
 
@@ -193,6 +194,7 @@ export class StepExecutor {
                 viewport,
                 stepsRemaining: maxActions - loopCount,
                 availableTools: this.toolContractService.getToolDescriptors(),
+                ...(adviceForNextAttempt ? { advice: adviceForNextAttempt } : {}),
                 ...(temporalWindow ? { temporalWindow } : {})
             };
 
@@ -263,41 +265,84 @@ export class StepExecutor {
                 return { success: true, terminal: 'pass' };
             }
 
+            let executionOutcome: 'executed' | 'execution_error' | 'not_executed' = 'not_executed';
+            let executionError: string | undefined;
+
             if (action.type === ActionType.FAIL) {
-                consecutiveFailSignals += 1;
+                executionOutcome = 'not_executed';
+                executionError = action.reason;
+            } else {
+                const execResult = await this.toolExecutor.execute(action, {
+                    browser,
+                    currentUrl: runtimeUrl,
+                    ...(executionContext?.toolContext ? { toolContext: executionContext.toolContext } : {})
+                });
 
-                const canRetryAfterFail = consecutiveFailSignals < 2 && loopCount < maxActions - 1;
-                if (canRetryAfterFail) {
-                    currentState = {
-                        ...currentState,
-                        history: [...currentState.history, action],
-                        stepNumber: currentState.stepNumber + 1
-                    };
-                    loopCount++;
-                    continue;
+                if (execResult.isErr()) {
+                    executionOutcome = 'execution_error';
+                    executionError = execResult.error.message;
+                } else {
+                    executionOutcome = 'executed';
                 }
+            }
 
+            const evaluationResult = await this.llmProvider.generateEvaluation({
+                ...context,
+                attemptedAction: action,
+                executionOutcome,
+                ...(executionError ? { executionError } : {})
+            });
+
+            if (evaluationResult.isErr()) {
+                return {
+                    success: false,
+                    terminal: 'error',
+                    code: 'llm_error',
+                    reason: `Evaluator failed: ${evaluationResult.error.message}`
+                };
+            }
+
+            const evaluation = evaluationResult.value;
+
+            await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
+                agentOutput: {
+                    thought: `Evaluator decision: ${evaluation.decision}`,
+                    action: null,
+                    rawResponse: JSON.stringify(evaluation)
+                }
+            });
+
+            if (evaluation.decision === 'sub_task_success') {
+                return { success: true, terminal: 'pass' };
+            }
+
+            if (evaluation.decision === 'need_reformulate') {
                 return {
                     success: false,
                     terminal: 'fail',
                     code: 'agent_fail',
-                    reason: action.reason
+                    reason: evaluation.summary
                 };
             }
 
-            consecutiveFailSignals = 0;
+            adviceForNextAttempt = evaluation.advice ?? evaluation.summary;
+            consecutiveEvaluatorRetries += 1;
 
-            const execResult = await this.toolExecutor.execute(action, {
-                browser,
-                currentUrl: runtimeUrl,
-                ...(executionContext?.toolContext ? { toolContext: executionContext.toolContext } : {})
-            });
-            if (execResult.isErr()) {
+            if (consecutiveEvaluatorRetries >= 3 && loopCount >= maxActions - 1) {
+                return {
+                    success: false,
+                    terminal: 'max_actions',
+                    code: 'max_actions_reached',
+                    reason: `Evaluator requested repeated retries but action budget is exhausted for step: ${stepGoal}`
+                };
+            }
+
+            if (executionOutcome === 'execution_error' && !executionError) {
                 return {
                     success: false,
                     terminal: 'error',
                     code: 'action_execution_error',
-                    reason: `Action execution failed: ${execResult.error.message}`
+                    reason: 'Action execution failed with unknown error'
                 };
             }
 

@@ -19,9 +19,12 @@ export interface IBrowserAutomation {
     launch(options: LaunchOptions): ResultAsync<void, NavigationError>;
     navigateTo(url: Url): ResultAsync<void, NavigationError>;
     click(elementId: ElementId, options?: { force?: boolean; timeout?: number }): ResultAsync<void, InteractionError>;
+    mouseMove(x: number, y: number): ResultAsync<void, InteractionError>;
+    mouseClick(x: number, y: number, button: 'left' | 'right'): ResultAsync<void, InteractionError>;
     type(elementId: ElementId, text: string): ResultAsync<void, InteractionError>;
     pressKey(key: string): ResultAsync<void, InteractionError>;
     scroll(direction: 'up' | 'down'): ResultAsync<void, InteractionError>;
+    mouseScroll(deltaX: number, deltaY: number): ResultAsync<void, InteractionError>;
     wait(durationMs: number): ResultAsync<void, InteractionError>;
     extractText(elementId: ElementId): ResultAsync<string, InteractionError>;
     /**

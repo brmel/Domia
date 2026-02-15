@@ -4,7 +4,7 @@ import type { ILogger } from '@domain/ports';
 export type ReplanningTrigger = 'loop_detected' | 'action_execution_error' | 'assertion_fail' | 'max_actions_reached';
 
 export interface ReplanningPolicyLimits {
-    readonly mode: 'observe';
+    readonly mode: 'active';
     readonly maxReplansPerRun: number;
 }
 
@@ -15,14 +15,13 @@ export interface ReplanningAssessmentInput {
 }
 
 export interface ReplanningAssessment {
-    readonly mode: 'observe';
+    readonly mode: 'active';
     readonly shouldReplan: boolean;
-    readonly suggested: boolean;
     readonly reason: string;
 }
 
 const DEFAULT_LIMITS: ReplanningPolicyLimits = {
-    mode: 'observe',
+    mode: 'active',
     maxReplansPerRun: 2
 };
 
@@ -41,7 +40,6 @@ export class ReplanningPolicyService {
             return {
                 mode: limits.mode,
                 shouldReplan: false,
-                suggested: false,
                 reason: 'No replanning trigger observed'
             };
         }
@@ -50,26 +48,24 @@ export class ReplanningPolicyService {
             return {
                 mode: limits.mode,
                 shouldReplan: false,
-                suggested: false,
                 reason: `Replanning budget exhausted (${limits.maxReplansPerRun})`
             };
         }
 
         return {
             mode: limits.mode,
-            shouldReplan: false,
-            suggested: true,
-            reason: `Observe-only replanning suggestion for trigger '${input.trigger}'`
+            shouldReplan: true,
+            reason: `Active replanning approved for trigger '${input.trigger}'`
         };
     }
 
     logIfSuggested(input: ReplanningAssessmentInput): void {
         const assessment = this.assess(input);
-        if (!assessment.suggested) {
+        if (!assessment.shouldReplan) {
             return;
         }
 
-        this.logger.warn('[ReplanningPolicyService] Replanning suggested (observe-only scaffold)', {
+        this.logger.warn('[ReplanningPolicyService] Replanning approved (active mode)', {
             runId: input.runId,
             trigger: input.trigger,
             replanCount: input.replanCount,

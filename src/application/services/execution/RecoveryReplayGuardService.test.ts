@@ -12,6 +12,8 @@ describe('RecoveryReplayGuardService', () => {
         const actions: AgentAction[] = [
             { type: ActionType.WAIT, durationMs: 300, thought: 'wait' },
             { type: ActionType.SCROLL, direction: 'down', thought: 'scroll' },
+            { type: ActionType.MOUSE_MOVE, x: 10, y: 20, thought: 'move' },
+            { type: ActionType.MOUSE_SCROLL, deltaX: 0, deltaY: 300, thought: 'wheel' },
             { type: ActionType.EXTRACT, elementId: ElementIdFactory.unsafe(1), thought: 'extract' },
             { type: ActionType.NAVIGATE, url: 'https://example.com', thought: 'navigate' }
         ];
@@ -26,6 +28,8 @@ describe('RecoveryReplayGuardService', () => {
         const actions: AgentAction[] = [
             { type: ActionType.CLICK, elementId: ElementIdFactory.unsafe(2), thought: 'click' },
             { type: ActionType.TYPE, elementId: ElementIdFactory.unsafe(3), text: 'abc', thought: 'type' },
+            { type: ActionType.MOUSE_CLICK_LEFT, x: 10, y: 20, thought: 'left click' },
+            { type: ActionType.MOUSE_CLICK_RIGHT, x: 10, y: 20, thought: 'right click' },
             { type: ActionType.PRESS_KEY, key: 'Enter', thought: 'press' }
         ];
 

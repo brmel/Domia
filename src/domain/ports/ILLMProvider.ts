@@ -1,6 +1,6 @@
 import { ResultAsync } from 'neverthrow';
 import { LLMError } from '../errors';
-import { AgentAction, DOMSnapshot } from '../value-objects';
+import { AgentAction, DOMSnapshot, LLMEvaluationDecision } from '../value-objects';
 
 export interface LLMToolDescriptor {
     readonly name: string;
@@ -26,6 +26,13 @@ export interface LLMContext {
     readonly plan?: import('../entities/Plan').Plan;
     readonly availableTools?: readonly LLMToolDescriptor[];
     readonly temporalWindow?: import('../value-objects/TemporalObservation').TimelineContextWindow;
+    readonly advice?: string;
+}
+
+export interface LLMEvaluationContext extends LLMContext {
+    readonly attemptedAction: AgentAction;
+    readonly executionOutcome: 'executed' | 'execution_error' | 'not_executed';
+    readonly executionError?: string;
 }
 
 /**
@@ -42,5 +49,6 @@ export interface LLMConfig {
 export interface ILLMProvider {
     readonly providerName: string;
     generateAction(context: LLMContext): ResultAsync<AgentAction, LLMError>;
+    generateEvaluation(context: LLMEvaluationContext): ResultAsync<LLMEvaluationDecision, LLMError>;
     generatePlan(prompt: string): ResultAsync<import('../entities/Plan').Plan, LLMError>;
 }

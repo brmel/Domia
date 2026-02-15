@@ -15,6 +15,10 @@ export class RecoveryReplayGuardService {
                 return { decision: 'replay', idempotencyKey: `wait:${action.durationMs}` };
             case ActionType.SCROLL:
                 return { decision: 'replay', idempotencyKey: `scroll:${action.direction}` };
+            case ActionType.MOUSE_MOVE:
+                return { decision: 'replay', idempotencyKey: `mouse_move:${action.x}:${action.y}` };
+            case ActionType.MOUSE_SCROLL:
+                return { decision: 'replay', idempotencyKey: `mouse_scroll:${action.deltaX}:${action.deltaY}` };
             case ActionType.EXTRACT:
                 return { decision: 'replay', idempotencyKey: `extract:${String(action.elementId)}` };
             case ActionType.NAVIGATE:
@@ -25,6 +29,8 @@ export class RecoveryReplayGuardService {
             case ActionType.CLICK:
             case ActionType.TYPE:
             case ActionType.PRESS_KEY:
+            case ActionType.MOUSE_CLICK_LEFT:
+            case ActionType.MOUSE_CLICK_RIGHT:
                 return { decision: 'block', reason: `Action '${action.type}' is non-idempotent and blocked for replay` };
             default: {
                 const exhaustiveCheck: never = action;

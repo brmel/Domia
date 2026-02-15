@@ -9,6 +9,10 @@ export type AgentAction =
     | ClickAction
     | TypeAction
     | ScrollAction
+    | MouseMoveAction
+    | MouseClickLeftAction
+    | MouseClickRightAction
+    | MouseScrollAction
     | WaitAction
     | PressKeyAction
     | ExtractAction
@@ -35,6 +39,34 @@ export interface TypeAction {
 export interface ScrollAction {
     readonly type: ActionType.SCROLL;
     readonly direction: 'up' | 'down';
+    readonly thought: string;
+}
+
+export interface MouseMoveAction {
+    readonly type: ActionType.MOUSE_MOVE;
+    readonly x: number;
+    readonly y: number;
+    readonly thought: string;
+}
+
+export interface MouseClickLeftAction {
+    readonly type: ActionType.MOUSE_CLICK_LEFT;
+    readonly x: number;
+    readonly y: number;
+    readonly thought: string;
+}
+
+export interface MouseClickRightAction {
+    readonly type: ActionType.MOUSE_CLICK_RIGHT;
+    readonly x: number;
+    readonly y: number;
+    readonly thought: string;
+}
+
+export interface MouseScrollAction {
+    readonly type: ActionType.MOUSE_SCROLL;
+    readonly deltaX: number;
+    readonly deltaY: number;
     readonly thought: string;
 }
 

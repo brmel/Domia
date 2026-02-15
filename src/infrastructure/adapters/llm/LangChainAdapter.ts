@@ -4,15 +4,21 @@ import { SystemMessage, HumanMessage, BaseMessage } from '@langchain/core/messag
 import type {
     ILLMProvider,
     LLMContext,
+    LLMEvaluationContext,
     ILogger,
     IConfigService,
     IToolCallingProvider
 } from '@domain/ports';
-import type { AgentAction } from '@domain/value-objects';
+import type { AgentAction, LLMEvaluationDecision } from '@domain/value-objects';
 import { LLMError } from '@domain/errors';
 import { LLMPlanningUtils } from './LLMPlanningUtils';
 import { ActionToolMapper } from '@shared/tooling/ActionToolMapper';
-import { ACTION_SYSTEM_PROMPT, buildActionUserPrompt } from '@shared/prompts/ActionPromptBuilder';
+import {
+    ACTION_SYSTEM_PROMPT,
+    EVALUATION_SYSTEM_PROMPT,
+    buildActionUserPrompt,
+    buildEvaluationUserPrompt
+} from '@shared/prompts/ActionPromptBuilder';
 import { LangChainModelFactory } from './LangChainModelFactory';
 import { LlmRuntimeConfigResolver } from './LlmRuntimeConfigResolver';
 
@@ -35,6 +41,13 @@ export class LangChainAdapter implements ILLMProvider {
         return ResultAsync.fromPromise(
             this.generateWithRetry(context),
             (e) => e instanceof LLMError ? e : new LLMError(`Generation failed: ${String(e)}`)
+        );
+    }
+
+    generateEvaluation(context: LLMEvaluationContext): ResultAsync<LLMEvaluationDecision, LLMError> {
+        return ResultAsync.fromPromise(
+            this.doGenerateEvaluation(context),
+            (e) => e instanceof LLMError ? e : new LLMError(`Evaluation generation failed: ${String(e)}`)
         );
     }
 
@@ -92,6 +105,16 @@ export class LangChainAdapter implements ILLMProvider {
         const mapped = this.actionToolMapper.mapModelToolCallToAction(toolCall.name, toolCall.args);
         this.logger.debug(`[LangChainAdapter] Native tool call mapped to action: ${toolCall.name}`);
         return mapped;
+    }
+
+    private async doGenerateEvaluation(context: LLMEvaluationContext): Promise<LLMEvaluationDecision> {
+        const toolCall = await this.toolCallingProvider.generateToolCall({
+            systemPrompt: EVALUATION_SYSTEM_PROMPT,
+            userPrompt: buildEvaluationUserPrompt(context),
+            tools: this.actionToolMapper.getEvaluationToolDefinitions()
+        });
+
+        return this.actionToolMapper.mapModelToolCallToEvaluationDecision(toolCall.name, toolCall.args);
     }
 
     generatePlan(prompt: string): ResultAsync<import('@domain/entities/Plan').Plan, LLMError> {

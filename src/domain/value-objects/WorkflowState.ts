@@ -1,5 +1,6 @@
 import { Plan } from '../entities/Plan';
 import { AgentAction } from './AgentAction';
+import { LLMEvaluationDecision } from './LLMEvaluationDecision';
 
 export type WorkflowStatus =
     | 'idle'
@@ -22,6 +23,8 @@ export interface WorkflowState {
     readonly plan?: Plan;
     readonly activeItemId?: string;
     readonly history: readonly AgentAction[];
+    readonly evaluatorAdvice?: string;
+    readonly lastEvaluation?: LLMEvaluationDecision;
 }
 
 export const WorkflowState = {

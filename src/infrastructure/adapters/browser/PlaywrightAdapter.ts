@@ -133,6 +133,28 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         });
     }
 
+    mouseMove(x: number, y: number): ResultAsync<void, InteractionError> {
+        if (!this.page) {
+            return errAsync(new InteractionError('Browser not launched'));
+        }
+        this.logger.debug(`[PlaywrightAdapter] Moving mouse to: (${x}, ${y})`);
+        return ResultAsync.fromPromise(
+            this.page.mouse.move(x, y),
+            (e) => new InteractionError(`Mouse move failed: ${String(e)}`)
+        );
+    }
+
+    mouseClick(x: number, y: number, button: 'left' | 'right'): ResultAsync<void, InteractionError> {
+        if (!this.page) {
+            return errAsync(new InteractionError('Browser not launched'));
+        }
+        this.logger.debug(`[PlaywrightAdapter] Mouse ${button} click at: (${x}, ${y})`);
+        return ResultAsync.fromPromise(
+            this.page.mouse.click(x, y, { button }),
+            (e) => new InteractionError(`Mouse click failed: ${String(e)}`)
+        );
+    }
+
     type(elementId: ElementId, text: string): ResultAsync<void, InteractionError> {
         this.logger.debug(`[PlaywrightAdapter] Typing into element: ${elementId}`);
         return this.findElement(elementId).andThen((el) =>
@@ -163,6 +185,17 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         return ResultAsync.fromPromise(
             this.page.mouse.wheel(0, delta),
             (e) => new InteractionError(`Scroll failed: ${String(e)}`)
+        );
+    }
+
+    mouseScroll(deltaX: number, deltaY: number): ResultAsync<void, InteractionError> {
+        if (!this.page) {
+            return errAsync(new InteractionError('Browser not launched'));
+        }
+        this.logger.debug(`[PlaywrightAdapter] Mouse scroll: deltaX=${deltaX}, deltaY=${deltaY}`);
+        return ResultAsync.fromPromise(
+            this.page.mouse.wheel(deltaX, deltaY),
+            (e) => new InteractionError(`Mouse scroll failed: ${String(e)}`)
         );
     }
 

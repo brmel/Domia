@@ -5,7 +5,16 @@ import { ActionType } from '@domain/enums/ActionType';
 
 describe('StepExecutor hardening', () => {
     it('continues when perception/temporal persistence fails', async () => {
-        const llmProvider = { generateAction: vi.fn() };
+        const llmProvider = {
+            generateAction: vi.fn(),
+            generateEvaluation: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: {
+                    decision: 'sub_task_success',
+                    summary: 'done'
+                }
+            })
+        };
         const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
 
         const perception = {
@@ -159,6 +168,13 @@ describe('StepExecutor hardening', () => {
                     summary: 'done',
                     thought: 'complete'
                 }
+            }),
+            generateEvaluation: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: {
+                    decision: 'sub_task_success',
+                    summary: 'done'
+                }
             })
         };
         const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
@@ -280,7 +296,15 @@ describe('StepExecutor hardening', () => {
                         summary: 'Goal reached after re-evaluation.',
                         thought: 'Second check confirms completion.'
                     }
-                })
+                }),
+            generateEvaluation: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: {
+                    decision: 'need_retry',
+                    summary: 'Retry with alternate check',
+                    advice: 'Check for delayed render and re-evaluate.'
+                }
+            })
         };
         const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
 
@@ -420,6 +444,23 @@ describe('StepExecutor hardening', () => {
                         reason: 'Second failure',
                         thought: 'Still cannot proceed.'
                     }
+                }),
+            generateEvaluation: vi.fn()
+                .mockResolvedValueOnce({
+                    isErr: () => false,
+                    value: {
+                        decision: 'need_retry',
+                        summary: 'Retry once',
+                        advice: 'Try an alternate interaction.'
+                    }
+                })
+                .mockResolvedValueOnce({
+                    isErr: () => false,
+                    value: {
+                        decision: 'need_reformulate',
+                        summary: 'Blocked after retry',
+                        advice: 'Reformulate goal with narrower expectation.'
+                    }
                 })
         };
         const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
@@ -543,6 +584,14 @@ describe('StepExecutor hardening', () => {
                     type: ActionType.SCROLL,
                     direction: 'down',
                     thought: 'Try scrolling for more content.'
+                }
+            }),
+            generateEvaluation: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: {
+                    decision: 'need_retry',
+                    summary: 'Still searching',
+                    advice: 'Continue scrolling to find target content.'
                 }
             })
         };

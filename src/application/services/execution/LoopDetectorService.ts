@@ -59,6 +59,16 @@ export class LoopDetectorService {
                 const a = a1 as Extract<AgentAction, { type: ActionType.SCROLL }>;
                 return b.direction === a.direction;
             }
+            case ActionType.MOUSE_MOVE: {
+                const b = a2 as Extract<AgentAction, { type: ActionType.MOUSE_MOVE }>;
+                const a = a1 as Extract<AgentAction, { type: ActionType.MOUSE_MOVE }>;
+                return b.x === a.x && b.y === a.y;
+            }
+            case ActionType.MOUSE_SCROLL: {
+                const b = a2 as Extract<AgentAction, { type: ActionType.MOUSE_SCROLL }>;
+                const a = a1 as Extract<AgentAction, { type: ActionType.MOUSE_SCROLL }>;
+                return b.deltaX === a.deltaX && b.deltaY === a.deltaY;
+            }
             default:
                 return JSON.stringify(a1) === JSON.stringify(a2);
         }

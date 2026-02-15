@@ -94,6 +94,102 @@ export class CommonWebToolsFactory {
                 }
             },
             {
+                name: 'mouse_move',
+                description: 'Move mouse cursor to viewport coordinates',
+                schema: z.object({
+                    x: z.number(),
+                    y: z.number(),
+                    windowId: z.string().optional()
+                }),
+                metadata: {
+                    name: 'mouse_move',
+                    platforms: ['web', 'electron'] as PlatformType[],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
+                execute: (params: { x: number; y: number; windowId?: string }) => {
+                    return ResultAsync.fromPromise(
+                        executeInWindow(params.windowId, async (page) => {
+                            await page.mouse.move(params.x, params.y);
+                            return { success: true, message: `Moved mouse to (${params.x}, ${params.y})` };
+                        }),
+                        (e) => new Error(`Mouse move failed: ${e}`)
+                    );
+                }
+            },
+            {
+                name: 'mouse_click_left',
+                description: 'Left-click at viewport coordinates',
+                schema: z.object({
+                    x: z.number(),
+                    y: z.number(),
+                    windowId: z.string().optional()
+                }),
+                metadata: {
+                    name: 'mouse_click_left',
+                    platforms: ['web', 'electron'] as PlatformType[],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
+                execute: (params: { x: number; y: number; windowId?: string }) => {
+                    return ResultAsync.fromPromise(
+                        executeInWindow(params.windowId, async (page) => {
+                            await page.mouse.click(params.x, params.y, { button: 'left' });
+                            return { success: true, message: `Left-clicked at (${params.x}, ${params.y})` };
+                        }),
+                        (e) => new Error(`Mouse left click failed: ${e}`)
+                    );
+                }
+            },
+            {
+                name: 'mouse_click_right',
+                description: 'Right-click at viewport coordinates',
+                schema: z.object({
+                    x: z.number(),
+                    y: z.number(),
+                    windowId: z.string().optional()
+                }),
+                metadata: {
+                    name: 'mouse_click_right',
+                    platforms: ['web', 'electron'] as PlatformType[],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
+                execute: (params: { x: number; y: number; windowId?: string }) => {
+                    return ResultAsync.fromPromise(
+                        executeInWindow(params.windowId, async (page) => {
+                            await page.mouse.click(params.x, params.y, { button: 'right' });
+                            return { success: true, message: `Right-clicked at (${params.x}, ${params.y})` };
+                        }),
+                        (e) => new Error(`Mouse right click failed: ${e}`)
+                    );
+                }
+            },
+            {
+                name: 'mouse_scroll',
+                description: 'Scroll mouse wheel by deltas at current cursor position',
+                schema: z.object({
+                    deltaX: z.number().optional(),
+                    deltaY: z.number(),
+                    windowId: z.string().optional()
+                }),
+                metadata: {
+                    name: 'mouse_scroll',
+                    platforms: ['web', 'electron'] as PlatformType[],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
+                execute: (params: { deltaX?: number; deltaY: number; windowId?: string }) => {
+                    return ResultAsync.fromPromise(
+                        executeInWindow(params.windowId, async (page) => {
+                            await page.mouse.wheel(params.deltaX ?? 0, params.deltaY);
+                            return { success: true, message: `Mouse scrolled by (${params.deltaX ?? 0}, ${params.deltaY})` };
+                        }),
+                        (e) => new Error(`Mouse scroll failed: ${e}`)
+                    );
+                }
+            },
+            {
                 name: 'wait',
                 description: 'Wait for a specified duration in milliseconds',
                 schema: z.object({ durationMs: z.number().min(0).max(60000) }),

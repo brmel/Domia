@@ -146,6 +146,70 @@ export class WebDriver implements IAppDriver {
                 }
             },
             {
+                name: 'mouse_move',
+                description: 'Move mouse cursor to viewport coordinates',
+                schema: z.object({ x: z.number(), y: z.number() }),
+                metadata: {
+                    name: 'mouse_move',
+                    platforms: ['web'],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
+                execute: (params: { x: number; y: number }) => {
+                    return this.playwright.mouseMove(params.x, params.y)
+                        .map(() => ({ success: true, message: `Moved mouse to (${params.x}, ${params.y})` } as ActionResult))
+                        .mapErr(err => new Error(err.message));
+                }
+            },
+            {
+                name: 'mouse_click_left',
+                description: 'Left-click at viewport coordinates',
+                schema: z.object({ x: z.number(), y: z.number() }),
+                metadata: {
+                    name: 'mouse_click_left',
+                    platforms: ['web'],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
+                execute: (params: { x: number; y: number }) => {
+                    return this.playwright.mouseClick(params.x, params.y, 'left')
+                        .map(() => ({ success: true, message: `Left-clicked at (${params.x}, ${params.y})` } as ActionResult))
+                        .mapErr(err => new Error(err.message));
+                }
+            },
+            {
+                name: 'mouse_click_right',
+                description: 'Right-click at viewport coordinates',
+                schema: z.object({ x: z.number(), y: z.number() }),
+                metadata: {
+                    name: 'mouse_click_right',
+                    platforms: ['web'],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
+                execute: (params: { x: number; y: number }) => {
+                    return this.playwright.mouseClick(params.x, params.y, 'right')
+                        .map(() => ({ success: true, message: `Right-clicked at (${params.x}, ${params.y})` } as ActionResult))
+                        .mapErr(err => new Error(err.message));
+                }
+            },
+            {
+                name: 'mouse_scroll',
+                description: 'Scroll mouse wheel by deltas at current cursor position',
+                schema: z.object({ deltaX: z.number().optional(), deltaY: z.number() }),
+                metadata: {
+                    name: 'mouse_scroll',
+                    platforms: ['web'],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
+                execute: (params: { deltaX?: number; deltaY: number }) => {
+                    return this.playwright.mouseScroll(params.deltaX ?? 0, params.deltaY)
+                        .map(() => ({ success: true, message: `Mouse scrolled by (${params.deltaX ?? 0}, ${params.deltaY})` } as ActionResult))
+                        .mapErr(err => new Error(err.message));
+                }
+            },
+            {
                 name: 'navigate_to',
                 description: 'Navigate to a URL',
                 schema: z.object({ url: z.string() }),

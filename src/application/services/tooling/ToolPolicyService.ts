@@ -28,6 +28,20 @@ export class DefaultToolPolicyService implements ToolPolicyService {
                 }
                 break;
             }
+            case ActionType.MOUSE_MOVE:
+            case ActionType.MOUSE_CLICK_LEFT:
+            case ActionType.MOUSE_CLICK_RIGHT: {
+                if (!Number.isFinite(action.x) || !Number.isFinite(action.y)) {
+                    return err(new Error(`Policy blocked '${action.type}': x/y must be finite numbers`));
+                }
+                break;
+            }
+            case ActionType.MOUSE_SCROLL: {
+                if (!Number.isFinite(action.deltaX) || !Number.isFinite(action.deltaY)) {
+                    return err(new Error("Policy blocked 'mouse_scroll': deltaX/deltaY must be finite numbers"));
+                }
+                break;
+            }
             case ActionType.WAIT: {
                 if (!Number.isFinite(action.durationMs) || action.durationMs < 0 || action.durationMs > 120_000) {
                     return err(new Error("Policy blocked 'wait': durationMs must be between 0 and 120000"));
