@@ -6,12 +6,14 @@ import { AppSectionPlaceholder } from './presentation/components/AppSectionPlace
 import { SegmentedControl } from './presentation/components/ui/SegmentedControl';
 import { RunsWorkspace } from './presentation/components/RunsWorkspace';
 import { ComposeWorkspace } from './presentation/components/ComposeWorkspace';
+import { WorkflowWorkspace } from './presentation/components/WorkflowWorkspace';
 
-type AppSection = 'runs' | 'compose' | 'skills' | 'plugins' | 'governance' | 'observability';
+type AppSection = 'runs' | 'compose' | 'workflow' | 'skills' | 'plugins' | 'governance' | 'observability';
 
 const SECTION_TABS: ReadonlyArray<{ id: AppSection; label: string }> = [
     { id: 'runs', label: 'Runs' },
     { id: 'compose', label: 'Compose' },
+    { id: 'workflow', label: 'Workflow' },
     { id: 'skills', label: 'Skills' },
     { id: 'plugins', label: 'Plugins' },
     { id: 'governance', label: 'Governance' },
@@ -35,6 +37,10 @@ function App(): JSX.Element {
                     isInteractionDisabled={isInteractionDisabled}
                 />
             );
+        }
+
+        if (section === 'workflow') {
+            return <WorkflowWorkspace />;
         }
 
         if (section === 'skills') {

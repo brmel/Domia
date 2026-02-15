@@ -15,3 +15,4 @@ export type {
 
 export type { CancellationToken } from './CancellationToken';
 export { CancellationTokenSource } from './CancellationToken';
+export type { WorkflowEvent } from './WorkflowEvent';

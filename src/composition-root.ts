@@ -22,7 +22,6 @@ import { FileSystemStorage } from './infrastructure/storage/FileSystemStorage';
 import { TraceService } from './infrastructure/services/TraceService';
 import { FileTraceExporter } from './infrastructure/services/exporters/FileTraceExporter';
 import { DebugExporter } from './infrastructure/services/exporters/DebugExporter';
-import { BrowserActionToolExecutor } from './application/services/tooling/BrowserActionToolExecutor';
 import { RegistryBackedToolExecutor } from './application/services/tooling/RegistryBackedToolExecutor';
 import { DefaultToolPolicyService } from './application/services/tooling/ToolPolicyService';
 import { ActionToolMapper } from './shared/tooling/ActionToolMapper';
@@ -48,6 +47,12 @@ import { PluginGatewayService } from './application/services/plugins/PluginGatew
 import { PluginRegistryService } from './application/services/plugins/PluginRegistryService';
 import { ReadinessGateService } from './application/services/hardening/ReadinessGateService';
 import { RuntimeReadinessPolicyService } from './application/services/hardening/RuntimeReadinessPolicyService';
+import { WorkflowExecutionService } from './application/services/workflow/WorkflowExecutionService';
+import { WorkflowDefinitionService } from './application/services/workflow/WorkflowDefinitionService';
+import { WorkflowRunOrchestratorService } from './application/services/workflow/WorkflowRunOrchestratorService';
+import { WorkflowStepGovernanceService } from './application/services/workflow/WorkflowStepGovernanceService';
+import { WorkflowStepRunnerService } from './application/services/workflow/WorkflowStepRunnerService';
+import { WorkflowStepPolicyService } from './application/services/workflow/WorkflowStepPolicyService';
 
 export function registerCoreServices(): void {
     // 1. Core Services (Config & Persistence)
@@ -94,8 +99,13 @@ export function registerCoreServices(): void {
     container.registerSingleton(PluginGatewayService);
     container.registerSingleton(ReadinessGateService);
     container.registerSingleton(RuntimeReadinessPolicyService);
+    container.registerSingleton(WorkflowDefinitionService);
+    container.registerSingleton(WorkflowStepPolicyService);
+    container.registerSingleton(WorkflowStepGovernanceService);
+    container.registerSingleton(WorkflowStepRunnerService);
+    container.registerSingleton(WorkflowRunOrchestratorService);
+    container.registerSingleton(WorkflowExecutionService);
     container.registerSingleton(ActionToolMapper);
-    container.registerSingleton(BrowserActionToolExecutor);
     container.registerSingleton(RegistryBackedToolExecutor);
     container.registerSingleton(DefaultToolPolicyService);
     container.register('IToolPolicyService', { useToken: DefaultToolPolicyService });
