@@ -232,6 +232,7 @@ export const appRouter = t.router({
                     id: input.id,
                     name: input.name,
                     ...(input.description ? { description: input.description } : {}),
+                    ...(input.platformConfig ? { platformConfig: toPlatformConfig(input.platformConfig) } : {}),
                     steps: input.steps.map((step) => ({
                         ...(step.id ? { id: step.id } : {}),
                         name: step.name,

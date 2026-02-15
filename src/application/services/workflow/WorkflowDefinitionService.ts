@@ -22,6 +22,7 @@ export interface UpdateWorkflowDefinitionRequest {
     readonly id: string;
     readonly name: string;
     readonly description?: string;
+    readonly platformConfig?: PlatformConfig;
     readonly steps: ReadonlyArray<{
         readonly id?: string;
         readonly name: string;
@@ -81,6 +82,7 @@ export class WorkflowDefinitionService {
             ...existing,
             name: request.name.trim(),
             ...(request.description?.trim() ? { description: request.description.trim() } : {}),
+            ...(request.platformConfig ? { platformConfig: request.platformConfig } : {}),
             steps: this.normalizeExistingSteps(existing.id, request.steps),
             updatedAt: new Date().toISOString()
         };

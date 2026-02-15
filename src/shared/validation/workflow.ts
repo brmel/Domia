@@ -32,6 +32,7 @@ export const UpdateWorkflowInputSchema = z.object({
     id: z.string().trim().min(1),
     name: z.string().trim().min(1),
     description: z.string().trim().min(1).optional(),
+    platformConfig: PlatformConfigSchema.optional(),
     steps: z.array(WorkflowStepSchema.extend({ id: z.string().trim().min(1).optional() })).min(1)
 });
 

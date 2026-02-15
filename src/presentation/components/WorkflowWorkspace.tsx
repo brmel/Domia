@@ -3,6 +3,9 @@ import { trpc } from '../../lib/trpc';
 import { Button } from './ui/Button';
 import { SegmentedControl } from './ui/SegmentedControl';
 import type { WorkflowEvent } from '@domain/events';
+import { PlatformSelector } from './PlatformSelector';
+import { platformRegistry, type PlatformFieldValue } from '../config/platformRegistry';
+import type { PlatformType, PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../domain/types/PlatformConfig';
 import {
     appendStepToList,
     type EditableWorkflowStep,
@@ -17,14 +20,13 @@ interface WorkflowEventView {
     readonly label: string;
 }
 
-const DEFAULT_URL = 'https://ibraverse.ca';
-
 export function WorkflowWorkspace(): React.ReactElement {
     const [selectedDefinitionId, setSelectedDefinitionId] = useState<string>('');
     const [selectedRunId, setSelectedRunId] = useState<string>('');
     const [workflowName, setWorkflowName] = useState('Smoke Workflow');
     const [workflowDescription, setWorkflowDescription] = useState('');
-    const [workflowUrl, setWorkflowUrl] = useState(DEFAULT_URL);
+    const [selectedPlatform, setSelectedPlatform] = useState<PlatformType>('web');
+    const [platformData, setPlatformData] = useState<PlatformFieldValue>(platformRegistry.web.defaultValues);
     const [steps, setSteps] = useState<Array<EditableWorkflowStep>>([
         {
             id: 'new-step-1',
@@ -114,6 +116,32 @@ export function WorkflowWorkspace(): React.ReactElement {
     const updateStep = (stepId: string, updates: Partial<EditableWorkflowStep>): void => setSteps((current) => updateStepById(current, stepId, updates));
     const removeStep = (stepId: string): void => setSteps((current) => removeStepById(current, stepId));
 
+    const buildPlatformConfig = (
+        platform: PlatformType,
+        fieldValue: PlatformFieldValue
+    ): PlatformConfig => {
+        switch (platform) {
+            case 'web': {
+                const webFields = fieldValue as Omit<WebPlatformConfig, 'platform'>;
+                return {
+                    platform: 'web',
+                    url: webFields.url
+                };
+            }
+            case 'electron': {
+                const electronFields = fieldValue as Omit<ElectronPlatformConfig, 'platform'>;
+                return {
+                    platform: 'electron',
+                    connection: electronFields.connection
+                };
+            }
+            default: {
+                const exhaustive: never = platform;
+                throw new Error(`Unsupported workflow platform: ${String(exhaustive)}`);
+            }
+        }
+    };
+
     useEffect(() => {
         if (!selectedDefinition) {
             return;
@@ -121,8 +149,11 @@ export function WorkflowWorkspace(): React.ReactElement {
 
         setWorkflowName(selectedDefinition.name);
         setWorkflowDescription(selectedDefinition.description ?? '');
+        setSelectedPlatform(selectedDefinition.platformConfig.platform);
         if (selectedDefinition.platformConfig.platform === 'web') {
-            setWorkflowUrl(selectedDefinition.platformConfig.url);
+            setPlatformData({ url: selectedDefinition.platformConfig.url });
+        } else {
+            setPlatformData({ connection: selectedDefinition.platformConfig.connection });
         }
         setSteps(
             selectedDefinition.steps.map((step) => ({
@@ -136,20 +167,17 @@ export function WorkflowWorkspace(): React.ReactElement {
 
     const onCreateDefinition = (): void => {
         const name = workflowName.trim();
-        const url = workflowUrl.trim();
         const normalizedSteps = normalizeSteps(steps);
+        const platformConfig = buildPlatformConfig(selectedPlatform, platformData);
 
-        if (!name || !url || normalizedSteps.length === 0) {
+        if (!name || normalizedSteps.length === 0) {
             return;
         }
 
         createMutation.mutate({
             name,
             ...(workflowDescription.trim() ? { description: workflowDescription.trim() } : {}),
-            platformConfig: {
-                platform: 'web',
-                url
-            },
+            platformConfig,
             steps: normalizedSteps
         });
     };
@@ -168,6 +196,7 @@ export function WorkflowWorkspace(): React.ReactElement {
             id: selectedDefinition.id,
             name: workflowName.trim(),
             ...(workflowDescription.trim() ? { description: workflowDescription.trim() } : {}),
+            platformConfig: buildPlatformConfig(selectedPlatform, platformData),
             steps: normalizedSteps.map((step) => ({
                 id: step.id,
                 name: step.name,
@@ -216,17 +245,11 @@ export function WorkflowWorkspace(): React.ReactElement {
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <input
                             value={workflowName}
                             onChange={(event) => setWorkflowName(event.target.value)}
                             placeholder="Workflow name"
-                            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                        />
-                        <input
-                            value={workflowUrl}
-                            onChange={(event) => setWorkflowUrl(event.target.value)}
-                            placeholder="Target URL"
                             className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
                         />
                         <Button
@@ -238,6 +261,26 @@ export function WorkflowWorkspace(): React.ReactElement {
                         >
                             Create Workflow
                         </Button>
+                    </div>
+
+                    <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                        <PlatformSelector
+                            value={selectedPlatform}
+                            onChange={(platform) => {
+                                setSelectedPlatform(platform);
+                                setPlatformData(platformRegistry[platform].defaultValues);
+                            }}
+                            disabled={createMutation.isPending || updateMutation.isPending}
+                        />
+
+                        <div className="mt-2">
+                            {React.createElement(platformRegistry[selectedPlatform].renderFields, {
+                                value: platformData,
+                                onChange: setPlatformData,
+                                errors: {},
+                                disabled: createMutation.isPending || updateMutation.isPending
+                            })}
+                        </div>
                     </div>
 
                     <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-2">
