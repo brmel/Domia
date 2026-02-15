@@ -2,6 +2,8 @@ import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { ok, okAsync } from 'neverthrow';
 import { RunTestUseCase } from './RunTestUseCase';
+import type { RunTestOutput } from '@application/dtos';
+import type { ILogger } from '@domain/ports';
 import { ExecutionController } from '../controllers/ExecutionController';
 import { RecoveryReadModelService } from '../services/execution/RecoveryReadModelService';
 import { RunRecoveryPolicyService } from '../services/execution/RunRecoveryPolicyService';
@@ -90,10 +92,11 @@ describe('RunTestUseCase budget hardening', () => {
             formatExceededMessage: vi.fn().mockReturnValue('Run budget exceeded (actions). actions=1/0, durationMs=1/999999, tokens=10/999999, retries=0/0')
         };
 
-        const logger = {
+        const logger: ILogger = {
             info: vi.fn(),
             warn: vi.fn(),
-            debug: vi.fn()
+            debug: vi.fn(),
+            error: vi.fn()
         };
 
         const useCase = new RunTestUseCase(
@@ -106,25 +109,25 @@ describe('RunTestUseCase budget hardening', () => {
             laneService as any,
             durability as any,
             budgetPolicy as any,
-            new CheckpointCompactionService() as any,
-            new RecoveryReadModelService() as any,
-            new ManualRecoveryBootstrapService() as any,
-            new RunRecoveryPolicyService() as any,
-            new RecoveryReplayGuardService() as any,
+            new CheckpointCompactionService(),
+            new RecoveryReadModelService(),
+            new ManualRecoveryBootstrapService(),
+            new RunRecoveryPolicyService(),
+            new RecoveryReplayGuardService(),
             {
                 shouldExecute: vi.fn().mockResolvedValue(true),
                 markExecuted: vi.fn().mockResolvedValue(undefined)
             } as unknown as RecoveryReplayIdempotencyService,
-            new ReplanningPolicyService(logger as any) as any,
+            new ReplanningPolicyService(logger),
             { get: vi.fn().mockReturnValue(null) } as any,
             { isAllowed: vi.fn().mockReturnValue(false) } as any,
             { get: vi.fn().mockReturnValue(null) } as any,
             { invoke: vi.fn().mockReturnValue({ success: false, message: 'noop' }) } as any,
             { assess: vi.fn().mockReturnValue({ blocked: false, mode: 'observe' }) } as any,
-            logger as any
+            logger
         );
 
-        const events: Array<{ type: string; error?: Error }> = [];
+        const events: RunTestOutput[] = [];
         for await (const event of useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'budget enforce run',
@@ -132,7 +135,7 @@ describe('RunTestUseCase budget hardening', () => {
                 maxSteps: 1
             }
         }, new ExecutionController())) {
-            events.push(event as any);
+            events.push(event);
         }
 
         expect(events.some(event => event.type === 'error')).toBe(true);

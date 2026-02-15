@@ -1,9 +1,10 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { ok, okAsync } from 'neverthrow';
-import type { IBrowserAutomation, TestStep } from '@domain/ports';
+import type { IBrowserAutomation, ILogger, TestStep } from '@domain/ports';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 import type { Plan } from '@domain/entities/Plan';
+import type { RunTestOutput } from '@application/dtos';
 import { ElementIdFactory, WorkflowState } from '@domain/value-objects';
 import { RunTestUseCase } from './RunTestUseCase';
 import { ExecutionController } from '../controllers/ExecutionController';
@@ -100,10 +101,11 @@ function createUseCaseContext(
         formatExceededMessage: vi.fn().mockReturnValue('Run budget exceeded')
     };
 
-    const logger = {
+    const logger: ILogger = {
         info: vi.fn(),
         warn: vi.fn(),
-        debug: vi.fn()
+        debug: vi.fn(),
+        error: vi.fn()
     };
 
     const recoveryReadModel = new RecoveryReadModelService();
@@ -111,7 +113,7 @@ function createUseCaseContext(
     const recoveryPolicy = new RunRecoveryPolicyService();
     const recoveryBootstrap = new ManualRecoveryBootstrapService();
     const recoveryReplayGuard = new RecoveryReplayGuardService();
-    const replanningPolicy = new ReplanningPolicyService(logger as any);
+    const replanningPolicy = new ReplanningPolicyService(logger);
     const replayIdempotency = {
         shouldExecute: vi.fn().mockResolvedValue(true),
         markExecuted: vi.fn().mockResolvedValue(undefined)
@@ -179,7 +181,7 @@ describe('RunTestUseCase recovery flow', () => {
         const ctx = createUseCaseContext([createCheckpoint(checkpointState)]);
         const controller = new ExecutionController();
 
-        const events: Array<{ type: string; success?: boolean }> = [];
+        const events: RunTestOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'recover this run',
@@ -188,7 +190,7 @@ describe('RunTestUseCase recovery flow', () => {
                 recoveryRunId: 'recovery-run'
             }
         }, controller)) {
-            events.push(event as any);
+            events.push(event);
         }
 
         expect(ctx.planner.plan).not.toHaveBeenCalled();
@@ -200,7 +202,7 @@ describe('RunTestUseCase recovery flow', () => {
         const ctx = createUseCaseContext([]);
         const controller = new ExecutionController();
 
-        const events: Array<{ type: string; success?: boolean }> = [];
+        const events: RunTestOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'fallback planning',
@@ -209,7 +211,7 @@ describe('RunTestUseCase recovery flow', () => {
                 recoveryRunId: 'missing-run'
             }
         }, controller)) {
-            events.push(event as any);
+            events.push(event);
         }
 
         expect(ctx.planner.plan).toHaveBeenCalledTimes(1);
@@ -220,12 +222,12 @@ describe('RunTestUseCase recovery flow', () => {
         const ctx = createUseCaseContext([]);
         const controller = new ExecutionController();
 
-        const events: Array<{ type: string; success?: boolean }> = [];
+        const events: RunTestOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'normal run without recovery'
         }, controller)) {
-            events.push(event as any);
+            events.push(event);
         }
 
         expect(ctx.durability.getCheckpointRecords).toHaveBeenCalledTimes(1);
@@ -275,7 +277,7 @@ describe('RunTestUseCase recovery flow', () => {
         const ctx = createUseCaseContext([createCheckpoint(checkpointState)], sourceSteps);
         const controller = new ExecutionController();
 
-        const events: Array<{ type: string; success?: boolean }> = [];
+        const events: RunTestOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'resume partial plan',
@@ -284,7 +286,7 @@ describe('RunTestUseCase recovery flow', () => {
                 recoveryRunId: 'recovery-run'
             }
         }, controller)) {
-            events.push(event as any);
+            events.push(event);
         }
 
         expect(ctx.planner.plan).not.toHaveBeenCalled();
@@ -383,7 +385,7 @@ describe('RunTestUseCase recovery flow', () => {
         const ctx = createUseCaseContext([createCheckpoint(checkpointState)], sourceSteps);
         const controller = new ExecutionController();
 
-        const events: Array<{ type: string; success?: boolean; error?: Error }> = [];
+        const events: RunTestOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'should fail blocked replay',
@@ -392,7 +394,7 @@ describe('RunTestUseCase recovery flow', () => {
                 recoveryRunId: 'recovery-run'
             }
         }, controller)) {
-            events.push(event as any);
+            events.push(event);
         }
 
         expect(ctx.executor.executeStep).not.toHaveBeenCalled();
@@ -423,7 +425,7 @@ describe('RunTestUseCase recovery flow', () => {
         const controller = new ExecutionController();
         controller.stop();
 
-        const events: Array<{ type: string; success?: boolean }> = [];
+        const events: RunTestOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'cancel during replay',
@@ -432,7 +434,7 @@ describe('RunTestUseCase recovery flow', () => {
                 recoveryRunId: 'recovery-run'
             }
         }, controller)) {
-            events.push(event as any);
+            events.push(event);
         }
 
         expect(ctx.executor.executeStep).not.toHaveBeenCalled();
