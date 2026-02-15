@@ -24,10 +24,29 @@ Our tests use:
 
 ```bash
 # What the test does:
-1. Spawns: npm run cli -- run --url google.com --prompt "..." --steps 3
+1. Starts local deterministic fixture web app
+2. Spawns: npm run cli -- run --url http://127.0.0.1:<port> --prompt "..." --steps 2
+3. Waits for CLI to complete
+4. Parses output for success/failure
+5. Validates deterministic page assertion
+
+# This is EXACTLY what a user would run
+```
+
+### Test A2: Web Feature Suite
+
+```bash
+# What the test does:
+1. Starts local deterministic fixture web app
+2. Runs multiple real CLI sessions (no mocks) for feature validation:
+    - deterministic assertion + history persistence
+    - temporal timeline artifact emission
+    - vision screenshot artifact emission
+    - CLI option matrix (`--provider`, `--verbose`, `--debug`)
+    - failure path (invalid URL) + recovery on next valid run
 2. Waits for CLI to complete
 3. Parses output for success/failure
-4. Validates step count and errors
+4. Validates feature artifacts and expected pass/fail behavior
 
 # This is EXACTLY what a user would run
 ```
@@ -59,7 +78,9 @@ tests/cli/
 ├── helpers/
 │   └── cli-test-helpers.ts     # Spawn CLI, parse output, manage processes
 ├── web-test.ts                  # Test A: Web platform
+├── web-features-test.ts         # Test A2: Web feature validation (fixture-based)
 ├── electron-test.ts             # Test B: Electron CDP + Executable
+├── vllm-test.ts                 # Test C: vLLM provider integration (real endpoint)
 ├── run-cli-tests.ts             # Unified test runner
 └── README.md                    # This file
 
@@ -80,6 +101,7 @@ npm run test:cli
 # Run specific platform
 npm run test:cli -- web
 npm run test:cli -- electron
+npm run test:cli -- vllm
 ```
 
 ### Prerequisites
@@ -171,21 +193,36 @@ All user scenarios validated
 
 ## 🔍 What Each Test Validates
 
-### Test A: Web Platform (google.com)
+### Test A: Web Platform (deterministic fixture)
 
 **Validates:**
 - ✅ CLI accepts web platform configuration
-- ✅ URL navigation works
-- ✅ Agent perceives page elements
-- ✅ Agent completes task within step limit
+- ✅ Local fixture navigation works
+- ✅ Agent perceives fixture page elements
+- ✅ Agent completes deterministic assertion within step limit
 - ✅ CLI exits with correct code
 - ✅ Entire web testing workflow
 
 **Success Criteria:**
 - Exit code 0
-- Search button detected
-- Completed within 3 steps
+- Fixture button detected
+- Completed within 2 steps
 - No errors in output
+
+### Test A2: Web Feature Suite (local fixture app)
+
+**Validates:**
+- ✅ Deterministic text assertion path (feature-level correctness)
+- ✅ Deterministic button assertion path
+- ✅ Temporal observation timeline artifact emission (`*_timeline.json`)
+- ✅ Vision screenshot artifact emission (`*_screenshot.jpg`)
+- ✅ CLI option-matrix behavior (`--provider`, `--verbose`, `--debug`)
+- ✅ Failure-path handling on invalid URL and successful recovery on next run
+
+**Success Criteria:**
+- Exit code 0 for each scenario
+- Artifacts generated when feature flags are enabled
+- Temporal timeline contains at least one frame
 
 ### Test B1: Electron CDP Mode
 
@@ -219,6 +256,18 @@ All user scenarios validated
 - Auto-connection succeeds
 - Test completes successfully
 - App closes cleanly
+
+### Test C: vLLM Provider Integration (real endpoint)
+
+**Validates:**
+- ✅ CLI provider override path (`--provider vllm`) is honored
+- ✅ Real vLLM endpoint processes run requests through CLI
+- ✅ Runtime logs reflect selected provider
+
+**Success Criteria:**
+- CLI run exits with code 0
+- Real vLLM endpoint is reachable and completes the task
+- Output includes `provider=vllm`
 
 ## 🎯 Key Benefits
 

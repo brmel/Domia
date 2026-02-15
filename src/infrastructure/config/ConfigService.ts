@@ -16,6 +16,7 @@ export class ConfigService implements IConfigService {
     private resolveApiKey(fileApiKey?: string): string | undefined {
         return process.env['GOOGLE_API_KEY']
             ?? process.env['GEMINI_API_KEY']
+            ?? process.env['VLLM_API_KEY']
             ?? process.env['OPENAI_API_KEY']
             ?? fileApiKey;
     }

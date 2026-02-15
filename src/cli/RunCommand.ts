@@ -5,10 +5,12 @@ import inquirer from 'inquirer';
 import ora from 'ora';
 import chalk from 'chalk';
 import figlet from 'figlet';
+import readline from 'readline';
 import { RunTestUseCase } from '../application/use-cases';
 import { ExecutionController } from '../application/controllers/ExecutionController';
 import { ConsoleViewHost } from '../infrastructure/adapters/view/ConsoleViewHost';
 import { TraceService } from '../infrastructure/services/TraceService';
+import { TestRunState } from '../domain/enums/TestRunState';
 import type { PlatformConfig } from '../domain/types/PlatformConfig';
 
 export class RunCommand {
@@ -24,28 +26,75 @@ export class RunCommand {
             .option('-p, --prompt <prompt>', 'Testing instruction')
             .option('-s, --steps <steps>', 'Max steps', '10')
             .option('-H, --no-headless', 'Run in headful mode (visible browser)', false)
+            .option('--provider <provider>', 'LLM provider: google|openai|vllm|anthropic')
+            .option('--model <model>', 'LLM model name (provider-specific)')
+            .option('--base-url <url>', 'LLM base URL (required for self-hosted providers such as vLLM)')
+            .option('--api-key <key>', 'LLM API key override for this run')
+            .option('--verbose', 'Enable verbose artifact export', false)
+            .option('--debug', 'Enable debug logging', false)
             .option('-V, --vision', 'Enable Vision LLM', false)
             .option('-S, --screenshots', 'Enable Debug Screenshots', false)
+            .option('--temporal-observation', 'Enable temporal observation')
+            .option('--temporal-mode <mode>', 'Temporal mode: off|baseline|adaptive|forensic')
+            .option('--temporal-baseline-interval-ms <ms>', 'Temporal baseline interval in ms')
+            .option('--temporal-burst-interval-ms <ms>', 'Temporal burst interval in ms')
+            .option('--temporal-max-frames-per-window <count>', 'Temporal max frames per window')
+            .option('--temporal-prompt-token-budget <tokens>', 'Temporal prompt token budget')
+            .option('--no-temporal-redact-sensitive', 'Disable temporal sensitive-data redaction')
+            .option('--no-temporal-persist-window', 'Disable temporal window persistence between steps')
             .action(async (options) => {
                 console.log(chalk.cyan(figlet.textSync('Domia Agent', { horizontalLayout: 'full' })));
 
-                let { url, prompt, steps, verbose, debug, vision, screenshots, cdpUrl, executablePath, launchArgs, windowTitle } = options;
+                let {
+                    url,
+                    prompt,
+                    steps,
+                    verbose,
+                    debug,
+                    vision,
+                    screenshots,
+                    cdpUrl,
+                    executablePath,
+                    launchArgs,
+                    windowTitle,
+                    temporalObservation,
+                    temporalMode,
+                    temporalBaselineIntervalMs,
+                    temporalBurstIntervalMs,
+                    temporalMaxFramesPerWindow,
+                    temporalPromptTokenBudget,
+                    temporalRedactSensitive,
+                    temporalPersistWindow,
+                    provider,
+                    model,
+                    baseUrl,
+                    apiKey
+                } = options;
 
                 const { headless } = options;
 
                 // Update ConfigService with CLI flags
                 const configService = container.resolve<import('../domain/ports/IConfigService').IConfigService>('IConfigService');
                 const currentConfig = configService.get();
+                const resolvedProvider = provider || currentConfig.ai.provider;
+                const resolvedModel = model || currentConfig.ai.model;
+                const resolvedBaseUrl = baseUrl || currentConfig.ai.baseUrl;
+                const resolvedApiKey = apiKey || currentConfig.ai.apiKey;
                 const updates = {
                     ai: {
-                        provider: currentConfig.ai.provider,
-                        model: currentConfig.ai.model,
-                        ...(currentConfig.ai.apiKey ? { apiKey: currentConfig.ai.apiKey } : {}),
+                        provider: resolvedProvider,
+                        model: resolvedModel,
+                        ...(resolvedApiKey ? { apiKey: resolvedApiKey } : {}),
+                        ...(resolvedBaseUrl ? { baseUrl: resolvedBaseUrl } : {}),
                         visionEnabled: !!vision,
                         debugScreenshots: !!screenshots
                     }
                 };
                 configService.update(updates);
+
+                if (provider || model || baseUrl) {
+                    console.log(chalk.gray(`[LLM] provider=${resolvedProvider} model=${resolvedModel}${resolvedBaseUrl ? ` baseUrl=${resolvedBaseUrl}` : ''}`));
+                }
 
                 // 1. Handle Debug Mode (Console Logs)
                 if (debug) {
@@ -104,9 +153,70 @@ export class RunCommand {
                 try {
                     const useCase = container.resolve(RunTestUseCase);
                     const controller = new ExecutionController();
+                    let interactiveKeyHandler: ((str: string, key: readline.Key) => void) | null = null;
+                    let rawModeEnabled = false;
+
+                    const teardownInteractiveControls = (): void => {
+                        if (interactiveKeyHandler) {
+                            process.stdin.off('keypress', interactiveKeyHandler);
+                            interactiveKeyHandler = null;
+                        }
+
+                        if (rawModeEnabled && process.stdin.isTTY) {
+                            process.stdin.setRawMode(false);
+                        }
+
+                        if (process.stdin.isTTY) {
+                            process.stdin.pause();
+                        }
+                        rawModeEnabled = false;
+                    };
+
+                    const setupInteractiveControls = (): void => {
+                        if (!process.stdin.isTTY) {
+                            return;
+                        }
+
+                        readline.emitKeypressEvents(process.stdin);
+                        process.stdin.setRawMode(true);
+                        process.stdin.resume();
+                        rawModeEnabled = true;
+
+                        console.log(chalk.gray('Controls: [p] pause/resume, [s] stop, [q] quit'));
+
+                        interactiveKeyHandler = (_str: string, key: readline.Key) => {
+                            if (key.ctrl && key.name === 'c') {
+                                teardownInteractiveControls();
+                                spinner.stop();
+                                console.log(chalk.yellow('\nStopping agent...'));
+                                controller.stop();
+                                process.exit(0);
+                            }
+
+                            if (key.name === 'p') {
+                                if (controller.state === TestRunState.PAUSED) {
+                                    controller.resume();
+                                    console.log(chalk.cyan('\n⏯ Resumed'));
+                                } else {
+                                    controller.pause();
+                                    console.log(chalk.cyan('\n⏸ Paused'));
+                                }
+                            }
+
+                            if (key.name === 's' || key.name === 'q') {
+                                teardownInteractiveControls();
+                                spinner.stop();
+                                console.log(chalk.yellow('\nStopping agent...'));
+                                controller.stop();
+                            }
+                        };
+
+                        process.stdin.on('keypress', interactiveKeyHandler);
+                    };
 
                     // Handle Ctrl+C
                     process.on('SIGINT', () => {
+                        teardownInteractiveControls();
                         spinner.stop();
                         console.log(chalk.yellow('\nStopping agent...'));
                         controller.stop();
@@ -157,13 +267,25 @@ export class RunCommand {
                         options: {
                             maxSteps: parseInt(String(steps), 10),
                             headless: !!headless,
+                            verbose: !!verbose,
+                            debug: !!debug,
                             vision: !!vision,
-                            debugScreenshots: !!screenshots
+                            debugScreenshots: !!screenshots,
+                            ...(temporalObservation !== undefined ? { temporalObservation: !!temporalObservation } : {}),
+                            ...(temporalMode ? { temporalMode } : {}),
+                            ...(temporalBaselineIntervalMs !== undefined ? { temporalBaselineIntervalMs: parseInt(String(temporalBaselineIntervalMs), 10) } : {}),
+                            ...(temporalBurstIntervalMs !== undefined ? { temporalBurstIntervalMs: parseInt(String(temporalBurstIntervalMs), 10) } : {}),
+                            ...(temporalMaxFramesPerWindow !== undefined ? { temporalMaxFramesPerWindow: parseInt(String(temporalMaxFramesPerWindow), 10) } : {}),
+                            ...(temporalPromptTokenBudget !== undefined ? { temporalPromptTokenBudget: parseInt(String(temporalPromptTokenBudget), 10) } : {}),
+                            ...(temporalRedactSensitive !== undefined ? { temporalRedactSensitive: !!temporalRedactSensitive } : {}),
+                            ...(temporalPersistWindow !== undefined ? { temporalPersistWindow: !!temporalPersistWindow } : {})
                         },
                     };
 
                     spinner.succeed(`Starting session on ${chalk.green(url || cdpUrl || executablePath)}`);
                     console.log(chalk.gray(`Goal: ${prompt}\n`));
+
+                    setupInteractiveControls();
 
                     const generator = useCase.execute(input, controller);
 
@@ -183,6 +305,7 @@ export class RunCommand {
                                 }
                                 break;
                             case 'completed':
+                                teardownInteractiveControls();
                                 if (event.success) {
                                     console.log(chalk.green.bold('\n✔ Mission Accomplished!'));
                                     if (event.summary) console.log(chalk.green(event.summary));
@@ -193,6 +316,7 @@ export class RunCommand {
                                 process.exit(event.success ? 0 : 1);
                                 break;
                             case 'error':
+                                teardownInteractiveControls();
                                 console.log(chalk.red.bold(`\nError: ${event.error}`));
                                 process.exit(1);
                                 break;

@@ -2,6 +2,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import * as net from 'net';
+import { readdir, stat } from 'fs/promises';
 
 export async function getFreePort(): Promise<number> {
     return new Promise((resolve, reject) => {
@@ -24,10 +25,24 @@ export interface CLITestConfig {
     executablePath?: string;
     launchArgs?: string[];
     prompt: string;
+    provider?: 'google' | 'openai' | 'anthropic' | 'vllm';
+    model?: string;
+    baseUrl?: string;
+    apiKey?: string;
     maxSteps?: number;
     headless?: boolean;
     vision?: boolean;
     screenshots?: boolean;
+    verbose?: boolean;
+    debug?: boolean;
+    temporalObservation?: boolean;
+    temporalMode?: 'off' | 'baseline' | 'adaptive' | 'forensic';
+    temporalBaselineIntervalMs?: number;
+    temporalBurstIntervalMs?: number;
+    temporalMaxFramesPerWindow?: number;
+    temporalPromptTokenBudget?: number;
+    temporalRedactSensitive?: boolean;
+    temporalPersistWindow?: boolean;
 }
 
 export interface CLITestResult {
@@ -36,6 +51,7 @@ export interface CLITestResult {
     errors: string[];
     duration: number;
     exitCode: number;
+    runId?: string;
 }
 
 export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> {
@@ -80,6 +96,22 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
         
         args.push('--prompt', config.prompt);
         args.push('--steps', String(config.maxSteps ?? 5));
+
+        if (config.provider) {
+            args.push('--provider', config.provider);
+        }
+
+        if (config.model) {
+            args.push('--model', config.model);
+        }
+
+        if (config.baseUrl) {
+            args.push('--base-url', config.baseUrl);
+        }
+
+        if (config.apiKey) {
+            args.push('--api-key', config.apiKey);
+        }
         
         if (!config.headless) {
             args.push('--no-headless');
@@ -91,6 +123,46 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
         
         if (config.screenshots) {
             args.push('--screenshots');
+        }
+
+        if (config.verbose) {
+            args.push('--verbose');
+        }
+
+        if (config.debug) {
+            args.push('--debug');
+        }
+
+        if (config.temporalObservation) {
+            args.push('--temporal-observation');
+        }
+
+        if (config.temporalMode) {
+            args.push('--temporal-mode', config.temporalMode);
+        }
+
+        if (config.temporalBaselineIntervalMs !== undefined) {
+            args.push('--temporal-baseline-interval-ms', String(config.temporalBaselineIntervalMs));
+        }
+
+        if (config.temporalBurstIntervalMs !== undefined) {
+            args.push('--temporal-burst-interval-ms', String(config.temporalBurstIntervalMs));
+        }
+
+        if (config.temporalMaxFramesPerWindow !== undefined) {
+            args.push('--temporal-max-frames-per-window', String(config.temporalMaxFramesPerWindow));
+        }
+
+        if (config.temporalPromptTokenBudget !== undefined) {
+            args.push('--temporal-prompt-token-budget', String(config.temporalPromptTokenBudget));
+        }
+
+        if (config.temporalRedactSensitive === false) {
+            args.push('--no-temporal-redact-sensitive');
+        }
+
+        if (config.temporalPersistWindow === false) {
+            args.push('--no-temporal-persist-window');
         }
         
         const result = await spawnCLI(args, envUpdates);
@@ -111,7 +183,8 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
             output,
             errors,
             duration,
-            exitCode: result.exitCode
+            exitCode: result.exitCode,
+            ...(extractRunId(output) ? { runId: extractRunId(output) as string } : {})
         };
     } catch (error) {
         const duration = Date.now() - startTime;
@@ -123,6 +196,80 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
             exitCode: 1
         };
     }
+}
+
+function extractRunId(output: string): string | undefined {
+    const jsonMatch = output.match(/"id"\s*:\s*"([A-Za-z0-9_-]+)"/);
+    if (jsonMatch?.[1]) {
+        return jsonMatch[1];
+    }
+
+    const runIdMatch = output.match(/"runId"\s*:\s*"([A-Za-z0-9_-]+)"/);
+    if (runIdMatch?.[1]) {
+        return runIdMatch[1];
+    }
+
+    return undefined;
+}
+
+export async function runCLICommand(args: string[], extraEnv: Record<string, string> = {}): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    return spawnCLI(args, extraEnv);
+}
+
+export async function getLatestRunId(): Promise<string | null> {
+    const result = await runCLICommand(['history', 'list', '--limit', '1']);
+    if (result.exitCode !== 0) {
+        return null;
+    }
+
+    const outputLines = (result.stdout + result.stderr)
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+    const candidate = outputLines.find((line) => line.includes('|'));
+    if (!candidate) {
+        return null;
+    }
+
+    const match = candidate.match(/^([^\s|]+)\s*\|/);
+    return match?.[1] || null;
+}
+
+export async function findRunStepAsset(runId: string, suffix: string): Promise<string | null> {
+    const stepsDir = join(process.cwd(), 'artifacts', runId, 'steps');
+    if (!existsSync(stepsDir)) {
+        return null;
+    }
+
+    const files = await readdir(stepsDir);
+    const candidates = files
+        .filter((name) => name.endsWith(suffix))
+        .map((name) => join(stepsDir, name));
+
+    if (candidates.length === 0) {
+        return null;
+    }
+
+    const withStats = await Promise.all(candidates.map(async (filePath) => ({
+        filePath,
+        fileStat: await stat(filePath)
+    })));
+
+    withStats.sort((a, b) => b.fileStat.mtimeMs - a.fileStat.mtimeMs);
+    return withStats[0]?.filePath || null;
+}
+
+export async function listRunStepAssets(runId: string, suffix: string): Promise<string[]> {
+    const stepsDir = join(process.cwd(), 'artifacts', runId, 'steps');
+    if (!existsSync(stepsDir)) {
+        return [];
+    }
+
+    const files = await readdir(stepsDir);
+    return files
+        .filter((name) => name.endsWith(suffix))
+        .map((name) => join(stepsDir, name));
 }
 
 function spawnCLI(args: string[], extraEnv: Record<string, string> = {}): Promise<{ stdout: string; stderr: string; exitCode: number }> {

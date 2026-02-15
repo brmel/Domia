@@ -8,9 +8,10 @@ export const DomiaConfigSchema = z.object({
     }).default({ width: 1280, height: 800 }),
 
     ai: z.object({
-        provider: z.enum(['google', 'openai', 'anthropic']).default('google'),
+        provider: z.enum(['google', 'openai', 'anthropic', 'vllm']).default('google'),
         model: z.string().default('gemini-2.0-flash'),
         apiKey: z.string().optional(),
+        baseUrl: z.string().url().optional(),
         visionEnabled: z.boolean().default(false),
         debugScreenshots: z.boolean().default(false),
     }).default({ provider: 'google', model: 'gemini-2.0-flash', visionEnabled: false, debugScreenshots: false }),

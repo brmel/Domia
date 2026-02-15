@@ -14,7 +14,8 @@ function printUsage() {
     console.log('Usage:');
     console.log('  npm run test:cli              # All tests');
     console.log('  npm run test:cli -- web       # Web only');
-    console.log('  npm run test:cli -- electron  # Electron only\n');
+    console.log('  npm run test:cli -- electron  # Electron only');
+    console.log('  npm run test:cli -- vllm      # vLLM provider route only\n');
 }
 
 async function runTest(testFile: string, testName: string): Promise<boolean> {
@@ -50,13 +51,21 @@ async function runTests() {
     const results: { name: string; passed: boolean }[] = [];
     
     if (!platform || platform === 'web' || platform === 'all') {
-        const webPassed = await runTest('tests/cli/web-test.ts', 'Web Platform');
-        results.push({ name: 'Web', passed: webPassed });
+        const webSmokePassed = await runTest('tests/cli/web-test.ts', 'Web Platform Smoke');
+        results.push({ name: 'Web Smoke', passed: webSmokePassed });
+
+        const webFeaturesPassed = await runTest('tests/cli/web-features-test.ts', 'Web Platform Feature Suite');
+        results.push({ name: 'Web Features', passed: webFeaturesPassed });
     }
     
     if (!platform || platform === 'electron' || platform === 'all') {
         const electronPassed = await runTest('tests/cli/electron-test.ts', 'Electron Platform');
         results.push({ name: 'Electron', passed: electronPassed });
+    }
+
+    if (!platform || platform === 'vllm' || platform === 'all') {
+        const vllmPassed = await runTest('tests/cli/vllm-test.ts', 'vLLM Provider');
+        results.push({ name: 'vLLM', passed: vllmPassed });
     }
     
     console.log(chalk.cyan('\nSummary:'));

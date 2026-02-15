@@ -1,33 +1,25 @@
 import { inject, injectable } from 'tsyringe';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { BaseMessage, HumanMessage, SystemMessage } from '@langchain/core/messages';
 import type {
     IToolCallingProvider,
     ToolCallingRequest,
     ToolCallingResult,
-    LLMConfig,
     ILogger
 } from '@domain/ports';
 import { LLMError } from '@domain/errors';
 import { retryAsync } from '@shared/reliability/retry';
 import { RETRY_PROFILES, isTransientLlmToolCallingError } from '@shared/reliability/retryProfiles';
 import type { ZodTypeAny } from 'zod';
+import { LangChainModelFactory } from './LangChainModelFactory';
+import { LlmRuntimeConfigResolver } from './LlmRuntimeConfigResolver';
 
 @injectable()
 export class LangChainToolCallingProvider implements IToolCallingProvider {
-    private readonly model: ChatGoogleGenerativeAI;
-
     constructor(
-        @inject('LLMConfig') config: LLMConfig,
-        @inject('ILogger') private readonly logger: ILogger
-    ) {
-        this.model = new ChatGoogleGenerativeAI({
-            model: config.model,
-            apiKey: config.apiKey,
-            maxOutputTokens: 2048,
-            temperature: 0.1,
-        });
-    }
+        @inject('ILogger') private readonly logger: ILogger,
+        @inject(LlmRuntimeConfigResolver) private readonly runtimeConfig: LlmRuntimeConfigResolver,
+        @inject(LangChainModelFactory) private readonly modelFactory: LangChainModelFactory,
+    ) {}
 
     async generateToolCall(request: ToolCallingRequest): Promise<ToolCallingResult> {
         return retryAsync(
@@ -46,6 +38,8 @@ export class LangChainToolCallingProvider implements IToolCallingProvider {
     }
 
     private async generateToolCallOnce(request: ToolCallingRequest): Promise<ToolCallingResult> {
+        const runtime = this.runtimeConfig.resolve();
+        const model = this.modelFactory.createToolCallingModel(runtime);
         const messages: BaseMessage[] = [new SystemMessage(request.systemPrompt)];
 
         if (request.imagesBase64 && request.imagesBase64.length > 0) {
@@ -77,7 +71,13 @@ export class LangChainToolCallingProvider implements IToolCallingProvider {
         if (toolDefinitions.length === 0) {
             throw new LLMError('No valid tool schemas were provided for tool calling.');
         }
-        const llmWithTools = this.model.bindTools([...toolDefinitions]);
+        const bindToolsCandidate = (model as { bindTools?: unknown }).bindTools;
+        if (typeof bindToolsCandidate !== 'function') {
+            throw new LLMError('Selected model does not support tool calling.');
+        }
+        const llmWithTools = (model as {
+            bindTools: (tools: Array<{ name: string; description: string; schema: ZodTypeAny }>) => { invoke: (messages: BaseMessage[]) => Promise<unknown> }
+        }).bindTools([...toolDefinitions]);
         const response = await llmWithTools.invoke(messages);
         return this.parseResponse(response, new Map(toolDefinitions.map(tool => [tool.name, tool.schema])));
     }

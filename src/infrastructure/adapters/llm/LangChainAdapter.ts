@@ -1,12 +1,10 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { SystemMessage, HumanMessage, BaseMessage } from '@langchain/core/messages';
 import type {
     ILLMProvider,
     LLMContext,
     ILogger,
-    LLMConfig,
     IConfigService,
     IToolCallingProvider
 } from '@domain/ports';
@@ -15,27 +13,23 @@ import { LLMError } from '@domain/errors';
 import { LLMPlanningUtils } from './LLMPlanningUtils';
 import { ActionToolMapper } from '@shared/tooling/ActionToolMapper';
 import { ACTION_SYSTEM_PROMPT, buildActionUserPrompt } from '@shared/prompts/ActionPromptBuilder';
+import { LangChainModelFactory } from './LangChainModelFactory';
+import { LlmRuntimeConfigResolver } from './LlmRuntimeConfigResolver';
 
 @injectable()
 export class LangChainAdapter implements ILLMProvider {
-    readonly providerName: string;
-    private readonly model: ChatGoogleGenerativeAI;
+    get providerName(): string {
+        return this.modelFactory.describe(this.runtimeConfig.resolve());
+    }
 
     constructor(
-        @inject('LLMConfig') config: LLMConfig,
         @inject('ILogger') private readonly logger: ILogger,
         @inject('IConfigService') private readonly configService: IConfigService,
         @inject('IToolCallingProvider') private readonly toolCallingProvider: IToolCallingProvider,
-        @inject(ActionToolMapper) private readonly actionToolMapper: ActionToolMapper
-    ) {
-        this.model = new ChatGoogleGenerativeAI({
-            model: config.model,
-            apiKey: config.apiKey,
-            maxOutputTokens: 2048,
-            temperature: 0.1,
-        });
-        this.providerName = `langchain/google/${config.model}`;
-    }
+        @inject(ActionToolMapper) private readonly actionToolMapper: ActionToolMapper,
+        @inject(LlmRuntimeConfigResolver) private readonly runtimeConfig: LlmRuntimeConfigResolver,
+        @inject(LangChainModelFactory) private readonly modelFactory: LangChainModelFactory,
+    ) {}
 
     generateAction(context: LLMContext): ResultAsync<AgentAction, LLMError> {
         return ResultAsync.fromPromise(
@@ -76,6 +70,8 @@ export class LangChainAdapter implements ILLMProvider {
         const promptText = buildActionUserPrompt(context);
         const config = this.configService.get();
         const isVisionEnabled = config.ai.visionEnabled;
+        const runtime = this.runtimeConfig.resolve();
+        this.logger.debug(`[LangChainAdapter] Runtime provider=${runtime.provider} model=${runtime.model}${runtime.baseUrl ? ` baseUrl=${runtime.baseUrl}` : ''}`);
 
         const images = isVisionEnabled
             ? (context.snapshot.screenshots?.length
@@ -106,12 +102,14 @@ export class LangChainAdapter implements ILLMProvider {
     }
 
     private async doGeneratePlan(prompt: string): Promise<import('@domain/entities/Plan').Plan> {
+        const runtime = this.runtimeConfig.resolve();
+        const planningModel = this.modelFactory.createPlanningModel(runtime);
         const messages: BaseMessage[] = [
             new SystemMessage(LLMPlanningUtils.systemPrompt),
             new HumanMessage(`User Request: "${prompt}"`)
         ];
 
-        const response = await this.model.invoke(messages);
+        const response = await planningModel.invoke(messages);
         let content = '';
         if (typeof response.content === 'string') {
             content = response.content;

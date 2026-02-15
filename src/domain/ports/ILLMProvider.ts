@@ -33,9 +33,10 @@ export interface LLMContext {
  * Abstracts LLM capabilities for agent reasoning
  */
 export interface LLMConfig {
-    readonly provider: 'openai' | 'anthropic' | 'google';
+    readonly provider: 'openai' | 'anthropic' | 'google' | 'vllm';
     readonly model: string;
-    readonly apiKey: string;
+    readonly apiKey?: string;
+    readonly baseUrl?: string;
 }
 
 export interface ILLMProvider {

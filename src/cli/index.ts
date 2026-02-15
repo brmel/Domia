@@ -9,6 +9,7 @@ import { container } from '../composition-root';
 import { ConsoleViewHost } from '../infrastructure/adapters/view/ConsoleViewHost';
 import { RunCommand } from './RunCommand';
 import { HistoryCommand } from './HistoryCommand';
+import { WorkflowCommand } from './WorkflowCommand';
 
 // Setup DI
 registerCoreServices();
@@ -26,6 +27,7 @@ console.log(chalk.cyan(figlet.textSync('Domia', { horizontalLayout: 'full' })));
 // Register Commands
 RunCommand.register(program);
 HistoryCommand.register(program);
+WorkflowCommand.register(program);
 
 program.parse(process.argv);
 

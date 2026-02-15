@@ -4,12 +4,13 @@ import { container } from 'tsyringe';
 import { PlaywrightAdapter } from './infrastructure/adapters/browser';
 import { WebDriver, ElectronDriver, AppDriverFactory } from './infrastructure/adapters/drivers';
 import { ToolRegistry } from './domain/tools/ToolRegistry';
-import type { LLMConfig } from '@domain/ports';
 import { RunTestUseCase } from './application/use-cases';
 import { ConsoleLogger } from './infrastructure/adapters/logger/ConsoleLogger';
 
 import { LangChainAdapter } from './infrastructure/adapters/llm/LangChainAdapter';
 import { LangChainToolCallingProvider } from './infrastructure/adapters/llm/LangChainToolCallingProvider';
+import { LlmRuntimeConfigResolver } from './infrastructure/adapters/llm/LlmRuntimeConfigResolver';
+import { LangChainModelFactory } from './infrastructure/adapters/llm/LangChainModelFactory';
 import { ConfigService } from './infrastructure/config/ConfigService';
 import { SQLiteAdapter } from './infrastructure/adapters/persistence/SQLiteAdapter';
 import { TestRunLifecycleManager } from './application/services/TestRunLifecycleManager';
@@ -111,14 +112,8 @@ export function registerCoreServices(): void {
     container.register('IToolPolicyService', { useToken: DefaultToolPolicyService });
     container.register('IToolExecutor', { useToken: RegistryBackedToolExecutor });
 
-    // LLM Configuration
-    const defaultLLMConfig: LLMConfig = {
-        provider: 'google',
-        model: 'gemini-2.0-flash',
-        apiKey: process.env['GOOGLE_API_KEY'] ?? process.env['GEMINI_API_KEY'] ?? '',
-    };
-    container.register('LLMConfig', { useValue: defaultLLMConfig });
-
+    container.registerSingleton(LlmRuntimeConfigResolver);
+    container.registerSingleton(LangChainModelFactory);
     container.register('IToolCallingProvider', { useClass: LangChainToolCallingProvider });
     container.register('ILLMProvider', { useClass: LangChainAdapter });
     container.register('RunTestUseCase', { useClass: RunTestUseCase });
