@@ -1,12 +1,14 @@
 import { useTestRunStore } from './presentation/stores';
 import { canInteract } from './presentation/utils/agentStateUtils';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppSectionPlaceholder } from './presentation/components/AppSectionPlaceholder';
 import { SegmentedControl } from './presentation/components/ui/SegmentedControl';
 import { RunsWorkspace } from './presentation/components/RunsWorkspace';
 import { ComposeWorkspace } from './presentation/components/ComposeWorkspace';
 import { WorkflowWorkspace } from './presentation/components/WorkflowWorkspace';
+import { StepInspector } from './presentation/components/StepInspector';
+import { AgentStatus } from './domain/types/AgentStatus';
 
 type AppSection = 'runs' | 'compose' | 'workflow' | 'skills' | 'plugins' | 'governance' | 'observability';
 
@@ -22,11 +24,19 @@ const SECTION_TABS: ReadonlyArray<{ id: AppSection; label: string }> = [
 
 
 function App(): JSX.Element {
-    // Determine which sidebar content is active: 'config' | 'history' | 'settings_model' | 'settings_debug'
-    const [activeSidebar, setActiveSidebar] = useState<'config' | 'history' | 'settings_model' | 'settings_debug'>('config');
+    const [activeSidebar, setActiveSidebar] = useState<'config' | 'history' | 'settings_debug'>('config');
     const [activeSection, setActiveSection] = useState<AppSection>('runs');
     const { status } = useTestRunStore();
     const isInteractionDisabled = !canInteract(status);
+
+    useEffect(() => {
+        if (
+            activeSection === 'compose'
+            && (status === AgentStatus.RUNNING || status === AgentStatus.PAUSED)
+        ) {
+            setActiveSection('runs');
+        }
+    }, [activeSection, status]);
 
     const renderPlaceholder = (section: Exclude<AppSection, 'runs'>): JSX.Element => {
         if (section === 'compose') {
@@ -119,8 +129,12 @@ function App(): JSX.Element {
                 </header>
 
                 <div className="flex-1 min-h-0">
-                    {activeSection === 'runs' ? <RunsWorkspace /> : renderPlaceholder(activeSection)}
+                    {activeSection === 'runs'
+                        ? <RunsWorkspace />
+                        : renderPlaceholder(activeSection)}
                 </div>
+
+                <StepInspector />
             </div>
         </div>
     );

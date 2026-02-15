@@ -44,7 +44,7 @@ export function HistorySidebar({ onClose, disabled = false }: HistorySidebarProp
 
         return (
             <div className="flex flex-col h-full bg-white">
-                <div className="border-b border-gray-100 p-4 bg-gray-50/50">
+                <div className="border-b border-gray-100 p-5 bg-gray-50/50">
                     <button
                         onClick={() => setSelectedRunId(null)}
                         className="text-xs font-medium text-gray-500 hover:text-gray-900 flex items-center gap-1.5 transition-colors mb-2"
@@ -64,27 +64,37 @@ export function HistorySidebar({ onClose, disabled = false }: HistorySidebarProp
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    <div className="bg-gray-50 p-3 rounded-md text-sm border border-gray-100">
+                <div className="flex-1 overflow-y-auto p-5 space-y-5">
+                    <div className="bg-gray-50 p-4 rounded-md text-sm border border-gray-100">
                         <p className="mb-1"><strong className="font-semibold text-gray-700">URL:</strong> <span className="text-blue-600">{run.url}</span></p>
                         {summary && <p className="mt-2 text-gray-600 leading-relaxed">{summary}</p>}
                     </div>
 
                     <div>
                         <h4 className="font-medium text-xs text-gray-500 uppercase tracking-wider mb-3">Timeline ({run.steps?.length || 0})</h4>
-                        <div className="space-y-3 relative before:absolute before:inset-y-0 before:left-2 before:w-0.5 before:bg-gray-100">
+                        <div className="space-y-4 relative before:absolute before:inset-y-0 before:left-2 before:w-0.5 before:bg-gray-100">
                             {run.steps?.map((step: TestStep) => (
                                 <div key={step.id} className="relative pl-6">
                                     <div className="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-white border-2 border-blue-100 z-10"></div>
                                     <div
                                         onClick={() => useStepInspectorStore.getState().open(runId, step.stepNumber)}
-                                        className="border border-gray-200 rounded-lg p-3 bg-white shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-300 group"
+                                        className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-300 group"
                                     >
                                         <div className="flex justify-between items-center mb-1.5">
                                             <span className="font-semibold text-gray-800 text-sm group-hover:text-blue-600">Step {step.stepNumber}: {step.actionType}</span>
                                             <span className="text-gray-400 font-mono text-[10px]">{new Date(step.timestamp).toLocaleTimeString()}</span>
                                         </div>
-                                        <div className="bg-gray-50 rounded p-2 overflow-x-auto border border-gray-100 group-hover:bg-blue-50/30 transition-colors">
+                                        <button
+                                            type="button"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                useStepInspectorStore.getState().open(runId, step.stepNumber);
+                                            }}
+                                            className="mb-2 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 hover:bg-blue-100"
+                                        >
+                                            Inspect
+                                        </button>
+                                        <div className="bg-gray-50 rounded p-3 overflow-x-auto border border-gray-100 group-hover:bg-blue-50/30 transition-colors max-h-52">
                                             <pre className="text-[10px] text-gray-600 font-mono leading-tight">
                                                 {JSON.stringify(step.actionPayload, null, 2)}
                                             </pre>

@@ -230,6 +230,19 @@ export class StepExecutor {
 
             yield { type: 'action', action, assets };
 
+            if (action.type === ActionType.PASS) {
+                return { success: true, terminal: 'pass' };
+            }
+
+            if (action.type === ActionType.FAIL) {
+                return {
+                    success: false,
+                    terminal: 'fail',
+                    code: 'agent_fail',
+                    reason: action.reason
+                };
+            }
+
             const execResult = await this.toolExecutor.execute(action, {
                 browser,
                 currentUrl: url,
@@ -250,18 +263,6 @@ export class StepExecutor {
                 stepNumber: currentState.stepNumber + 1
             };
             loopCount++;
-
-            if (action.type === ActionType.PASS) {
-                return { success: true, terminal: 'pass' };
-            }
-            if (action.type === ActionType.FAIL) {
-                return {
-                    success: false,
-                    terminal: 'fail',
-                    code: 'agent_fail',
-                    reason: action.reason
-                };
-            }
         }
 
         return {

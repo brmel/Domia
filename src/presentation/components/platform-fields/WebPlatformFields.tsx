@@ -8,16 +8,16 @@ export function WebPlatformFields({ value, onChange, errors, disabled }: FieldRe
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-xs font-bold uppercase tracking-wider text-gray-400 pl-1">
+      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
         Target URL
       </label>
       <div className="relative group">
         <input
           className={cn(
-            "w-full px-4 py-3 bg-gray-50 border-2 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:bg-white transition-all font-medium font-mono",
+            "w-full px-3 py-2 bg-white border rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none transition-all font-mono",
             errors['url']
-              ? "border-red-100 focus:border-red-400 focus:ring-4 focus:ring-red-500/10"
-              : "border-transparent focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 group-hover:bg-white group-hover:border-gray-100"
+              ? "border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+              : "border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 group-hover:border-gray-400"
           )}
           type="text"
           placeholder="google.com"
@@ -27,7 +27,7 @@ export function WebPlatformFields({ value, onChange, errors, disabled }: FieldRe
           autoFocus
         />
         {errors['url'] && (
-          <span className="absolute right-3 top-3.5 text-xs text-red-500 font-bold">
+          <span className="absolute right-3 top-2.5 text-xs text-red-500 font-medium">
             {errors['url']}
           </span>
         )}

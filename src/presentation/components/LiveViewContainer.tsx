@@ -69,9 +69,8 @@ export const LiveViewContainer: React.FC = () => {
     return (
         <div
             ref={containerRef}
-            className="w-full h-full bg-transparent absolute inset-0 border-2 border-transparent data-[debug=true]:border-red-500"
-            data-debug="true"
-            style={{ minHeight: '100px', zIndex: isRunning ? 10 : -1 }}
+            className={`w-full h-full bg-transparent absolute inset-0 ${isRunning ? 'z-10' : 'z-0 opacity-0 pointer-events-none'}`}
+            style={{ minHeight: '100px' }}
         />
     );
 };
