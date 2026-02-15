@@ -7,7 +7,6 @@ import { WorkflowError } from '../../domain/errors';
 import { TestRunLifecycleManager } from '../services/TestRunLifecycleManager';
 import { RunTestInput, RunTestOutput } from '../dtos';
 import { TestRunState } from '../../domain/enums/TestRunState';
-import { ActionType } from '../../domain/enums/ActionType';
 import { WorkflowPlanner } from '../services/planning/WorkflowPlanner';
 import { StepExecutor, type StepExecutionResult } from '../services/execution/StepExecutor';
 import type { RunExecutionLaneService } from '../services/execution/RunExecutionLaneService';
@@ -16,10 +15,17 @@ import { RunBudgetPolicyService } from '../services/execution/RunBudgetPolicySer
 import { CheckpointCompactionService } from '../services/execution/CheckpointCompactionService';
 import { RecoveryReadModelService } from '../services/execution/RecoveryReadModelService';
 import { ManualRecoveryBootstrapService } from '../services/execution/ManualRecoveryBootstrapService';
-import { RunRecoveryPolicyService, type RecoveryMode } from '../services/execution/RunRecoveryPolicyService';
+import { RunRecoveryPolicyService } from '../services/execution/RunRecoveryPolicyService';
 import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplayGuardService';
 import { RecoveryReplayIdempotencyService } from '../services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
+import {
+    resolveRecoveryContext as resolveRecoveryContextForRun,
+    replayRecoveryActions as replayRecoveryActionsForRun,
+    type RecoveryBootstrapContext,
+    type RecoveryReplayOutcome,
+    type RunRecoveryDependencies
+} from '../services/execution/RunRecoveryOrchestration';
 import { SkillRegistryService } from '../services/skills/SkillRegistryService';
 import { SkillGovernanceService } from '../services/skills/SkillGovernanceService';
 import { PluginRegistryService } from '../services/plugins/PluginRegistryService';
@@ -27,25 +33,11 @@ import { PluginGatewayService } from '../services/plugins/PluginGatewayService';
 import { RuntimeReadinessPolicyService } from '../services/hardening/RuntimeReadinessPolicyService';
 import type { Plan, PlanItem, PlanItemStatus } from '@domain/entities/Plan';
 import { TestStep } from '../../domain/ports';
-import type { AgentAction } from '../../domain/value-objects';
 import { v4 as uuidv4 } from 'uuid';
 import type { ILogger } from '../../domain/ports';
 import { PlatformSessionFactory } from '../services/platform/PlatformSessionFactory';
 import type { ToolContext } from '../../domain/tools/Tool';
 import type { RunLifecycleState } from '@domain/value-objects/RunLifecycle';
-
-interface RecoveryBootstrapContext {
-    readonly sourceRunId: string;
-    readonly state: WorkflowState;
-    readonly plan?: Plan;
-    readonly startPlanIndex: number;
-}
-
-type RecoveryReplayOutcome =
-    | { readonly type: 'ok'; readonly state: WorkflowState; readonly replayedCount: number }
-    | { readonly type: 'cancelled'; readonly state: WorkflowState; readonly replayedCount: number }
-    | { readonly type: 'blocked'; readonly reason: string; readonly replayedCount: number }
-    | { readonly type: 'failed'; readonly reason: string; readonly replayedCount: number };
 
 type StepFailureCode = Extract<StepExecutionResult, { success: false }>['code'];
 
@@ -76,6 +68,20 @@ export class RunTestUseCase {
         @inject(RuntimeReadinessPolicyService) private readonly readinessPolicy: RuntimeReadinessPolicyService,
         @inject('ILogger') private logger: ILogger
     ) { }
+
+    private getRecoveryDependencies(): RunRecoveryDependencies {
+        return {
+            persistence: this.persistence,
+            durability: this.durability,
+            checkpointCompaction: this.checkpointCompaction,
+            recoveryReadModel: this.recoveryReadModel,
+            recoveryBootstrap: this.recoveryBootstrap,
+            recoveryPolicy: this.recoveryPolicy,
+            recoveryReplayGuard: this.recoveryReplayGuard,
+            recoveryReplayIdempotency: this.recoveryReplayIdempotency,
+            logger: this.logger
+        };
+    }
 
     async *execute(input: RunTestInput, controller: ExecutionController): AsyncGenerator<RunTestOutput, void, unknown> {
         const url = this.resolveRunUrl(input.platformConfig);
@@ -511,56 +517,7 @@ export class RunTestUseCase {
     }
 
     private async resolveRecoveryContext(input: RunTestInput): Promise<RecoveryBootstrapContext | null> {
-        const recoveryRunId = input.options?.recoveryRunId?.trim();
-
-        if (!recoveryRunId) {
-            return null;
-        }
-
-        const checkpoints = await this.durability.getCheckpointRecords(recoveryRunId);
-        const compactedView = this.checkpointCompaction.compact(recoveryRunId, checkpoints);
-        const readModel = this.recoveryReadModel.build(recoveryRunId, compactedView.compacted);
-        const recoveryMode: RecoveryMode = input.options?.recoveryMode ?? 'manual-only';
-        const decision = this.recoveryPolicy.decide(readModel, recoveryMode);
-
-        this.logger.info('[RunTestUseCase] Recovery scaffold decision evaluated', {
-            recoveryRunId,
-            recoveryMode,
-            shouldRecover: decision.shouldRecover,
-            reason: decision.reason,
-            checkpointCount: checkpoints.length,
-            compactedCheckpointCount: compactedView.compacted.length
-        });
-
-        if (!decision.shouldRecover || recoveryMode !== 'manual-only') {
-            return null;
-        }
-
-        const latest = compactedView.latest;
-        if (!latest) {
-            this.logger.warn('[RunTestUseCase] Recovery bootstrap skipped: latest checkpoint unavailable', {
-                recoveryRunId,
-                recoveryMode
-            });
-            return null;
-        }
-
-        const bootstrap = this.recoveryBootstrap.bootstrapFromCheckpoint(latest.state);
-
-        this.logger.info('[RunTestUseCase] Recovery bootstrap applied from latest checkpoint', {
-            recoveryRunId,
-            stepNumber: bootstrap.state.stepNumber,
-            status: bootstrap.state.status,
-            startPlanIndex: bootstrap.startPlanIndex,
-            hasPlan: Boolean(bootstrap.state.plan)
-        });
-
-        return {
-            sourceRunId: recoveryRunId,
-            state: bootstrap.state,
-            ...(bootstrap.state.plan ? { plan: bootstrap.state.plan } : {}),
-            startPlanIndex: bootstrap.startPlanIndex
-        };
+        return resolveRecoveryContextForRun(this.getRecoveryDependencies(), input);
     }
 
     private clearActiveItem(state: WorkflowState): WorkflowState {
@@ -576,187 +533,7 @@ export class RunTestUseCase {
         state: WorkflowState;
         targetStepNumber: number;
     }): Promise<RecoveryReplayOutcome> {
-        const { testRunId, sourceRunId, browser, controller, state, targetStepNumber } = params;
-
-        if (targetStepNumber <= 0) {
-            return { type: 'ok', state, replayedCount: 0 };
-        }
-
-        const stepsResult = await this.persistence.getTestSteps(sourceRunId);
-        if (stepsResult.isErr()) {
-            return { type: 'failed', reason: stepsResult.error.message, replayedCount: 0 };
-        }
-
-        const sourceSteps = stepsResult.value;
-        if (sourceSteps.length < targetStepNumber) {
-            return {
-                type: 'failed',
-                reason: `Checkpoint step target (${targetStepNumber}) exceeds available source steps (${sourceSteps.length})`,
-                replayedCount: 0
-            };
-        }
-
-        let replayedCount = 0;
-        let nextState = state;
-
-        for (const sourceStep of sourceSteps.slice(0, targetStepNumber)) {
-            if (controller.state === TestRunState.CANCELLED) {
-                return { type: 'cancelled', state: nextState, replayedCount };
-            }
-
-            const action = sourceStep.actionPayload;
-            const decision = this.recoveryReplayGuard.decide(action);
-
-            if (decision.decision === 'block') {
-                return {
-                    type: 'blocked',
-                    reason: `${decision.reason} at source step ${sourceStep.stepNumber}`,
-                    replayedCount
-                };
-            }
-
-            if (decision.decision === 'skip') {
-                this.logger.debug('[RunTestUseCase] Recovery replay skipped action', {
-                    testRunId,
-                    sourceRunId,
-                    sourceStepNumber: sourceStep.stepNumber,
-                    actionType: action.type,
-                    reason: decision.reason
-                });
-                continue;
-            }
-
-            const scopedIdempotencyKey = `${decision.idempotencyKey}:source-step:${sourceStep.stepNumber}`;
-
-            let shouldExecute = true;
-            try {
-                shouldExecute = await this.recoveryReplayIdempotency.shouldExecute(testRunId, scopedIdempotencyKey);
-            } catch (error) {
-                const reason = error instanceof Error ? error.message : String(error);
-                return {
-                    type: 'failed',
-                    reason: `Idempotency lookup failed at source step ${sourceStep.stepNumber}: ${reason}`,
-                    replayedCount
-                };
-            }
-
-            if (!shouldExecute) {
-                this.logger.debug('[RunTestUseCase] Recovery replay deduped action by idempotency key', {
-                    testRunId,
-                    sourceRunId,
-                    sourceStepNumber: sourceStep.stepNumber,
-                    idempotencyKey: scopedIdempotencyKey,
-                    actionType: action.type
-                });
-                continue;
-            }
-
-            try {
-                await this.executeReplayAction(browser, action);
-            } catch (error) {
-                const reason = error instanceof Error ? error.message : String(error);
-                return {
-                    type: 'failed',
-                    reason: `Execution failed at source step ${sourceStep.stepNumber}: ${reason}`,
-                    replayedCount
-                };
-            }
-
-            try {
-                await this.recoveryReplayIdempotency.markExecuted(testRunId, scopedIdempotencyKey);
-            } catch (error) {
-                const reason = error instanceof Error ? error.message : String(error);
-                return {
-                    type: 'failed',
-                    reason: `Idempotency write failed at source step ${sourceStep.stepNumber}: ${reason}`,
-                    replayedCount
-                };
-            }
-
-            const replayStep: TestStep = {
-                id: uuidv4(),
-                testRunId,
-                stepNumber: nextState.stepNumber + 1,
-                actionType: action.type,
-                actionPayload: action,
-                timestamp: new Date().toISOString()
-            };
-
-            const saveReplayStepResult = await this.persistence.saveTestStep(replayStep);
-            if (saveReplayStepResult.isErr()) {
-                return {
-                    type: 'failed',
-                    reason: `Failed to persist replay step at source step ${sourceStep.stepNumber}: ${saveReplayStepResult.error.message}`,
-                    replayedCount
-                };
-            }
-
-            nextState = {
-                ...nextState,
-                stepNumber: nextState.stepNumber + 1,
-                history: [...nextState.history, action]
-            };
-            replayedCount += 1;
-
-            await this.durability.checkpoint(testRunId, nextState, 'action_applied');
-        }
-
-        return { type: 'ok', state: nextState, replayedCount };
-    }
-
-    private async executeReplayAction(browser: IBrowserAutomation, action: AgentAction): Promise<void> {
-        switch (action.type) {
-            case ActionType.WAIT: {
-                const result = await browser.wait(action.durationMs);
-                if (result.isErr()) {
-                    throw new WorkflowError(`wait failed: ${result.error.message}`);
-                }
-                return;
-            }
-
-            case ActionType.SCROLL: {
-                const result = await browser.scroll(action.direction);
-                if (result.isErr()) {
-                    throw new WorkflowError(`scroll failed: ${result.error.message}`);
-                }
-                return;
-            }
-
-            case ActionType.EXTRACT: {
-                const result = await browser.extractText(action.elementId);
-                if (result.isErr()) {
-                    throw new WorkflowError(`extract failed: ${result.error.message}`);
-                }
-                return;
-            }
-
-            case ActionType.NAVIGATE: {
-                const urlResult = UrlFactory.create(action.url);
-                if (urlResult.isErr()) {
-                    throw new WorkflowError(`navigate failed: invalid url '${action.url}'`);
-                }
-
-                const result = await browser.navigateTo(urlResult.value);
-                if (result.isErr()) {
-                    throw new WorkflowError(`navigate failed: ${result.error.message}`);
-                }
-                return;
-            }
-
-            case ActionType.PASS:
-            case ActionType.FAIL:
-                return;
-
-            case ActionType.CLICK:
-            case ActionType.TYPE:
-            case ActionType.PRESS_KEY:
-                throw new WorkflowError(`non-idempotent replay action blocked: ${action.type}`);
-
-            default: {
-                const exhaustiveCheck: never = action;
-                throw new WorkflowError(`unsupported replay action: ${String(exhaustiveCheck)}`);
-            }
-        }
+        return replayRecoveryActionsForRun(this.getRecoveryDependencies(), params);
     }
 
     private async logCheckpointCompactionSummary(runId: string): Promise<void> {
