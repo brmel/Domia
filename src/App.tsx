@@ -14,10 +14,10 @@ const SECTION_TABS: ReadonlyArray<{ id: AppSection; label: string }> = [
     { id: 'runs', label: 'Runs' },
     { id: 'compose', label: 'Compose' },
     { id: 'workflow', label: 'Workflow' },
-    { id: 'skills', label: 'Skills' },
-    { id: 'plugins', label: 'Plugins' },
-    { id: 'governance', label: 'Governance' },
-    { id: 'observability', label: 'Observability' }
+    { id: 'skills', label: 'Skills · Not available' },
+    { id: 'plugins', label: 'Plugins · Not available' },
+    { id: 'governance', label: 'Governance · Not available' },
+    { id: 'observability', label: 'Observability · Not available' }
 ];
 
 
@@ -47,6 +47,7 @@ function App(): JSX.Element {
             return (
                 <AppSectionPlaceholder
                     title="Skills"
+                    unavailable
                     description="Skills will host reusable execution patterns with trust-aware governance and lifecycle management."
                     nextSteps={[
                         'Add registry table (id, version, trust, last used).',
@@ -61,6 +62,7 @@ function App(): JSX.Element {
             return (
                 <AppSectionPlaceholder
                     title="Plugins"
+                    unavailable
                     description="Plugins will provide capability-first operations across SSH, filesystem, and device connectors with policy and approval controls."
                     nextSteps={[
                         'Add plugin catalog with trust and capability matrix.',
@@ -75,6 +77,7 @@ function App(): JSX.Element {
             return (
                 <AppSectionPlaceholder
                     title="Governance"
+                    unavailable
                     description="Governance will centralize allow/deny/escalate policies and approval workflows for high-risk operations."
                     nextSteps={[
                         'Add versioned policy editor for tools, skills, and plugins.',
@@ -88,6 +91,7 @@ function App(): JSX.Element {
         return (
             <AppSectionPlaceholder
                 title="Observability"
+                unavailable
                 description="Observability will provide run reliability, performance, and policy telemetry with drill-down diagnostics."
                 nextSteps={[
                     'Add pass rate and duration trend panels.',

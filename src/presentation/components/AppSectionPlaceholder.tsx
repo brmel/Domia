@@ -5,14 +5,22 @@ interface AppSectionPlaceholderProps {
     title: string;
     description: string;
     nextSteps: readonly string[];
+    unavailable?: boolean;
 }
 
-export function AppSectionPlaceholder({ title, description, nextSteps }: AppSectionPlaceholderProps): React.ReactElement {
+export function AppSectionPlaceholder({ title, description, nextSteps, unavailable = false }: AppSectionPlaceholderProps): React.ReactElement {
     return (
         <section className="h-full w-full p-6 bg-gray-50 overflow-auto">
             <div className="max-w-4xl mx-auto">
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-                    <h2 className="text-2xl font-semibold tracking-tight text-gray-900">{title}</h2>
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-2xl font-semibold tracking-tight text-gray-900">{title}</h2>
+                        {unavailable ? (
+                            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                                Not available
+                            </span>
+                        ) : null}
+                    </div>
                     <p className="mt-2 text-sm text-gray-600 leading-relaxed">{description}</p>
 
                     <SectionBlock title="UI-1 Next Steps" className="mt-6 border-t border-gray-100 pt-5" contentClassName="mt-3">
