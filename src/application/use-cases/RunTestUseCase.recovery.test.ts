@@ -480,4 +480,110 @@ describe('RunTestUseCase recovery flow', () => {
         expect(ctx.replayIdempotency.markExecuted).not.toHaveBeenCalled();
         expect(ctx.executor.executeStep).toHaveBeenCalledTimes(1);
     });
+
+    it('does not trigger replanning telemetry when replay is blocked pre-execution', async () => {
+        const checkpointState = {
+            ...WorkflowState.initial(),
+            stepNumber: 1,
+            plan: createPlan([
+                { id: 'a', description: 'pending', status: 'pending', type: 'general' }
+            ])
+        };
+
+        const sourceSteps: TestStep[] = [
+            {
+                id: 'step-1',
+                testRunId: 'recovery-run',
+                stepNumber: 1,
+                actionType: ActionType.CLICK,
+                actionPayload: { type: ActionType.CLICK, elementId: ElementIdFactory.unsafe(1), thought: 'click' },
+                timestamp: '2026-01-01T00:00:00.000Z'
+            }
+        ];
+
+        const ctx = createUseCaseContext([createCheckpoint(checkpointState)], sourceSteps);
+        const controller = new ExecutionController();
+
+        const events: RunTestOutput[] = [];
+        for await (const event of ctx.useCase.execute({
+            platformConfig: { platform: 'web', url: 'https://example.com' },
+            prompt: 'blocked replay should not replan',
+            options: {
+                recoveryMode: 'manual-only',
+                recoveryRunId: 'recovery-run'
+            }
+        }, controller)) {
+            events.push(event);
+        }
+
+        expect(ctx.executor.executeStep).not.toHaveBeenCalled();
+        expect(ctx.planner.plan).not.toHaveBeenCalled();
+        expect(events.some((event) => event.type === 'replanning')).toBe(false);
+        expect(events.some((event) => event.type === 'error')).toBe(true);
+    });
+
+    it('allows replanning after successful replay when resumed step fails', async () => {
+        const checkpointState = {
+            ...WorkflowState.initial(),
+            stepNumber: 1,
+            plan: createPlan([
+                { id: 'a', description: 'pending', status: 'pending', type: 'general' }
+            ])
+        };
+
+        const sourceSteps: TestStep[] = [
+            {
+                id: 'step-1',
+                testRunId: 'recovery-run',
+                stepNumber: 1,
+                actionType: ActionType.WAIT,
+                actionPayload: { type: ActionType.WAIT, durationMs: 25, thought: 'wait' },
+                timestamp: '2026-01-01T00:00:00.000Z'
+            }
+        ];
+
+        const ctx = createUseCaseContext([createCheckpoint(checkpointState)], sourceSteps);
+        ctx.planner.plan.mockResolvedValueOnce(ok(createPlan([
+            { id: 'r1', description: 'retry pending', status: 'pending', type: 'general' }
+        ])));
+
+        let executionCount = 0;
+        (ctx.executor.executeStep as any).mockImplementation(async function* () {
+            executionCount += 1;
+
+            if (executionCount === 1) {
+                return {
+                    success: false as const,
+                    terminal: 'fail' as const,
+                    code: 'assertion_fail' as const,
+                    reason: 'assertion mismatch'
+                };
+            }
+
+            return {
+                success: true as const,
+                terminal: 'pass' as const
+            };
+        });
+
+        const controller = new ExecutionController();
+
+        const events: RunTestOutput[] = [];
+        for await (const event of ctx.useCase.execute({
+            platformConfig: { platform: 'web', url: 'https://example.com' },
+            prompt: 'replan after replay',
+            options: {
+                recoveryMode: 'manual-only',
+                recoveryRunId: 'recovery-run'
+            }
+        }, controller)) {
+            events.push(event);
+        }
+
+        expect(ctx.browser.wait).toHaveBeenCalledTimes(1);
+        expect(ctx.planner.plan).toHaveBeenCalledTimes(1);
+        expect(ctx.executor.executeStep).toHaveBeenCalledTimes(2);
+        expect(events.some((event) => event.type === 'replanning' && event.telemetry.status === 'executed')).toBe(true);
+        expect(events.some((event) => event.type === 'completed' && event.success === true)).toBe(true);
+    });
 });
