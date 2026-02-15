@@ -4,6 +4,7 @@ import type { RunOptions } from '@shared/validation';
 import { ReadinessGateService, type ReadinessReport } from './ReadinessGateService';
 
 export type RuntimeReadinessMode = 'observe' | 'soft-enforce';
+export type RuntimeReadinessProfile = 'dev' | 'staging' | 'production';
 
 export interface RuntimeReadinessDecision {
     readonly mode: RuntimeReadinessMode;
@@ -27,9 +28,11 @@ export class RuntimeReadinessPolicyService {
 
     assess(input: RuntimeReadinessInput, resolvedUrl: string): RuntimeReadinessDecision {
         const mode = this.resolveMode(input.options?.readinessMode);
+        const profile = this.resolveProfile(input.options?.readinessProfile);
 
         const config = this.configService.get();
         const apiKeyPresent = Boolean(config.ai.apiKey?.trim());
+        const readinessFlagEnabled = process.env['DOMIA_ENABLE_READINESS_GATES'] === 'true';
 
         const report = this.readinessGateService.evaluate([
             {
@@ -47,14 +50,27 @@ export class RuntimeReadinessPolicyService {
             {
                 id: 'llm_api_key_present',
                 description: 'AI API key should be configured',
-                required: true,
+                required: profile !== 'dev',
                 passed: apiKeyPresent
+            },
+            {
+                id: 'readiness_flag_enabled',
+                description: 'Readiness gates should be explicitly enabled',
+                required: profile === 'staging' || profile === 'production',
+                passed: readinessFlagEnabled
+            },
+            {
+                id: 'readiness_mode_soft_enforce',
+                description: 'Readiness mode should be soft-enforce in production',
+                required: profile === 'production',
+                passed: mode === 'soft-enforce'
             }
         ]);
 
         if (report.passed) {
             this.logger.debug('[RuntimeReadinessPolicyService] Readiness checks passed', {
                 mode,
+                profile,
                 gateCount: report.gates.length
             });
             return {
@@ -68,6 +84,7 @@ export class RuntimeReadinessPolicyService {
 
         if (mode === 'soft-enforce') {
             this.logger.warn('[RuntimeReadinessPolicyService] Blocking run in soft-enforce mode', {
+                profile,
                 failedRequiredGateIds: report.failedRequiredGateIds
             });
             return {
@@ -79,6 +96,7 @@ export class RuntimeReadinessPolicyService {
         }
 
         this.logger.warn('[RuntimeReadinessPolicyService] Observe mode: readiness failures logged only', {
+            profile,
             failedRequiredGateIds: report.failedRequiredGateIds
         });
 
@@ -97,5 +115,18 @@ export class RuntimeReadinessPolicyService {
 
         const envMode = process.env['DOMIA_READINESS_MODE'];
         return envMode === 'soft-enforce' ? 'soft-enforce' : 'observe';
+    }
+
+    private resolveProfile(optionProfile: 'dev' | 'staging' | 'production' | undefined): RuntimeReadinessProfile {
+        if (optionProfile === 'dev' || optionProfile === 'staging' || optionProfile === 'production') {
+            return optionProfile;
+        }
+
+        const envProfile = process.env['DOMIA_ENV_PROFILE'];
+        if (envProfile === 'staging' || envProfile === 'production') {
+            return envProfile;
+        }
+
+        return 'dev';
     }
 }

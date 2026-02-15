@@ -44,7 +44,8 @@ export const RunOptionsSchema = z.object({
       'device.control'
     ])
   }).optional(),
-  readinessMode: z.enum(['observe', 'soft-enforce']).optional()
+  readinessMode: z.enum(['observe', 'soft-enforce']).optional(),
+  readinessProfile: z.enum(['dev', 'staging', 'production']).optional()
 });
 
 export const RunInputSchema = z.object({

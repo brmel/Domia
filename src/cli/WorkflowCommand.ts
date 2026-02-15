@@ -389,7 +389,7 @@ export class WorkflowCommand {
         executablePath?: string;
         launchArgs?: string;
         windowTitle?: string;
-    }, fallback?: PlatformConfig): PlatformConfig {
+    }, defaultPlatformConfig?: PlatformConfig): PlatformConfig {
         const { url, cdpUrl, executablePath, launchArgs, windowTitle } = options;
 
         if (url) {
@@ -422,8 +422,8 @@ export class WorkflowCommand {
             };
         }
 
-        if (fallback) {
-            return fallback;
+        if (defaultPlatformConfig) {
+            return defaultPlatformConfig;
         }
 
         throw new Error('Must provide one of --url, --cdp-url, or --executable-path.');

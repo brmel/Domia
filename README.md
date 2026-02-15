@@ -56,6 +56,25 @@ Start the Electron-based desktop application:
 npm run dev
 ```
 
+## Readiness Gates (CI / Release)
+
+Run readiness validation pipeline (typecheck + architecture + tests) with baseline profile controls:
+
+```bash
+npm run readiness:gate -- --profile=staging
+```
+
+Production release check:
+
+```bash
+npm run release:check
+```
+
+Profiles:
+- `dev`: readiness gates optional, observe mode by default
+- `staging`: readiness gates enabled, observe mode default
+- `production`: readiness gates enabled, soft-enforce required
+
 ## Architecture
 
 Domia is built with a Hexagonal Architecture (Ports & Adapters):
