@@ -23,7 +23,7 @@ export function AppSectionPlaceholder({ title, description, nextSteps, unavailab
                     </div>
                     <p className="mt-2 text-sm text-gray-600 leading-relaxed">{description}</p>
 
-                    <SectionBlock title="UI-1 Next Steps" className="mt-6 border-t border-gray-100 pt-5" contentClassName="mt-3">
+                    <SectionBlock title="Next Steps" className="mt-6 border-t border-gray-100 pt-5" contentClassName="mt-3">
                         <ul className="space-y-2 text-sm text-gray-700">
                             {nextSteps.map((step) => (
                                 <li key={step} className="flex items-start gap-2">

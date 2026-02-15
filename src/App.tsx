@@ -48,7 +48,7 @@ function App(): JSX.Element {
                 <AppSectionPlaceholder
                     title="Skills"
                     unavailable
-                    description="Skills will host reusable execution patterns with trust-aware governance and lifecycle management."
+                    description="Reusable execution patterns with trust-aware governance and lifecycle controls."
                     nextSteps={[
                         'Add registry table (id, version, trust, last used).',
                         'Add skill details (schema, preconditions, postconditions).',
@@ -63,7 +63,7 @@ function App(): JSX.Element {
                 <AppSectionPlaceholder
                     title="Plugins"
                     unavailable
-                    description="Plugins will provide capability-first operations across SSH, filesystem, and device connectors with policy and approval controls."
+                    description="Capability-first operations across SSH, filesystem, and device connectors with policy controls."
                     nextSteps={[
                         'Add plugin catalog with trust and capability matrix.',
                         'Add policy decision visibility per invocation.',
@@ -78,7 +78,7 @@ function App(): JSX.Element {
                 <AppSectionPlaceholder
                     title="Governance"
                     unavailable
-                    description="Governance will centralize allow/deny/escalate policies and approval workflows for high-risk operations."
+                    description="Centralized allow, deny, and escalate policies for high-risk operations."
                     nextSteps={[
                         'Add versioned policy editor for tools, skills, and plugins.',
                         'Add decision simulator for hypothetical requests.',
@@ -92,7 +92,7 @@ function App(): JSX.Element {
             <AppSectionPlaceholder
                 title="Observability"
                 unavailable
-                description="Observability will provide run reliability, performance, and policy telemetry with drill-down diagnostics."
+                description="Run reliability, performance, and policy telemetry with drill-down diagnostics."
                 nextSteps={[
                     'Add pass rate and duration trend panels.',
                     'Add retry, token, and temporal overhead views.',
