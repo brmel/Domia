@@ -155,6 +155,33 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         );
     }
 
+    mouseDoubleClick(x: number, y: number): ResultAsync<void, InteractionError> {
+        if (!this.page) {
+            return errAsync(new InteractionError('Browser not launched'));
+        }
+        this.logger.debug(`[PlaywrightAdapter] Mouse double click at: (${x}, ${y})`);
+        return ResultAsync.fromPromise(
+            this.page.mouse.click(x, y, { button: 'left', clickCount: 2 }),
+            (e) => new InteractionError(`Mouse double click failed: ${String(e)}`)
+        );
+    }
+
+    mouseDrag(fromX: number, fromY: number, toX: number, toY: number, steps: number = 10): ResultAsync<void, InteractionError> {
+        if (!this.page) {
+            return errAsync(new InteractionError('Browser not launched'));
+        }
+        this.logger.debug(`[PlaywrightAdapter] Mouse drag from (${fromX}, ${fromY}) to (${toX}, ${toY}) steps=${steps}`);
+        return ResultAsync.fromPromise(
+            (async () => {
+                await this.page!.mouse.move(fromX, fromY);
+                await this.page!.mouse.down();
+                await this.page!.mouse.move(toX, toY, { steps: Math.max(1, Math.floor(steps)) });
+                await this.page!.mouse.up();
+            })(),
+            (e) => new InteractionError(`Mouse drag failed: ${String(e)}`)
+        );
+    }
+
     type(elementId: ElementId, text: string): ResultAsync<void, InteractionError> {
         this.logger.debug(`[PlaywrightAdapter] Typing into element: ${elementId}`);
         return this.findElement(elementId).andThen((el) =>

@@ -17,6 +17,8 @@ TOOLS:
 - mouse_move
 - mouse_click_left
 - mouse_click_right
+- mouse_double_click
+- mouse_drag
 - mouse_scroll
 - wait
 - extract
@@ -136,7 +138,7 @@ CURRENT PLAN:
 ${formatPlan(context.plan)}
 
 AVAILABLE TOOLS:
-${availableTools || 'Use the default core actions (click, type, pressKey, scroll, mouse_move, mouse_click_left, mouse_click_right, mouse_scroll, wait, extract, navigate, pass, fail).'}
+${availableTools || 'Use the default core actions (click, type, pressKey, scroll, mouse_move, mouse_click_left, mouse_click_right, mouse_double_click, mouse_drag, mouse_scroll, wait, extract, navigate, pass, fail).'}
 
 TEMPORAL TIMELINE:
 ${temporalWindowStr}

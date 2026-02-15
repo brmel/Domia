@@ -194,6 +194,44 @@ export class WebDriver implements IAppDriver {
                 }
             },
             {
+                name: 'mouse_double_click',
+                description: 'Double-click at viewport coordinates',
+                schema: z.object({ x: z.number(), y: z.number() }),
+                metadata: {
+                    name: 'mouse_double_click',
+                    platforms: ['web'],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
+                execute: (params: { x: number; y: number }) => {
+                    return this.playwright.mouseDoubleClick(params.x, params.y)
+                        .map(() => ({ success: true, message: `Double-clicked at (${params.x}, ${params.y})` } as ActionResult))
+                        .mapErr(err => new Error(err.message));
+                }
+            },
+            {
+                name: 'mouse_drag',
+                description: 'Drag mouse from source to target viewport coordinates',
+                schema: z.object({
+                    fromX: z.number(),
+                    fromY: z.number(),
+                    toX: z.number(),
+                    toY: z.number(),
+                    steps: z.number().int().min(1).max(100).optional()
+                }),
+                metadata: {
+                    name: 'mouse_drag',
+                    platforms: ['web'],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
+                execute: (params: { fromX: number; fromY: number; toX: number; toY: number; steps?: number }) => {
+                    return this.playwright.mouseDrag(params.fromX, params.fromY, params.toX, params.toY, params.steps)
+                        .map(() => ({ success: true, message: `Dragged from (${params.fromX}, ${params.fromY}) to (${params.toX}, ${params.toY})` } as ActionResult))
+                        .mapErr(err => new Error(err.message));
+                }
+            },
+            {
                 name: 'mouse_scroll',
                 description: 'Scroll mouse wheel by deltas at current cursor position',
                 schema: z.object({ deltaX: z.number().optional(), deltaY: z.number() }),

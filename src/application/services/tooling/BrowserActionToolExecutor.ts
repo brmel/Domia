@@ -36,6 +36,12 @@ export class BrowserActionToolExecutor implements ToolExecutor {
                 case ActionType.MOUSE_CLICK_RIGHT:
                     (await browser.mouseClick(action.x, action.y, 'right')).mapErr(e => { throw new Error(e.message); });
                     break;
+                case ActionType.MOUSE_DOUBLE_CLICK:
+                    (await browser.mouseDoubleClick(action.x, action.y)).mapErr(e => { throw new Error(e.message); });
+                    break;
+                case ActionType.MOUSE_DRAG:
+                    (await browser.mouseDrag(action.fromX, action.fromY, action.toX, action.toY, action.steps)).mapErr(e => { throw new Error(e.message); });
+                    break;
                 case ActionType.MOUSE_SCROLL:
                     (await browser.mouseScroll(action.deltaX, action.deltaY)).mapErr(e => { throw new Error(e.message); });
                     break;

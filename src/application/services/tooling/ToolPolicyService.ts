@@ -30,9 +30,24 @@ export class DefaultToolPolicyService implements ToolPolicyService {
             }
             case ActionType.MOUSE_MOVE:
             case ActionType.MOUSE_CLICK_LEFT:
+            case ActionType.MOUSE_DOUBLE_CLICK:
             case ActionType.MOUSE_CLICK_RIGHT: {
                 if (!Number.isFinite(action.x) || !Number.isFinite(action.y)) {
                     return err(new Error(`Policy blocked '${action.type}': x/y must be finite numbers`));
+                }
+                break;
+            }
+            case ActionType.MOUSE_DRAG: {
+                if (
+                    !Number.isFinite(action.fromX)
+                    || !Number.isFinite(action.fromY)
+                    || !Number.isFinite(action.toX)
+                    || !Number.isFinite(action.toY)
+                ) {
+                    return err(new Error("Policy blocked 'mouse_drag': from/to coordinates must be finite numbers"));
+                }
+                if (action.steps !== undefined && (!Number.isInteger(action.steps) || action.steps < 1 || action.steps > 100)) {
+                    return err(new Error("Policy blocked 'mouse_drag': steps must be an integer between 1 and 100"));
                 }
                 break;
             }

@@ -513,8 +513,14 @@ export class StepExecutor {
             case ActionType.MOUSE_MOVE:
             case ActionType.MOUSE_CLICK_LEFT:
             case ActionType.MOUSE_CLICK_RIGHT:
+            case ActionType.MOUSE_DOUBLE_CLICK:
                 if (!isInBounds(action.x, action.y)) {
                     return `Viewport safety check failed for '${action.type}': coordinates (${action.x}, ${action.y}) are outside viewport ${viewport.width}x${viewport.height}`;
+                }
+                return undefined;
+            case ActionType.MOUSE_DRAG:
+                if (!isInBounds(action.fromX, action.fromY) || !isInBounds(action.toX, action.toY)) {
+                    return `Viewport safety check failed for '${action.type}': drag coordinates (${action.fromX}, ${action.fromY}) -> (${action.toX}, ${action.toY}) are outside viewport ${viewport.width}x${viewport.height}`;
                 }
                 return undefined;
             default:

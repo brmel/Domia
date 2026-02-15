@@ -31,6 +31,8 @@ export class RecoveryReplayGuardService {
             case ActionType.PRESS_KEY:
             case ActionType.MOUSE_CLICK_LEFT:
             case ActionType.MOUSE_CLICK_RIGHT:
+            case ActionType.MOUSE_DOUBLE_CLICK:
+            case ActionType.MOUSE_DRAG:
                 return { decision: 'block', reason: `Action '${action.type}' is non-idempotent and blocked for replay` };
             default: {
                 const exhaustiveCheck: never = action;

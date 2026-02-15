@@ -16,6 +16,8 @@ export type {
 	MouseMoveAction,
 	MouseClickLeftAction,
 	MouseClickRightAction,
+	MouseDoubleClickAction,
+	MouseDragAction,
 	MouseScrollAction
 } from './AgentAction';
 export { isTerminalAction } from './AgentAction';

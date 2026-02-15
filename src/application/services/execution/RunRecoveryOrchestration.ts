@@ -301,6 +301,8 @@ async function executeReplayAction(browser: IBrowserAutomation, action: AgentAct
         case ActionType.PRESS_KEY:
         case ActionType.MOUSE_CLICK_LEFT:
         case ActionType.MOUSE_CLICK_RIGHT:
+        case ActionType.MOUSE_DOUBLE_CLICK:
+        case ActionType.MOUSE_DRAG:
             throw new WorkflowError(`non-idempotent replay action blocked: ${action.type}`);
 
         default: {

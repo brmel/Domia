@@ -64,6 +64,20 @@ export class LoopDetectorService {
                 const a = a1 as Extract<AgentAction, { type: ActionType.MOUSE_MOVE }>;
                 return b.x === a.x && b.y === a.y;
             }
+            case ActionType.MOUSE_DOUBLE_CLICK: {
+                const b = a2 as Extract<AgentAction, { type: ActionType.MOUSE_DOUBLE_CLICK }>;
+                const a = a1 as Extract<AgentAction, { type: ActionType.MOUSE_DOUBLE_CLICK }>;
+                return b.x === a.x && b.y === a.y;
+            }
+            case ActionType.MOUSE_DRAG: {
+                const b = a2 as Extract<AgentAction, { type: ActionType.MOUSE_DRAG }>;
+                const a = a1 as Extract<AgentAction, { type: ActionType.MOUSE_DRAG }>;
+                return b.fromX === a.fromX
+                    && b.fromY === a.fromY
+                    && b.toX === a.toX
+                    && b.toY === a.toY
+                    && b.steps === a.steps;
+            }
             case ActionType.MOUSE_SCROLL: {
                 const b = a2 as Extract<AgentAction, { type: ActionType.MOUSE_SCROLL }>;
                 const a = a1 as Extract<AgentAction, { type: ActionType.MOUSE_SCROLL }>;

@@ -166,6 +166,60 @@ export class CommonWebToolsFactory {
                 }
             },
             {
+                name: 'mouse_double_click',
+                description: 'Double-click at viewport coordinates',
+                schema: z.object({
+                    x: z.number(),
+                    y: z.number(),
+                    windowId: z.string().optional()
+                }),
+                metadata: {
+                    name: 'mouse_double_click',
+                    platforms: ['web', 'electron'] as PlatformType[],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
+                execute: (params: { x: number; y: number; windowId?: string }) => {
+                    return ResultAsync.fromPromise(
+                        executeInWindow(params.windowId, async (page) => {
+                            await page.mouse.click(params.x, params.y, { button: 'left', clickCount: 2 });
+                            return { success: true, message: `Double-clicked at (${params.x}, ${params.y})` };
+                        }),
+                        (e) => new Error(`Mouse double click failed: ${e}`)
+                    );
+                }
+            },
+            {
+                name: 'mouse_drag',
+                description: 'Drag mouse from source to target viewport coordinates',
+                schema: z.object({
+                    fromX: z.number(),
+                    fromY: z.number(),
+                    toX: z.number(),
+                    toY: z.number(),
+                    steps: z.number().int().min(1).max(100).optional(),
+                    windowId: z.string().optional()
+                }),
+                metadata: {
+                    name: 'mouse_drag',
+                    platforms: ['web', 'electron'] as PlatformType[],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
+                execute: (params: { fromX: number; fromY: number; toX: number; toY: number; steps?: number; windowId?: string }) => {
+                    return ResultAsync.fromPromise(
+                        executeInWindow(params.windowId, async (page) => {
+                            await page.mouse.move(params.fromX, params.fromY);
+                            await page.mouse.down();
+                            await page.mouse.move(params.toX, params.toY, { steps: params.steps ?? 10 });
+                            await page.mouse.up();
+                            return { success: true, message: `Dragged from (${params.fromX}, ${params.fromY}) to (${params.toX}, ${params.toY})` };
+                        }),
+                        (e) => new Error(`Mouse drag failed: ${e}`)
+                    );
+                }
+            },
+            {
                 name: 'mouse_scroll',
                 description: 'Scroll mouse wheel by deltas at current cursor position',
                 schema: z.object({

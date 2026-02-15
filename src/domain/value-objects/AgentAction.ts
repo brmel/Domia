@@ -12,6 +12,8 @@ export type AgentAction =
     | MouseMoveAction
     | MouseClickLeftAction
     | MouseClickRightAction
+    | MouseDoubleClickAction
+    | MouseDragAction
     | MouseScrollAction
     | WaitAction
     | PressKeyAction
@@ -60,6 +62,23 @@ export interface MouseClickRightAction {
     readonly type: ActionType.MOUSE_CLICK_RIGHT;
     readonly x: number;
     readonly y: number;
+    readonly thought: string;
+}
+
+export interface MouseDoubleClickAction {
+    readonly type: ActionType.MOUSE_DOUBLE_CLICK;
+    readonly x: number;
+    readonly y: number;
+    readonly thought: string;
+}
+
+export interface MouseDragAction {
+    readonly type: ActionType.MOUSE_DRAG;
+    readonly fromX: number;
+    readonly fromY: number;
+    readonly toX: number;
+    readonly toY: number;
+    readonly steps?: number;
     readonly thought: string;
 }
 

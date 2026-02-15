@@ -52,6 +52,22 @@ export class ActionToolMapper {
                 schema: z.object({ x: z.number(), y: z.number() })
             },
             {
+                name: ActionType.MOUSE_DOUBLE_CLICK,
+                description: 'Double-click at viewport coordinates (x, y).',
+                schema: z.object({ x: z.number(), y: z.number() })
+            },
+            {
+                name: ActionType.MOUSE_DRAG,
+                description: 'Drag mouse from source coordinates to target coordinates.',
+                schema: z.object({
+                    fromX: z.number(),
+                    fromY: z.number(),
+                    toX: z.number(),
+                    toY: z.number(),
+                    steps: z.number().int().min(1).max(100).optional()
+                })
+            },
+            {
                 name: ActionType.MOUSE_SCROLL,
                 description: 'Scroll at current cursor position using wheel deltas.',
                 schema: z.object({ deltaX: z.number().optional(), deltaY: z.number() })
@@ -91,6 +107,8 @@ export class ActionToolMapper {
             ActionType.MOUSE_MOVE,
             ActionType.MOUSE_CLICK_LEFT,
             ActionType.MOUSE_CLICK_RIGHT,
+            ActionType.MOUSE_DOUBLE_CLICK,
+            ActionType.MOUSE_DRAG,
             ActionType.MOUSE_SCROLL,
             ActionType.WAIT,
             ActionType.NAVIGATE,
@@ -109,6 +127,8 @@ export class ActionToolMapper {
         if (availableNames.has('mouse_move')) mappedByRegistry.add(ActionType.MOUSE_MOVE);
         if (availableNames.has('mouse_click_left')) mappedByRegistry.add(ActionType.MOUSE_CLICK_LEFT);
         if (availableNames.has('mouse_click_right')) mappedByRegistry.add(ActionType.MOUSE_CLICK_RIGHT);
+        if (availableNames.has('mouse_double_click')) mappedByRegistry.add(ActionType.MOUSE_DOUBLE_CLICK);
+        if (availableNames.has('mouse_drag')) mappedByRegistry.add(ActionType.MOUSE_DRAG);
         if (availableNames.has('mouse_scroll')) mappedByRegistry.add(ActionType.MOUSE_SCROLL);
         if (availableNames.has('wait')) mappedByRegistry.add(ActionType.WAIT);
         if (availableNames.has('navigate_to')) mappedByRegistry.add(ActionType.NAVIGATE);
@@ -162,6 +182,23 @@ export class ActionToolMapper {
                     x: Number(args['x'] ?? 0),
                     y: Number(args['y'] ?? 0),
                     thought: 'Tool call: mouse_click_right'
+                };
+            case ActionType.MOUSE_DOUBLE_CLICK:
+                return {
+                    type: ActionType.MOUSE_DOUBLE_CLICK,
+                    x: Number(args['x'] ?? 0),
+                    y: Number(args['y'] ?? 0),
+                    thought: 'Tool call: mouse_double_click'
+                };
+            case ActionType.MOUSE_DRAG:
+                return {
+                    type: ActionType.MOUSE_DRAG,
+                    fromX: Number(args['fromX'] ?? 0),
+                    fromY: Number(args['fromY'] ?? 0),
+                    toX: Number(args['toX'] ?? 0),
+                    toY: Number(args['toY'] ?? 0),
+                    ...(typeof args['steps'] === 'number' ? { steps: args['steps'] } : {}),
+                    thought: 'Tool call: mouse_drag'
                 };
             case ActionType.MOUSE_SCROLL:
                 return {
@@ -305,6 +342,27 @@ export class ActionToolMapper {
                     input: {
                         x: action.x,
                         y: action.y,
+                        ...electronWindowPayload
+                    }
+                };
+            case ActionType.MOUSE_DOUBLE_CLICK:
+                return {
+                    toolName: 'mouse_double_click',
+                    input: {
+                        x: action.x,
+                        y: action.y,
+                        ...electronWindowPayload
+                    }
+                };
+            case ActionType.MOUSE_DRAG:
+                return {
+                    toolName: 'mouse_drag',
+                    input: {
+                        fromX: action.fromX,
+                        fromY: action.fromY,
+                        toX: action.toX,
+                        toY: action.toY,
+                        ...(action.steps !== undefined ? { steps: action.steps } : {}),
                         ...electronWindowPayload
                     }
                 };

@@ -30,6 +30,8 @@ describe('RecoveryReplayGuardService', () => {
             { type: ActionType.TYPE, elementId: ElementIdFactory.unsafe(3), text: 'abc', thought: 'type' },
             { type: ActionType.MOUSE_CLICK_LEFT, x: 10, y: 20, thought: 'left click' },
             { type: ActionType.MOUSE_CLICK_RIGHT, x: 10, y: 20, thought: 'right click' },
+            { type: ActionType.MOUSE_DOUBLE_CLICK, x: 10, y: 20, thought: 'double click' },
+            { type: ActionType.MOUSE_DRAG, fromX: 5, fromY: 5, toX: 40, toY: 40, thought: 'drag' },
             { type: ActionType.PRESS_KEY, key: 'Enter', thought: 'press' }
         ];
 
