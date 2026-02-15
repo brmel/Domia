@@ -17,65 +17,76 @@ export class ActionToolMapper {
         const allTools: ToolCallDefinition[] = [
             {
                 name: ActionType.CLICK,
-                description: 'Click on an element by its numeric ID.',
+                description: 'Click an interactive element by its numeric elementId from the latest snapshot.',
                 schema: z.object({ elementId: z.number() })
             },
             {
                 name: ActionType.TYPE,
-                description: 'Type text into an element by ID, optionally submitting with Enter.',
+                description: 'Type text into an input-like element by elementId. Set submit=true to press Enter after typing.',
                 schema: z.object({ elementId: z.number(), text: z.string(), submit: z.boolean().optional() })
             },
             {
                 name: ActionType.PRESS_KEY,
-                description: 'Press a keyboard key.',
+                description: 'Press a keyboard key (for example Enter, Tab, Escape) when direct key interaction is needed.',
                 schema: z.object({ key: z.string() })
             },
             {
                 name: ActionType.SCROLL,
-                description: 'Scroll the page up or down.',
+                description: 'Scroll the current view up or down to reveal additional content.',
                 schema: z.object({ direction: z.enum(['up', 'down']) })
             },
             {
                 name: ActionType.WAIT,
-                description: 'Wait for a number of milliseconds.',
+                description: 'Wait for UI/network settling before the next action. Prefer short waits.',
                 schema: z.object({ durationMs: z.number().optional() })
             },
             {
                 name: ActionType.EXTRACT,
-                description: 'Extract text from an element by ID.',
+                description: 'Extract text/content from an element by elementId when verification requires explicit reading.',
                 schema: z.object({ elementId: z.number() })
             },
             {
                 name: ActionType.NAVIGATE,
-                description: 'Navigate to a full URL.',
+                description: 'Navigate to an absolute URL when changing page is required.',
                 schema: z.object({ url: z.string().url() })
             },
             {
                 name: ActionType.PASS,
-                description: 'Mark the current step as successfully completed.',
+                description: 'Mark the current step as completed. Use when evidence indicates the step goal is satisfied.',
                 schema: z.object({ summary: z.string().optional() })
             },
             {
                 name: ActionType.FAIL,
-                description: 'Mark the current step as failed with a reason.',
+                description: 'Mark the current step as failed with a concrete reason after re-checking and trying a plausible alternative.',
                 schema: z.object({ reason: z.string() })
             }
         ];
 
         const availableNames = new Set((availableTools ?? []).map(tool => tool.name));
+        const allowedActionTypes = new Set<ActionType>([
+            ActionType.CLICK,
+            ActionType.TYPE,
+            ActionType.SCROLL,
+            ActionType.WAIT,
+            ActionType.NAVIGATE,
+            ActionType.PASS,
+            ActionType.FAIL
+        ]);
+
         if (availableNames.size === 0) {
-            return allTools;
+            return allTools.filter(tool => allowedActionTypes.has(tool.name as ActionType));
         }
+        const mappedByRegistry = new Set<ActionType>([ActionType.PASS, ActionType.FAIL]);
 
-        const allowedActionTypes = new Set<ActionType>([ActionType.PASS, ActionType.FAIL]);
+        if (availableNames.has('click_element')) mappedByRegistry.add(ActionType.CLICK);
+        if (availableNames.has('type_text')) mappedByRegistry.add(ActionType.TYPE);
+        if (availableNames.has('scroll_page')) mappedByRegistry.add(ActionType.SCROLL);
+        if (availableNames.has('wait')) mappedByRegistry.add(ActionType.WAIT);
+        if (availableNames.has('navigate_to')) mappedByRegistry.add(ActionType.NAVIGATE);
+        if (availableNames.has('press_key') || availableNames.has('pressKey')) mappedByRegistry.add(ActionType.PRESS_KEY);
+        if (availableNames.has('extract_text') || availableNames.has('extract')) mappedByRegistry.add(ActionType.EXTRACT);
 
-        if (availableNames.has('click_element')) allowedActionTypes.add(ActionType.CLICK);
-        if (availableNames.has('type_text')) allowedActionTypes.add(ActionType.TYPE);
-        if (availableNames.has('scroll_page')) allowedActionTypes.add(ActionType.SCROLL);
-        if (availableNames.has('wait')) allowedActionTypes.add(ActionType.WAIT);
-        if (availableNames.has('navigate_to')) allowedActionTypes.add(ActionType.NAVIGATE);
-
-        return allTools.filter(tool => allowedActionTypes.has(tool.name as ActionType));
+        return allTools.filter(tool => mappedByRegistry.has(tool.name as ActionType));
     }
 
     mapModelToolCallToAction(name: string, args: Record<string, unknown>): AgentAction {

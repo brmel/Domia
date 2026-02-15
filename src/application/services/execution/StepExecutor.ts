@@ -75,6 +75,9 @@ export class StepExecutor {
     ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, StepExecutionResult, unknown> {
         let loopCount = 0;
         let consecutiveFailSignals = 0;
+        let consecutiveScrollActions = 0;
+        let stagnantSnapshotCount = 0;
+        let previousSnapshotSignature: string | null = null;
         let currentState: { history: AgentAction[], stepNumber: number } = { history: [], stepNumber: initialStepNumber };
         const maxActions = options.maxActions;
 
@@ -146,6 +149,14 @@ export class StepExecutor {
                 screenshots: options.vision ? frame.vision.screenshots.map(b => b.toString('base64')) : [],
                 accessibilityTree: frame.semantic.accessibility
             };
+
+            const snapshotSignature = this.buildSnapshotSignature(snapshot, runtimeUrl);
+            if (previousSnapshotSignature && snapshotSignature === previousSnapshotSignature) {
+                stagnantSnapshotCount += 1;
+            } else {
+                stagnantSnapshotCount = 0;
+            }
+            previousSnapshotSignature = snapshotSignature;
 
             const deterministicAction = this.assertionGoalService.evaluate(stepGoal, snapshot);
             if (deterministicAction) {
@@ -228,6 +239,22 @@ export class StepExecutor {
                     code: 'loop_detected',
                     reason: `Loop detected. Action '${action.type}' repeated too many times.`
                 };
+            }
+
+            if (action.type === ActionType.SCROLL) {
+                consecutiveScrollActions += 1;
+
+                const noProgressScrollLoop = stagnantSnapshotCount >= 3 && consecutiveScrollActions >= 3;
+                if (noProgressScrollLoop) {
+                    return {
+                        success: false,
+                        terminal: 'error',
+                        code: 'loop_detected',
+                        reason: 'No observable page change after repeated scroll actions.'
+                    };
+                }
+            } else {
+                consecutiveScrollActions = 0;
             }
 
             yield { type: 'action', action, assets };
@@ -379,5 +406,23 @@ export class StepExecutor {
             domHash,
             note: 'perception-capture'
         };
+    }
+
+    private buildSnapshotSignature(snapshot: import('@domain/value-objects').DOMSnapshot, currentUrl: string): string {
+        const topElements = snapshot.elements
+            .slice(0, 25)
+            .map((element) => `${element.tag}:${(element.role ?? '').toLowerCase()}:${this.normalizeForSignature(element.text).slice(0, 48)}`)
+            .join('|');
+
+        return [
+            this.normalizeForSignature(currentUrl),
+            this.normalizeForSignature(snapshot.title),
+            String(snapshot.elements.length),
+            topElements
+        ].join('::');
+    }
+
+    private normalizeForSignature(input: string): string {
+        return input.toLowerCase().replace(/\s+/g, ' ').trim();
     }
 }

@@ -32,8 +32,9 @@ RULES:
 4. To pass, return action: { "type": "pass", "summary": "Goal achieved" }
 5. To fail, return action: { "type": "fail", "reason": "Cannot proceed because..." }
 6. The CURRENT PAGE URL is always provided below. Never fail because URL is missing.
-7. If you need to navigate, use the CURRENT PAGE URL unless the goal explicitly asks for a different URL.
+7. Use navigate only when a page change is truly required; do not navigate to empty or relative URLs. If navigating, use a full http/https URL.
 8. Do not fail on the first uncertainty. Re-check state and try one alternative action when feasible before returning fail.
+9. Avoid repeating scroll when the page state is unchanged; after a few no-progress attempts, choose a different action or fail with a clear reason.
 
 Respond by calling exactly one tool.`;
 

@@ -10,14 +10,3 @@ export class LLMError extends DomainError {
         super(message);
     }
 }
-
-export class ParseError extends DomainError {
-    readonly code = 'PARSE_ERROR';
-
-    constructor(
-        message: string,
-        readonly rawResponse?: string,
-    ) {
-        super(message);
-    }
-}

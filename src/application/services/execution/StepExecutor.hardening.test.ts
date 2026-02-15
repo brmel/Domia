@@ -534,4 +534,126 @@ describe('StepExecutor hardening', () => {
         }
         expect(toolExecutor.execute).not.toHaveBeenCalled();
     });
+
+    it('stops repeated no-progress scroll actions before max action budget', async () => {
+        const llmProvider = {
+            generateAction: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: {
+                    type: ActionType.SCROLL,
+                    direction: 'down',
+                    thought: 'Try scrolling for more content.'
+                }
+            })
+        };
+        const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
+
+        const perception = {
+            capture: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: {
+                    id: 'frame-1',
+                    timestamp: Date.now(),
+                    metadata: {
+                        url: 'https://example.com',
+                        title: 'Example',
+                        viewport: { width: 1200, height: 800 }
+                    },
+                    vision: { count: 0, screenshots: [], primaryScreenshot: undefined },
+                    semantic: {
+                        dom: {
+                            url: 'https://example.com',
+                            title: 'Example',
+                            rootElements: { html: {}, body: {} },
+                            elements: [
+                                { id: '1', tag: 'button', role: 'button', text: 'Static Button', attributes: {}, boundingBox: null }
+                            ]
+                        },
+                        accessibility: null
+                    }
+                }
+            })
+        };
+
+        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}), saveTemporalWindow: vi.fn().mockResolvedValue({}) };
+        const trace = {
+            startTrace: vi.fn().mockResolvedValue(undefined),
+            endTrace: vi.fn().mockResolvedValue(undefined),
+            tracePerception: vi.fn().mockResolvedValue(undefined),
+            traceReasoning: vi.fn().mockResolvedValue(undefined)
+        };
+        const assertionGoalService = { evaluate: vi.fn().mockReturnValue(null) };
+        const toolContractService = { getToolDescriptors: vi.fn().mockReturnValue([]) };
+        const toolExecutor = {
+            execute: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: undefined
+            })
+        };
+
+        const temporalPolicy = {
+            planCapture: vi.fn().mockReturnValue({
+                mode: 'off',
+                enabled: false,
+                maxFrames: 1,
+                burstIntervalMs: 1,
+                maxFramesPerWindow: 1
+            })
+        };
+        const timelineAssembler = { assemble: vi.fn() };
+        const temporalSelector = { select: vi.fn() };
+        const temporalPrivacyFilter = { redact: vi.fn() };
+        const temporalPromptAssembler = { assemble: vi.fn() };
+        const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+        const executor = new StepExecutor(
+            llmProvider as any,
+            loopDetector as any,
+            perception as any,
+            storage as any,
+            trace as any,
+            assertionGoalService as any,
+            toolContractService as any,
+            toolExecutor as any,
+            temporalPolicy as any,
+            timelineAssembler as any,
+            temporalSelector as any,
+            temporalPrivacyFilter as any,
+            temporalPromptAssembler as any,
+            logger as any
+        );
+
+        const browser = {
+            getViewportSize: vi.fn().mockResolvedValue({ width: 1200, height: 800 })
+        };
+
+        const generator = executor.executeStep(
+            'run-1',
+            'Find and verify target content',
+            browser as any,
+            'https://example.com',
+            0,
+            { vision: false, debugScreenshots: false, maxActions: 20 }
+        );
+
+        for (let index = 0; index < 3; index++) {
+            const next = await generator.next();
+            expect(next.done).toBe(false);
+            if (next.done || typeof next.value !== 'object' || next.value === null || !('type' in next.value)) {
+                throw new Error('Expected action envelope before terminal result');
+            }
+            expect(next.value.type).toBe('action');
+        }
+
+        const terminal = await generator.next();
+        expect(terminal.done).toBe(true);
+        if (!terminal.done || typeof terminal.value !== 'object' || terminal.value === null || !('success' in terminal.value)) {
+            throw new Error('Expected terminal step execution result');
+        }
+        expect(terminal.value.success).toBe(false);
+        if ('code' in terminal.value) {
+            expect(terminal.value.code).toBe('loop_detected');
+        }
+        expect(toolExecutor.execute).toHaveBeenCalledTimes(3);
+    });
 });

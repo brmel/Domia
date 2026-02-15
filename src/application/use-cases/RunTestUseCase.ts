@@ -162,9 +162,10 @@ export class RunTestUseCase {
         yield { type: 'started', testRunId };
         let completed = false;
         let finalSummary: string | undefined;
-        let hasVerificationFailure = false;
+        let hasUnresolvedVerificationFailure = false;
         let consecutiveStepFailures = 0;
         let replanCount = 0;
+        let terminalPassSummary: string | undefined;
         let terminalError: Error | null = null;
         const maxConsecutiveStepFailures = this.replanningPolicy.resolveLimits().maxReplansPerRun + 1;
 
@@ -353,6 +354,7 @@ export class RunTestUseCase {
                     { ...(stepToolContext ? { toolContext: stepToolContext } : {}) }
                 );
                 let result: StepExecutionResult | undefined;
+                let observedTerminalPass = false;
 
                 try {
                     const iterator = stepGen[Symbol.asyncIterator]();
@@ -387,6 +389,13 @@ export class RunTestUseCase {
                             estimatedTokensUsed += Math.ceil(JSON.stringify(action).length / 4);
                             yield { type: 'state_updated', state: currentState };
                             await this.durability.checkpoint(testRunId, currentState, 'action_applied');
+
+                            if (action.type === 'pass') {
+                                observedTerminalPass = true;
+                                terminalPassSummary = 'summary' in action && typeof action.summary === 'string'
+                                    ? action.summary
+                                    : 'Test completed successfully.';
+                            }
 
                             const budgetAssessment = this.budgetPolicy.evaluate(testRunId, budgetLimits, {
                                 actionsTaken: currentState.stepNumber,
@@ -442,6 +451,13 @@ export class RunTestUseCase {
                     };
                     yield { type: 'state_updated', state: currentState };
                     consecutiveStepFailures = 0;
+                    hasUnresolvedVerificationFailure = false;
+                    finalSummary = undefined;
+
+                    if (observedTerminalPass) {
+                        finalSummary = terminalPassSummary ?? 'Test completed successfully.';
+                        break;
+                    }
                 } else {
                     // Step Failed
                     const errorMsg = result ? `${result.code}: ${result.reason}` : 'unknown_error: Unknown error';
@@ -491,7 +507,7 @@ export class RunTestUseCase {
 
                     console.warn(`[RunTestUseCase] Step failed verification: ${errorMsg}`);
                     finalSummary = `Verification failed: ${errorMsg}`;
-                    hasVerificationFailure = true;
+                    hasUnresolvedVerificationFailure = true;
 
                     if (consecutiveStepFailures >= maxConsecutiveStepFailures) {
                         this.logger.warn('[RunTestUseCase] Halting run after consecutive failed steps', {
@@ -538,10 +554,10 @@ export class RunTestUseCase {
                 yield { type: 'completed', success: false, summary: "Test cancelled by user." };
                 await this.lifecycleManager.finalizeTestRun(testRunId, false, "Test cancelled by user.");
             } else if (completed) {
-                currentState = this.withWorkflowStatus(currentState, hasVerificationFailure ? 'failed' : 'completed', hasVerificationFailure ? finalSummary : undefined);
-                runLifecycle = this.durability.transition(testRunId, runLifecycle, hasVerificationFailure ? 'failed' : 'completed');
-                await this.durability.checkpoint(testRunId, currentState, hasVerificationFailure ? 'terminal_failure' : 'terminal_success');
-                const isGlobalSuccess = !hasVerificationFailure;
+                currentState = this.withWorkflowStatus(currentState, hasUnresolvedVerificationFailure ? 'failed' : 'completed', hasUnresolvedVerificationFailure ? finalSummary : undefined);
+                runLifecycle = this.durability.transition(testRunId, runLifecycle, hasUnresolvedVerificationFailure ? 'failed' : 'completed');
+                await this.durability.checkpoint(testRunId, currentState, hasUnresolvedVerificationFailure ? 'terminal_failure' : 'terminal_success');
+                const isGlobalSuccess = !hasUnresolvedVerificationFailure;
                 yield { type: 'completed', success: isGlobalSuccess, ...(finalSummary ? { summary: finalSummary } : {}) };
                 await this.lifecycleManager.finalizeTestRun(testRunId, isGlobalSuccess, finalSummary);
             }

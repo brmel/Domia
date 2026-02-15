@@ -79,7 +79,7 @@ export class LangChainToolCallingProvider implements IToolCallingProvider {
         }
         const llmWithTools = this.model.bindTools([...toolDefinitions]);
         const response = await llmWithTools.invoke(messages);
-        return this.parseResponse(response, new Set(toolDefinitions.map(tool => tool.name)));
+        return this.parseResponse(response, new Map(toolDefinitions.map(tool => [tool.name, tool.schema])));
     }
 
     private mapTools(request: ToolCallingRequest): ReadonlyArray<{ name: string; description: string; schema: ZodTypeAny }> {
@@ -102,7 +102,7 @@ export class LangChainToolCallingProvider implements IToolCallingProvider {
 
     private parseResponse(
         response: unknown,
-        allowedToolNames: ReadonlySet<string>
+        toolSchemas: ReadonlyMap<string, ZodTypeAny>
     ): ToolCallingResult {
         const toolCalls = this.readToolCalls(response);
 
@@ -115,12 +115,18 @@ export class LangChainToolCallingProvider implements IToolCallingProvider {
             throw new LLMError('Tool call did not include a valid name.');
         }
 
-        if (!allowedToolNames.has(firstCall.name)) {
+        const schema = toolSchemas.get(firstCall.name);
+        if (!schema) {
             throw new LLMError(`Tool call referenced unknown tool: ${firstCall.name}`);
         }
 
         const args = this.toArgsRecord(firstCall.args);
-        return { name: firstCall.name, args };
+        const validation = schema.safeParse(args);
+        if (!validation.success) {
+            throw new LLMError(`Tool call '${firstCall.name}' arguments failed schema validation: ${validation.error.message}`);
+        }
+
+        return { name: firstCall.name, args: validation.data as Record<string, unknown> };
     }
 
     private readToolCalls(response: unknown): ReadonlyArray<{ name?: unknown; args?: unknown }> {
