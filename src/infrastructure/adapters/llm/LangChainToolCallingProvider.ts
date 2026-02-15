@@ -11,6 +11,7 @@ import type {
 import { LLMError } from '@domain/errors';
 import { retryAsync } from '@shared/reliability/retry';
 import { RETRY_PROFILES, isTransientLlmToolCallingError } from '@shared/reliability/retryProfiles';
+import type { ZodTypeAny } from 'zod';
 
 @injectable()
 export class LangChainToolCallingProvider implements IToolCallingProvider {
@@ -72,24 +73,82 @@ export class LangChainToolCallingProvider implements IToolCallingProvider {
             ));
         }
 
-        const llmWithTools = this.model.bindTools(request.tools as any);
+        const toolDefinitions = this.mapTools(request);
+        if (toolDefinitions.length === 0) {
+            throw new LLMError('No valid tool schemas were provided for tool calling.');
+        }
+        const llmWithTools = this.model.bindTools([...toolDefinitions]);
         const response = await llmWithTools.invoke(messages);
-        const toolCalls = (response as { tool_calls?: unknown }).tool_calls;
+        return this.parseResponse(response, new Set(toolDefinitions.map(tool => tool.name)));
+    }
 
-        if (!Array.isArray(toolCalls) || toolCalls.length === 0) {
+    private mapTools(request: ToolCallingRequest): ReadonlyArray<{ name: string; description: string; schema: ZodTypeAny }> {
+        const mapped: Array<{ name: string; description: string; schema: ZodTypeAny }> = [];
+
+        for (const tool of request.tools) {
+            if (!this.isZodSchema(tool.schema)) {
+                continue;
+            }
+
+            mapped.push({
+                name: tool.name,
+                description: tool.description,
+                schema: tool.schema
+            });
+        }
+
+        return mapped;
+    }
+
+    private parseResponse(
+        response: unknown,
+        allowedToolNames: ReadonlySet<string>
+    ): ToolCallingResult {
+        const toolCalls = this.readToolCalls(response);
+
+        if (toolCalls.length === 0) {
             throw new LLMError('Model did not return any tool call.');
         }
 
-        const firstCall = toolCalls[0] as { name?: string; args?: unknown } | undefined;
-        if (!firstCall?.name) {
+        const firstCall = toolCalls[0];
+        if (!firstCall || typeof firstCall.name !== 'string' || firstCall.name.length === 0) {
             throw new LLMError('Tool call did not include a valid name.');
         }
 
-        if (!firstCall.args || typeof firstCall.args !== 'object' || Array.isArray(firstCall.args)) {
-            this.logger.warn('[LangChainToolCallingProvider] Tool call args were missing or invalid object; defaulting to empty args.');
-            return { name: firstCall.name, args: {} };
+        if (!allowedToolNames.has(firstCall.name)) {
+            throw new LLMError(`Tool call referenced unknown tool: ${firstCall.name}`);
         }
 
-        return { name: firstCall.name, args: firstCall.args as Record<string, unknown> };
+        const args = this.toArgsRecord(firstCall.args);
+        return { name: firstCall.name, args };
+    }
+
+    private readToolCalls(response: unknown): ReadonlyArray<{ name?: unknown; args?: unknown }> {
+        if (!response || typeof response !== 'object' || !("tool_calls" in response)) {
+            return [];
+        }
+
+        const toolCalls = (response as { tool_calls?: unknown }).tool_calls;
+        if (!Array.isArray(toolCalls)) {
+            return [];
+        }
+
+        return toolCalls as ReadonlyArray<{ name?: unknown; args?: unknown }>;
+    }
+
+    private toArgsRecord(args: unknown): Record<string, unknown> {
+        if (!args || typeof args !== 'object' || Array.isArray(args)) {
+            this.logger.warn('[LangChainToolCallingProvider] Tool call args were missing or invalid object; defaulting to empty args.');
+            return {};
+        }
+
+        return args as Record<string, unknown>;
+    }
+
+    private isZodSchema(schema: unknown): schema is ZodTypeAny {
+        return typeof schema === 'object'
+            && schema !== null
+            && 'safeParse' in schema
+            && typeof (schema as { safeParse?: unknown }).safeParse === 'function';
     }
 }
