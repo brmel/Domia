@@ -248,6 +248,10 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         this.page = null;
     }
 
+    getPage(): Page | null {
+        return this.page;
+    }
+
     private findElement(elementId: ElementId): ResultAsync<ElementHandle, InteractionError> {
         if (!this.page) {
             return errAsync(new InteractionError('Browser not launched', elementId));

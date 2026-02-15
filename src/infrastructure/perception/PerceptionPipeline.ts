@@ -1,6 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
 import { IPerceptionPipeline } from '@domain/ports/IPerceptionPipeline';
+import type { Page } from 'playwright';
 
 import type { ILogger } from '@domain/ports';
 import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
@@ -26,22 +27,29 @@ export class PerceptionPipeline implements IPerceptionPipeline {
         options: import('@domain/ports/IPerceptionPipeline').PerceptionOptions = { vision: true, aria: true, dom: true }
     ): ResultAsync<PerceptionFrame, SnapshotError> {
         this.logger.info(`[PerceptionPipeline] Starting capture sequence (Options: ${JSON.stringify(options)})`);
+        const page = this.resolvePage(browser);
 
-        // Simplified capture without pausing to improve stability
-        const adapter = browser as any;
-        const page = adapter.page;
+        if (!page) {
+            return ResultAsync.fromPromise(
+                Promise.reject(new Error('Browser automation does not expose an active page for perception capture.')),
+                e => new SnapshotError(`Sensor capture failed: ${String(e)}`)
+            );
+        }
 
-        const capturePromise = page
-            ? Promise.all([
-                options.vision ? this.visionSensor.capture(page) : Promise.resolve({ screenshots: [], mimeType: '' }),
-                options.aria ? this.ariaSensor.capture(page) : Promise.resolve(null),
-                options.dom ? this.domSensor.capture(page) : Promise.resolve(Object.freeze({ url: '', title: '', rootElements: [], elements: [], timestamp: new Date() }))
-            ]).then(([vision, aria, dom]) => ({ vision, aria, dom }))
-            : Promise.resolve({
-                vision: { screenshots: [], mimeType: '' },
-                aria: null,
-                dom: null as any
-            });
+        const capturePromise = Promise.all([
+            options.vision ? this.visionSensor.capture(page) : Promise.resolve({ screenshots: [], mimeType: 'image/jpeg' }),
+            options.aria ? this.ariaSensor.capture(page) : Promise.resolve(null),
+            options.dom ? this.domSensor.capture(page) : Promise.resolve(Object.freeze({
+                url: page.url(),
+                title: '',
+                rootElements: {
+                    html: {},
+                    body: {}
+                },
+                elements: [],
+                timestamp: new Date()
+            }))
+        ]).then(([vision, aria, dom]) => ({ vision, aria, dom }));
 
         return ResultAsync.fromPromise(
             capturePromise,
@@ -51,17 +59,45 @@ export class PerceptionPipeline implements IPerceptionPipeline {
                 id: uuidv4(),
                 timestamp: Date.now(),
                 metadata: {
-                    url: dom?.url || '',
-                    title: dom?.title || '',
+                    url: dom.url,
+                    title: dom.title,
                     viewport: { width: 0, height: 0 }
                 },
                 vision: new VisualContext(vision.screenshots, 'image/jpeg'),
                 semantic: {
-                    dom: dom as any, // Cast to avoid strict null checks on the resolution fallback
+                    dom,
                     accessibility: aria
                 }
             };
             return frame;
         });
+    }
+
+    private resolvePage(browser: IBrowserAutomation): Page | null {
+        const candidate = browser as unknown as { getPage?: () => unknown; page?: unknown };
+
+        if (typeof candidate.getPage === 'function') {
+            const resolved = candidate.getPage();
+            if (this.isPage(resolved)) {
+                return resolved;
+            }
+        }
+
+        if (this.isPage(candidate.page)) {
+            return candidate.page;
+        }
+
+        return null;
+    }
+
+    private isPage(value: unknown): value is Page {
+        if (!value || typeof value !== 'object') {
+            return false;
+        }
+
+        const pageCandidate = value as Partial<Page>;
+        return typeof pageCandidate.url === 'function'
+            && typeof pageCandidate.screenshot === 'function'
+            && typeof pageCandidate.evaluate === 'function';
     }
 }
