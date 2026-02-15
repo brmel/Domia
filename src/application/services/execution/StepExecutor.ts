@@ -90,6 +90,7 @@ export class StepExecutor {
         let previousSnapshotSignature: string | null = null;
         let adviceForNextAttempt: string | undefined;
         let consecutiveEvaluatorRetries = 0;
+        let previousDomElementCount = 0;
         let currentState: { history: AgentAction[], stepNumber: number } = { history: [], stepNumber: initialStepNumber };
         const maxActions = options.maxActions;
 
@@ -111,7 +112,19 @@ export class StepExecutor {
             const frame = frameResult.value;
             const runtimeUrl = frame.metadata.url || url;
 
-            const temporalWindow = await this.captureTemporalWindowIfEnabled(runId, browser, frame, options);
+            const domElementCount = frame.semantic.dom?.elements?.length ?? 0;
+            const domVelocity = previousDomElementCount > 0
+                ? Math.min(1, Math.abs(domElementCount - previousDomElementCount) / previousDomElementCount)
+                : 0;
+            previousDomElementCount = domElementCount;
+
+            const temporalWindow = await this.captureTemporalWindowIfEnabled(runId, browser, frame, options, {
+                domVelocity,
+                interactionInFlight: this.isInteractionLikelyInFlight(currentState.history),
+                recentAssertionMismatch: consecutiveEvaluatorRetries > 0,
+                recentExecutionError: adviceForNextAttempt ? /error|failed|timeout|blocked/i.test(adviceForNextAttempt) : false,
+                stagnantCycles: stagnantSnapshotCount
+            });
 
             let assets: Record<string, string> = {};
             try {
@@ -405,17 +418,20 @@ export class StepExecutor {
             temporalMaxFramesPerWindow?: number;
             temporalPromptTokenBudget?: number;
             temporalRedactSensitive?: boolean;
+        },
+        signal: {
+            domVelocity: number;
+            interactionInFlight: boolean;
+            recentAssertionMismatch: boolean;
+            recentExecutionError?: boolean;
+            stagnantCycles?: number;
         }
     ): Promise<TimelineContextWindow | undefined> {
         const capturePlan = this.temporalPolicy.planCapture({
             featureEnabled: true,
             requested: Boolean(options.temporalObservation),
             ...(options.temporalMode ? { mode: options.temporalMode } : {}),
-            signal: {
-                domVelocity: 0.5,
-                interactionInFlight: false,
-                recentAssertionMismatch: false
-            },
+            signal,
             overrides: {
                 ...(options.temporalBaselineIntervalMs ? { baselineIntervalMs: options.temporalBaselineIntervalMs } : {}),
                 ...(options.temporalBurstIntervalMs ? { burstIntervalMs: options.temporalBurstIntervalMs } : {}),
@@ -497,6 +513,20 @@ export class StepExecutor {
 
     private normalizeForSignature(input: string): string {
         return input.toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+
+    private isInteractionLikelyInFlight(history: readonly AgentAction[]): boolean {
+        const lastAction = history[history.length - 1];
+        if (!lastAction) {
+            return false;
+        }
+
+        return lastAction.type === ActionType.CLICK
+            || lastAction.type === ActionType.TYPE
+            || lastAction.type === ActionType.PRESS_KEY
+            || lastAction.type === ActionType.MOUSE_CLICK_LEFT
+            || lastAction.type === ActionType.MOUSE_DOUBLE_CLICK
+            || lastAction.type === ActionType.MOUSE_DRAG;
     }
 
     private validateActionAgainstViewport(

@@ -53,6 +53,20 @@ export interface TemporalCapturePlan {
     readonly maxFramesPerWindow: number;
 }
 
+interface TemporalSignal {
+    readonly domVelocity: number;
+    readonly interactionInFlight: boolean;
+    readonly recentAssertionMismatch: boolean;
+    readonly recentExecutionError?: boolean;
+    readonly stagnantCycles?: number;
+}
+
+const CAPTURE_LIMITS = {
+    maxBurstFrames: 36,
+    maxFramesPerWindow: 24,
+    minBurstIntervalMs: 40
+} as const;
+
 @injectable()
 export class TemporalObservationPolicyService {
     resolve(mode: TemporalObservationMode = 'adaptive', overrides?: TemporalObservationOverrides): TemporalObservationConfig {
@@ -79,7 +93,7 @@ export class TemporalObservationPolicyService {
         featureEnabled: boolean;
         requested: boolean;
         mode?: TemporalObservationMode;
-        signal: { domVelocity: number; interactionInFlight: boolean; recentAssertionMismatch: boolean };
+        signal: TemporalSignal;
         overrides?: TemporalObservationOverrides;
     }): TemporalCapturePlan {
         const mode = input.mode ?? 'adaptive';
@@ -98,17 +112,51 @@ export class TemporalObservationPolicyService {
         const burstAllowed = mode === 'forensic' || mode === 'adaptive' || mode === 'baseline';
         const shouldBurst = mode === 'forensic' || (burstAllowed && this.shouldEnterBurstMode(input.signal));
 
+        const boundedBurstIntervalMs = Math.max(CAPTURE_LIMITS.minBurstIntervalMs, policy.burstIntervalMs);
+        const boundedWindowFrames = Math.min(policy.maxFramesPerWindow, CAPTURE_LIMITS.maxFramesPerWindow);
+        const boundedBurstFrames = Math.min(policy.burstMaxFrames, CAPTURE_LIMITS.maxBurstFrames);
+
+        const resolvedMaxFrames = shouldBurst
+            ? this.resolveAdaptiveFrameBudget(mode, boundedBurstFrames, input.signal)
+            : 1;
+
         return {
             mode,
             enabled: true,
-            maxFrames: shouldBurst ? policy.burstMaxFrames : 1,
-            burstIntervalMs: policy.burstIntervalMs,
-            maxFramesPerWindow: policy.maxFramesPerWindow
+            maxFrames: resolvedMaxFrames,
+            burstIntervalMs: boundedBurstIntervalMs,
+            maxFramesPerWindow: boundedWindowFrames
         };
     }
 
-    shouldEnterBurstMode(signal: { domVelocity: number; interactionInFlight: boolean; recentAssertionMismatch: boolean }): boolean {
-        return signal.interactionInFlight || signal.recentAssertionMismatch || signal.domVelocity >= 0.7;
+    shouldEnterBurstMode(signal: TemporalSignal): boolean {
+        const stagnantPressure = (signal.stagnantCycles ?? 0) >= 2 && signal.domVelocity >= 0.35;
+        return signal.interactionInFlight
+            || signal.recentAssertionMismatch
+            || Boolean(signal.recentExecutionError)
+            || signal.domVelocity >= 0.7
+            || stagnantPressure;
+    }
+
+    private resolveAdaptiveFrameBudget(mode: TemporalObservationMode, burstMaxFrames: number, signal: TemporalSignal): number {
+        if (mode === 'forensic') {
+            return burstMaxFrames;
+        }
+
+        if (mode === 'baseline') {
+            return Math.max(2, Math.min(4, burstMaxFrames));
+        }
+
+        const highVolatility = signal.domVelocity >= 0.7 || signal.interactionInFlight || Boolean(signal.recentExecutionError);
+        if (highVolatility) {
+            return burstMaxFrames;
+        }
+
+        if (signal.recentAssertionMismatch || signal.domVelocity >= 0.45 || (signal.stagnantCycles ?? 0) >= 2) {
+            return Math.max(3, Math.floor(burstMaxFrames / 2));
+        }
+
+        return Math.max(2, Math.floor(burstMaxFrames / 3));
     }
 
     private sanitize(value: number | undefined, defaultValue: number): number {
