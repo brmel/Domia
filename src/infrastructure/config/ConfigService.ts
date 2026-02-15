@@ -13,6 +13,13 @@ export class ConfigService implements IConfigService {
     private config: DomiaConfig;
     private configPath: string;
 
+    private resolveApiKey(fileApiKey?: string): string | undefined {
+        return process.env['GOOGLE_API_KEY']
+            ?? process.env['GEMINI_API_KEY']
+            ?? process.env['OPENAI_API_KEY']
+            ?? fileApiKey;
+    }
+
     constructor() {
         const explorer = cosmiconfigSync('domia');
         const result = explorer.search();
@@ -26,13 +33,9 @@ export class ConfigService implements IConfigService {
             this.configPath = path.resolve(process.cwd(), 'domia.config.json');
         }
 
-        // 1. Zod defaults -> 2. File config -> 3. Env overrides
         const parsedFile = DomiaConfigSchema.parse(loadedConfig);
 
-        const envApiKey = process.env['GOOGLE_API_KEY'] ?? process.env['GEMINI_API_KEY'] ?? process.env['OPENAI_API_KEY'];
-        if (envApiKey) {
-            parsedFile.ai.apiKey = envApiKey;
-        }
+        parsedFile.ai.apiKey = this.resolveApiKey(parsedFile.ai.apiKey);
 
         this.config = parsedFile;
     }
@@ -58,14 +61,13 @@ export class ConfigService implements IConfigService {
 
     private save(): void {
         try {
-            // Don't save API key if it came from env
-            const configToSave = { ...this.config };
-            if (process.env['GOOGLE_API_KEY'] || process.env['GEMINI_API_KEY'] || process.env['OPENAI_API_KEY']) {
-                // We keep the runtime value, but when writing to disk we might want to strip it
-                // For now, let's just write what we have, assuming the user might want to override env?
-                // Actually, safer to NOT write secrets to disk if they aren't already there.
-                // But managing that logic is complex. ConfigService is simple for now.
-            }
+            const configToSave: DomiaConfig = {
+                ...this.config,
+                ai: {
+                    ...this.config.ai,
+                    apiKey: undefined
+                }
+            };
 
             fs.writeJsonSync(this.configPath, configToSave, { spaces: 2 });
         } catch (error) {

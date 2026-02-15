@@ -8,8 +8,7 @@
     "provider": "google",
     "model": "gemini-2.0-flash",
     "visionEnabled": false,
-    "debugScreenshots": false,
-    "apiKey": "AIzaSyCw32ji8UTwB6vs8SkWmTyYWvu-PrW0T5U"
+    "debugScreenshots": false
   },
   "selectorEngine": {
     "strategyOrder": [
