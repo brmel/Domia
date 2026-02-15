@@ -9,6 +9,8 @@ import { IStorageService } from '@domain/ports/IStorageService';
 
 @injectable()
 export class FileSystemStorage implements IStorageService {
+    private static readonly DEFAULT_TEMPORAL_RETENTION_COUNT = 30;
+
     constructor(
         @inject(ConfigService) private configService: ConfigService
     ) { }
@@ -76,10 +78,47 @@ export class FileSystemStorage implements IStorageService {
         const filename = `${stepNumber}_timeline.json`;
         const filePath = path.join(baseDir, filename);
         await fs.writeJson(filePath, temporalWindow, { spaces: 2 });
+        await this.pruneTemporalWindows(baseDir, this.resolveTemporalRetentionCount(config));
 
         return {
             timeline: filePath
         };
+    }
+
+    private resolveTemporalRetentionCount(config: ReturnType<ConfigService['get']>): number {
+        const configuredValue = config.limits?.temporalWindowRetentionCount;
+        if (!Number.isFinite(configuredValue) || !configuredValue || configuredValue <= 0) {
+            return FileSystemStorage.DEFAULT_TEMPORAL_RETENTION_COUNT;
+        }
+
+        return Math.floor(configuredValue);
+    }
+
+    private async pruneTemporalWindows(baseDir: string, retentionCount: number): Promise<void> {
+        if (retentionCount <= 0) {
+            return;
+        }
+
+        const files = await fs.readdir(baseDir);
+        const temporalFiles = files
+            .map((name) => {
+                const match = /^(\d+)_timeline\.json$/.exec(name);
+                if (!match || !match[1]) {
+                    return undefined;
+                }
+
+                return {
+                    name,
+                    stepNumber: Number(match[1])
+                };
+            })
+            .filter((entry): entry is { name: string; stepNumber: number } => Boolean(entry))
+            .sort((left, right) => right.stepNumber - left.stepNumber);
+
+        const filesToDelete = temporalFiles.slice(retentionCount);
+        for (const file of filesToDelete) {
+            await fs.remove(path.join(baseDir, file.name));
+        }
     }
 
     async getStepArtifacts(runId: string, stepNumber: number): Promise<{

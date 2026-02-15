@@ -29,7 +29,8 @@ export const DomiaConfigSchema = z.object({
     limits: z.object({
         maxSteps: z.number().default(20),
         delayBetweenSteps: z.number().default(1000),
-    }).default({ maxSteps: 20, delayBetweenSteps: 1000 }),
+        temporalWindowRetentionCount: z.number().int().positive().default(30),
+    }).default({ maxSteps: 20, delayBetweenSteps: 1000, temporalWindowRetentionCount: 30 }),
 });
 
 export type DomiaConfig = z.infer<typeof DomiaConfigSchema>;

@@ -43,4 +43,44 @@ describe('FileSystemStorage temporal window (high-level)', () => {
 
         await fs.remove(artifactsDir);
     });
+
+    it('prunes older temporal windows beyond retention count', async () => {
+        const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'domia-temporal-prune-'));
+        const storage = new FileSystemStorage({
+            get: () => ({
+                paths: {
+                    artifactsDir
+                },
+                limits: {
+                    temporalWindowRetentionCount: 2
+                }
+            })
+        } as any);
+
+        const runId = 'run-temporal-prune';
+
+        for (const stepNumber of [1, 2, 3]) {
+            await storage.saveTemporalWindow(runId, stepNumber, {
+                runId,
+                fromTimestamp: 1000,
+                toTimestamp: 1400,
+                summary: `window-${stepNumber}`,
+                mode: 'adaptive',
+                selectedFrameCount: 1,
+                droppedFrameCount: 0,
+                tokenEstimate: 10,
+                redactionApplied: false,
+                frames: [{ timestamp: 1400, intervalMs: 200, domHash: `hash-${stepNumber}`, note: 'frame' }]
+            });
+        }
+
+        const stepsDir = path.join(artifactsDir, runId, 'steps');
+        const files = await fs.readdir(stepsDir);
+
+        expect(files).not.toContain('1_timeline.json');
+        expect(files).toContain('2_timeline.json');
+        expect(files).toContain('3_timeline.json');
+
+        await fs.remove(artifactsDir);
+    });
 });
