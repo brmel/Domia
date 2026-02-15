@@ -39,8 +39,15 @@ import type { ILogger } from '../../domain/ports';
 import { PlatformSessionFactory } from '../services/platform/PlatformSessionFactory';
 import type { ToolContext } from '../../domain/tools/Tool';
 import type { RunLifecycleState } from '@domain/value-objects/RunLifecycle';
+import type { SkillDefinition } from '@domain/skills/SkillContract';
 
 type StepFailureCode = Extract<StepExecutionResult, { success: false }>['code'];
+
+interface SkillRoutingContext {
+    readonly skill: SkillDefinition;
+    readonly graphSteps: readonly string[];
+    readonly source: 'preferred' | 'auto';
+}
 
 
 @injectable()
@@ -109,7 +116,7 @@ export class RunTestUseCase {
         let estimatedTokensUsed = 0;
         const retryCount = 0;
         const recoveryContext = await this.resolveRecoveryContext(input);
-        this.evaluateSkillScaffold(input, testRunId);
+        const skillRoutingContext = this.resolveSkillRoutingContext(input, testRunId);
         this.evaluatePluginScaffold(input, testRunId);
 
         let browser: IBrowserAutomation | undefined;
@@ -264,16 +271,17 @@ export class RunTestUseCase {
                     planItems: resumedPlan.items.length
                 });
             } else {
-                const planResult = await this.planner.plan(input.prompt);
+                const planningPrompt = this.buildPlanningPrompt(input.prompt, skillRoutingContext);
+                const planResult = await this.planner.plan(planningPrompt);
 
                 if (planResult.isErr()) {
                     throw new WorkflowError(`Planning failed: ${planResult.error.message}`);
                 }
 
                 plan = planResult.value;
+                estimatedTokensUsed += Math.ceil(planningPrompt.length / 4);
             }
 
-            estimatedTokensUsed += Math.ceil(input.prompt.length / 4);
             currentState = { ...currentState, plan, status: 'thinking' };
             yield { type: 'state_updated', state: currentState };
             await this.durability.checkpoint(testRunId, currentState, 'plan_ready');
@@ -763,32 +771,130 @@ export class RunTestUseCase {
         ].join('\n\n');
     }
 
-    private evaluateSkillScaffold(input: RunTestInput, runId: string): void {
+    private resolveSkillRoutingContext(input: RunTestInput, runId: string): SkillRoutingContext | undefined {
         const skillId = input.options?.preferredSkillId?.trim();
-        if (!skillId) {
-            return;
-        }
 
         try {
-            const skill = this.skillRegistry.get(skillId);
-            if (!skill) {
-                this.logger.warn('[RunTestUseCase] Skill preflight skipped: skill not found', { runId, skillId });
-                return;
+            const allowedTrustLevels = input.options?.allowedSkillTrustLevels ?? ['verified'];
+
+            if (skillId) {
+                const preferredSkill = this.skillRegistry.get(skillId);
+                if (!preferredSkill) {
+                    this.logger.warn('[RunTestUseCase] Skill routing skipped: preferred skill not found', { runId, skillId });
+                    return undefined;
+                }
+
+                const allowed = this.skillGovernance.isAllowed(preferredSkill, allowedTrustLevels);
+                this.logger.info('[RunTestUseCase] Skill routing evaluated preferred skill', {
+                    runId,
+                    skillId,
+                    skillTrust: preferredSkill.trust,
+                    allowed
+                });
+
+                if (!allowed) {
+                    return undefined;
+                }
+
+                return {
+                    skill: preferredSkill,
+                    source: 'preferred',
+                    graphSteps: this.buildSkillExecutionGraph(preferredSkill)
+                };
             }
 
-            const allowedTrustLevels = input.options?.allowedSkillTrustLevels ?? ['verified'];
-            const allowed = this.skillGovernance.isAllowed(skill, allowedTrustLevels);
+            const autoSkill = this.selectAutoSkill(input.prompt, allowedTrustLevels);
+            if (!autoSkill) {
+                return undefined;
+            }
 
-            this.logger.info('[RunTestUseCase] Skill preflight evaluated', {
+            this.logger.info('[RunTestUseCase] Skill routing auto-selected skill', {
                 runId,
-                skillId,
-                skillTrust: skill.trust,
-                allowed
+                skillId: autoSkill.id,
+                skillTrust: autoSkill.trust
             });
+
+            return {
+                skill: autoSkill,
+                source: 'auto',
+                graphSteps: this.buildSkillExecutionGraph(autoSkill)
+            };
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error);
-            this.logger.warn('[RunTestUseCase] Skill preflight failed non-fatally', { runId, skillId, reason });
+            this.logger.warn('[RunTestUseCase] Skill routing failed non-fatally', { runId, ...(skillId ? { skillId } : {}), reason });
+            return undefined;
         }
+    }
+
+    private selectAutoSkill(prompt: string, allowedTrustLevels: readonly SkillDefinition['trust'][]): SkillDefinition | undefined {
+        const scoredSkills = this.skillRegistry
+            .list()
+            .filter(skill => this.skillGovernance.isAllowed(skill, allowedTrustLevels))
+            .map(skill => ({
+                skill,
+                score: this.scoreSkillMatch(prompt, skill)
+            }))
+            .filter(entry => entry.score > 0)
+            .sort((left, right) => right.score - left.score);
+
+        return scoredSkills[0]?.skill;
+    }
+
+    private scoreSkillMatch(prompt: string, skill: SkillDefinition): number {
+        const normalizedPrompt = prompt.toLowerCase();
+        const tokens = [
+            ...skill.id.toLowerCase().split(/[^a-z0-9]+/g),
+            ...skill.description.toLowerCase().split(/[^a-z0-9]+/g),
+            ...skill.preconditions.flatMap((item) => item.toLowerCase().split(/[^a-z0-9]+/g)),
+            ...skill.postconditions.flatMap((item) => item.toLowerCase().split(/[^a-z0-9]+/g))
+        ].filter(token => token.length >= 3);
+
+        if (tokens.length === 0) {
+            return 0;
+        }
+
+        let score = 0;
+        for (const token of new Set(tokens)) {
+            if (normalizedPrompt.includes(token)) {
+                score += 1;
+            }
+        }
+
+        return score;
+    }
+
+    private buildSkillExecutionGraph(skill: SkillDefinition): readonly string[] {
+        const steps: string[] = [];
+
+        skill.preconditions.forEach((precondition) => {
+            steps.push(`Validate precondition: ${precondition}`);
+        });
+
+        steps.push(`Execute skill objective: ${skill.description}`);
+
+        skill.postconditions.forEach((postcondition) => {
+            steps.push(`Verify postcondition: ${postcondition}`);
+        });
+
+        return steps.slice(0, 6);
+    }
+
+    private buildPlanningPrompt(basePrompt: string, skillRouting?: SkillRoutingContext): string {
+        if (!skillRouting) {
+            return basePrompt;
+        }
+
+        const graph = skillRouting.graphSteps.map((step, index) => `${index + 1}. ${step}`).join('\n');
+
+        return [
+            basePrompt,
+            'Skill routing context:',
+            `Selected skill: ${skillRouting.skill.id} v${skillRouting.skill.version} (${skillRouting.skill.trust})`,
+            `Routing source: ${skillRouting.source}`,
+            'Bounded skill execution graph:',
+            graph,
+            'Use this graph as preferred execution backbone while preserving safety and verification.'
+        ].join('\n\n');
     }
 
     private evaluatePluginScaffold(input: RunTestInput, runId: string): void {
