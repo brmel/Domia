@@ -45,19 +45,19 @@ describe('StepExecutor performance hardening', () => {
         });
 
         const executor = new StepExecutor(
-            llmProvider as any,
-            { isLoop: vi.fn().mockReturnValue(false) } as any,
-            { capture: perceptionCapture } as any,
-            { savePerceptionAssets: vi.fn().mockResolvedValue({}) } as any,
+            llmProvider as unknown as never,
+            { isLoop: vi.fn().mockReturnValue(false) } as unknown as never,
+            { capture: perceptionCapture } as unknown as never,
+            { savePerceptionAssets: vi.fn().mockResolvedValue({}) } as unknown as never,
             {
                 startTrace: vi.fn().mockResolvedValue(undefined),
                 endTrace: vi.fn().mockResolvedValue(undefined),
                 tracePerception: vi.fn().mockResolvedValue(undefined),
                 traceReasoning: vi.fn().mockResolvedValue(undefined)
-            } as any,
-            { evaluate: vi.fn().mockReturnValue(null) } as any,
-            { getToolDescriptors: vi.fn().mockReturnValue([]) } as any,
-            { execute: vi.fn() } as any,
+            } as unknown as never,
+            { evaluate: vi.fn().mockReturnValue(null) } as unknown as never,
+            { getToolDescriptors: vi.fn().mockReturnValue([]) } as unknown as never,
+            { execute: vi.fn() } as unknown as never,
             {
                 planCapture: vi.fn().mockReturnValue({
                     enabled: true,
@@ -66,18 +66,18 @@ describe('StepExecutor performance hardening', () => {
                     maxFramesPerWindow: 8,
                     burstIntervalMs: 0
                 })
-            } as any,
-            { assemble: vi.fn((_runId: string, frames: any[]) => ({ frames })) } as any,
-            { select: vi.fn((frames: any[]) => ({ frames, droppedFrameCount: 0 })) } as any,
-            { redact: vi.fn((frames: any[]) => ({ frames, redactionApplied: false })) } as any,
-            { assemble: vi.fn(({ frames }: { frames: any[] }) => ({ frames, summary: 'stable', fromTimestamp: 1, toTimestamp: 2 })) } as any,
-            { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as any
+            } as unknown as never,
+            { assemble: vi.fn((_runId: string, frames: unknown[]) => ({ frames })) } as unknown as never,
+            { select: vi.fn((frames: unknown[]) => ({ frames, droppedFrameCount: 0 })) } as unknown as never,
+            { redact: vi.fn((frames: unknown[]) => ({ frames, redactionApplied: false })) } as unknown as never,
+            { assemble: vi.fn(({ frames }: { frames: unknown[] }) => ({ frames, summary: 'stable', fromTimestamp: 1, toTimestamp: 2 })) } as unknown as never,
+            { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as never
         );
 
         const gen = executor.executeStep(
             'run-perf',
             'verify stable page',
-            { getViewportSize: vi.fn().mockResolvedValue({ width: 1280, height: 720 }) } as any,
+            { getViewportSize: vi.fn().mockResolvedValue({ width: 1280, height: 720 }) } as unknown as never,
             'https://example.com',
             0,
             {

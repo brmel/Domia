@@ -150,7 +150,7 @@ function createServiceContext() {
     };
 
     return {
-        service: new TrajectoryExportService(persistence as any, storage as any, configService as any, logger as any),
+        service: new TrajectoryExportService(persistence as unknown as never, storage as unknown as never, configService as unknown as never, logger as unknown as never),
         persistence,
         storage,
         tempRoot

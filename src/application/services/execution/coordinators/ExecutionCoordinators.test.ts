@@ -35,7 +35,7 @@ describe('Execution coordinators', () => {
                 platform: 'web',
                 url: 'https://example.com'
             }
-        } as any;
+        } as unknown as never;
 
         expect(coordinator.resolveExecutionUrl(input)).toBe('https://example.com');
         expect(coordinator.resolveLaneKey(input)).toBe('platform:web:https://example.com');
@@ -93,7 +93,7 @@ describe('Execution coordinators', () => {
                     updatedAt: new Date(),
                     items: []
                 }
-            } as any,
+            } as unknown as never,
             'failed',
             'fatal'
         );

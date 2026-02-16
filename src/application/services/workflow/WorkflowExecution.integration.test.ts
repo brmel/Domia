@@ -43,28 +43,28 @@ describe('Workflow execution integration', () => {
                 yield { type: 'started' as const, testRunId: 'run-1' };
                 yield { type: 'completed' as const, success: true, summary: 'ok' };
             })
-        } as any, {
+        } as unknown as never, {
             createSession: vi.fn(async () => ({
                 executionUrl: 'https://example.com',
                 shouldNavigate: true,
                 browser: {},
                 dispose: vi.fn(async () => undefined)
             }))
-        } as any);
+        } as unknown as never);
 
         const governance = new WorkflowStepGovernanceService(
             {
                 assess: vi.fn().mockReturnValue({ blocked: true, mode: 'soft-enforce' })
-            } as any,
-            { get: vi.fn().mockReturnValue(null) } as any,
-            { isAllowed: vi.fn().mockReturnValue(true) } as any,
-            { get: vi.fn().mockReturnValue(null) } as any,
-            { invoke: vi.fn().mockReturnValue({ success: true, message: 'ok' }) } as any
+            } as unknown as never,
+            { get: vi.fn().mockReturnValue(null) } as unknown as never,
+            { isAllowed: vi.fn().mockReturnValue(true) } as unknown as never,
+            { get: vi.fn().mockReturnValue(null) } as unknown as never,
+            { invoke: vi.fn().mockReturnValue({ success: true, message: 'ok' }) } as unknown as never
         );
 
         const orchestrator = new WorkflowRunOrchestratorService(
-            persistence as any,
-            { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as any,
+            persistence as unknown as never,
+            { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as never,
             new WorkflowStepPolicyService(),
             governance,
             stepRunner

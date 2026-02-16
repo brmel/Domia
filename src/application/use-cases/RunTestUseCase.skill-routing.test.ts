@@ -85,39 +85,39 @@ function createUseCaseWithSkillRouting(skillRegistryOverrides?: { get?: ReturnTy
     };
 
     const useCase = new RunTestUseCase(
-        lifecycleManager as any,
-        planner as any,
-        executor as any,
-        persistence as any,
-        trace as any,
-        sessionFactory as any,
-        laneService as any,
-        durability as any,
-        budgetPolicy as any,
-        new CheckpointCompactionService() as any,
-        new RecoveryReadModelService() as any,
-        new ManualRecoveryBootstrapService() as any,
-        new RunRecoveryPolicyService() as any,
-        new RecoveryReplayGuardService() as any,
+        lifecycleManager as unknown as never,
+        planner as unknown as never,
+        executor as unknown as never,
+        persistence as unknown as never,
+        trace as unknown as never,
+        sessionFactory as unknown as never,
+        laneService as unknown as never,
+        durability as unknown as never,
+        budgetPolicy as unknown as never,
+        new CheckpointCompactionService() as unknown as never,
+        new RecoveryReadModelService() as unknown as never,
+        new ManualRecoveryBootstrapService() as unknown as never,
+        new RunRecoveryPolicyService() as unknown as never,
+        new RecoveryReplayGuardService() as unknown as never,
         {
             shouldExecute: vi.fn().mockResolvedValue(true),
             markExecuted: vi.fn().mockResolvedValue(undefined)
         } as unknown as RecoveryReplayIdempotencyService,
-        new ReplanningPolicyService(logger as any) as any,
-        skillRegistry as any,
+        new ReplanningPolicyService(logger as unknown as never) as unknown as never,
+        skillRegistry as unknown as never,
         {
             isAllowed: vi.fn().mockReturnValue(true)
-        } as any,
+        } as unknown as never,
         {
             get: vi.fn().mockReturnValue(null)
-        } as any,
+        } as unknown as never,
         {
             authorize: vi.fn().mockReturnValue({ success: false, message: 'not-called', decision: 'deny' })
-        } as any,
+        } as unknown as never,
         {
             assess: vi.fn().mockReturnValue({ blocked: false, mode: 'observe' })
-        } as any,
-        logger as any
+        } as unknown as never,
+        logger as unknown as never
     );
 
     return {

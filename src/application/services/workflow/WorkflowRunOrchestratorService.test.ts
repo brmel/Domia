@@ -40,8 +40,8 @@ describe('WorkflowRunOrchestratorService', () => {
         };
 
         const service = new WorkflowRunOrchestratorService(
-            persistence as any,
-            { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as any,
+            persistence as unknown as never,
+            { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as never,
             new WorkflowStepPolicyService(),
             {
                 assess: vi.fn().mockReturnValue(
@@ -49,7 +49,7 @@ describe('WorkflowRunOrchestratorService', () => {
                         ? { allowed: false, reason: 'blocked by policy' }
                         : { allowed: true }
                 )
-            } as any,
+            } as unknown as never,
             {
                 openSharedSession: vi.fn().mockResolvedValue({
                     executionUrl: 'https://example.com',
@@ -58,7 +58,7 @@ describe('WorkflowRunOrchestratorService', () => {
                     dispose: vi.fn().mockResolvedValue(undefined)
                 }),
                 runStep: vi.fn().mockResolvedValue(options?.stepResult ?? { success: true, summary: 'step ok', testRunId: 'run-1' })
-            } as any
+            } as unknown as never
         );
 
         return { service, persistence };

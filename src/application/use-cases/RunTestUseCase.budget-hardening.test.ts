@@ -100,15 +100,15 @@ describe('RunTestUseCase budget hardening', () => {
         };
 
         const useCase = new RunTestUseCase(
-            lifecycleManager as any,
-            planner as any,
-            executor as any,
-            persistence as any,
-            trace as any,
-            sessionFactory as any,
-            laneService as any,
-            durability as any,
-            budgetPolicy as any,
+            lifecycleManager as unknown as never,
+            planner as unknown as never,
+            executor as unknown as never,
+            persistence as unknown as never,
+            trace as unknown as never,
+            sessionFactory as unknown as never,
+            laneService as unknown as never,
+            durability as unknown as never,
+            budgetPolicy as unknown as never,
             new CheckpointCompactionService(),
             new RecoveryReadModelService(),
             new ManualRecoveryBootstrapService(),
@@ -119,11 +119,11 @@ describe('RunTestUseCase budget hardening', () => {
                 markExecuted: vi.fn().mockResolvedValue(undefined)
             } as unknown as RecoveryReplayIdempotencyService,
             new ReplanningPolicyService(logger),
-            { get: vi.fn().mockReturnValue(null) } as any,
-            { isAllowed: vi.fn().mockReturnValue(false) } as any,
-            { get: vi.fn().mockReturnValue(null) } as any,
-            { authorize: vi.fn().mockReturnValue({ success: false, message: 'noop', decision: 'deny' }) } as any,
-            { assess: vi.fn().mockReturnValue({ blocked: false, mode: 'observe' }) } as any,
+            { get: vi.fn().mockReturnValue(null) } as unknown as never,
+            { isAllowed: vi.fn().mockReturnValue(false) } as unknown as never,
+            { get: vi.fn().mockReturnValue(null) } as unknown as never,
+            { authorize: vi.fn().mockReturnValue({ success: false, message: 'noop', decision: 'deny' }) } as unknown as never,
+            { assess: vi.fn().mockReturnValue({ blocked: false, mode: 'observe' }) } as unknown as never,
             logger
         );
 

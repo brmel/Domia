@@ -60,20 +60,20 @@ describe('StepExecutor operator override', () => {
         };
 
         const executor = new StepExecutor(
-            llmProvider as any,
-            { isLoop: vi.fn().mockReturnValue(false) } as any,
-            perception as any,
-            { savePerceptionAssets: vi.fn().mockResolvedValue({}) } as any,
-            trace as any,
-            { evaluate: vi.fn().mockReturnValue(null) } as any,
-            { getToolDescriptors: vi.fn().mockReturnValue([]) } as any,
-            toolExecutor as any,
-            { planCapture: vi.fn().mockReturnValue({ enabled: false }) } as any,
-            { assemble: vi.fn() } as any,
-            { select: vi.fn() } as any,
-            { redact: vi.fn() } as any,
-            { assemble: vi.fn() } as any,
-            { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as any
+            llmProvider as unknown as never,
+            { isLoop: vi.fn().mockReturnValue(false) } as unknown as never,
+            perception as unknown as never,
+            { savePerceptionAssets: vi.fn().mockResolvedValue({}) } as unknown as never,
+            trace as unknown as never,
+            { evaluate: vi.fn().mockReturnValue(null) } as unknown as never,
+            { getToolDescriptors: vi.fn().mockReturnValue([]) } as unknown as never,
+            toolExecutor as unknown as never,
+            { planCapture: vi.fn().mockReturnValue({ enabled: false }) } as unknown as never,
+            { assemble: vi.fn() } as unknown as never,
+            { select: vi.fn() } as unknown as never,
+            { redact: vi.fn() } as unknown as never,
+            { assemble: vi.fn() } as unknown as never,
+            { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as never
         );
 
         const overrideAction = {
@@ -86,7 +86,7 @@ describe('StepExecutor operator override', () => {
         const gen = executor.executeStep(
             'run-override',
             'click the primary CTA',
-            { getViewportSize: vi.fn().mockResolvedValue({ width: 1280, height: 720 }) } as any,
+            { getViewportSize: vi.fn().mockResolvedValue({ width: 1280, height: 720 }) } as unknown as never,
             'https://example.com',
             0,
             {
@@ -97,7 +97,7 @@ describe('StepExecutor operator override', () => {
             },
             {
                 overrideProvider: {
-                    consumeActionOverride: vi.fn(() => overrideAction as any)
+                    consumeActionOverride: vi.fn(() => overrideAction as unknown as never)
                 }
             }
         );

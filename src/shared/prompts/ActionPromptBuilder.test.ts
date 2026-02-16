@@ -19,7 +19,7 @@ describe('ActionPromptBuilder contract', () => {
                 },
                 elements: [
                     {
-                        id: 'el-1' as any,
+                        id: 'el-1' as unknown as never,
                         tag: 'button',
                         role: 'button',
                         text: 'Buy now',

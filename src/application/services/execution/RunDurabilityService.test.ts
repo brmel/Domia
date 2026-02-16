@@ -16,7 +16,7 @@ describe('RunDurabilityService', () => {
             error: vi.fn()
         };
 
-        const service = new RunDurabilityService(persistence as any, logger as any);
+        const service = new RunDurabilityService(persistence as unknown as never, logger as unknown as never);
         const state = {
             stepNumber: 1,
             status: 'thinking',
@@ -29,7 +29,7 @@ describe('RunDurabilityService', () => {
                 updatedAt: new Date(),
                 items: []
             }
-        } as any;
+        } as unknown as never;
 
         await service.checkpoint('run-1', state, 'plan_ready');
         await service.checkpoint('run-1', state, 'plan_ready');

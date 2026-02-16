@@ -30,7 +30,7 @@ describe('Workflow lifecycle integration', () => {
     it('runs create -> publish -> next version lifecycle with persisted state', async () => {
         const persistence = createInMemoryPersistence();
         const logger = { info: () => undefined, warn: () => undefined, error: () => undefined, debug: () => undefined };
-        const service = new WorkflowDefinitionService(persistence as any, logger as any);
+        const service = new WorkflowDefinitionService(persistence as unknown as never, logger as unknown as never);
 
         const draft = await service.createDraft({
             name: 'Workflow A',

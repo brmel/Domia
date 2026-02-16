@@ -22,7 +22,7 @@ function makeService(apiKey?: string) {
         })
     };
 
-    const service = new RuntimeReadinessPolicyService(new ReadinessGateService(), configService as any, logger as any);
+    const service = new RuntimeReadinessPolicyService(new ReadinessGateService(), configService as unknown as never, logger as unknown as never);
     return { service, logger };
 }
 

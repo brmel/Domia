@@ -14,7 +14,7 @@ describe('FileSystemStorage temporal window (high-level)', () => {
                     artifactsDir
                 }
             })
-        } as any);
+        } as unknown as never);
 
         const runId = 'run-temporal';
         const stepNumber = 2;
@@ -55,7 +55,7 @@ describe('FileSystemStorage temporal window (high-level)', () => {
                     temporalWindowRetentionCount: 2
                 }
             })
-        } as any);
+        } as unknown as never);
 
         const runId = 'run-temporal-prune';
 
@@ -96,7 +96,7 @@ describe('FileSystemStorage temporal window (high-level)', () => {
                     temporalWindowMaxBytesPerRun: 800
                 }
             })
-        } as any);
+        } as unknown as never);
 
         const runId = 'run-temporal-budget';
         const largeNote = 'x'.repeat(420);

@@ -108,20 +108,20 @@ describe('StepExecutor hardening', () => {
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const executor = new StepExecutor(
-            llmProvider as any,
-            loopDetector as any,
-            perception as any,
-            storage as any,
-            trace as any,
-            assertionGoalService as any,
-            toolContractService as any,
-            toolExecutor as any,
-            temporalPolicy as any,
-            timelineAssembler as any,
-            temporalSelector as any,
-            temporalPrivacyFilter as any,
-            temporalPromptAssembler as any,
-            logger as any
+            llmProvider as unknown as never,
+            loopDetector as unknown as never,
+            perception as unknown as never,
+            storage as unknown as never,
+            trace as unknown as never,
+            assertionGoalService as unknown as never,
+            toolContractService as unknown as never,
+            toolExecutor as unknown as never,
+            temporalPolicy as unknown as never,
+            timelineAssembler as unknown as never,
+            temporalSelector as unknown as never,
+            temporalPrivacyFilter as unknown as never,
+            temporalPromptAssembler as unknown as never,
+            logger as unknown as never
         );
 
         const browser = {
@@ -131,7 +131,7 @@ describe('StepExecutor hardening', () => {
         const generator = executor.executeStep(
             'run-1',
             'verify',
-            browser as any,
+            browser as unknown as never,
             'https://example.com',
             0,
             {
@@ -237,20 +237,20 @@ describe('StepExecutor hardening', () => {
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const executor = new StepExecutor(
-            llmProvider as any,
-            loopDetector as any,
-            perception as any,
-            storage as any,
-            trace as any,
-            assertionGoalService as any,
-            toolContractService as any,
-            toolExecutor as any,
-            temporalPolicy as any,
-            timelineAssembler as any,
-            temporalSelector as any,
-            temporalPrivacyFilter as any,
-            temporalPromptAssembler as any,
-            logger as any
+            llmProvider as unknown as never,
+            loopDetector as unknown as never,
+            perception as unknown as never,
+            storage as unknown as never,
+            trace as unknown as never,
+            assertionGoalService as unknown as never,
+            toolContractService as unknown as never,
+            toolExecutor as unknown as never,
+            temporalPolicy as unknown as never,
+            timelineAssembler as unknown as never,
+            temporalSelector as unknown as never,
+            temporalPrivacyFilter as unknown as never,
+            temporalPromptAssembler as unknown as never,
+            logger as unknown as never
         );
 
         const browser = {
@@ -260,7 +260,7 @@ describe('StepExecutor hardening', () => {
         const generator = executor.executeStep(
             'run-1',
             'verify',
-            browser as any,
+            browser as unknown as never,
             'https://example.com',
             0,
             { vision: false, debugScreenshots: false, maxActions: 5 }
@@ -375,20 +375,20 @@ describe('StepExecutor hardening', () => {
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const executor = new StepExecutor(
-            llmProvider as any,
-            loopDetector as any,
-            perception as any,
-            storage as any,
-            trace as any,
-            assertionGoalService as any,
-            toolContractService as any,
-            toolExecutor as any,
-            temporalPolicy as any,
-            timelineAssembler as any,
-            temporalSelector as any,
-            temporalPrivacyFilter as any,
-            temporalPromptAssembler as any,
-            logger as any
+            llmProvider as unknown as never,
+            loopDetector as unknown as never,
+            perception as unknown as never,
+            storage as unknown as never,
+            trace as unknown as never,
+            assertionGoalService as unknown as never,
+            toolContractService as unknown as never,
+            toolExecutor as unknown as never,
+            temporalPolicy as unknown as never,
+            timelineAssembler as unknown as never,
+            temporalSelector as unknown as never,
+            temporalPrivacyFilter as unknown as never,
+            temporalPromptAssembler as unknown as never,
+            logger as unknown as never
         );
 
         const browser = {
@@ -398,7 +398,7 @@ describe('StepExecutor hardening', () => {
         const generator = executor.executeStep(
             'run-supervised-pass',
             'verify',
-            browser as any,
+            browser as unknown as never,
             'https://example.com',
             0,
             { vision: false, debugScreenshots: false, maxActions: 5, supervisedTerminalPass: true }
@@ -522,20 +522,20 @@ describe('StepExecutor hardening', () => {
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const executor = new StepExecutor(
-            llmProvider as any,
-            loopDetector as any,
-            perception as any,
-            storage as any,
-            trace as any,
-            assertionGoalService as any,
-            toolContractService as any,
-            toolExecutor as any,
-            temporalPolicy as any,
-            timelineAssembler as any,
-            temporalSelector as any,
-            temporalPrivacyFilter as any,
-            temporalPromptAssembler as any,
-            logger as any
+            llmProvider as unknown as never,
+            loopDetector as unknown as never,
+            perception as unknown as never,
+            storage as unknown as never,
+            trace as unknown as never,
+            assertionGoalService as unknown as never,
+            toolContractService as unknown as never,
+            toolExecutor as unknown as never,
+            temporalPolicy as unknown as never,
+            timelineAssembler as unknown as never,
+            temporalSelector as unknown as never,
+            temporalPrivacyFilter as unknown as never,
+            temporalPromptAssembler as unknown as never,
+            logger as unknown as never
         );
 
         const browser = {
@@ -545,7 +545,7 @@ describe('StepExecutor hardening', () => {
         const generator = executor.executeStep(
             'run-1',
             'Verify the target state is visible',
-            browser as any,
+            browser as unknown as never,
             'https://example.com/app',
             0,
             { vision: false, debugScreenshots: false, maxActions: 5 }
@@ -678,20 +678,20 @@ describe('StepExecutor hardening', () => {
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const executor = new StepExecutor(
-            llmProvider as any,
-            loopDetector as any,
-            perception as any,
-            storage as any,
-            trace as any,
-            assertionGoalService as any,
-            toolContractService as any,
-            toolExecutor as any,
-            temporalPolicy as any,
-            timelineAssembler as any,
-            temporalSelector as any,
-            temporalPrivacyFilter as any,
-            temporalPromptAssembler as any,
-            logger as any
+            llmProvider as unknown as never,
+            loopDetector as unknown as never,
+            perception as unknown as never,
+            storage as unknown as never,
+            trace as unknown as never,
+            assertionGoalService as unknown as never,
+            toolContractService as unknown as never,
+            toolExecutor as unknown as never,
+            temporalPolicy as unknown as never,
+            timelineAssembler as unknown as never,
+            temporalSelector as unknown as never,
+            temporalPrivacyFilter as unknown as never,
+            temporalPromptAssembler as unknown as never,
+            logger as unknown as never
         );
 
         const browser = {
@@ -701,7 +701,7 @@ describe('StepExecutor hardening', () => {
         const generator = executor.executeStep(
             'run-1',
             'Verify something',
-            browser as any,
+            browser as unknown as never,
             'https://example.com',
             0,
             { vision: false, debugScreenshots: false, maxActions: 5 }
@@ -812,20 +812,20 @@ describe('StepExecutor hardening', () => {
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const executor = new StepExecutor(
-            llmProvider as any,
-            loopDetector as any,
-            perception as any,
-            storage as any,
-            trace as any,
-            assertionGoalService as any,
-            toolContractService as any,
-            toolExecutor as any,
-            temporalPolicy as any,
-            timelineAssembler as any,
-            temporalSelector as any,
-            temporalPrivacyFilter as any,
-            temporalPromptAssembler as any,
-            logger as any
+            llmProvider as unknown as never,
+            loopDetector as unknown as never,
+            perception as unknown as never,
+            storage as unknown as never,
+            trace as unknown as never,
+            assertionGoalService as unknown as never,
+            toolContractService as unknown as never,
+            toolExecutor as unknown as never,
+            temporalPolicy as unknown as never,
+            timelineAssembler as unknown as never,
+            temporalSelector as unknown as never,
+            temporalPrivacyFilter as unknown as never,
+            temporalPromptAssembler as unknown as never,
+            logger as unknown as never
         );
 
         const browser = {
@@ -835,7 +835,7 @@ describe('StepExecutor hardening', () => {
         const generator = executor.executeStep(
             'run-1',
             'Find and verify target content',
-            browser as any,
+            browser as unknown as never,
             'https://example.com',
             0,
             { vision: false, debugScreenshots: false, maxActions: 20 }
@@ -950,20 +950,20 @@ describe('StepExecutor hardening', () => {
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const executor = new StepExecutor(
-            llmProvider as any,
-            loopDetector as any,
-            perception as any,
-            storage as any,
-            trace as any,
-            assertionGoalService as any,
-            toolContractService as any,
-            toolExecutor as any,
-            temporalPolicy as any,
-            timelineAssembler as any,
-            temporalSelector as any,
-            temporalPrivacyFilter as any,
-            temporalPromptAssembler as any,
-            logger as any
+            llmProvider as unknown as never,
+            loopDetector as unknown as never,
+            perception as unknown as never,
+            storage as unknown as never,
+            trace as unknown as never,
+            assertionGoalService as unknown as never,
+            toolContractService as unknown as never,
+            toolExecutor as unknown as never,
+            temporalPolicy as unknown as never,
+            timelineAssembler as unknown as never,
+            temporalSelector as unknown as never,
+            temporalPrivacyFilter as unknown as never,
+            temporalPromptAssembler as unknown as never,
+            logger as unknown as never
         );
 
         const browser = {
@@ -973,7 +973,7 @@ describe('StepExecutor hardening', () => {
         const generator = executor.executeStep(
             'run-viewport-guard',
             'Verify coordinate safety',
-            browser as any,
+            browser as unknown as never,
             'https://example.com',
             0,
             { vision: false, debugScreenshots: false, maxActions: 5 }
@@ -1073,27 +1073,27 @@ describe('StepExecutor hardening', () => {
         const onEvaluation = vi.fn();
 
         const executor = new StepExecutor(
-            llmProvider as any,
-            loopDetector as any,
-            perception as any,
-            storage as any,
-            trace as any,
-            assertionGoalService as any,
-            toolContractService as any,
-            toolExecutor as any,
-            temporalPolicy as any,
-            timelineAssembler as any,
-            temporalSelector as any,
-            temporalPrivacyFilter as any,
-            temporalPromptAssembler as any,
-            logger as any
+            llmProvider as unknown as never,
+            loopDetector as unknown as never,
+            perception as unknown as never,
+            storage as unknown as never,
+            trace as unknown as never,
+            assertionGoalService as unknown as never,
+            toolContractService as unknown as never,
+            toolExecutor as unknown as never,
+            temporalPolicy as unknown as never,
+            timelineAssembler as unknown as never,
+            temporalSelector as unknown as never,
+            temporalPrivacyFilter as unknown as never,
+            temporalPromptAssembler as unknown as never,
+            logger as unknown as never
         );
 
         const browser = { getViewportSize: vi.fn().mockResolvedValue({ width: 1200, height: 800 }) };
         const generator = executor.executeStep(
             'run-eval-callback',
             'verify',
-            browser as any,
+            browser as unknown as never,
             'https://example.com',
             0,
             { vision: false, debugScreenshots: false, maxActions: 5 },

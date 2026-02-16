@@ -128,28 +128,28 @@ function createUseCaseContext(
     };
 
     const useCase = new RunTestUseCase(
-        lifecycleManager as any,
-        planner as any,
-        executor as any,
-        persistence as any,
-        trace as any,
-        sessionFactory as any,
-        laneService as any,
-        durability as any,
-        budgetPolicy as any,
-        checkpointCompaction as any,
-        recoveryReadModel as any,
-        recoveryBootstrap as any,
-        recoveryPolicy as any,
-        recoveryReplayGuard as any,
-        replayIdempotency as any,
-        replanningPolicy as any,
-        skillRegistry as any,
-        skillGovernance as any,
-        pluginRegistry as any,
-        pluginGateway as any,
-        readinessPolicy as any,
-        logger as any
+        lifecycleManager as unknown as never,
+        planner as unknown as never,
+        executor as unknown as never,
+        persistence as unknown as never,
+        trace as unknown as never,
+        sessionFactory as unknown as never,
+        laneService as unknown as never,
+        durability as unknown as never,
+        budgetPolicy as unknown as never,
+        checkpointCompaction as unknown as never,
+        recoveryReadModel as unknown as never,
+        recoveryBootstrap as unknown as never,
+        recoveryPolicy as unknown as never,
+        recoveryReplayGuard as unknown as never,
+        replayIdempotency as unknown as never,
+        replanningPolicy as unknown as never,
+        skillRegistry as unknown as never,
+        skillGovernance as unknown as never,
+        pluginRegistry as unknown as never,
+        pluginGateway as unknown as never,
+        readinessPolicy as unknown as never,
+        logger as unknown as never
     );
 
     return {
@@ -548,7 +548,7 @@ describe('RunTestUseCase recovery flow', () => {
         ])));
 
         let executionCount = 0;
-        (ctx.executor.executeStep as any).mockImplementation(async function* () {
+        (ctx.executor.executeStep as ReturnType<typeof vi.fn>).mockImplementation(async function* () {
             executionCount += 1;
 
             if (executionCount === 1) {

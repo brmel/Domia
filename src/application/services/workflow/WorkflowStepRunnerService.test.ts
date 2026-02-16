@@ -10,8 +10,8 @@ describe('WorkflowStepRunnerService', () => {
         });
 
         const service = new WorkflowStepRunnerService(
-            { execute } as any,
-            { createSession: vi.fn() } as any
+            { execute } as unknown as never,
+            { createSession: vi.fn() } as unknown as never
         );
 
         const sharedSession = {
@@ -39,9 +39,9 @@ describe('WorkflowStepRunnerService', () => {
                 createdAt: '2026-01-01T00:00:00.000Z',
                 updatedAt: '2026-01-01T00:00:00.000Z'
             },
-            { state: 'running' } as any,
+            { state: 'running' } as unknown as never,
             {
-                session: sharedSession as any,
+                session: sharedSession as unknown as never,
                 shouldNavigate: false
             }
         );
@@ -71,8 +71,8 @@ describe('WorkflowStepRunnerService', () => {
         }));
 
         const service = new WorkflowStepRunnerService(
-            { execute: vi.fn() } as any,
-            { createSession } as any
+            { execute: vi.fn() } as unknown as never,
+            { createSession } as unknown as never
         );
 
         const session = await service.openSharedSession({

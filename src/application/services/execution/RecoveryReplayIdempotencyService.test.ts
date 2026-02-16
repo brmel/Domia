@@ -9,7 +9,7 @@ describe('RecoveryReplayIdempotencyService', () => {
         const persistence = {
             hasReplayIdempotencyKey: vi.fn(() => okAsync(true)),
             saveReplayIdempotencyKey: vi.fn(() => okAsync(undefined))
-        } as any;
+        } as unknown as never;
 
         const service = new RecoveryReplayIdempotencyService(persistence);
         await expect(service.shouldExecute('run-1', 'key-1')).resolves.toBe(false);
@@ -19,7 +19,7 @@ describe('RecoveryReplayIdempotencyService', () => {
         const persistence = {
             hasReplayIdempotencyKey: vi.fn(() => errAsync(new PersistenceError('lookup failed'))),
             saveReplayIdempotencyKey: vi.fn(() => okAsync(undefined))
-        } as any;
+        } as unknown as never;
 
         const service = new RecoveryReplayIdempotencyService(persistence);
         await expect(service.shouldExecute('run-1', 'key-1')).rejects.toThrow('lookup failed');
@@ -29,7 +29,7 @@ describe('RecoveryReplayIdempotencyService', () => {
         const persistence = {
             hasReplayIdempotencyKey: vi.fn(() => okAsync(false)),
             saveReplayIdempotencyKey: vi.fn(() => errAsync(new PersistenceError('write failed')))
-        } as any;
+        } as unknown as never;
 
         const service = new RecoveryReplayIdempotencyService(persistence);
         await expect(service.markExecuted('run-1', 'key-1')).rejects.toThrow('write failed');

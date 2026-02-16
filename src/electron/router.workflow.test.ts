@@ -33,9 +33,9 @@ describe('workflow router', () => {
             getWorkflowDefinitions: vi.fn(() => okAsync([])),
             getWorkflowRuns: vi.fn(() => okAsync([])),
             getWorkflowDefinition: vi.fn(() => okAsync(null))
-        } as any);
+        } as unknown as never);
 
-        const caller = appRouter.createCaller({} as any);
+        const caller = appRouter.createCaller({} as unknown as never);
         const details = await caller.workflow.getRunDetails({ workflowRunId: 'wr-1' });
 
         expect(details?.run.id).toBe('wr-1');
@@ -50,16 +50,16 @@ describe('workflow router', () => {
             createNextDraftVersion: vi.fn(async () => ({ id: 'wf-v2', version: 2 }))
         };
 
-        container.registerInstance(WorkflowDefinitionService, definitionService as any);
+        container.registerInstance(WorkflowDefinitionService, definitionService as unknown as never);
         container.registerInstance('IPersistenceAdapter', {
             getWorkflowDefinitions: vi.fn(() => okAsync([])),
             getWorkflowRuns: vi.fn(() => okAsync([])),
             getWorkflowStepRuns: vi.fn(() => okAsync([])),
             getWorkflowRun: vi.fn(() => okAsync(null)),
             getWorkflowDefinition: vi.fn(() => okAsync(null))
-        } as any);
+        } as unknown as never);
 
-        const caller = appRouter.createCaller({} as any);
+        const caller = appRouter.createCaller({} as unknown as never);
 
         const created = await caller.workflow.create({
             name: 'WF',
@@ -90,7 +90,7 @@ describe('workflow router', () => {
             getWorkflowStepRuns: vi.fn(() => okAsync([])),
             getWorkflowRun: vi.fn(() => okAsync(null)),
             getWorkflowDefinition: vi.fn(() => okAsync(null))
-        } as any);
+        } as unknown as never);
 
         container.registerInstance(WorkflowExecutionService, {
             executeWorkflow: vi.fn(async function* () {
@@ -98,9 +98,9 @@ describe('workflow router', () => {
                 await new Promise((resolve) => setTimeout(resolve, 50));
                 yield { type: 'workflow_completed', workflowRunId: 'wr-1', success: true };
             })
-        } as any);
+        } as unknown as never);
 
-        const caller = appRouter.createCaller({} as any);
+        const caller = appRouter.createCaller({} as unknown as never);
         const startResult = await caller.workflow.start({ workflowDefinitionId: 'wf-1' });
         expect(startResult.success).toBe(true);
 
@@ -109,7 +109,7 @@ describe('workflow router', () => {
     });
 
     it('returns false when cancelling without active workflow', async () => {
-        const caller = appRouter.createCaller({} as any);
+        const caller = appRouter.createCaller({} as unknown as never);
         await caller.workflow.cancel();
         const cancelResult = await caller.workflow.cancel();
         expect(cancelResult.success).toBe(false);
@@ -122,7 +122,7 @@ describe('workflow router', () => {
             getWorkflowStepRuns: vi.fn(() => okAsync([])),
             getWorkflowRun: vi.fn(() => okAsync(null)),
             getWorkflowDefinition: vi.fn(() => okAsync(null))
-        } as any);
+        } as unknown as never);
 
         const executeWorkflow = vi
             .fn()
@@ -138,9 +138,9 @@ describe('workflow router', () => {
 
         container.registerInstance(WorkflowExecutionService, {
             executeWorkflow
-        } as any);
+        } as unknown as never);
 
-        const caller = appRouter.createCaller({} as any);
+        const caller = appRouter.createCaller({} as unknown as never);
         const firstStart = await caller.workflow.start({ workflowDefinitionId: 'wf-1' });
         const secondStart = await caller.workflow.start({ workflowDefinitionId: 'wf-2' });
 
