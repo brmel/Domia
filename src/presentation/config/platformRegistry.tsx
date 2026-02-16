@@ -30,10 +30,8 @@ export interface PlatformDefinition<T extends BasePlatformConfig> {
   description: string;
   icon: string;
   
-  // Custom field renderer component
   renderFields: React.ComponentType<FieldRenderProps>;
   
-  // Default values for new instances
   defaultValues: Omit<T, 'platform'>;
 }
 

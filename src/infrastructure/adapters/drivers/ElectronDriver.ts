@@ -123,13 +123,8 @@ export class ElectronDriver implements IAppDriver {
             if (port) {
                 this.logger.info(`[ElectronDriver] Spawning process manually with port ${port}`);
 
-                // CRITICAL: process.env contains ELECTRON_RUN_AS_NODE=1 because the CLI runs via electron.
-                // We MUST remove this when spawning the actual packaged app, otherwise it runs as Node
-                // and fails to launch the app logic/CDP server.
                 const env = { ...process.env };
                 delete env['ELECTRON_RUN_AS_NODE'];
-                // Packaged Electron apps reject NODE_OPTIONS and emit a startup warning.
-                // Remove only this known incompatible variable; keep all other stderr warnings visible.
                 delete env['NODE_OPTIONS'];
 
                 this.appProcess = spawn(config.executablePath!, config.launchArgs || [], {
@@ -170,14 +165,10 @@ export class ElectronDriver implements IAppDriver {
                     throw new Error(`Failed to connect to manually spawned Electron app after retries: ${message}`);
                 }
             } else {
-                // When launching a packaged Electron app, we must ignore default Chrome arguments
-                // as they might cause the app to crash or reject the flags.
-                // We ensure remote debugging is enabled.
                 const defaultArgs = ['--remote-debugging-port=9222'];
 
                 const args = [
                     ...(config.launchArgs || []),
-                    // Only add default port if not already provided
                     ...(config.launchArgs?.some(a => a.includes('remote-debugging-port')) ? [] : defaultArgs)
                 ];
 

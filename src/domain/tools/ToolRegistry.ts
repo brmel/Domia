@@ -17,7 +17,6 @@ export class ToolRegistry {
     register(tool: ToolDefinition): void {
         this.tools.set(tool.name, tool);
         
-        // Track which platforms have this tool
         for (const platform of tool.metadata.platforms) {
             if (!this.platformTools.has(platform)) {
                 this.platformTools.set(platform, new Set());
@@ -69,7 +68,6 @@ export class ToolRegistry {
      */
     getAllTools(): ToolDefinition[] {
         if (!this.currentPlatform) {
-            // Return all tools if no platform filter
             return Array.from(this.tools.values());
         }
         return this.getToolsForPlatform(this.currentPlatform);
@@ -84,7 +82,6 @@ export class ToolRegistry {
             return errAsync(new Error(`Tool '${name}' not found in registry.`));
         }
 
-        // Check if tool is available on current platform
         if (!tool.metadata.platforms.includes(context.platform)) {
             return errAsync(new Error(
                 `Tool '${name}' not available on platform '${context.platform}'. ` +
@@ -92,7 +89,6 @@ export class ToolRegistry {
             ));
         }
 
-        // Validate params against schema
         const validation = tool.schema.safeParse(params);
         if (!validation.success) {
             return errAsync(new Error(`Invalid parameters for tool '${name}': ${validation.error.message}`));
@@ -123,7 +119,6 @@ export class ToolRegistry {
      */
     switchPlatform(newPlatform: PlatformType): void {
         this.currentPlatform = newPlatform;
-        // Tools remain registered, but getAllTools() now filters by platform
     }
 
     /**

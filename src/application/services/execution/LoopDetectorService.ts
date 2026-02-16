@@ -5,8 +5,6 @@ import { ActionType } from '@domain/enums/ActionType';
 @injectable()
 export class LoopDetectorService {
     isLoop(history: readonly AgentAction[], nextAction: AgentAction): boolean {
-        // Check for immediate repetition (allow 1 retry)
-        // Fail if we see A -> A -> A (current is 3rd A)
         if (history.length >= 2) {
             const lastAction = history[history.length - 1];
             const secondLastAction = history[history.length - 2];
@@ -15,7 +13,6 @@ export class LoopDetectorService {
                 this.areActionsIdentical(lastAction, nextAction) &&
                 this.areActionsIdentical(secondLastAction, nextAction)) {
 
-                // Exempt harmless actions like SCROLL or WAIT if needed, but usually 3x is a loop
                 if (nextAction.type === ActionType.SCROLL) return false;
                 if (nextAction.type === ActionType.WAIT) return false;
 
@@ -23,7 +20,6 @@ export class LoopDetectorService {
             }
         }
 
-        // Check for cycles (e.g. A -> B -> A -> B)
         const n = history.length;
         if (n >= 4) {
             const [A1, B1, A2, B2] = [history[n - 1], history[n - 2], history[n - 3], history[n - 4]];

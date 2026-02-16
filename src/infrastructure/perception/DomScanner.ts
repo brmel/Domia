@@ -19,7 +19,6 @@ export class DomScanner {
      * Returns raw data that needs to be mapped to domain objects.
      */
     async scan(page: Page): Promise<RawElement[]> {
-        // We use a self-invoking function string to avoid closure serialization issues with Playwright
         const extractionScript = `
             (() => {
                 const selectors = [

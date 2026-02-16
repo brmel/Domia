@@ -33,7 +33,6 @@ export class ConsoleLogger implements ILogger {
     }
 
     debug(message: string, context?: Record<string, unknown>): void {
-        // Only log debug if explicit env var or in dev mode (simplification)
         if (process.env['NODE_ENV'] === 'development' || process.env['DEBUG']) {
             console.debug(this.formatMessage('debug', message));
             if (context) {

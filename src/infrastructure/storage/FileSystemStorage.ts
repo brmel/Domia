@@ -23,7 +23,6 @@ export class FileSystemStorage implements IStorageService {
 
         const assets: Record<string, string> = {};
 
-        // Save Screenshots
         if (frame.vision.screenshots && frame.vision.screenshots.length > 0) {
             const screenshotWrites = frame.vision.screenshots.map(async (buffer, index) => {
                 if (!buffer) {
@@ -49,7 +48,6 @@ export class FileSystemStorage implements IStorageService {
             }
         }
 
-        // Save DOM
         if (frame.semantic.dom && Object.keys(frame.semantic.dom).length > 0) {
             const filename = `${stepNumber}_dom.json`;
             const filePath = path.join(baseDir, filename);
@@ -57,7 +55,6 @@ export class FileSystemStorage implements IStorageService {
             assets['dom'] = filePath;
         }
 
-        // Save Accessibility
         if (frame.semantic.accessibility && Object.keys(frame.semantic.accessibility).length > 0) {
             const filename = `${stepNumber}_aria.json`;
             const filePath = path.join(baseDir, filename);
@@ -198,21 +195,17 @@ export class FileSystemStorage implements IStorageService {
         const config = this.configService.get();
         const baseDir = path.resolve(config.paths.artifactsDir, runId, 'steps');
 
-        // Security check: ensure baseDir is within artifactsDir to prevent traversal
         if (!baseDir.startsWith(path.resolve(config.paths.artifactsDir))) {
             throw new Error("Invalid runId");
         }
 
         const artifacts: any = {};
 
-        // 1. Screenshots (Scan directory)
         if (await fs.pathExists(baseDir)) {
             const files = await fs.readdir(baseDir);
             const screenshotFiles = files
                 .filter(f => f.startsWith(`${stepNumber}_screenshot`) && f.endsWith('.jpg'))
                 .sort((a, b) => {
-                    // Sort primarily by length (shorter first: _screenshot.jpg vs _screenshot_1.jpg)
-                    // Then alphanumerically
                     if (a.length !== b.length) return a.length - b.length;
                     return a.localeCompare(b);
                 });
@@ -226,19 +219,16 @@ export class FileSystemStorage implements IStorageService {
             }
         }
 
-        // 2. DOM
         const domPath = path.join(baseDir, `${stepNumber}_dom.json`);
         if (await fs.pathExists(domPath)) {
             artifacts.dom = await fs.readJson(domPath);
         }
 
-        // 3. Accessibility
         const ariaPath = path.join(baseDir, `${stepNumber}_aria.json`);
         if (await fs.pathExists(ariaPath)) {
             artifacts.accessibility = await fs.readJson(ariaPath);
         }
 
-        // 4. Trace
         const tracePath = path.join(baseDir, `${stepNumber}_trace.json`);
         if (await fs.pathExists(tracePath)) {
             artifacts.trace = await fs.readJson(tracePath);

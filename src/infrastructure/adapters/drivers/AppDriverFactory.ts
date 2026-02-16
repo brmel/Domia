@@ -87,7 +87,6 @@ export class AppDriverFactory {
 
         const driver = this.webDriver;
         
-        // Connect with web-specific options
         const connectResult = await driver.connect({
             headless: config.options?.headless ?? true,
         });
@@ -111,7 +110,6 @@ export class AppDriverFactory {
         const driver = this.electronDriver;
         const connection = config.platformConfig.connection;
 
-        // Handle different connection types
         if (connection.type === 'cdp') {
             const connectConfig: ElectronConnectionConfig = {
                 cdpUrl: connection.cdpUrl,

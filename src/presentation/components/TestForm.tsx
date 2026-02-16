@@ -51,7 +51,6 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
             setStatus(AgentStatus.FAILED);
         },
         onSuccess: () => {
-            // Status will be updated via IPC event 'started'
         }
     });
 
@@ -192,7 +191,6 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
             return;
         }
 
-        // Build platform config
         const platformConfig = buildPlatformConfig(selectedPlatform, platformData);
 
         setStatus(AgentStatus.RUNNING);

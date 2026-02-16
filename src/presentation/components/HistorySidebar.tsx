@@ -37,7 +37,6 @@ export function HistorySidebar({ onClose, disabled = false }: HistorySidebarProp
         if (loadingRun) return <div className="p-8 text-center text-gray-400 text-sm">Loading details...</div>;
         if (!run) return <div className="p-8 text-center text-red-500 text-sm">Run not found</div>;
 
-        // Extract summary
         let summary = '';
         if (run.status.type === 'passed') summary = run.status.summary;
         if (run.status.type === 'failed') summary = run.status.error;

@@ -11,7 +11,6 @@ import { RunCommand } from './RunCommand';
 import { HistoryCommand } from './HistoryCommand';
 import { WorkflowCommand } from './WorkflowCommand';
 
-// Setup DI
 registerCoreServices();
 container.register('IViewHost', { useClass: ConsoleViewHost });
 
@@ -21,10 +20,8 @@ program
     .version('1.0.0')
     .description('Domia CLI - Autonomous Web E2E Testing Agent');
 
-// Banner
 console.log(chalk.cyan(figlet.textSync('Domia', { horizontalLayout: 'full' })));
 
-// Register Commands
 RunCommand.register(program);
 HistoryCommand.register(program);
 WorkflowCommand.register(program);

@@ -170,7 +170,6 @@ export class RunTestUseCase {
             return;
         }
 
-        // Initialize State
         let currentState = recoveryContext?.state ?? WorkflowState.initial();
         const recoveryTargetStepNumber = recoveryContext?.state.stepNumber ?? 0;
 
@@ -359,12 +358,10 @@ export class RunTestUseCase {
             await this.durability.checkpoint(testRunId, currentState, 'plan_ready');
             runLifecycle = this.durability.transition(testRunId, runLifecycle, 'executing');
 
-            // 2. Execution Phase
             for (let i = startPlanIndex; i < plan.items.length; i++) {
                 const item = plan.items[i];
                 if (!item) continue;
 
-                // Check Pause/Cancel
                 if (controller.state === TestRunState.PAUSED) {
                     runLifecycle = this.durability.transition(testRunId, runLifecycle, 'paused');
                     await this.durability.checkpoint(testRunId, currentState, 'pause_requested');
@@ -398,7 +395,6 @@ export class RunTestUseCase {
                     );
                 }
 
-                // Update Item Status to Running
                 const runningItem: PlanItem = { ...item, status: 'active' as PlanItemStatus };
                 const updatedItems = [...plan.items];
                 updatedItems[i] = runningItem;
@@ -478,7 +474,6 @@ export class RunTestUseCase {
                                 throw new WorkflowError(`Failed to persist test step: ${saveStepResult.error.message}`);
                             }
 
-                            // Update state
                             currentState = {
                                 ...currentState,
                                 status: 'acting',
@@ -566,7 +561,6 @@ export class RunTestUseCase {
                 }
 
                 if (result && result.success) {
-                    // Mark Success
                     const successItem: PlanItem = { ...item, status: 'completed' as PlanItemStatus };
                     const successItems = [...updatedItems];
                     successItems[i] = successItem;
@@ -585,7 +579,6 @@ export class RunTestUseCase {
                         break;
                     }
                 } else {
-                    // Step Failed
                     const errorMsg = result ? `${result.code}: ${result.reason}` : 'unknown_error: Unknown error';
                     const replanningTrigger = result ? this.replanningCoordinator.mapResultCodeToTrigger(result.code) : undefined;
                     const replanningAssessment = this.replanningPolicy.assess({
@@ -708,11 +701,8 @@ export class RunTestUseCase {
 
             releaseLane();
 
-            // Flush and finalize traces
             await this.trace.endTrace();
 
-            // Final status update
-            // Emit exactly one terminal event.
             if (terminalError) {
                 currentState = this.terminalizationCoordinator.applyTerminalState(currentState, 'failed', terminalError.message);
                 runLifecycle = this.durability.transition(testRunId, runLifecycle, 'failed');

@@ -48,7 +48,6 @@ export class ExecutionController extends EventEmitter implements IExecutionContr
     stop(): void {
         this._state = TestRunState.CANCELLED;
         this._pendingActionOverride = null;
-        // Resume if paused so loop can exit
         if (this._resumeResolver) {
             this._resumeResolver();
             this._resumeResolver = null;
@@ -88,7 +87,6 @@ export class ExecutionController extends EventEmitter implements IExecutionContr
         }
     }
 
-    // Methods for the Agent Loop to await
     async waitForResume(): Promise<void> {
         if (this._state === TestRunState.RUNNING) return;
         return new Promise<void>((resolve) => {

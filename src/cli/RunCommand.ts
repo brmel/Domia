@@ -73,7 +73,6 @@ export class RunCommand {
 
                 const { headless } = options;
 
-                // Update ConfigService with CLI flags
                 const configService = container.resolve<import('../domain/ports/IConfigService').IConfigService>('IConfigService');
                 const currentConfig = configService.get();
                 const resolvedProvider = provider || currentConfig.ai.provider;
@@ -96,14 +95,12 @@ export class RunCommand {
                     console.log(chalk.gray(`[LLM] provider=${resolvedProvider} model=${resolvedModel}${resolvedBaseUrl ? ` baseUrl=${resolvedBaseUrl}` : ''}`));
                 }
 
-                // 1. Handle Debug Mode (Console Logs)
                 if (debug) {
                     const debugModule = await import('debug');
                     debugModule.default.enable('domia:*');
                     console.log(chalk.gray('[Debug Mode Enabled]'));
                 }
 
-                // 2. Handle Verbose Mode (File Artifacts)
                 if (verbose) {
                     process.env['DOMIA_VERBOSE'] = 'true';
                     const traceService = container.resolve(TraceService);
@@ -114,12 +111,10 @@ export class RunCommand {
                     console.log(chalk.gray('[Verbose Mode Enabled: Saving artifacts]'));
                 }
 
-                // Ensure ViewHost is registered
                 if (!container.isRegistered('IViewHost')) {
                     container.register('IViewHost', { useClass: ConsoleViewHost });
                 }
 
-                // Interactive prompts if needed
                 if ((!url && !cdpUrl && !executablePath) || !prompt) {
                     const answers = await inquirer.prompt([
                         {
@@ -214,7 +209,6 @@ export class RunCommand {
                         process.stdin.on('keypress', interactiveKeyHandler);
                     };
 
-                    // Handle Ctrl+C
                     process.on('SIGINT', () => {
                         teardownInteractiveControls();
                         spinner.stop();
@@ -223,17 +217,14 @@ export class RunCommand {
                         process.exit(0);
                     });
 
-                    // Build platform config
                     let platformConfig: PlatformConfig;
                     
                     if (url) {
-                        // Web platform
                         platformConfig = {
                             platform: 'web',
                             url
                         };
                     } else if (cdpUrl) {
-                        // Electron CDP mode
                         platformConfig = {
                             platform: 'electron',
                             connection: {
@@ -243,7 +234,6 @@ export class RunCommand {
                             }
                         };
                     } else if (executablePath) {
-                        // Electron executable mode
                         const parsedLaunchArgs = launchArgs 
                             ? launchArgs.split(',').map((arg: string) => arg.trim())
                             : [];
@@ -296,8 +286,6 @@ export class RunCommand {
                             case 'state_updated':
                                 const state = event.state;
                                 if (state.plan) {
-                                    // Simple visualization of plan progress
-                                    // For CLI, maybe just log the active item?
                                     const activeItem = state.plan.items.find(i => i.status === 'active');
                                     if (activeItem) {
                                         spinner.text = `Executing: ${activeItem.description}`;

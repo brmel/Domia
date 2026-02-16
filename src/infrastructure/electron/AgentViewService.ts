@@ -15,7 +15,6 @@ export class AgentViewService {
     private isReady: boolean = false;
     private readyPromise: Promise<void> | null = null;
 
-    // Stability delay to allow renderer process to fully initialize after load
     private readonly READINESS_STABILITY_DELAY_MS = 500;
 
     constructor(@inject('ILogger') private logger: ILogger) { }
@@ -72,10 +71,8 @@ export class AgentViewService {
 
         if (this.readyPromise) {
             await this.readyPromise;
-            // Additional check for bounds
             if (!this.hasValidBounds()) {
                 this.logger.warn('[AgentViewService] Waiting for valid bounds...');
-                // Wait a bit more or verify bounds are set
             }
         }
     }
@@ -102,7 +99,6 @@ export class AgentViewService {
         const index = children.indexOf(this.view);
         const isLast = index === children.length - 1;
 
-        // Force update bounds BEFORE adding to hierarchy to prevent flash of full/wrong size
         this.view.setBounds(bounds);
         this.logger.debug(`[AgentViewService] View bounds set to: ${JSON.stringify(bounds)}`);
 
@@ -110,7 +106,6 @@ export class AgentViewService {
             this.mainWindow.contentView.addChildView(this.view);
             this.logger.debug(`[AgentViewService] Added view to hierarchy. Total children: ${this.mainWindow.contentView.children.length}`);
         } else if (!isLast) {
-            // Reposition to top if needed
             this.mainWindow.contentView.removeChildView(this.view);
             this.mainWindow.contentView.addChildView(this.view);
             this.logger.debug('[AgentViewService] Moved view to top of hierarchy');

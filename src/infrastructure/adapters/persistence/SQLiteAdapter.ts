@@ -145,13 +145,11 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         try {
             database.exec('ALTER TABLE test_steps ADD COLUMN assets_json JSON;');
         } catch (e) {
-            // Column likely already exists, ignore
         }
 
         try {
             database.exec("ALTER TABLE workflow_checkpoints ADD COLUMN reason TEXT NOT NULL DEFAULT 'action_applied';");
         } catch (e) {
-            // Column likely already exists, ignore
         }
     }
 
@@ -290,7 +288,6 @@ export class SQLiteAdapter implements IPersistenceAdapter {
     }
 
     saveTestRun(run: TestRun): ResultAsync<void, PersistenceError> {
-        // Extract flattened fields from TestRunStatus
         let summary: string | null = null;
         let durationMs: number | null = null;
 
@@ -324,10 +321,8 @@ export class SQLiteAdapter implements IPersistenceAdapter {
     }
 
     updateTestRun(id: string, updates: Partial<TestRun>): ResultAsync<void, PersistenceError> {
-        // Map domain fields to DB fields
         const values: Partial<TestRunTable> = {};
 
-        // Handle Status Update
         if (updates.status) {
             values.status = updates.status.type;
             if (updates.status.type === 'passed') {

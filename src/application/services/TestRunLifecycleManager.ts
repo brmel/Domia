@@ -28,8 +28,6 @@ export class TestRunLifecycleManager {
             prompt
         });
 
-        // Immediately start it as per previous logic, or keep pending? 
-        // Previous logic set status: 'running'.
         const runningRun = TestRun.start(testRun);
 
         try {

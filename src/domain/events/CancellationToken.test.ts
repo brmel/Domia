@@ -28,7 +28,6 @@ describe('CancellationToken', () => {
             expect(token1.requested).toBe(false);
 
             source.cancel();
-            // Token reflects updated state
             const token2 = source.token;
             expect(token2.requested).toBe(true);
         });

@@ -186,7 +186,6 @@ describe('RunTestUseCase replanning advice propagation', () => {
             prompt: 'do the task',
             options: { maxSteps: 5 }
         }, controller)) {
-            // exhaust stream
         }
 
         expect(planner.plan).toHaveBeenCalledTimes(2);

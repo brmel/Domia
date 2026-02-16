@@ -59,7 +59,6 @@ export class HistoryCommand {
                 const stepsResult = await persistence.getTestSteps(id);
                 const steps = stepsResult.isOk() ? stepsResult.value : [];
 
-                // Extract summary based on status
                 let summary = 'N/A';
                 if (run.status.type === 'passed') summary = run.status.summary;
                 if (run.status.type === 'failed') summary = run.status.error;

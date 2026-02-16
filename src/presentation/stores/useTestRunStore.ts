@@ -12,24 +12,19 @@ import type { PlatformFieldValue } from '../config/platformRegistry';
  * TestRun state for UI
  */
 export interface TestRunStoreState {
-    // Current run status
     status: AgentStatus;
     testRunId: TestRunId | null;
 
-    // Progress tracking
     currentPhase: 'planning' | 'executing' | 'verifying' | null;
     currentAction: AgentAction | null;
     plan: Plan | null;
 
-    // Results
     success: boolean | null;
     summary: string | null;
     errorMessage: string | null;
 
-    // Step history
     history: AgentAction[];
 
-    // Input Persistence
     url: string;
     prompt: string;
     selectedPlatform: PlatformType;
@@ -43,13 +38,11 @@ export interface TestRunStoreState {
     temporalRedactSensitive: boolean;
     temporalPersistWindow: boolean;
 
-    // Recovery Replay Telemetry
     recoveryReplay: RecoveryReplayTelemetry | null;
     replanningEvents: ReplanningTelemetry[];
 }
 
 interface TestRunActions {
-    // Test actions
     reset: () => void;
 
     setUrl: (url: string) => void;
@@ -66,7 +59,6 @@ interface TestRunActions {
     setTemporalPersistWindow: (value: boolean) => void;
     setStatus: (status: AgentStatus) => void;
 
-    // Event handling
     handleEvent: (event: TestRunEvent) => void;
 }
 
@@ -128,7 +120,6 @@ export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
 
     setStatus: (status: AgentStatus): void => set({ status }),
 
-    // Event handling from IPC
     handleEvent: (event: TestRunEvent): void => {
         switch (event.type) {
             case 'started':

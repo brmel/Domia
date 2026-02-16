@@ -11,7 +11,6 @@ export function StepInspector(): JSX.Element | null {
     const { isOpen, runId, stepNumber, close } = useStepInspectorStore();
     const modalRef = useRef<HTMLDivElement>(null);
 
-    // Fetch data only if open and IDs are present
     const { data: artifacts, isLoading, error } = trpc.history.getStepArtifacts.useQuery(
         { runId: runId!, stepNumber: stepNumber! },
         { enabled: isOpen && !!runId && stepNumber !== null, staleTime: Infinity }
@@ -121,7 +120,6 @@ function InspectorContent({ artifacts }: { artifacts: any }) {
             }
             : undefined);
 
-    // Tabs configuration
     const tabs = [
         { id: 'vision', label: 'Vision', icon: '👁️' },
         { id: 'semantic', label: 'Semantic', icon: '🌳' },

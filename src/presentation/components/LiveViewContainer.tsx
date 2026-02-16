@@ -50,7 +50,6 @@ export const LiveViewContainer: React.FC = () => {
 
         performUpdateRef.current = performUpdate;
 
-        // Initial bounds sync
         performUpdate();
 
         const observer = new ResizeObserver(updateBounds);
@@ -73,7 +72,6 @@ export const LiveViewContainer: React.FC = () => {
         }
     }, [isRunning]);
 
-    // Ensure view is hidden on unmount
     useEffect(() => {
         return (): void => {
             window.electron?.agentView?.hide();

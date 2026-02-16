@@ -8,13 +8,11 @@ import { ValidationError } from '../errors';
 declare const brand: unique symbol;
 export type Brand<T, B> = T & { readonly [brand]: B };
 
-// Branded type definitions
 export type Url = Brand<string, 'Url'>;
 export type TestRunId = Brand<string, 'TestRunId'>;
 export type ElementId = Brand<number, 'ElementId'>;
 export type Selector = Brand<string, 'Selector'>;
 
-// Url factory
 export const UrlFactory = {
     create(value: string): Result<Url, ValidationError> {
         if (!value || value.trim() === '') {
@@ -32,7 +30,6 @@ export const UrlFactory = {
     },
 };
 
-// TestRunId factory
 import { nanoid } from 'nanoid';
 
 export const TestRunIdFactory = {
@@ -44,7 +41,6 @@ export const TestRunIdFactory = {
     },
 };
 
-// ElementId factory
 export const ElementIdFactory = {
     create(value: number): Result<ElementId, ValidationError> {
         if (!Number.isInteger(value) || value < 0) {

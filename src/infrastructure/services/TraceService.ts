@@ -16,11 +16,9 @@ export class TraceService implements ITraceService {
     }
 
     async startTrace(_runId: string): Promise<void> {
-        // Lifecycle hook for exporters if needed
     }
 
     async endTrace(): Promise<void> {
-        // Lifecycle hook for exporters if needed
     }
 
     async tracePerception(runId: string, stepNumber: number, data: Partial<StepTrace>): Promise<void> {

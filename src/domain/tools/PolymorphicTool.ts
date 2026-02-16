@@ -78,7 +78,6 @@ export class PolymorphicTool<TParams = unknown> implements ToolDefinition<TParam
      * @returns this (for method chaining)
      */
     addImplementation(impl: PlatformImplementation<TParams>): this {
-        // Validate platform is in metadata
         if (!this.metadata.platforms.includes(impl.platform)) {
             throw new Error(
                 `Cannot add implementation for platform '${impl.platform}'. ` +
@@ -106,7 +105,6 @@ export class PolymorphicTool<TParams = unknown> implements ToolDefinition<TParam
             ));
         }
         
-        // Delegate to platform-specific implementation
         return impl.execute(params, context);
     }
     

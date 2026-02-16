@@ -106,8 +106,6 @@ export class StepExecutor {
         await this.trace.startTrace(runId);
 
         while (loopCount < maxActions) {
-            // Perception
-            // Capture if either Vision (LLM) or DebugScreenshots is enabled
             const shouldCaptureVision = options.vision || options.debugScreenshots;
             const frameResult = await this.perception.capture(browser, { vision: shouldCaptureVision, aria: true, dom: true });
             if (frameResult.isErr()) {
@@ -153,7 +151,6 @@ export class StepExecutor {
                 }
             }
 
-            // Trace: Perception Metadata
             await this.trace.tracePerception(runId, currentState.stepNumber + 1, {
                 timestamp: Date.now(),
                 sensorData: {
@@ -231,7 +228,6 @@ export class StepExecutor {
                 ...(temporalWindow ? { temporalWindow } : {})
             };
 
-            // Trace: Agent Input (Prompt Context)
             await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
                 agentInput: {
                     goal: stepGoal,

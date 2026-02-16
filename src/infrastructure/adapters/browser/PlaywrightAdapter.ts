@@ -28,7 +28,6 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         this.logger.debug('[PlaywrightAdapter] Starting browser launch');
 
         if (!options.headless) {
-            // Let the frontend (LiveViewContainer) control visibility and bounds
             this.logger.debug('[PlaywrightAdapter] Adapting view for headless: false');
         }
 
@@ -61,14 +60,11 @@ export class PlaywrightAdapter implements IBrowserAutomation {
                 }
             }
 
-            // Find existing page in Electron
             const contexts = this.browser!.contexts();
             for (const ctx of contexts) {
                 const pages = ctx.pages();
                 for (const p of pages) {
                     const url = p.url();
-                    // We look for the blank page or the specific agent page depending on state
-                    // matching broadly to catch the view
                     const isDevTools = url.startsWith('devtools://');
                     const isExtension = url.startsWith('chrome-extension://');
 
@@ -81,7 +77,6 @@ export class PlaywrightAdapter implements IBrowserAutomation {
             }
             throw new NavigationError('Could not find agent WebContentsView page');
         } else {
-            // Standalone Launch (CLI / Headless)
             this.logger.info('[PlaywrightAdapter] Launching standalone browser');
             this.browser = await chromium.launch({
                 headless: options.headless,

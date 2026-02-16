@@ -12,7 +12,6 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
     const { data: config, isLoading } = trpc.settings.get.useQuery();
     const updateMutation = trpc.settings.update.useMutation({
         onSuccess: () => {
-            // Optimistic update or just invalidate
             utils.settings.get.invalidate();
         }
     });
@@ -39,8 +38,6 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
         });
     };
 
-    // Helper to update strategy order safely
-    // Since this is called from onChange, we can pass event too
     const updateStrategies = (newOrder: ('fast' | 'semantic' | 'visual' | 'heuristic')[], e: React.ChangeEvent): void => {
         e.stopPropagation();
         if (!config) return;

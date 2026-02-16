@@ -56,7 +56,6 @@ export function TestRunner(): React.ReactElement {
         }
     });
 
-    // Helper to safely get thought if it exists
     const getThought = (action: AgentAction): string | undefined => {
         return 'thought' in action ? (action as { thought?: string }).thought : undefined;
     };

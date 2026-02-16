@@ -16,7 +16,6 @@ export interface PerceptionFrame {
         dom: DOMSnapshot;
         accessibility: AriaNode | null;
     };
-    // Future modalities
     network?: unknown[];
     console?: unknown[];
 }

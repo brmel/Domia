@@ -30,7 +30,6 @@ export class ConfigService implements IConfigService {
             loadedConfig = result.config;
             this.configPath = result.filepath;
         } else {
-            // Default to local directory if no config found
             this.configPath = path.resolve(process.cwd(), 'domia.config.json');
         }
 
@@ -46,7 +45,6 @@ export class ConfigService implements IConfigService {
     }
 
     update(updates: Partial<DomiaConfig>): void {
-        // Deep merge logic (simplified for now)
         this.config = {
             ...this.config,
             ...updates,

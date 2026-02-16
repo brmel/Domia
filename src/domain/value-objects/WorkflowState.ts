@@ -19,7 +19,6 @@ export interface WorkflowState {
     readonly variables: Record<string, unknown>;
     readonly error?: string;
 
-    // Hierarchical Planning
     readonly plan?: Plan;
     readonly activeItemId?: string;
     readonly history: readonly AgentAction[];

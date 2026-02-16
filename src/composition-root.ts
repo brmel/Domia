@@ -65,26 +65,21 @@ import { WorkflowStepRunnerService } from './application/services/workflow/Workf
 import { WorkflowStepPolicyService } from './application/services/workflow/WorkflowStepPolicyService';
 
 export function registerCoreServices(): void {
-    // 1. Core Services (Config & Persistence)
     container.registerSingleton(ConfigService);
     container.register('IConfigService', { useToken: ConfigService });
     container.registerSingleton('IPersistenceAdapter', SQLiteAdapter);
 
-    // Browser / Driver Automation
     container.registerSingleton(PlaywrightAdapter);
 
-    // New App Driver Architecture
     container.registerSingleton(WebDriver);
     container.registerSingleton(ElectronDriver);
     container.registerSingleton(AppDriverFactory);
     container.registerSingleton(ToolRegistry);
     
-    // Default app driver binding
     container.register('IAppDriver', { useToken: WebDriver });
 
     container.registerSingleton('ILogger', ConsoleLogger);
 
-    // Decoupled Helper Services
     container.registerSingleton(TestRunLifecycleManager);
     container.registerSingleton(InMemoryRunExecutionLaneService);
     container.register('IRunExecutionLaneService', { useToken: InMemoryRunExecutionLaneService });
@@ -136,7 +131,6 @@ export function registerCoreServices(): void {
     container.register('ILLMProvider', { useClass: LangChainAdapter });
     container.register('RunTestUseCase', { useClass: RunTestUseCase });
 
-    // Perception System
     container.registerSingleton(VisionSensor);
     container.registerSingleton(DomSensor);
     container.registerSingleton(AriaSensor);
@@ -145,10 +139,8 @@ export function registerCoreServices(): void {
     container.register('ISensor', { useToken: DomSensor });
     container.register('ISensor', { useToken: AriaSensor });
 
-    // Register PerceptionPipeline as IPerceptionPipeline
     container.register('IPerceptionPipeline', { useClass: PerceptionPipeline });
 
-    // Storage & Trace Systems
     container.registerSingleton('IStorageService', FileSystemStorage);
     container.registerSingleton(TraceService);
     container.register('ITraceService', { useToken: TraceService });
@@ -156,12 +148,10 @@ export function registerCoreServices(): void {
     const traceService = container.resolve(TraceService);
     const storage = container.resolve<import('@domain/ports/IStorageService').IStorageService>('IStorageService');
 
-    // Register Exporters based on config/env
     if (process.env['DOMIA_VERBOSE'] === 'true') {
         traceService.addExporter(new FileTraceExporter(storage));
     }
 
-    // Always enable debug exporter (let the 'debug' package handle filtering via DEBUG env var)
     traceService.addExporter(new DebugExporter());
 
 }
