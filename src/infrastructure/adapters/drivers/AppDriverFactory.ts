@@ -1,23 +1,15 @@
 import { injectable, inject } from 'tsyringe';
 import { IAppDriver } from '../../../domain/ports/IAppDriver';
+import type { IAppDriverFactory, AppDriverCreateConfig } from '../../../domain/ports/IAppDriverFactory';
 import type { ILogger } from '../../../domain/ports';
 import { WebDriver } from './WebDriver';
 import { ElectronDriver, ElectronConnectionConfig } from './ElectronDriver';
-import type { PlatformConfig } from '../../../domain/types/PlatformConfig';
 import { DriverToolRegistrar } from './DriverToolRegistrar';
 
 /**
  * Configuration for driver creation from PlatformConfig
  */
-export interface DriverConfig {
-    readonly platformConfig: PlatformConfig;
-    readonly options?: {
-        headless?: boolean;
-        maxSteps?: number;
-        vision?: boolean;
-        debugScreenshots?: boolean;
-    };
-}
+export type DriverConfig = AppDriverCreateConfig;
 
 /**
  * AppDriverFactory
@@ -36,7 +28,7 @@ export interface DriverConfig {
  * ```
  */
 @injectable()
-export class AppDriverFactory {
+export class AppDriverFactory implements IAppDriverFactory {
     constructor(
         @inject('ILogger') private readonly logger: ILogger,
         @inject(DriverToolRegistrar) private readonly toolRegistrar: DriverToolRegistrar,
@@ -51,7 +43,7 @@ export class AppDriverFactory {
      * @returns Configured and connected IAppDriver instance
      * @throws Error if platform is not supported or connection fails
      */
-    async createDriver(config: DriverConfig): Promise<IAppDriver> {
+    async createDriver(config: AppDriverCreateConfig): Promise<IAppDriver> {
         const platform = config.platformConfig.platform;
         this.logger.info(`[AppDriverFactory] Creating driver for platform: ${platform}`);
 
@@ -80,7 +72,7 @@ export class AppDriverFactory {
     /**
      * Create and connect a WebDriver instance
      */
-    private async createWebDriver(config: DriverConfig): Promise<IAppDriver> {
+    private async createWebDriver(config: AppDriverCreateConfig): Promise<IAppDriver> {
         if (config.platformConfig.platform !== 'web') {
             throw new Error('[AppDriverFactory] Invalid platform config for WebDriver');
         }
@@ -102,7 +94,7 @@ export class AppDriverFactory {
     /**
      * Create and connect an ElectronDriver instance
      */
-    private async createElectronDriver(config: DriverConfig): Promise<IAppDriver> {
+    private async createElectronDriver(config: AppDriverCreateConfig): Promise<IAppDriver> {
         if (config.platformConfig.platform !== 'electron') {
             throw new Error('[AppDriverFactory] Invalid platform config for ElectronDriver');
         }

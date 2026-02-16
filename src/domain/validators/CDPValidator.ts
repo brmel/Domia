@@ -4,7 +4,7 @@ export class ValidationError extends Error {
     constructor(
         message: string,
         public readonly field: string,
-        public readonly value: any
+        public readonly value: unknown
     ) {
         super(message);
         this.name = 'ValidationError';
@@ -71,7 +71,7 @@ export class CDPValidator {
 
         const trimmed = windowId.trim();
 
-        if (/[<>\"'&]/.test(trimmed)) {
+        if (/[<>"'&]/.test(trimmed)) {
             return err(new ValidationError('Window ID contains invalid characters', 'windowId', windowId));
         }
 

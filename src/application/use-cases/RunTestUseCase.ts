@@ -624,7 +624,8 @@ export class RunTestUseCase {
                         if (replannedResult.isOk() && replannedResult.value.items.length > 0) {
                             plan = replannedResult.value;
                             const clearedState = this.clearActiveItem(currentState);
-                            const { error: _error, ...stateWithoutError } = clearedState;
+                            const { error, ...stateWithoutError } = clearedState;
+                            void error;
                             currentState = {
                                 ...stateWithoutError,
                                 status: 'thinking',
@@ -736,7 +737,8 @@ export class RunTestUseCase {
     }
 
     private clearActiveItem(state: WorkflowState): WorkflowState {
-        const { activeItemId: _removed, ...withoutActiveItem } = state;
+        const { activeItemId, ...withoutActiveItem } = state;
+        void activeItemId;
         return withoutActiveItem;
     }
 

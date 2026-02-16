@@ -32,6 +32,7 @@ describe('RunTestUseCase preflight hardening', () => {
 
         const executor = {
             executeStep: vi.fn(async function* () {
+                yield* [];
                 return { success: true as const, terminal: 'pass' as const };
             })
         };

@@ -55,7 +55,11 @@ export class SmartScrollCapture {
             this.logger.error(`[SmartScrollCapture] Failed to capture sequence: ${error}`);
         } finally {
             if (client) {
-                try { await client.detach(); } catch (_error) { }
+                try {
+                    await client.detach();
+                } catch (detachError) {
+                    this.logger.debug(`[SmartScrollCapture] Ignoring CDP detach error: ${String(detachError)}`);
+                }
             }
         }
 

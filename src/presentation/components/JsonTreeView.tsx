@@ -1,7 +1,7 @@
 import ReactJson from 'react-json-view';
 
 interface JsonTreeViewProps {
-    data: any;
+    data: unknown;
     name?: string;
 }
 

@@ -58,7 +58,7 @@ export class TrajectoryExportService {
                 const operatorCorrection = this.findOperatorCorrection(events);
                 const evaluatorOutcome = this.findEvaluatorOutcome(events, trace.agentOutput);
 
-                const record: TrajectoryStepRecord = {
+                const baseRecord: TrajectoryStepRecord = {
                     runId,
                     stepNumber: step.stepNumber,
                     contextSnapshot: {
@@ -67,19 +67,20 @@ export class TrajectoryExportService {
                         ...(trace.agentInput?.promptPreview ? { promptPreview: trace.agentInput.promptPreview } : {}),
                         ...(trace.agentInput?.timelineSummary ? { timelineSummary: trace.agentInput.timelineSummary } : {})
                     },
-                    ...(modelProposal ? { modelProposal } : {}),
-                    ...(operatorCorrection ? { operatorCorrection } : {}),
                     finalExecutedAction: step.actionPayload,
                     ...(evaluatorOutcome ? { evaluatorOutcome } : {})
                 };
 
                 if (filters.includeChosenRejected === false) {
-                    const { modelProposal: _ignoredProposal, operatorCorrection: _ignoredCorrection, ...withoutChosenRejected } = record;
-                    trajectories.push(withoutChosenRejected);
+                    trajectories.push(baseRecord);
                     continue;
                 }
 
-                trajectories.push(record);
+                trajectories.push({
+                    ...baseRecord,
+                    ...(modelProposal ? { modelProposal } : {}),
+                    ...(operatorCorrection ? { operatorCorrection } : {})
+                });
             }
         }
 

@@ -74,6 +74,7 @@ export function registerCoreServices(): void {
     container.registerSingleton(WebDriver);
     container.registerSingleton(ElectronDriver);
     container.registerSingleton(AppDriverFactory);
+    container.register('IAppDriverFactory', { useToken: AppDriverFactory });
     container.registerSingleton(ToolRegistry);
     
     container.register('IAppDriver', { useToken: WebDriver });

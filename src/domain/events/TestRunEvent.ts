@@ -2,7 +2,7 @@ import type { TestRunId } from '../value-objects';
 import type { AgentAction } from '../value-objects';
 import type { WorkflowState } from '../value-objects';
 import type { DomainError } from '../errors';
-import type { RecoveryReplayTelemetry, ReplanningTelemetry, SkillInvocationTelemetry } from '@application/dtos';
+import type { RecoveryReplayTelemetry, ReplanningTelemetry, SkillInvocationTelemetry } from '../types/RunTelemetry';
 
 /**
  * TestRunEvent Discriminated Union

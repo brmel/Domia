@@ -55,6 +55,7 @@ function createUseCaseContext(
 
     const executor = {
         executeStep: vi.fn(async function* () {
+            yield* [];
             return { success: true as const, terminal: 'pass' as const };
         })
     };
@@ -346,7 +347,7 @@ describe('RunTestUseCase recovery flow', () => {
         const ctx = createUseCaseContext([createCheckpoint(checkpointState)], sourceSteps);
         const controller = new ExecutionController();
 
-        for await (const _event of ctx.useCase.execute({
+        for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'replay idempotent actions',
             options: {
@@ -354,6 +355,7 @@ describe('RunTestUseCase recovery flow', () => {
                 recoveryRunId: 'recovery-run'
             }
         }, controller)) {
+            void event;
         }
 
         expect(ctx.persistence.getTestSteps).toHaveBeenCalledWith('recovery-run');
@@ -466,7 +468,7 @@ describe('RunTestUseCase recovery flow', () => {
 
         const controller = new ExecutionController();
 
-        for await (const _event of ctx.useCase.execute({
+        for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'dedupe replay',
             options: {
@@ -474,6 +476,7 @@ describe('RunTestUseCase recovery flow', () => {
                 recoveryRunId: 'recovery-run'
             }
         }, controller)) {
+            void event;
         }
 
         expect(ctx.browser.wait).not.toHaveBeenCalled();
@@ -549,6 +552,7 @@ describe('RunTestUseCase recovery flow', () => {
 
         let executionCount = 0;
         (ctx.executor.executeStep as ReturnType<typeof vi.fn>).mockImplementation(async function* () {
+            yield* [];
             executionCount += 1;
 
             if (executionCount === 1) {

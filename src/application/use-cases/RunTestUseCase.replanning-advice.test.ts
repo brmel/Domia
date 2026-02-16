@@ -181,11 +181,12 @@ describe('RunTestUseCase replanning advice propagation', () => {
         );
 
         const controller = new ExecutionController();
-        for await (const _event of useCase.execute({
+        for await (const event of useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'do the task',
             options: { maxSteps: 5 }
         }, controller)) {
+            void event;
         }
 
         expect(planner.plan).toHaveBeenCalledTimes(2);

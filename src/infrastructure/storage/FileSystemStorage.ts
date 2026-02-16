@@ -5,7 +5,8 @@ import { ConfigService } from '../config/ConfigService';
 import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import type { TimelineContextWindow } from '@domain/value-objects/TemporalObservation';
 
-import { IStorageService } from '@domain/ports/IStorageService';
+import type { StepTrace } from '@domain/ports/ITraceService';
+import { IStorageService, StepArtifacts } from '@domain/ports/IStorageService';
 
 @injectable()
 export class FileSystemStorage implements IStorageService {
@@ -65,7 +66,7 @@ export class FileSystemStorage implements IStorageService {
         return assets;
     }
 
-    async saveStepTrace(runId: string, stepNumber: number, trace: any): Promise<void> {
+    async saveStepTrace(runId: string, stepNumber: number, trace: Partial<StepTrace>): Promise<void> {
         const config = this.configService.get();
         const baseDir = path.resolve(config.paths.artifactsDir, runId, 'steps');
         await fs.ensureDir(baseDir);
@@ -75,11 +76,15 @@ export class FileSystemStorage implements IStorageService {
 
         let existing: { events?: unknown[]; [key: string]: unknown } = {};
         if (await fs.pathExists(filePath)) {
-            existing = await fs.readJson(filePath);
+            const current = await fs.readJson(filePath);
+            if (this.isRecord(current)) {
+                existing = current;
+            }
         }
 
         const existingEvents = Array.isArray(existing.events) ? existing.events : [];
-        const { events: _ignoredEvents, ...materializedExisting } = existing;
+        const materializedExisting: { [key: string]: unknown } = { ...existing };
+        delete materializedExisting['events'];
 
         await fs.writeJson(
             filePath,
@@ -185,13 +190,7 @@ export class FileSystemStorage implements IStorageService {
         }
     }
 
-    async getStepArtifacts(runId: string, stepNumber: number): Promise<{
-        screenshots?: string[];
-        dom?: any;
-        accessibility?: any;
-        trace?: any;
-        temporalWindow?: TimelineContextWindow;
-    }> {
+    async getStepArtifacts(runId: string, stepNumber: number): Promise<StepArtifacts> {
         const config = this.configService.get();
         const baseDir = path.resolve(config.paths.artifactsDir, runId, 'steps');
 
@@ -199,7 +198,7 @@ export class FileSystemStorage implements IStorageService {
             throw new Error("Invalid runId");
         }
 
-        const artifacts: any = {};
+        const artifacts: StepArtifacts = {};
 
         if (await fs.pathExists(baseDir)) {
             const files = await fs.readdir(baseDir);
@@ -221,17 +220,17 @@ export class FileSystemStorage implements IStorageService {
 
         const domPath = path.join(baseDir, `${stepNumber}_dom.json`);
         if (await fs.pathExists(domPath)) {
-            artifacts.dom = await fs.readJson(domPath);
+            artifacts.dom = (await fs.readJson(domPath)) as Record<string, unknown>;
         }
 
         const ariaPath = path.join(baseDir, `${stepNumber}_aria.json`);
         if (await fs.pathExists(ariaPath)) {
-            artifacts.accessibility = await fs.readJson(ariaPath);
+            artifacts.accessibility = (await fs.readJson(ariaPath)) as Record<string, unknown>;
         }
 
         const tracePath = path.join(baseDir, `${stepNumber}_trace.json`);
         if (await fs.pathExists(tracePath)) {
-            artifacts.trace = await fs.readJson(tracePath);
+            artifacts.trace = (await fs.readJson(tracePath)) as Record<string, unknown> & Partial<StepTrace>;
         }
 
         const timelinePath = path.join(baseDir, `${stepNumber}_timeline.json`);
@@ -240,5 +239,9 @@ export class FileSystemStorage implements IStorageService {
         }
 
         return artifacts;
+    }
+
+    private isRecord(value: unknown): value is Record<string, unknown> {
+        return typeof value === 'object' && value !== null;
     }
 }

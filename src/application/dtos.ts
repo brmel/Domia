@@ -2,6 +2,11 @@
 import { AgentAction, TestRunId } from '../domain/value-objects';
 import { WorkflowError } from '../domain/errors';
 import type { PlatformConfig } from '../domain/types/PlatformConfig';
+import type {
+    RecoveryReplayTelemetry,
+    ReplanningTelemetry,
+    SkillInvocationTelemetry
+} from '../domain/types/RunTelemetry';
 import type { RunOptions } from '../shared/validation';
 
 export interface RunTestInput {
@@ -10,32 +15,11 @@ export interface RunTestInput {
     options?: RunOptions;
 }
 
-export interface RecoveryReplayTelemetry {
-    sourceRunId: string;
-    targetStepNumber: number;
-    replayedCount: number;
-    status: 'started' | 'completed' | 'cancelled' | 'blocked' | 'failed';
-    reason?: string;
-}
-
-export interface ReplanningTelemetry {
-    runId: string;
-    trigger?: 'loop_detected' | 'action_execution_error' | 'assertion_fail' | 'max_actions_reached';
-    status: 'executed' | 'suppressed';
-    reason: string;
-    mode: 'active';
-    replanCount: number;
-    maxReplansPerRun: number;
-}
-
-export interface SkillInvocationTelemetry {
-    runId: string;
-    skillId: string;
-    source: 'preferred' | 'auto';
-    status: 'started' | 'completed' | 'failed';
-    summary: string;
-    injectedPlanItems?: number;
-}
+export type {
+    RecoveryReplayTelemetry,
+    ReplanningTelemetry,
+    SkillInvocationTelemetry
+};
 
 export type RunTestOutput =
     | { type: 'started'; testRunId: TestRunId }

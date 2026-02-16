@@ -312,7 +312,7 @@ export class ElectronDriver implements IAppDriver {
 
     private getCommonTools(): ToolDefinition[] {
         const tools = CommonWebToolsFactory.createAll(
-            (windowId: string | undefined, action: (page: any) => Promise<ActionResult>) => 
+            (windowId: string | undefined, action: (page: Page) => Promise<ActionResult>) => 
                 this.executeInWindow(windowId, action)
         );
         return tools.map((tool: ToolDefinition) => ({

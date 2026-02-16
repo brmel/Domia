@@ -48,7 +48,10 @@ export class RunCommand {
                 let {
                     url,
                     prompt,
-                    steps,
+                    steps
+                } = options;
+
+                const {
                     verbose,
                     debug,
                     vision,
@@ -283,7 +286,7 @@ export class RunCommand {
                         switch (event.type) {
                             case 'started':
                                 break;
-                            case 'state_updated':
+                            case 'state_updated': {
                                 const state = event.state;
                                 if (state.plan) {
                                     const activeItem = state.plan.items.find(i => i.status === 'active');
@@ -292,6 +295,7 @@ export class RunCommand {
                                     }
                                 }
                                 break;
+                            }
                             case 'completed':
                                 teardownInteractiveControls();
                                 if (event.success) {

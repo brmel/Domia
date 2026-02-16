@@ -144,12 +144,14 @@ export class SQLiteAdapter implements IPersistenceAdapter {
 
         try {
             database.exec('ALTER TABLE test_steps ADD COLUMN assets_json JSON;');
-        } catch (e) {
+        } catch {
+            // Column already exists in upgraded databases.
         }
 
         try {
             database.exec("ALTER TABLE workflow_checkpoints ADD COLUMN reason TEXT NOT NULL DEFAULT 'action_applied';");
-        } catch (e) {
+        } catch {
+            // Column already exists in upgraded databases.
         }
     }
 

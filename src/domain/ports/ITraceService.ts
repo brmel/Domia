@@ -1,22 +1,24 @@
+import type { AgentAction } from '@domain/value-objects';
+
 export interface StepTrace {
     timestamp: number;
     sensorData?: {
         domCount: number;
         ariaPresent: boolean;
         visionPresent: boolean;
-        metadata: any;
+        metadata: Record<string, unknown>;
     };
     agentInput?: {
         goal: string;
         currentUrl: string;
         promptPreview: string; // Truncated for large prompts
-        fullPrompt?: any; // Only populated in ultra-verbose
+        fullPrompt?: unknown; // Only populated in ultra-verbose
         timelineSummary?: string;
         timelineFrameCount?: number;
     };
     agentOutput?: {
         thought: string;
-        action: any;
+        action: AgentAction | Record<string, unknown> | null;
         rawResponse: string;
     };
     temporal?: {

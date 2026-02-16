@@ -31,6 +31,7 @@ function createUseCaseWithSkillRouting(skillRegistryOverrides?: { get?: ReturnTy
 
     const executor = {
         executeStep: vi.fn(async function* () {
+            yield* [];
             return { success: true as const, terminal: 'pass' as const };
         })
     };
@@ -183,13 +184,14 @@ describe('RunTestUseCase skill routing', () => {
         });
 
         const controller = new ExecutionController();
-        for await (const _event of useCase.execute({
+        for await (const event of useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'open settings and update profile value',
             options: {
                 allowedSkillTrustLevels: ['verified']
             }
         }, controller)) {
+            void event;
         }
 
         const planningPrompt = planner.plan.mock.calls[0]?.[0] as string;

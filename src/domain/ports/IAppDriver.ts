@@ -24,7 +24,7 @@ export interface IAppDriver {
      * - Web: Launches browser or connects to existing.
      * - Electron: Connects via CDP port.
      */
-    connect(config?: any): ResultAsync<void, NavigationError | Error>;
+    connect(config?: unknown): ResultAsync<void, NavigationError | Error>;
 
     /**
      * Disconnects/Closes the session.

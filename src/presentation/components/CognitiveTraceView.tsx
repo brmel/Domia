@@ -1,11 +1,25 @@
 import { StepTrace } from '@domain/ports/ITraceService';
 
 interface CognitiveTraceViewProps {
-    trace: StepTrace;
+    trace: Partial<StepTrace>;
 }
 
 export function CognitiveTraceView({ trace }: CognitiveTraceViewProps) {
     if (!trace) return <div className="text-gray-500 text-sm p-4">No trace data available</div>;
+
+    const actionType = (() => {
+        const action = trace.agentOutput?.action;
+        if (!action || typeof action !== 'object') {
+            return 'unknown';
+        }
+
+        if ('type' in action) {
+            const typedAction = action as { type?: unknown };
+            return typedAction.type ? String(typedAction.type) : 'unknown';
+        }
+
+        return 'unknown';
+    })();
 
     return (
         <div className="flex flex-col h-full bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
@@ -61,7 +75,7 @@ export function CognitiveTraceView({ trace }: CognitiveTraceViewProps) {
 
                             {trace.agentOutput.action && (
                                 <div className="bg-black/30 rounded p-3 border border-white/5">
-                                    <div className="text-xs font-bold text-purple-300 mb-1 uppercase">Action: {trace.agentOutput.action.type}</div>
+                                    <div className="text-xs font-bold text-purple-300 mb-1 uppercase">Action: {actionType}</div>
                                     <pre className="text-[10px] text-gray-500 font-mono whitespace-pre-wrap">
                                         {JSON.stringify(trace.agentOutput.action, null, 2)}
                                     </pre>

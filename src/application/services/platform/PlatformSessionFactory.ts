@@ -2,14 +2,13 @@ import { inject, injectable } from 'tsyringe';
 import type { RunTestInput } from '../../dtos';
 import type { ILogger, IBrowserAutomation } from '../../../domain/ports';
 import { WorkflowError } from '../../../domain/errors';
-import { AppDriverFactory } from '../../../infrastructure/adapters/drivers/AppDriverFactory';
-import type { DriverConfig } from '../../../infrastructure/adapters/drivers/AppDriverFactory';
+import type { IAppDriverFactory, AppDriverCreateOptions } from '../../../domain/ports/IAppDriverFactory';
 import type { PlatformSession } from './PlatformSession';
 
 @injectable()
 export class PlatformSessionFactory {
     constructor(
-        @inject(AppDriverFactory) private readonly driverFactory: AppDriverFactory,
+        @inject('IAppDriverFactory') private readonly driverFactory: IAppDriverFactory,
         @inject('ILogger') private readonly logger: ILogger
     ) {}
 
@@ -69,12 +68,12 @@ export class PlatformSessionFactory {
         throw new WorkflowError('Unable to resolve execution URL from provided input');
     }
 
-    private toDriverOptions(options: RunTestInput['options']): DriverConfig['options'] | undefined {
+    private toDriverOptions(options: RunTestInput['options']): AppDriverCreateOptions | undefined {
         if (!options) {
             return undefined;
         }
 
-        const driverOptions: DriverConfig['options'] = {
+        const driverOptions: AppDriverCreateOptions = {
             ...(options.headless !== undefined ? { headless: options.headless } : {}),
             ...(options.maxSteps !== undefined ? { maxSteps: options.maxSteps } : {}),
             ...(options.vision !== undefined ? { vision: options.vision } : {}),

@@ -6,6 +6,7 @@ import { CognitiveTraceView } from './CognitiveTraceView';
 import { cn } from '../../lib/utils';
 import { Button } from './ui/Button';
 import { SegmentedControl } from './ui/SegmentedControl';
+import type { StepArtifacts } from '@domain/ports/IStorageService';
 
 export function StepInspector(): JSX.Element | null {
     const { isOpen, runId, stepNumber, close } = useStepInspectorStore();
@@ -83,40 +84,34 @@ export function StepInspector(): JSX.Element | null {
     );
 }
 
-function InspectorContent({ artifacts }: { artifacts: any }) {
+function InspectorContent({ artifacts }: { artifacts: StepArtifacts }) {
     const [activeTab, setActiveTab] = useState<'vision' | 'semantic' | 'trace'>('vision');
 
     const domTree = artifacts.dom;
     const accessibilityTree = artifacts.accessibility;
+    const buildTemporalTrace = (window: NonNullable<StepArtifacts['temporalWindow']>) => ({
+        ...(window.mode !== undefined ? { mode: window.mode } : {}),
+        frameCount: window.frames?.length ?? 0,
+        fromTimestamp: window.fromTimestamp,
+        toTimestamp: window.toTimestamp,
+        summary: window.summary,
+        ...(window.tokenEstimate !== undefined ? { tokenEstimate: window.tokenEstimate } : {}),
+        ...(window.redactionApplied !== undefined ? { redactionApplied: window.redactionApplied } : {})
+    });
+
     const traceData = artifacts.trace
         ? {
             ...artifacts.trace,
             ...(artifacts.temporalWindow && !artifacts.trace.temporal
                 ? {
-                    temporal: {
-                        mode: artifacts.temporalWindow.mode,
-                        frameCount: artifacts.temporalWindow.frames?.length ?? 0,
-                        fromTimestamp: artifacts.temporalWindow.fromTimestamp,
-                        toTimestamp: artifacts.temporalWindow.toTimestamp,
-                        summary: artifacts.temporalWindow.summary,
-                        tokenEstimate: artifacts.temporalWindow.tokenEstimate,
-                        redactionApplied: artifacts.temporalWindow.redactionApplied
-                    }
+                    temporal: buildTemporalTrace(artifacts.temporalWindow)
                 }
                 : {})
         }
         : (artifacts.temporalWindow
             ? {
                 timestamp: artifacts.temporalWindow.toTimestamp,
-                temporal: {
-                    mode: artifacts.temporalWindow.mode,
-                    frameCount: artifacts.temporalWindow.frames?.length ?? 0,
-                    fromTimestamp: artifacts.temporalWindow.fromTimestamp,
-                    toTimestamp: artifacts.temporalWindow.toTimestamp,
-                    summary: artifacts.temporalWindow.summary,
-                    tokenEstimate: artifacts.temporalWindow.tokenEstimate,
-                    redactionApplied: artifacts.temporalWindow.redactionApplied
-                }
+                temporal: buildTemporalTrace(artifacts.temporalWindow)
             }
             : undefined);
 
