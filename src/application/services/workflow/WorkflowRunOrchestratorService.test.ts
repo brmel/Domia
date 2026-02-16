@@ -50,7 +50,15 @@ describe('WorkflowRunOrchestratorService', () => {
                         : { allowed: true }
                 )
             } as any,
-            { runStep: vi.fn().mockResolvedValue(options?.stepResult ?? { success: true, summary: 'step ok', testRunId: 'run-1' }) } as any
+            {
+                openSharedSession: vi.fn().mockResolvedValue({
+                    executionUrl: 'https://example.com',
+                    shouldNavigate: true,
+                    browser: {},
+                    dispose: vi.fn().mockResolvedValue(undefined)
+                }),
+                runStep: vi.fn().mockResolvedValue(options?.stepResult ?? { success: true, summary: 'step ok', testRunId: 'run-1' })
+            } as any
         );
 
         return { service, persistence };
