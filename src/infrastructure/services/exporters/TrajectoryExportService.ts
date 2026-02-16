@@ -150,14 +150,14 @@ export class TrajectoryExportService {
         return initialRunIds.filter((runId) => workflowBoundRunIds.has(runId));
     }
 
-    private findModelProposal(events: readonly StepTraceEvent[], fallback?: StepTraceEvent['agentOutput']): AgentAction | undefined {
+    private findModelProposal(events: readonly StepTraceEvent[], seedOutput?: StepTraceEvent['agentOutput']): AgentAction | undefined {
         const eventWithProposal = events.find((event) => event.agentOutput?.action && event.agentOutput?.rawResponse !== 'operator-action-override');
         if (eventWithProposal?.agentOutput?.action) {
             return eventWithProposal.agentOutput.action;
         }
 
-        if (fallback?.action && fallback.rawResponse !== 'operator-action-override') {
-            return fallback.action;
+        if (seedOutput?.action && seedOutput.rawResponse !== 'operator-action-override') {
+            return seedOutput.action;
         }
 
         return undefined;
@@ -170,7 +170,7 @@ export class TrajectoryExportService {
 
     private findEvaluatorOutcome(
         events: readonly StepTraceEvent[],
-        fallback?: StepTraceEvent['agentOutput']
+        seedOutput?: StepTraceEvent['agentOutput']
     ): { decision: string; summary: string; advice?: string } | undefined {
         const parse = (rawResponse?: string): { decision: string; summary: string; advice?: string } | undefined => {
             if (!rawResponse) {
@@ -201,7 +201,7 @@ export class TrajectoryExportService {
             }
         }
 
-        return parse(fallback?.rawResponse);
+        return parse(seedOutput?.rawResponse);
     }
 
     private async writeBundle(bundle: TrajectoryExportBundle): Promise<string> {

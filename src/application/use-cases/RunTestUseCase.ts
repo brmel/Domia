@@ -135,7 +135,7 @@ export class RunTestUseCase {
         const retryCount = 0;
         const recoveryContext = await this.resolveRecoveryContext(input);
         const skillRoutingContext = this.resolveSkillRoutingContext(input, testRunId);
-        this.evaluatePluginScaffold(input, testRunId);
+        this.evaluatePluginPreflight(input, testRunId);
 
         let browser: IBrowserAutomation | undefined;
         let disposeSession: (() => Promise<void>) | undefined;
@@ -986,7 +986,7 @@ export class RunTestUseCase {
     }
 
 
-    private evaluatePluginScaffold(input: RunTestInput, runId: string): void {
+    private evaluatePluginPreflight(input: RunTestInput, runId: string): void {
         const preflight = input.options?.pluginPreflight;
         if (!preflight) {
             return;

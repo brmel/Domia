@@ -16,7 +16,7 @@ export class RunRecoveryPolicyService {
             return {
                 shouldRecover: false,
                 mode,
-                reason: 'Observe-only mode (scaffold): no runtime recovery yet'
+                reason: 'Observe-only mode: runtime recovery disabled'
             };
         }
 

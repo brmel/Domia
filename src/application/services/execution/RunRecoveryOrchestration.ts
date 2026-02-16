@@ -59,7 +59,7 @@ export async function resolveRecoveryContext(
     const recoveryMode: RecoveryMode = input.options?.recoveryMode ?? 'manual-only';
     const decision = dependencies.recoveryPolicy.decide(readModel, recoveryMode);
 
-    dependencies.logger.info('[RunTestUseCase] Recovery scaffold decision evaluated', {
+    dependencies.logger.info('[RunTestUseCase] Recovery decision evaluated', {
         recoveryRunId,
         recoveryMode,
         shouldRecover: decision.shouldRecover,
