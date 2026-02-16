@@ -613,6 +613,51 @@ export class RunTestUseCase {
                         finalSummary = terminalPassSummary ?? 'Test completed successfully.';
                         break;
                     }
+
+                    const proactiveReplan = this.evaluatePostStepReplan(currentState);
+                    if (proactiveReplan.shouldReplan) {
+                        const replanningLimits = this.replanningPolicy.resolveLimits();
+                        yield {
+                            type: 'replanning',
+                            telemetry: {
+                                runId: testRunId,
+                                status: 'executed',
+                                reason: proactiveReplan.reason,
+                                mode: replanningLimits.mode,
+                                replanCount,
+                                maxReplansPerRun: replanningLimits.maxReplansPerRun
+                            }
+                        };
+
+                        const replanPrompt = this.replanningCoordinator.buildReplanPrompt(
+                            input.prompt,
+                            plan,
+                            item.description,
+                            proactiveReplan.reason,
+                            currentState.lastEvaluation,
+                            currentState.evaluatorAdvice
+                        );
+                        const replannedResult = await this.planner.plan(replanPrompt);
+
+                        if (replannedResult.isErr() || replannedResult.value.items.length === 0) {
+                            const plannerError = replannedResult.isErr()
+                                ? replannedResult.error.message
+                                : 'Replanned output contained no actionable items';
+                            throw new WorkflowError(`Proactive replanning failed: ${plannerError}`);
+                        }
+
+                        plan = replannedResult.value;
+                        executionGraph = ExecutionGraph.fromPlan(plan);
+                        currentState = {
+                            ...currentState,
+                            status: 'thinking',
+                            plan,
+                            executionGraph
+                        };
+                        yield { type: 'state_updated', state: currentState };
+                        await this.durability.checkpoint(testRunId, currentState, 'plan_ready');
+                        replanCount += 1;
+                    }
                 } else {
                     const errorMsg = result ? `${result.code}: ${result.reason}` : 'unknown_error: Unknown error';
                     const replanningTrigger = result ? this.replanningCoordinator.mapResultCodeToTrigger(result.code) : undefined;
@@ -779,6 +824,27 @@ export class RunTestUseCase {
         void activeItemId;
         void activeNodeId;
         return withoutActiveItem;
+    }
+
+    private evaluatePostStepReplan(state: WorkflowState): { shouldReplan: boolean; reason: string } {
+        const evaluation = state.lastEvaluation;
+
+        if (!evaluation) {
+            return { shouldReplan: false, reason: 'No evaluator signal available' };
+        }
+
+        if (evaluation.decision !== 'sub_task_success') {
+            return { shouldReplan: false, reason: 'Evaluator decision is not success; standard loop handles progression' };
+        }
+
+        if (evaluation.confidence < 0.9) {
+            return {
+                shouldReplan: true,
+                reason: `Proactive rolling-horizon replanning: success confidence ${evaluation.confidence.toFixed(2)} below threshold 0.90`
+            };
+        }
+
+        return { shouldReplan: false, reason: 'Success confidence is above proactive replanning threshold' };
     }
 
     private async replayRecoveryActions(params: {
