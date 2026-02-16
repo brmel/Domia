@@ -57,6 +57,14 @@ Rules:
 2. If execution failed due to transient interaction issues, usually choose need_retry.
 3. If step objective is impossible or contradicted by page state, choose need_reformulate.
 4. Keep summary/advice concise and actionable.
+5. Provide a confidence score between 0 and 1.
+6. Provide concrete evidence strings that justify the decision.
+
+Required evaluator tool arguments:
+- summary: short justification
+- confidence: number between 0 and 1
+- evidence: array of one or more concise evidence statements
+- advice: required for need_retry, optional for need_reformulate
 
 Respond by calling exactly one evaluator tool.`;
 

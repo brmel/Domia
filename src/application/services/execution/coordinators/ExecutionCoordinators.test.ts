@@ -70,7 +70,13 @@ describe('Execution coordinators', () => {
             },
             'step',
             'error',
-            { decision: 'need_retry', summary: 'retry', advice: 'adjust' },
+            {
+                decision: 'need_retry',
+                summary: 'retry',
+                advice: 'adjust',
+                confidence: 0.72,
+                evidence: ['Observed mismatch after action execution']
+            },
             'adjust'
         );
 

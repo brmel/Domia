@@ -30,6 +30,8 @@ export type RunTestOutput =
         actionType: AgentAction['type'];
         decision: 'sub_task_success' | 'need_retry' | 'need_reformulate';
         summary: string;
+        confidence: number;
+        evidence: readonly string[];
         advice?: string;
         executionOutcome: 'executed' | 'execution_error' | 'not_executed';
         executionError?: string;

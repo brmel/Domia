@@ -439,6 +439,8 @@ export class RunTestUseCase {
                                 actionType: pendingEvaluation.attemptedAction.type,
                                 decision: evaluation.decision,
                                 summary: evaluation.summary,
+                                confidence: evaluation.confidence,
+                                evidence: evaluation.evidence,
                                 ...(evaluation.advice ? { advice: evaluation.advice } : {}),
                                 executionOutcome: pendingEvaluation.executionOutcome,
                                 ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {})
@@ -525,6 +527,8 @@ export class RunTestUseCase {
                             actionType: pendingEvaluation.attemptedAction.type,
                             decision: evaluation.decision,
                             summary: evaluation.summary,
+                            confidence: evaluation.confidence,
+                            evidence: evaluation.evidence,
                             ...(evaluation.advice ? { advice: evaluation.advice } : {}),
                             executionOutcome: pendingEvaluation.executionOutcome,
                             ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {})

@@ -247,17 +247,31 @@ export class ActionToolMapper {
             {
                 name: 'sub_task_success',
                 description: 'Sub-task objective is satisfied with current evidence.',
-                schema: z.object({ summary: z.string().min(1) })
+                schema: z.object({
+                    summary: z.string().min(1),
+                    confidence: z.number().min(0).max(1),
+                    evidence: z.array(z.string().min(1)).min(1)
+                })
             },
             {
                 name: 'need_retry',
                 description: 'Sub-task should retry the same objective with tactical advice.',
-                schema: z.object({ summary: z.string().min(1), advice: z.string().min(1) })
+                schema: z.object({
+                    summary: z.string().min(1),
+                    advice: z.string().min(1),
+                    confidence: z.number().min(0).max(1),
+                    evidence: z.array(z.string().min(1)).min(1)
+                })
             },
             {
                 name: 'need_reformulate',
                 description: 'Current objective is blocked and should be reformulated.',
-                schema: z.object({ summary: z.string().min(1), advice: z.string().min(1).optional() })
+                schema: z.object({
+                    summary: z.string().min(1),
+                    advice: z.string().min(1).optional(),
+                    confidence: z.number().min(0).max(1),
+                    evidence: z.array(z.string().min(1)).min(1)
+                })
             }
         ];
     }
@@ -267,18 +281,30 @@ export class ActionToolMapper {
             case 'sub_task_success':
                 return {
                     decision: 'sub_task_success',
-                    summary: String(args['summary'] ?? 'Sub-task completed')
+                    summary: String(args['summary'] ?? 'Sub-task completed'),
+                    confidence: Number(args['confidence'] ?? 0.9),
+                    evidence: Array.isArray(args['evidence'])
+                        ? args['evidence'].filter((item): item is string => typeof item === 'string')
+                        : ['Evaluator reported step objective as satisfied.']
                 };
             case 'need_retry':
                 return {
                     decision: 'need_retry',
                     summary: String(args['summary'] ?? 'Retry required'),
-                    advice: String(args['advice'] ?? 'Retry with an alternative interaction strategy')
+                    advice: String(args['advice'] ?? 'Retry with an alternative interaction strategy'),
+                    confidence: Number(args['confidence'] ?? 0.7),
+                    evidence: Array.isArray(args['evidence'])
+                        ? args['evidence'].filter((item): item is string => typeof item === 'string')
+                        : ['Evaluator observed recoverable mismatch or execution instability.']
                 };
             case 'need_reformulate':
                 return {
                     decision: 'need_reformulate',
                     summary: String(args['summary'] ?? 'Objective blocked'),
+                    confidence: Number(args['confidence'] ?? 0.8),
+                    evidence: Array.isArray(args['evidence'])
+                        ? args['evidence'].filter((item): item is string => typeof item === 'string')
+                        : ['Evaluator concluded the current objective no longer matches page state.'],
                     ...(typeof args['advice'] === 'string' ? { advice: args['advice'] } : {})
                 };
             default:
