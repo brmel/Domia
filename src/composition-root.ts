@@ -43,6 +43,7 @@ import { TemporalPrivacyFilterService } from './application/services/perception/
 import { TemporalPromptAssemblerService } from './application/services/perception/TemporalPromptAssemblerService';
 import { SkillRegistryService } from './application/services/skills/SkillRegistryService';
 import { SkillGovernanceService } from './application/services/skills/SkillGovernanceService';
+import { SkillExecutorService } from './application/services/skills/SkillExecutorService';
 import { PluginCapabilityPolicyService } from './application/services/plugins/PluginCapabilityPolicyService';
 import { PluginGatewayService } from './application/services/plugins/PluginGatewayService';
 import { PluginRegistryService } from './application/services/plugins/PluginRegistryService';
@@ -97,6 +98,7 @@ export function registerCoreServices(): void {
     container.registerSingleton(TemporalPromptAssemblerService);
     container.registerSingleton(SkillRegistryService);
     container.registerSingleton(SkillGovernanceService);
+    container.registerSingleton(SkillExecutorService);
     container.registerSingleton(PluginRegistryService);
     container.registerSingleton(PluginCapabilityPolicyService);
     container.registerSingleton(PluginExecutionAdapterRegistryService);

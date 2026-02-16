@@ -28,6 +28,15 @@ export interface ReplanningTelemetry {
     maxReplansPerRun: number;
 }
 
+export interface SkillInvocationTelemetry {
+    runId: string;
+    skillId: string;
+    source: 'preferred' | 'auto';
+    status: 'started' | 'completed' | 'failed';
+    summary: string;
+    injectedPlanItems?: number;
+}
+
 export type RunTestOutput =
     | { type: 'started'; testRunId: TestRunId }
     | { type: 'observing' }
@@ -45,5 +54,6 @@ export type RunTestOutput =
     | { type: 'state_updated'; state: import('../domain/value-objects').WorkflowState }
     | { type: 'recovery_replay'; telemetry: RecoveryReplayTelemetry }
     | { type: 'replanning'; telemetry: ReplanningTelemetry }
+    | { type: 'skill_invocation'; telemetry: SkillInvocationTelemetry }
     | { type: 'completed'; success: boolean; summary?: string }
     | { type: 'error'; error: WorkflowError | Error };

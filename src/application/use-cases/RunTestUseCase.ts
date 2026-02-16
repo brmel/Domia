@@ -29,6 +29,7 @@ import {
 } from '../services/execution/RunRecoveryOrchestration';
 import { SkillRegistryService } from '../services/skills/SkillRegistryService';
 import { SkillGovernanceService } from '../services/skills/SkillGovernanceService';
+import { SkillExecutorService } from '../services/skills/SkillExecutorService';
 import { PluginRegistryService } from '../services/plugins/PluginRegistryService';
 import { PluginGatewayService } from '../services/plugins/PluginGatewayService';
 import { RuntimeReadinessPolicyService } from '../services/hardening/RuntimeReadinessPolicyService';
@@ -81,7 +82,8 @@ export class RunTestUseCase {
         @inject(PluginRegistryService) private readonly pluginRegistry: PluginRegistryService,
         @inject(PluginGatewayService) private readonly pluginGateway: PluginGatewayService,
         @inject(RuntimeReadinessPolicyService) private readonly readinessPolicy: RuntimeReadinessPolicyService,
-        @inject('ILogger') private logger: ILogger
+        @inject('ILogger') private logger: ILogger,
+        @inject(SkillExecutorService) private readonly skillExecutor: SkillExecutorService = new SkillExecutorService()
     ) { }
 
     private getRecoveryDependencies(): RunRecoveryDependencies {
@@ -276,6 +278,53 @@ export class RunTestUseCase {
             yield { type: 'thinking' };
             runLifecycle = this.durability.transition(testRunId, runLifecycle, 'planning');
             let plan: Plan;
+            let runtimeSkillPlan: Plan | undefined;
+
+            if (!resumedPlan && skillRoutingContext) {
+                yield {
+                    type: 'skill_invocation',
+                    telemetry: {
+                        runId: testRunId,
+                        skillId: skillRoutingContext.skill.id,
+                        source: skillRoutingContext.source,
+                        status: 'started',
+                        summary: `Skill runtime started for ${skillRoutingContext.skill.id}`
+                    }
+                };
+
+                try {
+                    runtimeSkillPlan = this.skillExecutor.buildRuntimePlan(skillRoutingContext.skill, input.prompt);
+                    yield {
+                        type: 'skill_invocation',
+                        telemetry: {
+                            runId: testRunId,
+                            skillId: skillRoutingContext.skill.id,
+                            source: skillRoutingContext.source,
+                            status: 'completed',
+                            summary: `Skill runtime compiled with ${runtimeSkillPlan.items.length} bounded steps`,
+                            injectedPlanItems: runtimeSkillPlan.items.length
+                        }
+                    };
+                } catch (error) {
+                    const reason = error instanceof Error ? error.message : String(error);
+                    this.logger.warn('[RunTestUseCase] Skill runtime compilation failed, falling back to planner-only path', {
+                        testRunId,
+                        skillId: skillRoutingContext.skill.id,
+                        reason
+                    });
+
+                    yield {
+                        type: 'skill_invocation',
+                        telemetry: {
+                            runId: testRunId,
+                            skillId: skillRoutingContext.skill.id,
+                            source: skillRoutingContext.source,
+                            status: 'failed',
+                            summary: `Skill runtime failed: ${reason}`
+                        }
+                    };
+                }
+            }
 
             if (resumedPlan) {
                 plan = resumedPlan;
@@ -295,6 +344,10 @@ export class RunTestUseCase {
 
                 plan = planResult.value;
                 estimatedTokensUsed += Math.ceil(planningPrompt.length / 4);
+
+                if (runtimeSkillPlan) {
+                    plan = this.skillExecutor.prependRuntimePlan(plan, runtimeSkillPlan);
+                }
             }
 
             currentState = { ...currentState, plan, status: 'thinking' };

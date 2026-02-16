@@ -11,6 +11,7 @@ export type {
     CompletedEvent,
     RecoveryReplayEvent,
     ReplanningEvent,
+    SkillInvocationEvent,
 } from './TestRunEvent';
 
 export type { CancellationToken } from './CancellationToken';

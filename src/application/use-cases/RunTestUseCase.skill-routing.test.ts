@@ -123,7 +123,8 @@ function createUseCaseWithSkillRouting(skillRegistryOverrides?: { get?: ReturnTy
     return {
         useCase,
         planner,
-        skillRegistry
+        skillRegistry,
+        executor
     };
 }
 
@@ -139,12 +140,13 @@ describe('RunTestUseCase skill routing', () => {
             postconditions: ['order confirmation visible']
         };
 
-        const { useCase, planner } = createUseCaseWithSkillRouting({
+        const { useCase, planner, executor } = createUseCaseWithSkillRouting({
             get: vi.fn().mockReturnValue(skill)
         });
 
         const controller = new ExecutionController();
-        for await (const _event of useCase.execute({
+        const events: Array<{ type: string; [key: string]: unknown }> = [];
+        for await (const event of useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'run checkout validation',
             options: {
@@ -152,6 +154,7 @@ describe('RunTestUseCase skill routing', () => {
                 allowedSkillTrustLevels: ['verified']
             }
         }, controller)) {
+            events.push(event as unknown as { type: string; [key: string]: unknown });
         }
 
         const planningPrompt = planner.plan.mock.calls[0]?.[0] as string;
@@ -160,6 +163,8 @@ describe('RunTestUseCase skill routing', () => {
         expect(planningPrompt).toContain('Bounded skill execution graph:');
         expect(planningPrompt).toContain('Validate precondition: user authenticated');
         expect(planningPrompt).toContain('Verify postcondition: order confirmation visible');
+        expect(events.filter((event) => event.type === 'skill_invocation')).toHaveLength(2);
+        expect(executor.executeStep).toHaveBeenCalledTimes(3);
     });
 
     it('auto-selects matching skill when preferred skill is not provided', async () => {
