@@ -15,6 +15,7 @@ import type { ManualRecoveryBootstrapService } from './ManualRecoveryBootstrapSe
 import type { RecoveryMode, RunRecoveryPolicyService } from './RunRecoveryPolicyService';
 import type { RecoveryReplayGuardService } from './RecoveryReplayGuardService';
 import type { RecoveryReplayIdempotencyService } from './RecoveryReplayIdempotencyService';
+import type { BranchRollbackService } from './BranchRollbackService';
 import type { Plan } from '@domain/entities/Plan';
 
 export interface RecoveryBootstrapContext {
@@ -35,6 +36,7 @@ export interface RunRecoveryDependencies {
     readonly persistence: IPersistenceAdapter;
     readonly durability: RunDurabilityService;
     readonly checkpointCompaction: CheckpointCompactionService;
+    readonly branchRollback: BranchRollbackService;
     readonly recoveryReadModel: RecoveryReadModelService;
     readonly recoveryBootstrap: ManualRecoveryBootstrapService;
     readonly recoveryPolicy: RunRecoveryPolicyService;
@@ -81,7 +83,23 @@ export async function resolveRecoveryContext(
         return null;
     }
 
-    const bootstrap = dependencies.recoveryBootstrap.bootstrapFromCheckpoint(latest.state);
+    const rollbackDecision = dependencies.branchRollback.rollbackToNearestBoundary(
+        recoveryRunId,
+        latest.branchId,
+        checkpoints
+    );
+
+    const recoveryCheckpoint = rollbackDecision.rollbackCheckpoint ?? latest;
+    const bootstrap = dependencies.recoveryBootstrap.bootstrapFromCheckpoint(recoveryCheckpoint.state);
+
+    if (rollbackDecision.invalidatedCheckpointIds.length > 0) {
+        dependencies.logger.warn('[RunTestUseCase] Recovery rollback selected nearest commit boundary', {
+            recoveryRunId,
+            branchId: rollbackDecision.branchId,
+            rollbackCheckpointId: rollbackDecision.rollbackCheckpoint?.checkpointId,
+            invalidatedCheckpointIds: rollbackDecision.invalidatedCheckpointIds
+        });
+    }
 
     dependencies.logger.info('[RunTestUseCase] Recovery bootstrap applied from latest checkpoint', {
         recoveryRunId,
@@ -93,7 +111,7 @@ export async function resolveRecoveryContext(
 
     return {
         sourceRunId: recoveryRunId,
-        branchId: latest.branchId,
+        branchId: recoveryCheckpoint.branchId,
         state: bootstrap.state,
         ...(bootstrap.state.plan ? { plan: bootstrap.state.plan } : {}),
         startPlanIndex: bootstrap.startPlanIndex

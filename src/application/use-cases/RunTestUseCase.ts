@@ -20,6 +20,7 @@ import { RunRecoveryPolicyService } from '../services/execution/RunRecoveryPolic
 import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplayGuardService';
 import { RecoveryReplayIdempotencyService } from '../services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
+import { BranchRollbackService } from '../services/execution/BranchRollbackService';
 import { PlanningCoordinator, type SkillRoutingContext } from '../services/execution/coordinators/PlanningCoordinator';
 import { RunBootstrapCoordinator } from '../services/execution/coordinators/RunBootstrapCoordinator';
 import { StepExecutionCoordinator } from '../services/execution/coordinators/StepExecutionCoordinator';
@@ -88,7 +89,8 @@ export class RunTestUseCase {
         @inject(RunBootstrapCoordinator) private readonly bootstrapCoordinator: RunBootstrapCoordinator = new RunBootstrapCoordinator(),
         @inject(StepExecutionCoordinator) private readonly stepExecutionCoordinator: StepExecutionCoordinator = new StepExecutionCoordinator(),
         @inject(ReplanningCoordinator) private readonly replanningCoordinator: ReplanningCoordinator = new ReplanningCoordinator(),
-        @inject(TerminalizationCoordinator) private readonly terminalizationCoordinator: TerminalizationCoordinator = new TerminalizationCoordinator()
+        @inject(TerminalizationCoordinator) private readonly terminalizationCoordinator: TerminalizationCoordinator = new TerminalizationCoordinator(),
+        @inject(BranchRollbackService) private readonly branchRollback: BranchRollbackService = new BranchRollbackService()
     ) { }
 
     private getRecoveryDependencies(): RunRecoveryDependencies {
@@ -96,6 +98,7 @@ export class RunTestUseCase {
             persistence: this.persistence,
             durability: this.durability,
             checkpointCompaction: this.checkpointCompaction,
+            branchRollback: this.branchRollback,
             recoveryReadModel: this.recoveryReadModel,
             recoveryBootstrap: this.recoveryBootstrap,
             recoveryPolicy: this.recoveryPolicy,

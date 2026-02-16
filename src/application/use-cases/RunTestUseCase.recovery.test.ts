@@ -29,16 +29,19 @@ function createPlan(items: Plan['items']): Plan {
     };
 }
 
-function createCheckpoint(state: import('@domain/value-objects').WorkflowState): CheckpointRecord {
+function createCheckpoint(
+    state: import('@domain/value-objects').WorkflowState,
+    overrides?: Partial<Pick<CheckpointRecord, 'checkpointId' | 'parentCheckpointId' | 'branchId' | 'sequenceNumber' | 'commitBoundary' | 'sideEffectSetHash' | 'createdAt'>>
+): CheckpointRecord {
     return {
         runId: 'recovery-run',
-        checkpointId: 'cp-recovery-1',
-        parentCheckpointId: null,
-        branchId: 'run:recovery-run:main',
-        sequenceNumber: 1,
-        commitBoundary: true,
-        sideEffectSetHash: null,
-        createdAt: '2026-01-01T00:00:00.000Z',
+        checkpointId: overrides?.checkpointId ?? 'cp-recovery-1',
+        parentCheckpointId: overrides?.parentCheckpointId ?? null,
+        branchId: overrides?.branchId ?? 'run:recovery-run:main',
+        sequenceNumber: overrides?.sequenceNumber ?? 1,
+        commitBoundary: overrides?.commitBoundary ?? true,
+        sideEffectSetHash: overrides?.sideEffectSetHash ?? null,
+        createdAt: overrides?.createdAt ?? '2026-01-01T00:00:00.000Z',
         reason: 'action_applied',
         state
     };
@@ -499,6 +502,73 @@ describe('RunTestUseCase recovery flow', () => {
 
         expect(ctx.browser.wait).not.toHaveBeenCalled();
         expect(ctx.replayIdempotency.markExecuted).not.toHaveBeenCalled();
+        expect(ctx.executor.executeStep).toHaveBeenCalledTimes(1);
+    });
+
+    it('rolls recovery to nearest commit boundary checkpoint before replay', async () => {
+        const checkpointAtBoundary = {
+            ...WorkflowState.initial(),
+            stepNumber: 1,
+            plan: createPlan([
+                { id: 'a', description: 'pending', status: 'pending', type: 'general' }
+            ])
+        };
+
+        const latestCheckpoint = {
+            ...checkpointAtBoundary,
+            stepNumber: 2
+        };
+
+        const checkpoints: CheckpointRecord[] = [
+            createCheckpoint(checkpointAtBoundary, {
+                checkpointId: 'cp-1',
+                sequenceNumber: 1,
+                commitBoundary: true,
+                createdAt: '2026-01-01T00:00:00.000Z'
+            }),
+            createCheckpoint(latestCheckpoint, {
+                checkpointId: 'cp-2',
+                parentCheckpointId: 'cp-1',
+                sequenceNumber: 2,
+                commitBoundary: false,
+                createdAt: '2026-01-01T00:00:01.000Z'
+            })
+        ];
+
+        const sourceSteps: TestStep[] = [
+            {
+                id: 'step-1',
+                testRunId: 'recovery-run',
+                stepNumber: 1,
+                actionType: ActionType.WAIT,
+                actionPayload: { type: ActionType.WAIT, durationMs: 50, thought: 'wait-1' },
+                timestamp: '2026-01-01T00:00:00.000Z'
+            },
+            {
+                id: 'step-2',
+                testRunId: 'recovery-run',
+                stepNumber: 2,
+                actionType: ActionType.WAIT,
+                actionPayload: { type: ActionType.WAIT, durationMs: 50, thought: 'wait-2' },
+                timestamp: '2026-01-01T00:00:01.000Z'
+            }
+        ];
+
+        const ctx = createUseCaseContext(checkpoints, sourceSteps);
+        const controller = new ExecutionController();
+
+        for await (const event of ctx.useCase.execute({
+            platformConfig: { platform: 'web', url: 'https://example.com' },
+            prompt: 'recover with rollback boundary',
+            options: {
+                recoveryMode: 'manual-only',
+                recoveryRunId: 'recovery-run'
+            }
+        }, controller)) {
+            void event;
+        }
+
+        expect(ctx.browser.wait).toHaveBeenCalledTimes(1);
         expect(ctx.executor.executeStep).toHaveBeenCalledTimes(1);
     });
 
