@@ -33,6 +33,13 @@ export interface LogEntry {
     timestamp: string;
 }
 
+export interface CheckpointLineageInput {
+    readonly checkpointId: string;
+    readonly parentCheckpointId: string | null;
+    readonly branchId: string;
+    readonly sequenceNumber: number;
+}
+
 export interface IPersistenceAdapter {
     saveTestRun(run: TestRun): ResultAsync<void, PersistenceError>;
     updateTestRun(id: string, updates: Partial<TestRun>): ResultAsync<void, PersistenceError>;
@@ -46,7 +53,8 @@ export interface IPersistenceAdapter {
     saveCheckpoint(
         runId: string,
         state: import('@domain/value-objects/WorkflowState').WorkflowState,
-        reason: RunCheckpointReason
+        reason: RunCheckpointReason,
+        lineage: CheckpointLineageInput
     ): ResultAsync<void, PersistenceError>;
     getCheckpoint(runId: string): ResultAsync<import('@domain/value-objects/WorkflowState').WorkflowState | null, PersistenceError>;
     getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError>;

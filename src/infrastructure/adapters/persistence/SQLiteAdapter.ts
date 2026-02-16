@@ -45,6 +45,10 @@ interface LogTable {
 interface WorkflowCheckpointTable {
     id: Generated<number>;
     run_id: string;
+    checkpoint_id: string;
+    parent_checkpoint_id: string | null;
+    branch_id: string;
+    sequence_number: number;
     state_json: string;
     reason: string;
     created_at: string;
@@ -153,6 +157,39 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         } catch {
             // Column already exists in upgraded databases.
         }
+
+        try {
+            database.exec('ALTER TABLE workflow_checkpoints ADD COLUMN checkpoint_id TEXT;');
+        } catch {
+            // Column already exists in upgraded databases.
+        }
+
+        try {
+            database.exec('ALTER TABLE workflow_checkpoints ADD COLUMN parent_checkpoint_id TEXT;');
+        } catch {
+            // Column already exists in upgraded databases.
+        }
+
+        try {
+            database.exec("ALTER TABLE workflow_checkpoints ADD COLUMN branch_id TEXT NOT NULL DEFAULT 'main';");
+        } catch {
+            // Column already exists in upgraded databases.
+        }
+
+        try {
+            database.exec('ALTER TABLE workflow_checkpoints ADD COLUMN sequence_number INTEGER NOT NULL DEFAULT 0;');
+        } catch {
+            // Column already exists in upgraded databases.
+        }
+
+        database.exec(`
+            UPDATE workflow_checkpoints
+            SET checkpoint_id = COALESCE(checkpoint_id, run_id || ':' || id)
+            WHERE checkpoint_id IS NULL;
+        `);
+
+        database.exec('CREATE INDEX IF NOT EXISTS idx_workflow_checkpoints_run_created ON workflow_checkpoints(run_id, created_at);');
+        database.exec('CREATE INDEX IF NOT EXISTS idx_workflow_checkpoints_run_branch_seq ON workflow_checkpoints(run_id, branch_id, sequence_number);');
     }
 
     private applyMigrations(database: Database.Database): void {
@@ -199,6 +236,10 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                         CREATE TABLE IF NOT EXISTS workflow_checkpoints (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             run_id TEXT NOT NULL,
+                            checkpoint_id TEXT NOT NULL,
+                            parent_checkpoint_id TEXT,
+                            branch_id TEXT NOT NULL,
+                            sequence_number INTEGER NOT NULL,
                             state_json JSON NOT NULL,
                             reason TEXT NOT NULL DEFAULT 'action_applied',
                             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -256,6 +297,8 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                         CREATE INDEX IF NOT EXISTS idx_workflow_definitions_updated_at ON workflow_definitions(updated_at);
                         CREATE INDEX IF NOT EXISTS idx_workflow_runs_started_at ON workflow_runs(started_at);
                         CREATE INDEX IF NOT EXISTS idx_workflow_step_runs_run_idx ON workflow_step_runs(workflow_run_id, step_index);
+                        CREATE INDEX IF NOT EXISTS idx_workflow_checkpoints_run_created ON workflow_checkpoints(run_id, created_at);
+                        CREATE INDEX IF NOT EXISTS idx_workflow_checkpoints_run_branch_seq ON workflow_checkpoints(run_id, branch_id, sequence_number);
                     `);
                 }
             },
@@ -475,12 +518,17 @@ export class SQLiteAdapter implements IPersistenceAdapter {
     saveCheckpoint(
         runId: string,
         state: import('@domain/value-objects/WorkflowState').WorkflowState,
-        reason: import('@domain/value-objects/RunLifecycle').RunCheckpointReason
+        reason: import('@domain/value-objects/RunLifecycle').RunCheckpointReason,
+        lineage: import('@domain/ports/IPersistenceAdapter').CheckpointLineageInput
     ): ResultAsync<void, PersistenceError> {
         return ResultAsync.fromPromise(
             this.db.insertInto('workflow_checkpoints')
                 .values({
                     run_id: runId,
+                    checkpoint_id: lineage.checkpointId,
+                    parent_checkpoint_id: lineage.parentCheckpointId,
+                    branch_id: lineage.branchId,
+                    sequence_number: lineage.sequenceNumber,
                     state_json: JSON.stringify(state),
                     reason,
                     created_at: new Date().toISOString()
@@ -505,13 +553,27 @@ export class SQLiteAdapter implements IPersistenceAdapter {
     getCheckpointRecords(runId: string): ResultAsync<import('@domain/value-objects/CheckpointReadModel').CheckpointRecord[], PersistenceError> {
         return ResultAsync.fromPromise(
             this.db.selectFrom('workflow_checkpoints')
-                .select(['run_id', 'state_json', 'reason', 'created_at'])
+                .select([
+                    'run_id',
+                    'checkpoint_id',
+                    'parent_checkpoint_id',
+                    'branch_id',
+                    'sequence_number',
+                    'state_json',
+                    'reason',
+                    'created_at'
+                ])
                 .where('run_id', '=', runId)
+                .orderBy('sequence_number', 'asc')
                 .orderBy('created_at', 'asc')
                 .execute(),
             (e) => new PersistenceError(`Failed to get checkpoint records: ${e}`)
         ).map(rows => rows.map(row => ({
             runId: row.run_id,
+            checkpointId: row.checkpoint_id,
+            parentCheckpointId: row.parent_checkpoint_id,
+            branchId: row.branch_id,
+            sequenceNumber: row.sequence_number,
             createdAt: row.created_at,
             reason: row.reason as import('@domain/value-objects/RunLifecycle').RunCheckpointReason,
             state: JSON.parse(row.state_json)

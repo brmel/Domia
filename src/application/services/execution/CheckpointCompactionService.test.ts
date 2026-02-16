@@ -6,6 +6,10 @@ import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel
 function checkpoint(step: number, createdAt: string): CheckpointRecord {
     return {
         runId: 'run-1',
+        checkpointId: `cp-${step}`,
+        parentCheckpointId: step > 1 ? `cp-${step - 1}` : null,
+        branchId: 'run:run-1:main',
+        sequenceNumber: step,
         createdAt,
         reason: 'action_applied',
         state: {

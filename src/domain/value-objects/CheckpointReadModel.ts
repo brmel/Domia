@@ -3,6 +3,10 @@ import type { RunCheckpointReason } from './RunLifecycle';
 
 export interface CheckpointRecord {
     readonly runId: string;
+    readonly checkpointId: string;
+    readonly parentCheckpointId: string | null;
+    readonly branchId: string;
+    readonly sequenceNumber: number;
     readonly createdAt: string;
     readonly reason: RunCheckpointReason;
     readonly state: WorkflowState;

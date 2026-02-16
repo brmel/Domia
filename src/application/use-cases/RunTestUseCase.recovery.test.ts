@@ -32,6 +32,10 @@ function createPlan(items: Plan['items']): Plan {
 function createCheckpoint(state: import('@domain/value-objects').WorkflowState): CheckpointRecord {
     return {
         runId: 'recovery-run',
+        checkpointId: 'cp-recovery-1',
+        parentCheckpointId: null,
+        branchId: 'run:recovery-run:main',
+        sequenceNumber: 1,
         createdAt: '2026-01-01T00:00:00.000Z',
         reason: 'action_applied',
         state
