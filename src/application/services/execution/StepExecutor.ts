@@ -39,6 +39,10 @@ export interface StepEvaluationTelemetry {
     readonly executionError?: string;
 }
 
+export interface ActionOverrideProvider {
+    consumeActionOverride(): AgentAction | undefined;
+}
+
 @injectable()
 export class StepExecutor {
     constructor(
@@ -82,6 +86,7 @@ export class StepExecutor {
         executionContext?: {
             toolContext?: ToolContext;
             onEvaluation?: (telemetry: StepEvaluationTelemetry) => void | Promise<void>;
+            overrideProvider?: ActionOverrideProvider;
         }
     ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, StepExecutionResult, unknown> {
         let loopCount = 0;
@@ -235,28 +240,41 @@ export class StepExecutor {
                 }
             });
 
-            const actionResult = await this.llmProvider.generateAction(context);
-            if (actionResult.isErr()) {
-                await this.trace.traceReasoning(runId, currentState.stepNumber, {
-                    agentOutput: { thought: 'LLM Failed', action: null, rawResponse: actionResult.error.message }
-                });
-                return {
-                    success: false,
-                    terminal: 'error',
-                    code: 'llm_error',
-                    reason: `LLM failed: ${actionResult.error.message}`
-                };
-            }
-            const action = actionResult.value;
+            const overrideAction = executionContext?.overrideProvider?.consumeActionOverride();
+            let action: AgentAction;
 
-            // Trace: Agent Output
-            await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
-                agentOutput: {
-                    thought: action.thought || '',
-                    action: action,
-                    rawResponse: JSON.stringify(action)
+            if (overrideAction) {
+                action = overrideAction;
+                await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
+                    agentOutput: {
+                        thought: action.thought || '',
+                        action,
+                        rawResponse: 'operator-action-override'
+                    }
+                });
+            } else {
+                const actionResult = await this.llmProvider.generateAction(context);
+                if (actionResult.isErr()) {
+                    await this.trace.traceReasoning(runId, currentState.stepNumber, {
+                        agentOutput: { thought: 'LLM Failed', action: null, rawResponse: actionResult.error.message }
+                    });
+                    return {
+                        success: false,
+                        terminal: 'error',
+                        code: 'llm_error',
+                        reason: `LLM failed: ${actionResult.error.message}`
+                    };
                 }
-            });
+                action = actionResult.value;
+
+                await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
+                    agentOutput: {
+                        thought: action.thought || '',
+                        action: action,
+                        rawResponse: JSON.stringify(action)
+                    }
+                });
+            }
 
             if (action.type !== ActionType.FAIL && this.loopDetector.isLoop(currentState.history, action)) {
                 return {

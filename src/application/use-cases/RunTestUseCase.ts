@@ -380,6 +380,7 @@ export class RunTestUseCase {
                     executionOptions,
                     {
                         ...(stepToolContext ? { toolContext: stepToolContext } : {}),
+                        overrideProvider: controller,
                         onEvaluation: (evaluationTelemetry: StepEvaluationTelemetry) => {
                             pendingEvaluation = evaluationTelemetry;
                         }

@@ -17,6 +17,8 @@ export function TestRunner(): React.ReactElement {
     const { open } = useStepInspectorStore();
     const [rightRailTab, setRightRailTab] = useState<'execution' | 'safety'>('execution');
     const [workspaceTab, setWorkspaceTab] = useState<'plan' | 'state' | 'timeline' | 'checkpoints'>('plan');
+    const [actionOverrideJson, setActionOverrideJson] = useState('');
+    const [actionOverrideError, setActionOverrideError] = useState<string | null>(null);
 
     const checkpointsQuery = trpc.test.getCheckpoints.useQuery(
         { runId: runId ?? '' },
@@ -41,6 +43,16 @@ export function TestRunner(): React.ReactElement {
     const cancelMutation = trpc.test.cancel.useMutation({
         onError: (err) => {
             console.error('Failed to cancel test:', err);
+        }
+    });
+
+    const overrideActionMutation = trpc.test.overrideAction.useMutation({
+        onSuccess: () => {
+            setActionOverrideError(null);
+            setActionOverrideJson('');
+        },
+        onError: (err) => {
+            setActionOverrideError(err.message);
         }
     });
 
@@ -112,6 +124,21 @@ export function TestRunner(): React.ReactElement {
             return;
         }
         open(runId, stepNum);
+    };
+
+    const handleQueueActionOverride = (): void => {
+        if (status !== AgentStatus.RUNNING) {
+            setActionOverrideError('Action override is only available while a run is active.');
+            return;
+        }
+
+        try {
+            const parsedAction = JSON.parse(actionOverrideJson);
+            overrideActionMutation.mutate({ action: parsedAction });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            setActionOverrideError(`Invalid JSON: ${message}`);
+        }
     };
 
     return (
@@ -208,6 +235,37 @@ export function TestRunner(): React.ReactElement {
                                     label="Terminal Summary"
                                     value={<span className="font-normal text-gray-800 line-clamp-4 whitespace-pre-wrap">{summary || errorMessage || 'Not available yet'}</span>}
                                 />
+
+                                <SectionBlock title="Operator Action Override">
+                                    <div className="space-y-2">
+                                        <textarea
+                                            value={actionOverrideJson}
+                                            onChange={(event) => {
+                                                setActionOverrideJson(event.target.value);
+                                                if (actionOverrideError) {
+                                                    setActionOverrideError(null);
+                                                }
+                                            }}
+                                            placeholder='{"type":"mouse_click_left","x":120,"y":240,"thought":"Operator override"}'
+                                            className="w-full min-h-24 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-mono"
+                                            disabled={status !== AgentStatus.RUNNING || overrideActionMutation.isPending}
+                                        />
+                                        {actionOverrideError ? (
+                                            <p className="text-[11px] text-red-600">{actionOverrideError}</p>
+                                        ) : (
+                                            <p className="text-[11px] text-gray-500">Queue one validated action to override the next model-generated action.</p>
+                                        )}
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleQueueActionOverride}
+                                            disabled={status !== AgentStatus.RUNNING || overrideActionMutation.isPending || actionOverrideJson.trim().length === 0}
+                                        >
+                                            {overrideActionMutation.isPending ? 'Queueing…' : 'Queue Override Action'}
+                                        </Button>
+                                    </div>
+                                </SectionBlock>
                             </div>
                         )}
 

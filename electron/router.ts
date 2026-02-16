@@ -11,6 +11,8 @@ import { RunTestInput } from '../src/application/dtos';
 import { FileTraceExporter } from '../src/infrastructure/services/exporters/FileTraceExporter';
 import { TraceService } from '../src/infrastructure/services/TraceService';
 import { RunInputSchema } from '../src/shared/validation';
+import { AgentActionSchema } from '../src/shared/validation/agentAction';
+import type { AgentAction } from '../src/domain/value-objects';
 import { RuntimeReadinessPolicyService } from '../src/application/services/hardening/RuntimeReadinessPolicyService';
 import {
     CreateNextWorkflowVersionInputSchema,
@@ -98,6 +100,17 @@ export const appRouter = t.router({
             }
             return { success: false, message: 'No test running' };
         }),
+
+        overrideAction: t.procedure
+            .input(z.object({ action: AgentActionSchema }))
+            .mutation(({ input }) => {
+                if (!currentController) {
+                    return { success: false, message: 'No test running' };
+                }
+
+                currentController.queueActionOverride(input.action as unknown as AgentAction);
+                return { success: true };
+            }),
 
         onUpdate: t.procedure.subscription(() => {
             return observable<{ type: string;[key: string]: any }>((emit) => {
