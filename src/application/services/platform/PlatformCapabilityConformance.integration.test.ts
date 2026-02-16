@@ -21,15 +21,10 @@ describe('Platform capability conformance', () => {
         expect(service.can('system-control', 'electron').support).toBe('degraded');
     });
 
-    it('provides mobile and desktop adapter smoke coverage', () => {
+    it('covers only active platform adapters', () => {
         const service = new PlatformCapabilityNegotiationService();
 
-        expect(service.can('interact', 'mobile').support).toBe('supported');
-        expect(service.can('extract', 'mobile').support).toBe('degraded');
-        expect(service.can('system-control', 'mobile').support).toBe('unsupported');
-
-        expect(service.can('locate', 'desktop').support).toBe('supported');
-        expect(service.can('app-control', 'desktop').support).toBe('degraded');
-        expect(service.can('system-control', 'desktop').support).toBe('supported');
+        expect(service.can('validate', 'web').support).toBe('supported');
+        expect(service.can('validate', 'electron').support).toBe('supported');
     });
 });

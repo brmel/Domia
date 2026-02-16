@@ -286,6 +286,29 @@ export class RunCommand {
                         switch (event.type) {
                             case 'started':
                                 break;
+                            case 'evaluating': {
+                                console.log(
+                                    chalk.gray(
+                                        `[Evaluating] action=${event.actionType} decision=${event.decision} confidence=${event.confidence.toFixed(2)} outcome=${event.executionOutcome}`
+                                    )
+                                );
+                                break;
+                            }
+                            case 'replanning': {
+                                const status = event.telemetry.status;
+                                const reason = event.telemetry.reason;
+                                const trigger = event.telemetry.trigger ?? 'unspecified';
+                                console.log(chalk.yellow(`[Replanning] status=${status} trigger=${trigger} reason=${reason}`));
+                                break;
+                            }
+                            case 'recovery_replay': {
+                                console.log(
+                                    chalk.magenta(
+                                        `[Recovery] status=${event.telemetry.status} sourceRun=${event.telemetry.sourceRunId} replayed=${event.telemetry.replayedCount}`
+                                    )
+                                );
+                                break;
+                            }
                             case 'state_updated': {
                                 const state = event.state;
                                 if (state.plan) {

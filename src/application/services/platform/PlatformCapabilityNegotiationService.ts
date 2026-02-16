@@ -12,7 +12,7 @@ export type CapabilityFamily =
     | 'system-control';
 
 export type CapabilitySupport = 'supported' | 'degraded' | 'unsupported';
-export type CapabilityPlatform = PlatformType | 'mobile' | 'desktop';
+export type CapabilityPlatform = PlatformType;
 
 export interface CapabilityDecision {
     readonly capability: CapabilityFamily;
@@ -107,24 +107,6 @@ export class PlatformCapabilityNegotiationService {
                 validate: 'supported',
                 'app-control': 'supported',
                 'system-control': 'degraded'
-            },
-            mobile: {
-                navigate: 'degraded',
-                locate: 'supported',
-                interact: 'supported',
-                extract: 'degraded',
-                validate: 'supported',
-                'app-control': 'unsupported',
-                'system-control': 'unsupported'
-            },
-            desktop: {
-                navigate: 'degraded',
-                locate: 'supported',
-                interact: 'supported',
-                extract: 'supported',
-                validate: 'supported',
-                'app-control': 'degraded',
-                'system-control': 'supported'
             }
         };
 

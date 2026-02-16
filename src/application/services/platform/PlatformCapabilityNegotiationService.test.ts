@@ -36,10 +36,10 @@ describe('PlatformCapabilityNegotiationService', () => {
         expect(decision.support).toBe('degraded');
     });
 
-    it('supports mobile and desktop negotiation map', () => {
+    it('keeps web/electron capabilities explicit and deterministic', () => {
         const service = new PlatformCapabilityNegotiationService();
 
-        expect(service.can('interact', 'mobile').support).toBe('supported');
-        expect(service.can('system-control', 'desktop').support).toBe('supported');
+        expect(service.can('interact', 'web').support).toBe('supported');
+        expect(service.can('app-control', 'electron').support).toBe('supported');
     });
 });
