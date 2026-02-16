@@ -11,6 +11,7 @@
     "lint": "eslint src --ext .ts,.tsx",
     "test": "vitest run",
     "check:architecture": "node scripts/check-architecture.mjs",
+    "check:runtime-cutover": "node scripts/check-runtime-cutover.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:cli": "tsx tests/cli/run-cli-tests.ts",
