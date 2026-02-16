@@ -21,6 +21,7 @@ import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplay
 import { RecoveryReplayIdempotencyService } from '../services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
 import { BranchRollbackService } from '../services/execution/BranchRollbackService';
+import { SelectiveReplannerService } from '../services/execution/SelectiveReplannerService';
 import { PlanningCoordinator, type SkillRoutingContext } from '../services/execution/coordinators/PlanningCoordinator';
 import { RunBootstrapCoordinator } from '../services/execution/coordinators/RunBootstrapCoordinator';
 import { StepExecutionCoordinator } from '../services/execution/coordinators/StepExecutionCoordinator';
@@ -90,6 +91,7 @@ export class RunTestUseCase {
         @inject(StepExecutionCoordinator) private readonly stepExecutionCoordinator: StepExecutionCoordinator = new StepExecutionCoordinator(),
         @inject(ReplanningCoordinator) private readonly replanningCoordinator: ReplanningCoordinator = new ReplanningCoordinator(),
         @inject(TerminalizationCoordinator) private readonly terminalizationCoordinator: TerminalizationCoordinator = new TerminalizationCoordinator(),
+        @inject(SelectiveReplannerService) private readonly selectiveReplanner: SelectiveReplannerService = new SelectiveReplannerService(),
         @inject(BranchRollbackService) private readonly branchRollback: BranchRollbackService = new BranchRollbackService()
     ) { }
 
@@ -633,26 +635,24 @@ export class RunTestUseCase {
                             }
                         };
 
-                        const replanPrompt = this.replanningCoordinator.buildReplanPrompt(
-                            input.prompt,
-                            plan,
-                            item.description,
-                            proactiveReplan.reason,
-                            currentState.lastEvaluation,
-                            currentState.evaluatorAdvice,
-                            currentState.executionGraph,
-                            item.id
-                        );
-                        const replannedResult = await this.planner.plan(replanPrompt);
-
-                        if (replannedResult.isErr() || replannedResult.value.items.length === 0) {
-                            const plannerError = replannedResult.isErr()
-                                ? replannedResult.error.message
-                                : 'Replanned output contained no actionable items';
+                        try {
+                            plan = await this.selectiveReplanner.replan({
+                                originalPrompt: input.prompt,
+                                currentPlan: plan,
+                                failedStepDescription: item.description,
+                                failureReason: proactiveReplan.reason,
+                                planner: this.planner,
+                                coordinator: this.replanningCoordinator,
+                                ...(currentState.lastEvaluation ? { lastEvaluation: currentState.lastEvaluation } : {}),
+                                ...(currentState.evaluatorAdvice ? { evaluatorAdvice: currentState.evaluatorAdvice } : {}),
+                                ...(currentState.executionGraph ? { executionGraph: currentState.executionGraph } : {}),
+                                failedNodeId: item.id
+                            });
+                        } catch (error) {
+                            const plannerError = error instanceof Error ? error.message : String(error);
                             throw new WorkflowError(`Proactive replanning failed: ${plannerError}`);
                         }
 
-                        plan = replannedResult.value;
                         executionGraph = ExecutionGraph.fromPlan(plan);
                         currentState = {
                             ...currentState,
@@ -697,20 +697,20 @@ export class RunTestUseCase {
                     };
 
                     if (replanningAssessment.shouldReplan) {
-                        const replanPrompt = this.replanningCoordinator.buildReplanPrompt(
-                            input.prompt,
-                            plan,
-                            item.description,
-                            errorMsg,
-                            currentState.lastEvaluation,
-                            currentState.evaluatorAdvice,
-                            currentState.executionGraph,
-                            item.id
-                        );
-                        const replannedResult = await this.planner.plan(replanPrompt);
+                        try {
+                            plan = await this.selectiveReplanner.replan({
+                                originalPrompt: input.prompt,
+                                currentPlan: plan,
+                                failedStepDescription: item.description,
+                                failureReason: errorMsg,
+                                planner: this.planner,
+                                coordinator: this.replanningCoordinator,
+                                ...(currentState.lastEvaluation ? { lastEvaluation: currentState.lastEvaluation } : {}),
+                                ...(currentState.evaluatorAdvice ? { evaluatorAdvice: currentState.evaluatorAdvice } : {}),
+                                ...(currentState.executionGraph ? { executionGraph: currentState.executionGraph } : {}),
+                                failedNodeId: item.id
+                            });
 
-                        if (replannedResult.isOk() && replannedResult.value.items.length > 0) {
-                            plan = replannedResult.value;
                             executionGraph = ExecutionGraph.fromPlan(plan);
                             const clearedState = this.clearActiveItem(currentState);
                             const { error, ...stateWithoutError } = clearedState;
@@ -729,15 +729,13 @@ export class RunTestUseCase {
                             hasUnresolvedVerificationFailure = false;
                             finalSummary = undefined;
                             continue;
+                        } catch (error) {
+                            const plannerError = error instanceof Error ? error.message : String(error);
+                            this.logger.warn('[RunTestUseCase] Replanning attempt failed; continuing failure path', {
+                                runId: testRunId,
+                                reason: plannerError
+                            });
                         }
-
-                        const plannerError = replannedResult.isErr()
-                            ? replannedResult.error.message
-                            : 'Replanned output contained no actionable items';
-                        this.logger.warn('[RunTestUseCase] Replanning attempt failed; continuing failure path', {
-                            runId: testRunId,
-                            reason: plannerError
-                        });
                     }
 
                     const completedWithFailureItem: PlanItem = { ...item, status: 'failed' as PlanItemStatus };
