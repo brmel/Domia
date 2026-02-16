@@ -5,8 +5,6 @@ import { TestRun } from '@domain/entities/TestRun';
 import type { RunCheckpointReason } from '@domain/value-objects/RunLifecycle';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 
-// Removed local TestRun interface in favor of Domain Entity
-
 import { ActionType } from '../enums/ActionType';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
 

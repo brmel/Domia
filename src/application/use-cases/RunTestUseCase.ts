@@ -666,7 +666,12 @@ export class RunTestUseCase {
                     replanCount += 1;
                     consecutiveStepFailures += 1;
 
-                    console.warn(`[RunTestUseCase] Step failed verification: ${errorMsg}`);
+                    this.logger.warn('[RunTestUseCase] Step failed verification', {
+                        runId: testRunId,
+                        error: errorMsg,
+                        planItemId: item.id,
+                        planItemDescription: item.description
+                    });
                     finalSummary = `Verification failed: ${errorMsg}`;
                     hasUnresolvedVerificationFailure = true;
 
