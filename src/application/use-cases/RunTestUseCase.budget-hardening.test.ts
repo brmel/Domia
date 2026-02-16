@@ -122,7 +122,7 @@ describe('RunTestUseCase budget hardening', () => {
             { get: vi.fn().mockReturnValue(null) } as any,
             { isAllowed: vi.fn().mockReturnValue(false) } as any,
             { get: vi.fn().mockReturnValue(null) } as any,
-            { invoke: vi.fn().mockReturnValue({ success: false, message: 'noop' }) } as any,
+            { authorize: vi.fn().mockReturnValue({ success: false, message: 'noop', decision: 'deny' }) } as any,
             { assess: vi.fn().mockReturnValue({ blocked: false, mode: 'observe' }) } as any,
             logger
         );

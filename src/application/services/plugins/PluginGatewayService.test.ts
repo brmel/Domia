@@ -71,6 +71,39 @@ describe('PluginGatewayService', () => {
         expect(result.message).toContain('approval');
     });
 
+    it('authorizes preflight without executing adapters', () => {
+        const adapterRegistry = {
+            resolve: vi.fn()
+        };
+
+        const gateway = new PluginGatewayService(
+            new PluginCapabilityPolicyService(),
+            adapterRegistry as unknown as PluginExecutionAdapterRegistryService,
+            new PluginApprovalService(),
+            logger
+        );
+
+        const result = gateway.authorize(
+            {
+                id: 'plugin-allow',
+                version: '1.0.0',
+                name: 'AllowPlugin',
+                trust: 'trusted',
+                capabilities: ['fs.read']
+            },
+            {
+                runId: 'r3',
+                pluginId: 'plugin-allow',
+                capability: 'fs.read',
+                payload: {}
+            }
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.decision).toBe('allow');
+        expect(adapterRegistry.resolve).not.toHaveBeenCalled();
+    });
+
     it('executes fs.read via adapter when capability is allowed', () => {
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'domia-plugin-read-'));
         const previousCwd = process.cwd();

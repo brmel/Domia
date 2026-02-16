@@ -115,7 +115,7 @@ describe('RunTestUseCase preflight hardening', () => {
                 })
             } as any,
             {
-                invoke: vi.fn(() => {
+                authorize: vi.fn(() => {
                     throw new Error('plugin-gateway-boom');
                 })
             } as any,

@@ -122,7 +122,7 @@ function createUseCaseContext(
     const skillRegistry = { get: vi.fn().mockReturnValue(null) };
     const skillGovernance = { isAllowed: vi.fn().mockReturnValue(false) };
     const pluginRegistry = { get: vi.fn().mockReturnValue(null) };
-    const pluginGateway = { invoke: vi.fn().mockReturnValue({ success: false, message: 'not-called' }) };
+    const pluginGateway = { authorize: vi.fn().mockReturnValue({ success: false, message: 'not-called', decision: 'deny' }) };
     const readinessPolicy = {
         assess: vi.fn().mockReturnValue({ blocked: false, mode: 'observe' })
     };

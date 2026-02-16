@@ -928,7 +928,7 @@ export class RunTestUseCase {
                 return;
             }
 
-            const result = this.pluginGateway.invoke(manifest, {
+            const result = this.pluginGateway.authorize(manifest, {
                 runId,
                 pluginId: preflight.pluginId,
                 capability: preflight.capability,

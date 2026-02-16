@@ -5,6 +5,12 @@ import { PluginCapabilityPolicyService } from './PluginCapabilityPolicyService';
 import { PluginExecutionAdapterRegistryService } from './PluginExecutionAdapterRegistryService';
 import { PluginApprovalService } from './PluginApprovalService';
 
+export interface PluginAuthorizationResult {
+    readonly success: boolean;
+    readonly decision: 'allow' | 'deny' | 'escalate';
+    readonly message: string;
+}
+
 @injectable()
 export class PluginGatewayService {
     constructor(
@@ -14,7 +20,7 @@ export class PluginGatewayService {
         @inject('ILogger') private readonly logger: ILogger
     ) {}
 
-    invoke(manifest: PluginManifest, request: PluginInvocationRequest): PluginInvocationResult {
+    authorize(manifest: PluginManifest, request: PluginInvocationRequest): PluginAuthorizationResult {
         const decision = this.policy.decide(manifest, request.capability);
 
         if (decision === 'deny') {
@@ -26,6 +32,7 @@ export class PluginGatewayService {
 
             return {
                 success: false,
+                decision,
                 message: 'Plugin invocation denied by capability policy'
             };
         }
@@ -39,7 +46,24 @@ export class PluginGatewayService {
 
             return {
                 success: false,
+                decision,
                 message: 'Plugin invocation requires explicit approval'
+            };
+        }
+
+        return {
+            success: true,
+            decision,
+            message: 'Plugin invocation authorized'
+        };
+    }
+
+    invoke(manifest: PluginManifest, request: PluginInvocationRequest): PluginInvocationResult {
+        const authorization = this.authorize(manifest, request);
+        if (!authorization.success) {
+            return {
+                success: false,
+                message: authorization.message
             };
         }
 

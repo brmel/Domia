@@ -112,7 +112,7 @@ function createUseCaseWithSkillRouting(skillRegistryOverrides?: { get?: ReturnTy
             get: vi.fn().mockReturnValue(null)
         } as any,
         {
-            invoke: vi.fn().mockReturnValue({ success: false, message: 'not-called' })
+            authorize: vi.fn().mockReturnValue({ success: false, message: 'not-called', decision: 'deny' })
         } as any,
         {
             assess: vi.fn().mockReturnValue({ blocked: false, mode: 'observe' })

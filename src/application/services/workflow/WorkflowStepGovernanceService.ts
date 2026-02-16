@@ -66,7 +66,7 @@ export class WorkflowStepGovernanceService {
                 };
             }
 
-            const invocationResult = this.pluginGateway.invoke(manifest, {
+            const authorizationResult = this.pluginGateway.authorize(manifest, {
                 runId: workflowRunId,
                 pluginId: pluginPreflight.pluginId,
                 capability: pluginPreflight.capability,
@@ -75,10 +75,10 @@ export class WorkflowStepGovernanceService {
                 }
             });
 
-            if (!invocationResult.success) {
+            if (!authorizationResult.success) {
                 return {
                     allowed: false,
-                    reason: `Workflow step blocked: ${invocationResult.message}`
+                    reason: `Workflow step blocked: ${authorizationResult.message}`
                 };
             }
         }
