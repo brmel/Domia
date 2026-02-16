@@ -19,6 +19,7 @@ import type { Plan } from '@domain/entities/Plan';
 
 export interface RecoveryBootstrapContext {
     readonly sourceRunId: string;
+    readonly branchId: string;
     readonly state: WorkflowState;
     readonly plan?: Plan;
     readonly startPlanIndex: number;
@@ -92,6 +93,7 @@ export async function resolveRecoveryContext(
 
     return {
         sourceRunId: recoveryRunId,
+        branchId: latest.branchId,
         state: bootstrap.state,
         ...(bootstrap.state.plan ? { plan: bootstrap.state.plan } : {}),
         startPlanIndex: bootstrap.startPlanIndex
@@ -103,13 +105,14 @@ export async function replayRecoveryActions(
     params: {
         testRunId: string;
         sourceRunId: string;
+        sourceBranchId: string;
         browser: IBrowserAutomation;
         controller: ExecutionController;
         state: WorkflowState;
         targetStepNumber: number;
     }
 ): Promise<RecoveryReplayOutcome> {
-    const { testRunId, sourceRunId, browser, controller, state, targetStepNumber } = params;
+    const { testRunId, sourceRunId, sourceBranchId, browser, controller, state, targetStepNumber } = params;
 
     if (targetStepNumber <= 0) {
         return { type: 'ok', state, replayedCount: 0 };
@@ -159,7 +162,12 @@ export async function replayRecoveryActions(
             continue;
         }
 
-        const scopedIdempotencyKey = `${decision.idempotencyKey}:source-step:${sourceStep.stepNumber}`;
+        const scopedIdempotencyKey = dependencies.recoveryReplayIdempotency.buildNodeReplayKey({
+            runId: testRunId,
+            branchId: sourceBranchId,
+            nodeId: sourceStep.id,
+            actionSignature: decision.idempotencyKey
+        });
 
         let shouldExecute = true;
         try {

@@ -5,6 +5,23 @@ import { PersistenceError } from '@domain/errors';
 import { RecoveryReplayIdempotencyService } from './RecoveryReplayIdempotencyService';
 
 describe('RecoveryReplayIdempotencyService', () => {
+    it('builds node replay idempotency key with run/branch/node/action format', () => {
+        const persistence = {
+            hasReplayIdempotencyKey: vi.fn(() => okAsync(false)),
+            saveReplayIdempotencyKey: vi.fn(() => okAsync(undefined))
+        } as unknown as never;
+
+        const service = new RecoveryReplayIdempotencyService(persistence);
+        const key = service.buildNodeReplayKey({
+            runId: 'run-1',
+            branchId: 'run:run-1:main',
+            nodeId: 'node-12',
+            actionSignature: 'wait:100'
+        });
+
+        expect(key).toBe('run-1:run:run-1:main:node-12:wait:100');
+    });
+
     it('returns false when idempotency key already exists', async () => {
         const persistence = {
             hasReplayIdempotencyKey: vi.fn(() => okAsync(true)),

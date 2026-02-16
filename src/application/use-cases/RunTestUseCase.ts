@@ -225,6 +225,7 @@ export class RunTestUseCase {
                 const replayOutcome = await this.replayRecoveryActions({
                     testRunId,
                     sourceRunId: recoveryContext.sourceRunId,
+                    sourceBranchId: recoveryContext.branchId,
                     browser,
                     controller,
                     state: currentState,
@@ -854,6 +855,7 @@ export class RunTestUseCase {
     private async replayRecoveryActions(params: {
         testRunId: string;
         sourceRunId: string;
+        sourceBranchId: string;
         browser: IBrowserAutomation;
         controller: ExecutionController;
         state: WorkflowState;

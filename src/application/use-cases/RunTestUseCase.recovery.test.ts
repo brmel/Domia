@@ -131,6 +131,7 @@ function createUseCaseContext(
     const recoveryReplayGuard = new RecoveryReplayGuardService();
     const replanningPolicy = new ReplanningPolicyService(logger);
     const replayIdempotency = {
+        buildNodeReplayKey: vi.fn(({ runId, branchId, nodeId, actionSignature }) => `${runId}:${branchId}:${nodeId}:${actionSignature}`),
         shouldExecute: vi.fn().mockResolvedValue(true),
         markExecuted: vi.fn().mockResolvedValue(undefined)
     } as unknown as RecoveryReplayIdempotencyService;
