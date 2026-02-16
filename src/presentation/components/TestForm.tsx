@@ -72,7 +72,7 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
         }
     });
 
-    const updateAiSettings = (updates: { visionEnabled?: boolean; debugScreenshots?: boolean }) => {
+    const updateAiSettings = (updates: { visionEnabled?: boolean; debugScreenshots?: boolean }): void => {
         if (!config) {
             return;
         }
@@ -86,14 +86,14 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
         });
     };
 
-    const handlePlatformChange = (newPlatform: PlatformType) => {
+    const handlePlatformChange = (newPlatform: PlatformType): void => {
         setSelectedPlatform(newPlatform);
         const definition = platformRegistry[newPlatform];
         setPlatformData(definition.defaultValues);
         setFieldErrors({});
     };
 
-    const handleFieldChange = (newData: PlatformFieldValue) => {
+    const handleFieldChange = (newData: PlatformFieldValue): void => {
         setPlatformData(newData);
         if (Object.keys(fieldErrors).length > 0) {
             setFieldErrors({});

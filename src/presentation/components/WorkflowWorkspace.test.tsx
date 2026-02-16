@@ -3,13 +3,13 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { WorkflowWorkspace } from './WorkflowWorkspace';
 
 vi.mock('../../lib/trpc', () => {
-	const queryResult = (data: unknown) => ({
+	const queryResult = (data: unknown): { data: unknown; isLoading: boolean; refetch: ReturnType<typeof vi.fn> } => ({
 		data,
 		isLoading: false,
 		refetch: vi.fn(async () => undefined)
 	});
 
-	const mutationResult = () => ({
+	const mutationResult = (): { mutate: ReturnType<typeof vi.fn>; isPending: boolean } => ({
 		mutate: vi.fn(),
 		isPending: false
 	});

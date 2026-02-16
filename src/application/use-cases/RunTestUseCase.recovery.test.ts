@@ -41,7 +41,18 @@ function createCheckpoint(state: import('@domain/value-objects').WorkflowState):
 function createUseCaseContext(
     checkpoints: readonly CheckpointRecord[] = [],
     sourceSteps: readonly TestStep[] = []
-) {
+): {
+    useCase: RunTestUseCase;
+    planner: { plan: ReturnType<typeof vi.fn> };
+    lifecycleManager: { initializeTestRun: ReturnType<typeof vi.fn>; finalizeTestRun: ReturnType<typeof vi.fn>; failTestRun: ReturnType<typeof vi.fn> };
+    executor: { executeStep: ReturnType<typeof vi.fn> };
+    durability: { transition: ReturnType<typeof vi.fn>; checkpoint: ReturnType<typeof vi.fn>; getCheckpointRecords: ReturnType<typeof vi.fn> };
+    readinessPolicy: { assess: ReturnType<typeof vi.fn> };
+    releaseLane: ReturnType<typeof vi.fn>;
+    persistence: { saveTestStep: ReturnType<typeof vi.fn>; getTestSteps: ReturnType<typeof vi.fn> };
+    browser: IBrowserAutomation;
+    replayIdempotency: RecoveryReplayIdempotencyService;
+} {
     const releaseLane = vi.fn();
     const planner = {
         plan: vi.fn().mockResolvedValue(ok(createPlan([])))

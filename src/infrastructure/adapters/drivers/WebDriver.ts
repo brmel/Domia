@@ -98,7 +98,7 @@ export class WebDriver implements IAppDriver {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { elementId: number }) => {
+                execute: (params: { elementId: number }): ResultAsync<ActionResult, Error> => {
                     const id = ElementIdFactory.unsafe(params.elementId);
                     return this.playwright.click(id).map(() => ({
                         success: true,
@@ -116,7 +116,7 @@ export class WebDriver implements IAppDriver {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { elementId: number, text: string, submit?: boolean }) => {
+                execute: (params: { elementId: number, text: string, submit?: boolean }): ResultAsync<ActionResult, Error> => {
                     const id = ElementIdFactory.unsafe(params.elementId);
                     return this.playwright.type(id, params.text)
                         .andThen(() => {
@@ -139,7 +139,7 @@ export class WebDriver implements IAppDriver {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { direction: 'up' | 'down' }) => {
+                execute: (params: { direction: 'up' | 'down' }): ResultAsync<ActionResult, Error> => {
                     return this.playwright.scroll(params.direction)
                         .map(() => ({ success: true, message: `Scrolled ${params.direction}` } as ActionResult))
                         .mapErr(err => new Error(err.message));
@@ -155,7 +155,7 @@ export class WebDriver implements IAppDriver {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { x: number; y: number }) => {
+                execute: (params: { x: number; y: number }): ResultAsync<ActionResult, Error> => {
                     return this.playwright.mouseMove(params.x, params.y)
                         .map(() => ({ success: true, message: `Moved mouse to (${params.x}, ${params.y})` } as ActionResult))
                         .mapErr(err => new Error(err.message));
@@ -171,7 +171,7 @@ export class WebDriver implements IAppDriver {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { x: number; y: number }) => {
+                execute: (params: { x: number; y: number }): ResultAsync<ActionResult, Error> => {
                     return this.playwright.mouseClick(params.x, params.y, 'left')
                         .map(() => ({ success: true, message: `Left-clicked at (${params.x}, ${params.y})` } as ActionResult))
                         .mapErr(err => new Error(err.message));
@@ -187,7 +187,7 @@ export class WebDriver implements IAppDriver {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { x: number; y: number }) => {
+                execute: (params: { x: number; y: number }): ResultAsync<ActionResult, Error> => {
                     return this.playwright.mouseClick(params.x, params.y, 'right')
                         .map(() => ({ success: true, message: `Right-clicked at (${params.x}, ${params.y})` } as ActionResult))
                         .mapErr(err => new Error(err.message));
@@ -203,7 +203,7 @@ export class WebDriver implements IAppDriver {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { x: number; y: number }) => {
+                execute: (params: { x: number; y: number }): ResultAsync<ActionResult, Error> => {
                     return this.playwright.mouseDoubleClick(params.x, params.y)
                         .map(() => ({ success: true, message: `Double-clicked at (${params.x}, ${params.y})` } as ActionResult))
                         .mapErr(err => new Error(err.message));
@@ -225,7 +225,7 @@ export class WebDriver implements IAppDriver {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { fromX: number; fromY: number; toX: number; toY: number; steps?: number }) => {
+                execute: (params: { fromX: number; fromY: number; toX: number; toY: number; steps?: number }): ResultAsync<ActionResult, Error> => {
                     return this.playwright.mouseDrag(params.fromX, params.fromY, params.toX, params.toY, params.steps)
                         .map(() => ({ success: true, message: `Dragged from (${params.fromX}, ${params.fromY}) to (${params.toX}, ${params.toY})` } as ActionResult))
                         .mapErr(err => new Error(err.message));
@@ -241,7 +241,7 @@ export class WebDriver implements IAppDriver {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { deltaX?: number; deltaY: number }) => {
+                execute: (params: { deltaX?: number; deltaY: number }): ResultAsync<ActionResult, Error> => {
                     return this.playwright.mouseScroll(params.deltaX ?? 0, params.deltaY)
                         .map(() => ({ success: true, message: `Mouse scrolled by (${params.deltaX ?? 0}, ${params.deltaY})` } as ActionResult))
                         .mapErr(err => new Error(err.message));
@@ -257,7 +257,7 @@ export class WebDriver implements IAppDriver {
                     scope: ToolScope.PLATFORM_SPECIFIC,
                     terminal: false
                 },
-                execute: (params: { url: string }) => {
+                execute: (params: { url: string }): ResultAsync<ActionResult, Error> => {
                     const urlResult = UrlFactory.create(params.url);
                     if (urlResult.isErr()) {
                         return errAsync(new Error(urlResult.error.message));
@@ -278,7 +278,7 @@ export class WebDriver implements IAppDriver {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { durationMs: number }) => {
+                execute: (params: { durationMs: number }): ResultAsync<ActionResult, Error> => {
                     return this.playwright.wait(params.durationMs)
                         .map(() => ({ success: true, message: `Waited ${params.durationMs}ms` } as ActionResult))
                         .mapErr(err => new Error(err.message));

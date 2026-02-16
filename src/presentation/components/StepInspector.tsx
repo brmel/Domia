@@ -7,6 +7,7 @@ import { cn } from '../../lib/utils';
 import { Button } from './ui/Button';
 import { SegmentedControl } from './ui/SegmentedControl';
 import type { StepArtifacts } from '@domain/ports/IStorageService';
+import type { StepTrace } from '@domain/ports/ITraceService';
 
 export function StepInspector(): JSX.Element | null {
     const { isOpen, runId, stepNumber, close } = useStepInspectorStore();
@@ -84,12 +85,12 @@ export function StepInspector(): JSX.Element | null {
     );
 }
 
-function InspectorContent({ artifacts }: { artifacts: StepArtifacts }) {
+function InspectorContent({ artifacts }: { artifacts: StepArtifacts }): JSX.Element {
     const [activeTab, setActiveTab] = useState<'vision' | 'semantic' | 'trace'>('vision');
 
     const domTree = artifacts.dom;
     const accessibilityTree = artifacts.accessibility;
-    const buildTemporalTrace = (window: NonNullable<StepArtifacts['temporalWindow']>) => ({
+    const buildTemporalTrace = (window: NonNullable<StepArtifacts['temporalWindow']>): NonNullable<StepTrace['temporal']> => ({
         ...(window.mode !== undefined ? { mode: window.mode } : {}),
         frameCount: window.frames?.length ?? 0,
         fromTimestamp: window.fromTimestamp,
@@ -230,7 +231,7 @@ function InspectorContent({ artifacts }: { artifacts: StepArtifacts }) {
     );
 }
 
-function EmptyState({ icon, title, description }: { icon: string, title: string, description: string }) {
+function EmptyState({ icon, title, description }: { icon: string, title: string, description: string }): JSX.Element {
     return (
         <div className="h-full flex flex-col items-center justify-center text-center p-8 text-gray-400">
             <div className="text-4xl mb-4 opacity-50">{icon}</div>

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RuntimeReadinessPolicyService } from './RuntimeReadinessPolicyService';
 import { ReadinessGateService } from './ReadinessGateService';
 
-function makeService(apiKey?: string) {
+function makeService(apiKey?: string): { service: RuntimeReadinessPolicyService; logger: { debug: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> } } {
     const logger = {
         debug: vi.fn(),
         info: vi.fn(),
@@ -12,7 +12,14 @@ function makeService(apiKey?: string) {
     };
 
     const configService = {
-        get: () => ({
+        get: (): {
+            headless: boolean;
+            viewport: { width: number; height: number };
+            ai: { provider: string; model: string; apiKey: string | undefined; visionEnabled: boolean; debugScreenshots: boolean };
+            selectorEngine: { strategyOrder: string[] };
+            paths: { artifactsDir: string; databasePath: string };
+            limits: { maxSteps: number; delayBetweenSteps: number };
+        } => ({
             headless: true,
             viewport: { width: 1280, height: 800 },
             ai: { provider: 'google', model: 'gemini-2.0-flash', apiKey, visionEnabled: false, debugScreenshots: false },

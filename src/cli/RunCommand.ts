@@ -182,7 +182,7 @@ export class RunCommand {
 
                         console.log(chalk.gray('Controls: [p] pause/resume, [s] stop, [q] quit'));
 
-                        interactiveKeyHandler = (_str: string, key: readline.Key) => {
+                        interactiveKeyHandler = (_str: string, key: readline.Key): void => {
                             if (key.ctrl && key.name === 'c') {
                                 teardownInteractiveControls();
                                 spinner.stop();

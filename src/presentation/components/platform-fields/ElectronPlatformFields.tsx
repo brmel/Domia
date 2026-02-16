@@ -13,7 +13,7 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
   const connection: ElectronConnection = electronValue.connection || { type: 'cdp', cdpUrl: 'http://localhost:9222' };
   const connectionType: 'cdp' | 'executable' = connection.type;
 
-  const handleTypeChange = (newType: 'cdp' | 'executable') => {
+  const handleTypeChange = (newType: 'cdp' | 'executable'): void => {
     if (newType === 'cdp') {
       onChange({
         ...electronValue,
@@ -33,7 +33,7 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
     }
   };
 
-  const updateCdpConnection = (updates: Partial<Omit<ElectronCDPConnection, 'type'>>) => {
+  const updateCdpConnection = (updates: Partial<Omit<ElectronCDPConnection, 'type'>>): void => {
     if (connection.type !== 'cdp') {
       return;
     }
@@ -54,7 +54,7 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
     });
   };
 
-  const updateExecutableConnection = (updates: Partial<Omit<ElectronExecutableConnection, 'type'>>) => {
+  const updateExecutableConnection = (updates: Partial<Omit<ElectronExecutableConnection, 'type'>>): void => {
     if (connection.type !== 'executable') {
       return;
     }

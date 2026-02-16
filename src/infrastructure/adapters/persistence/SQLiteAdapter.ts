@@ -162,7 +162,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         const migrations: Array<{ id: string; apply: () => void }> = [
             {
                 id: SQLITE_MIGRATION_IDS[0],
-                apply: () => {
+                apply: (): void => {
                     database.exec(`
                         CREATE TABLE IF NOT EXISTS test_runs (
                             id TEXT PRIMARY KEY,
@@ -261,7 +261,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
             },
             {
                 id: SQLITE_MIGRATION_IDS[1],
-                apply: () => {
+                apply: (): void => {
                     database.exec(`
                         CREATE INDEX IF NOT EXISTS idx_workflow_definitions_status ON workflow_definitions(status);
                         CREATE INDEX IF NOT EXISTS idx_workflow_runs_definition ON workflow_runs(workflow_definition_id, started_at);

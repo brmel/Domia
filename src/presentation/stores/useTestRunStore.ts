@@ -95,28 +95,28 @@ export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
 
     reset: (): void => set(initialState),
 
-    setUrl: (url: string) => set((state) => ({
+    setUrl: (url: string): void => set((state) => ({
         url,
         platformData: state.selectedPlatform === 'web'
             ? { ...(state.platformData as { url?: string }), url }
             : state.platformData
     })),
-    setPrompt: (prompt: string) => set({ prompt }),
-    setSelectedPlatform: (selectedPlatform: PlatformType) => set({ selectedPlatform }),
-    setPlatformData: (platformData: PlatformFieldValue) => set({
+    setPrompt: (prompt: string): void => set({ prompt }),
+    setSelectedPlatform: (selectedPlatform: PlatformType): void => set({ selectedPlatform }),
+    setPlatformData: (platformData: PlatformFieldValue): void => set({
         platformData,
         ...(get().selectedPlatform === 'web' && 'url' in platformData && typeof platformData.url === 'string'
             ? { url: platformData.url }
             : {})
     }),
-    setTemporalObservation: (temporalObservation: boolean) => set({ temporalObservation }),
-    setTemporalMode: (temporalMode: 'off' | 'baseline' | 'adaptive' | 'forensic') => set({ temporalMode }),
-    setTemporalBaselineIntervalMs: (temporalBaselineIntervalMs: number) => set({ temporalBaselineIntervalMs }),
-    setTemporalBurstIntervalMs: (temporalBurstIntervalMs: number) => set({ temporalBurstIntervalMs }),
-    setTemporalMaxFramesPerWindow: (temporalMaxFramesPerWindow: number) => set({ temporalMaxFramesPerWindow }),
-    setTemporalPromptTokenBudget: (temporalPromptTokenBudget: number) => set({ temporalPromptTokenBudget }),
-    setTemporalRedactSensitive: (temporalRedactSensitive: boolean) => set({ temporalRedactSensitive }),
-    setTemporalPersistWindow: (temporalPersistWindow: boolean) => set({ temporalPersistWindow }),
+    setTemporalObservation: (temporalObservation: boolean): void => set({ temporalObservation }),
+    setTemporalMode: (temporalMode: 'off' | 'baseline' | 'adaptive' | 'forensic'): void => set({ temporalMode }),
+    setTemporalBaselineIntervalMs: (temporalBaselineIntervalMs: number): void => set({ temporalBaselineIntervalMs }),
+    setTemporalBurstIntervalMs: (temporalBurstIntervalMs: number): void => set({ temporalBurstIntervalMs }),
+    setTemporalMaxFramesPerWindow: (temporalMaxFramesPerWindow: number): void => set({ temporalMaxFramesPerWindow }),
+    setTemporalPromptTokenBudget: (temporalPromptTokenBudget: number): void => set({ temporalPromptTokenBudget }),
+    setTemporalRedactSensitive: (temporalRedactSensitive: boolean): void => set({ temporalRedactSensitive }),
+    setTemporalPersistWindow: (temporalPersistWindow: boolean): void => set({ temporalPersistWindow }),
 
     setStatus: (status: AgentStatus): void => set({ status }),
 
@@ -191,7 +191,7 @@ export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
     },
 }), {
     name: 'domia-compose-draft-v1',
-    partialize: (state) => ({
+    partialize: (state): Partial<TestRunStoreState> => ({
         url: state.url,
         prompt: state.prompt,
         selectedPlatform: state.selectedPlatform,

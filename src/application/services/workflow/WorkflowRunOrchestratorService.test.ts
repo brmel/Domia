@@ -29,7 +29,17 @@ describe('WorkflowRunOrchestratorService', () => {
     const createService = (options?: {
         governanceAllowed?: boolean;
         stepResult?: { success: boolean; summary?: string; testRunId?: string };
-    }) => {
+    }): {
+        service: WorkflowRunOrchestratorService;
+        persistence: {
+            getWorkflowDefinition: ReturnType<typeof vi.fn>;
+            saveWorkflowRun: ReturnType<typeof vi.fn>;
+            updateWorkflowRun: ReturnType<typeof vi.fn>;
+            saveWorkflowStepRun: ReturnType<typeof vi.fn>;
+            updateWorkflowStepRun: ReturnType<typeof vi.fn>;
+            commitAtomicWorkflowTransition: ReturnType<typeof vi.fn>;
+        };
+    } => {
         const persistence = {
             getWorkflowDefinition: vi.fn(() => okAsync(definition)),
             saveWorkflowRun: vi.fn(() => okAsync(undefined)),

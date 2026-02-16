@@ -14,6 +14,6 @@ export const useStepInspectorStore = create<StepInspectorState>((set) => ({
     runId: null,
     stepNumber: null,
 
-    open: (runId, stepNumber) => set({ isOpen: true, runId, stepNumber }),
-    close: () => set({ isOpen: false, runId: null, stepNumber: null }),
+    open: (runId, stepNumber): void => set({ isOpen: true, runId, stepNumber }),
+    close: (): void => set({ isOpen: false, runId: null, stepNumber: null }),
 }));

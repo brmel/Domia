@@ -46,8 +46,8 @@ export class PlatformSessionFactory {
             shouldNavigate,
             browser,
             driver,
-            dispose: async () => {
-                await driver.disconnect().catch(err => {
+            dispose: async (): Promise<void> => {
+                await driver.disconnect().catch((err): void => {
                     this.logger.warn(`[PlatformSessionFactory] Error disconnecting driver: ${String(err)}`);
                 });
             }

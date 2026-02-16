@@ -21,7 +21,7 @@ export class CommonWebToolsFactory {
                     platforms: ['web', 'electron'] as PlatformType[],
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
-                },                execute: (params: { elementId: number; windowId?: string }) => {
+                },                execute: (params: { elementId: number; windowId?: string }): ResultAsync<ActionResult, Error> => {
                     return ResultAsync.fromPromise(
                         executeInWindow(params.windowId, async (page) => {
                             const selector = `[data-domia-id="${params.elementId}"]`;
@@ -47,7 +47,7 @@ export class CommonWebToolsFactory {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { elementId: number; text: string; submit?: boolean; windowId?: string }) => {
+                execute: (params: { elementId: number; text: string; submit?: boolean; windowId?: string }): ResultAsync<ActionResult, Error> => {
                     return ResultAsync.fromPromise(
                         executeInWindow(params.windowId, async (page) => {
                             const selector = `[data-domia-id="${params.elementId}"]`;
@@ -76,7 +76,7 @@ export class CommonWebToolsFactory {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { direction: 'up' | 'down'; windowId?: string }) => {
+                execute: (params: { direction: 'up' | 'down'; windowId?: string }): ResultAsync<ActionResult, Error> => {
                     return ResultAsync.fromPromise(
                         executeInWindow(params.windowId, async (page) => {
                             const scrollAmount = params.direction === 'down' 
@@ -107,7 +107,7 @@ export class CommonWebToolsFactory {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { x: number; y: number; windowId?: string }) => {
+                execute: (params: { x: number; y: number; windowId?: string }): ResultAsync<ActionResult, Error> => {
                     return ResultAsync.fromPromise(
                         executeInWindow(params.windowId, async (page) => {
                             await page.mouse.move(params.x, params.y);
@@ -131,7 +131,7 @@ export class CommonWebToolsFactory {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { x: number; y: number; windowId?: string }) => {
+                execute: (params: { x: number; y: number; windowId?: string }): ResultAsync<ActionResult, Error> => {
                     return ResultAsync.fromPromise(
                         executeInWindow(params.windowId, async (page) => {
                             await page.mouse.click(params.x, params.y, { button: 'left' });
@@ -155,7 +155,7 @@ export class CommonWebToolsFactory {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { x: number; y: number; windowId?: string }) => {
+                execute: (params: { x: number; y: number; windowId?: string }): ResultAsync<ActionResult, Error> => {
                     return ResultAsync.fromPromise(
                         executeInWindow(params.windowId, async (page) => {
                             await page.mouse.click(params.x, params.y, { button: 'right' });
@@ -179,7 +179,7 @@ export class CommonWebToolsFactory {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { x: number; y: number; windowId?: string }) => {
+                execute: (params: { x: number; y: number; windowId?: string }): ResultAsync<ActionResult, Error> => {
                     return ResultAsync.fromPromise(
                         executeInWindow(params.windowId, async (page) => {
                             await page.mouse.click(params.x, params.y, { button: 'left', clickCount: 2 });
@@ -206,7 +206,7 @@ export class CommonWebToolsFactory {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { fromX: number; fromY: number; toX: number; toY: number; steps?: number; windowId?: string }) => {
+                execute: (params: { fromX: number; fromY: number; toX: number; toY: number; steps?: number; windowId?: string }): ResultAsync<ActionResult, Error> => {
                     return ResultAsync.fromPromise(
                         executeInWindow(params.windowId, async (page) => {
                             await page.mouse.move(params.fromX, params.fromY);
@@ -233,7 +233,7 @@ export class CommonWebToolsFactory {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { deltaX?: number; deltaY: number; windowId?: string }) => {
+                execute: (params: { deltaX?: number; deltaY: number; windowId?: string }): ResultAsync<ActionResult, Error> => {
                     return ResultAsync.fromPromise(
                         executeInWindow(params.windowId, async (page) => {
                             await page.mouse.wheel(params.deltaX ?? 0, params.deltaY);
@@ -253,7 +253,7 @@ export class CommonWebToolsFactory {
                     scope: ToolScope.UNIVERSAL,
                     terminal: false
                 },
-                execute: (params: { durationMs: number }) => {
+                execute: (params: { durationMs: number }): ResultAsync<ActionResult, Error> => {
                     return ResultAsync.fromPromise(
                         new Promise<ActionResult>(resolve => {
                             setTimeout(() => {

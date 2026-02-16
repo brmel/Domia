@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { ReplanningPolicyService } from './ReplanningPolicyService';
 
-function createService() {
+function createService(): { service: ReplanningPolicyService; logger: { debug: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> } } {
     const logger = {
         debug: vi.fn(),
         info: vi.fn(),

@@ -167,7 +167,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         }
         this.logger.debug(`[PlaywrightAdapter] Mouse drag from (${fromX}, ${fromY}) to (${toX}, ${toY}) steps=${steps}`);
         return ResultAsync.fromPromise(
-            (async () => {
+            (async (): Promise<void> => {
                 await this.page!.mouse.move(fromX, fromY);
                 await this.page!.mouse.down();
                 await this.page!.mouse.move(toX, toY, { steps: Math.max(1, Math.floor(steps)) });

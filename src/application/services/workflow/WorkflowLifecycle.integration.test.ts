@@ -4,32 +4,47 @@ import { okAsync } from 'neverthrow';
 import { WorkflowDefinitionService } from './WorkflowDefinitionService';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
 import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
+import type { ResultAsync } from 'neverthrow';
 
-function createInMemoryPersistence() {
+type InMemoryWorkflowPersistence = {
+    saveWorkflowDefinition: (definition: WorkflowDefinition) => ResultAsync<void, never>;
+    getWorkflowDefinition: (id: string) => ResultAsync<WorkflowDefinition | null, never>;
+    getWorkflowDefinitions: () => ResultAsync<WorkflowDefinition[], never>;
+    saveWorkflowRun: (_run: WorkflowRunRecord) => ResultAsync<void, never>;
+    updateWorkflowRun: (_id: string, _updates: Partial<WorkflowRunRecord>) => ResultAsync<void, never>;
+    getWorkflowRun: (_id: string) => ResultAsync<null, never>;
+    getWorkflowRuns: () => ResultAsync<never[], never>;
+    saveWorkflowStepRun: (_stepRun: WorkflowStepRunRecord) => ResultAsync<void, never>;
+    updateWorkflowStepRun: (_id: string, _updates: Partial<WorkflowStepRunRecord>) => ResultAsync<void, never>;
+    getWorkflowStepRuns: () => ResultAsync<never[], never>;
+    commitAtomicWorkflowTransition: (_input: AtomicWorkflowTransitionInput) => ResultAsync<void, never>;
+};
+
+function createInMemoryPersistence(): InMemoryWorkflowPersistence {
     const definitions = new Map<string, WorkflowDefinition>();
 
     return {
-        saveWorkflowDefinition: (definition: WorkflowDefinition) => {
+        saveWorkflowDefinition: (definition: WorkflowDefinition): ResultAsync<void, never> => {
             definitions.set(definition.id, definition);
             return okAsync(undefined);
         },
-        getWorkflowDefinition: (id: string) => okAsync(definitions.get(id) ?? null),
-        getWorkflowDefinitions: () => okAsync(Array.from(definitions.values())),
-        saveWorkflowRun: (_run: WorkflowRunRecord) => okAsync(undefined),
-        updateWorkflowRun: (_id: string, _updates: Partial<WorkflowRunRecord>) => okAsync(undefined),
-        getWorkflowRun: (_id: string) => okAsync(null),
-        getWorkflowRuns: () => okAsync([]),
-        saveWorkflowStepRun: (_stepRun: WorkflowStepRunRecord) => okAsync(undefined),
-        updateWorkflowStepRun: (_id: string, _updates: Partial<WorkflowStepRunRecord>) => okAsync(undefined),
-        getWorkflowStepRuns: () => okAsync([]),
-        commitAtomicWorkflowTransition: (_input: AtomicWorkflowTransitionInput) => okAsync(undefined)
+        getWorkflowDefinition: (id: string): ResultAsync<WorkflowDefinition | null, never> => okAsync(definitions.get(id) ?? null),
+        getWorkflowDefinitions: (): ResultAsync<WorkflowDefinition[], never> => okAsync(Array.from(definitions.values())),
+        saveWorkflowRun: (_run: WorkflowRunRecord): ResultAsync<void, never> => okAsync(undefined),
+        updateWorkflowRun: (_id: string, _updates: Partial<WorkflowRunRecord>): ResultAsync<void, never> => okAsync(undefined),
+        getWorkflowRun: (_id: string): ResultAsync<null, never> => okAsync(null),
+        getWorkflowRuns: (): ResultAsync<never[], never> => okAsync([]),
+        saveWorkflowStepRun: (_stepRun: WorkflowStepRunRecord): ResultAsync<void, never> => okAsync(undefined),
+        updateWorkflowStepRun: (_id: string, _updates: Partial<WorkflowStepRunRecord>): ResultAsync<void, never> => okAsync(undefined),
+        getWorkflowStepRuns: (): ResultAsync<never[], never> => okAsync([]),
+        commitAtomicWorkflowTransition: (_input: AtomicWorkflowTransitionInput): ResultAsync<void, never> => okAsync(undefined)
     };
 }
 
 describe('Workflow lifecycle integration', () => {
     it('runs create -> publish -> next version lifecycle with persisted state', async () => {
         const persistence = createInMemoryPersistence();
-        const logger = { info: () => undefined, warn: () => undefined, error: () => undefined, debug: () => undefined };
+        const logger = { info: (): void => undefined, warn: (): void => undefined, error: (): void => undefined, debug: (): void => undefined };
         const service = new WorkflowDefinitionService(persistence as unknown as never, logger as unknown as never);
 
         const draft = await service.createDraft({

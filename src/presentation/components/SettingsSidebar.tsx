@@ -16,7 +16,7 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
         }
     });
 
-    const handleUpdate = (newConfig: DomiaConfig) => {
+    const handleUpdate = (newConfig: DomiaConfig): void => {
         updateMutation.mutate(newConfig);
     };
 

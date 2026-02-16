@@ -5,7 +5,7 @@ interface JsonTreeViewProps {
     name?: string;
 }
 
-export function JsonTreeView({ data, name }: JsonTreeViewProps) {
+export function JsonTreeView({ data, name }: JsonTreeViewProps): JSX.Element {
     if (!data) return <div className="text-gray-500 text-sm p-4">No data available</div>;
 
     return (

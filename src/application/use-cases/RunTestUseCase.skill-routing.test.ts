@@ -11,7 +11,12 @@ import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplay
 import { RecoveryReplayIdempotencyService } from '../services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
 
-function createUseCaseWithSkillRouting(skillRegistryOverrides?: { get?: ReturnType<typeof vi.fn>; list?: ReturnType<typeof vi.fn> }) {
+function createUseCaseWithSkillRouting(skillRegistryOverrides?: { get?: ReturnType<typeof vi.fn>; list?: ReturnType<typeof vi.fn> }): {
+    useCase: RunTestUseCase;
+    planner: { plan: ReturnType<typeof vi.fn> };
+    skillRegistry: { get: ReturnType<typeof vi.fn>; list: ReturnType<typeof vi.fn> };
+    executor: { executeStep: ReturnType<typeof vi.fn> };
+} {
     const planner = {
         plan: vi.fn().mockResolvedValue(ok({
             id: 'plan-skill-routing',

@@ -6,7 +6,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { ActionType } from '@domain/enums/ActionType';
 import { TrajectoryExportService } from './TrajectoryExportService';
 
-function createServiceContext() {
+function createServiceContext(): {
+    service: TrajectoryExportService;
+    persistence: Record<string, unknown>;
+    storage: Record<string, unknown>;
+    tempRoot: string;
+} {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'domia-trajectory-export-'));
 
     const persistence = {
@@ -27,7 +32,7 @@ function createServiceContext() {
                 }
             ]
         }),
-        getTestRun: vi.fn(async (runId: string) => ({
+        getTestRun: vi.fn(async (runId: string): Promise<{ isErr: () => false; value: { id: string; url: string; prompt: string; startedAt: Date } }> => ({
             isErr: () => false,
             value: {
                 id: runId,
@@ -36,7 +41,7 @@ function createServiceContext() {
                 startedAt: new Date('2026-02-10T00:00:00.000Z')
             }
         })),
-        getTestSteps: vi.fn(async (runId: string) => ({
+        getTestSteps: vi.fn(async (runId: string): Promise<{ isErr: () => false; value: Array<{ id: string; testRunId: string; stepNumber: number; actionType: ActionType; actionPayload: { type: ActionType; elementId: number; thought: string }; timestamp: string }> }> => ({
             isErr: () => false,
             value: [
                 {
@@ -75,7 +80,7 @@ function createServiceContext() {
     };
 
     const storage = {
-        getStepArtifacts: vi.fn(async (runId: string) => {
+        getStepArtifacts: vi.fn(async (runId: string): Promise<Record<string, unknown>> => {
             if (runId !== 'run-1') {
                 return {
                     trace: {

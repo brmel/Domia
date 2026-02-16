@@ -4,10 +4,10 @@ interface CognitiveTraceViewProps {
     trace: Partial<StepTrace>;
 }
 
-export function CognitiveTraceView({ trace }: CognitiveTraceViewProps) {
+export function CognitiveTraceView({ trace }: CognitiveTraceViewProps): JSX.Element {
     if (!trace) return <div className="text-gray-500 text-sm p-4">No trace data available</div>;
 
-    const actionType = (() => {
+    const actionType = (() : string => {
         const action = trace.agentOutput?.action;
         if (!action || typeof action !== 'object') {
             return 'unknown';

@@ -338,7 +338,7 @@ export class ElectronDriver implements IAppDriver {
                     scope: ToolScope.PLATFORM_SPECIFIC,
                     terminal: false
                 },
-                execute: (params: { menuPath: string }) => {
+                execute: (params: { menuPath: string }): ResultAsync<ActionResult, Error> => {
                     const validation = CDPValidator.validateMenuPath(params.menuPath);
                     if (validation.isErr()) {
                         return ResultAsync.fromSafePromise<ActionResult>(Promise.resolve({
@@ -392,7 +392,7 @@ export class ElectronDriver implements IAppDriver {
                     scope: ToolScope.PLATFORM_SPECIFIC,
                     terminal: false
                 },
-                execute: (params: { windowId?: string; title?: string; url?: string }) => {
+                execute: (params: { windowId?: string; title?: string; url?: string }): ResultAsync<ActionResult, Error> => {
                     if (params.windowId) {
                         const validation = CDPValidator.validateWindowId(params.windowId);
                         if (validation.isErr()) {
@@ -466,7 +466,7 @@ export class ElectronDriver implements IAppDriver {
                     scope: ToolScope.PLATFORM_SPECIFIC,
                     terminal: false
                 },
-                execute: () => {
+                execute: (): ResultAsync<ActionResult, Error> => {
                     return ResultAsync.fromPromise(
                         (async (): Promise<ActionResult> => {
                             await this.discoverWindows();
@@ -503,7 +503,7 @@ export class ElectronDriver implements IAppDriver {
                     scope: ToolScope.PLATFORM_SPECIFIC,
                     terminal: false
                 },
-                execute: (params: { windowId?: string }) => {
+                execute: (params: { windowId?: string }): ResultAsync<ActionResult, Error> => {
                     if (params.windowId) {
                         const validation = CDPValidator.validateWindowId(params.windowId);
                         if (validation.isErr()) {
