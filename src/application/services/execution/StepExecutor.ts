@@ -15,6 +15,7 @@ import type { TemporalObservationMode } from '../perception/TemporalObservationP
 import { TemporalContextSelectorService } from '../perception/TemporalContextSelectorService';
 import { TemporalPrivacyFilterService } from '../perception/TemporalPrivacyFilterService';
 import { TemporalPromptAssemblerService } from '../perception/TemporalPromptAssemblerService';
+import { VerificationPolicyService } from './VerificationPolicyService';
 
 export type StepExecutionResult =
     | { readonly success: true; readonly terminal: 'pass' }
@@ -49,6 +50,8 @@ const TEMPORAL_STABLE_FRAME_STREAK = 2;
 
 @injectable()
 export class StepExecutor {
+    private readonly verificationPolicy = new VerificationPolicyService();
+
     constructor(
         @inject('ILLMProvider') private llmProvider: ILLMProvider,
         @inject(LoopDetectorService) private loopDetector: LoopDetectorService,
@@ -353,10 +356,32 @@ export class StepExecutor {
             }
 
             const evaluation = evaluationResult.value;
+            let governedEvaluation: LLMEvaluationDecision;
+
+            try {
+                const policyDecision = this.verificationPolicy.enforce(evaluation, {
+                    attemptedAction: action,
+                    executionOutcome,
+                    stepsRemaining: maxActions - loopCount
+                });
+                governedEvaluation = policyDecision.evaluation;
+
+                if (policyDecision.adjusted) {
+                    this.logger.info(`[StepExecutor] Verification policy adjusted evaluator decision: ${policyDecision.reason}`);
+                }
+            } catch (error) {
+                const reason = error instanceof Error ? error.message : String(error);
+                return {
+                    success: false,
+                    terminal: 'error',
+                    code: 'agent_fail',
+                    reason: `Verification policy rejected evaluator output: ${reason}`
+                };
+            }
 
             if (executionContext?.onEvaluation) {
                 await executionContext.onEvaluation({
-                    evaluation,
+                    evaluation: governedEvaluation,
                     attemptedAction: action,
                     executionOutcome,
                     ...(executionError ? { executionError } : {})
@@ -365,26 +390,26 @@ export class StepExecutor {
 
             await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
                 agentOutput: {
-                    thought: `Evaluator decision: ${evaluation.decision}`,
+                    thought: `Evaluator decision: ${governedEvaluation.decision}`,
                     action: null,
-                    rawResponse: JSON.stringify(evaluation)
+                    rawResponse: JSON.stringify(governedEvaluation)
                 }
             });
 
-            if (evaluation.decision === 'sub_task_success') {
+            if (governedEvaluation.decision === 'sub_task_success') {
                 return { success: true, terminal: 'pass' };
             }
 
-            if (evaluation.decision === 'need_reformulate') {
+            if (governedEvaluation.decision === 'need_reformulate') {
                 return {
                     success: false,
                     terminal: 'fail',
                     code: 'agent_fail',
-                    reason: evaluation.summary
+                    reason: governedEvaluation.summary
                 };
             }
 
-            adviceForNextAttempt = evaluation.advice ?? evaluation.summary;
+            adviceForNextAttempt = governedEvaluation.advice ?? governedEvaluation.summary;
             consecutiveEvaluatorRetries += 1;
 
             if (consecutiveEvaluatorRetries >= 3 && loopCount >= maxActions - 1) {
