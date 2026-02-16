@@ -9,6 +9,7 @@ import { observable } from '@trpc/server/observable';
 import { EventEmitter } from 'events';
 import { RunTestInput } from '../src/application/dtos';
 import { FileTraceExporter } from '../src/infrastructure/services/exporters/FileTraceExporter';
+import { TrajectoryExportService } from '../src/infrastructure/services/exporters/TrajectoryExportService';
 import { TraceService } from '../src/infrastructure/services/TraceService';
 import { RunInputSchema } from '../src/shared/validation';
 import { AgentActionSchema } from '../src/shared/validation/agentAction';
@@ -215,6 +216,24 @@ export const appRouter = t.router({
                 const storage = container.resolve<import('../src/domain/ports/IStorageService').IStorageService>('IStorageService');
                 const artifacts = await storage.getStepArtifacts(input.runId, input.stepNumber);
                 return artifacts;
+            }),
+        exportTrajectories: t.procedure
+            .input(z.object({
+                runIds: z.array(z.string().trim().min(1)).optional(),
+                workflowDefinitionId: z.string().trim().min(1).optional(),
+                from: z.string().datetime().optional(),
+                to: z.string().datetime().optional(),
+                includeChosenRejected: z.boolean().optional()
+            }).optional())
+            .mutation(async ({ input }) => {
+                const exportService = container.resolve(TrajectoryExportService);
+                return exportService.export({
+                    ...(input?.runIds ? { runIds: input.runIds } : {}),
+                    ...(input?.workflowDefinitionId ? { workflowDefinitionId: input.workflowDefinitionId } : {}),
+                    ...(input?.from ? { from: input.from } : {}),
+                    ...(input?.to ? { to: input.to } : {}),
+                    ...(input?.includeChosenRejected !== undefined ? { includeChosenRejected: input.includeChosenRejected } : {})
+                });
             })
     }),
 

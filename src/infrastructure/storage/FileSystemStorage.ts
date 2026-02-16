@@ -63,12 +63,23 @@ export class FileSystemStorage implements IStorageService {
         const filename = `${stepNumber}_trace.json`;
         const filePath = path.join(baseDir, filename);
 
-        let existing = {};
+        let existing: { events?: unknown[]; [key: string]: unknown } = {};
         if (await fs.pathExists(filePath)) {
             existing = await fs.readJson(filePath);
         }
 
-        await fs.writeJson(filePath, { ...existing, ...trace }, { spaces: 2 });
+        const existingEvents = Array.isArray(existing.events) ? existing.events : [];
+        const { events: _ignoredEvents, ...materializedExisting } = existing;
+
+        await fs.writeJson(
+            filePath,
+            {
+                ...materializedExisting,
+                ...trace,
+                events: [...existingEvents, { timestamp: Date.now(), ...trace }]
+            },
+            { spaces: 2 }
+        );
     }
 
     async saveTemporalWindow(runId: string, stepNumber: number, temporalWindow: TimelineContextWindow): Promise<Record<string, string>> {

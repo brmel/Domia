@@ -23,6 +23,7 @@ import { FileSystemStorage } from './infrastructure/storage/FileSystemStorage';
 import { TraceService } from './infrastructure/services/TraceService';
 import { FileTraceExporter } from './infrastructure/services/exporters/FileTraceExporter';
 import { DebugExporter } from './infrastructure/services/exporters/DebugExporter';
+import { TrajectoryExportService } from './infrastructure/services/exporters/TrajectoryExportService';
 import { RegistryBackedToolExecutor } from './application/services/tooling/RegistryBackedToolExecutor';
 import { DefaultToolPolicyService } from './application/services/tooling/ToolPolicyService';
 import { ActionToolMapper } from './shared/tooling/ActionToolMapper';
@@ -112,6 +113,7 @@ export function registerCoreServices(): void {
     container.registerSingleton(WorkflowStepRunnerService);
     container.registerSingleton(WorkflowRunOrchestratorService);
     container.registerSingleton(WorkflowExecutionService);
+    container.registerSingleton(TrajectoryExportService);
     container.registerSingleton(ActionToolMapper);
     container.registerSingleton(RegistryBackedToolExecutor);
     container.registerSingleton(DefaultToolPolicyService);
