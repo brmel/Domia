@@ -7,6 +7,8 @@ export interface CheckpointRecord {
     readonly parentCheckpointId: string | null;
     readonly branchId: string;
     readonly sequenceNumber: number;
+    readonly commitBoundary: boolean;
+    readonly sideEffectSetHash: string | null;
     readonly createdAt: string;
     readonly reason: RunCheckpointReason;
     readonly state: WorkflowState;

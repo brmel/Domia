@@ -10,6 +10,8 @@ function checkpoint(step: number, createdAt: string): CheckpointRecord {
         parentCheckpointId: step > 1 ? `cp-${step - 1}` : null,
         branchId: 'run:run-1:main',
         sequenceNumber: step,
+        commitBoundary: step % 2 === 0,
+        sideEffectSetHash: step % 2 === 0 ? `hash-${step}` : null,
         createdAt,
         reason: 'action_applied',
         state: {

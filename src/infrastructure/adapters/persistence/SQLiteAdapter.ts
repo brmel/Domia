@@ -49,6 +49,8 @@ interface WorkflowCheckpointTable {
     parent_checkpoint_id: string | null;
     branch_id: string;
     sequence_number: number;
+    commit_boundary: number;
+    side_effect_set_hash: string | null;
     state_json: string;
     reason: string;
     created_at: string;
@@ -182,6 +184,18 @@ export class SQLiteAdapter implements IPersistenceAdapter {
             // Column already exists in upgraded databases.
         }
 
+        try {
+            database.exec('ALTER TABLE workflow_checkpoints ADD COLUMN commit_boundary INTEGER NOT NULL DEFAULT 0;');
+        } catch {
+            // Column already exists in upgraded databases.
+        }
+
+        try {
+            database.exec('ALTER TABLE workflow_checkpoints ADD COLUMN side_effect_set_hash TEXT;');
+        } catch {
+            // Column already exists in upgraded databases.
+        }
+
         database.exec(`
             UPDATE workflow_checkpoints
             SET checkpoint_id = COALESCE(checkpoint_id, run_id || ':' || id)
@@ -240,6 +254,8 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                             parent_checkpoint_id TEXT,
                             branch_id TEXT NOT NULL,
                             sequence_number INTEGER NOT NULL,
+                            commit_boundary INTEGER NOT NULL,
+                            side_effect_set_hash TEXT,
                             state_json JSON NOT NULL,
                             reason TEXT NOT NULL DEFAULT 'action_applied',
                             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -529,6 +545,8 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                     parent_checkpoint_id: lineage.parentCheckpointId,
                     branch_id: lineage.branchId,
                     sequence_number: lineage.sequenceNumber,
+                    commit_boundary: lineage.commitBoundary ? 1 : 0,
+                    side_effect_set_hash: lineage.sideEffectSetHash,
                     state_json: JSON.stringify(state),
                     reason,
                     created_at: new Date().toISOString()
@@ -559,6 +577,8 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                     'parent_checkpoint_id',
                     'branch_id',
                     'sequence_number',
+                    'commit_boundary',
+                    'side_effect_set_hash',
                     'state_json',
                     'reason',
                     'created_at'
@@ -574,6 +594,8 @@ export class SQLiteAdapter implements IPersistenceAdapter {
             parentCheckpointId: row.parent_checkpoint_id,
             branchId: row.branch_id,
             sequenceNumber: row.sequence_number,
+            commitBoundary: row.commit_boundary === 1,
+            sideEffectSetHash: row.side_effect_set_hash,
             createdAt: row.created_at,
             reason: row.reason as import('@domain/value-objects/RunLifecycle').RunCheckpointReason,
             state: JSON.parse(row.state_json)

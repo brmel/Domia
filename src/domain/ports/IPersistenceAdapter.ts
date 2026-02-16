@@ -38,6 +38,8 @@ export interface CheckpointLineageInput {
     readonly parentCheckpointId: string | null;
     readonly branchId: string;
     readonly sequenceNumber: number;
+    readonly commitBoundary: boolean;
+    readonly sideEffectSetHash: string | null;
 }
 
 export interface IPersistenceAdapter {

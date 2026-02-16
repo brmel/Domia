@@ -1,5 +1,5 @@
 import { inject, injectable } from 'tsyringe';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import type { IPersistenceAdapter, ILogger } from '@domain/ports';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { RunCheckpointReason, RunLifecycleState } from '@domain/value-objects/RunLifecycle';
@@ -65,6 +65,8 @@ export class RunDurabilityService {
         const parentCheckpointId = state.lastCheckpointId ?? this.lastCheckpointIdByRun.get(runId) ?? null;
         const branchId = this.checkpointBranchByRun.get(runId) ?? `run:${runId}:main`;
         const sequenceNumber = (this.checkpointSequenceByRun.get(runId) ?? 0) + 1;
+        const commitBoundary = reason !== 'action_applied';
+        const sideEffectSetHash = this.computeSideEffectSetHash(state);
         const checkpointState: WorkflowState = {
             ...state,
             lastCheckpointId: checkpointId
@@ -74,7 +76,9 @@ export class RunDurabilityService {
             checkpointId,
             parentCheckpointId,
             branchId,
-            sequenceNumber
+            sequenceNumber,
+            commitBoundary,
+            sideEffectSetHash
         });
 
         if (result.isErr()) {
@@ -91,8 +95,25 @@ export class RunDurabilityService {
             runId,
             reason,
             stepNumber: state.stepNumber,
-            status: state.status
+            status: state.status,
+            commitBoundary
         });
+    }
+
+    private computeSideEffectSetHash(state: WorkflowState): string | null {
+        if (state.history.length === 0) {
+            return null;
+        }
+
+        const fingerprint = JSON.stringify({
+            stepNumber: state.stepNumber,
+            history: state.history.map(action => ({
+                type: action.type,
+                thought: action.thought ?? null
+            }))
+        });
+
+        return createHash('sha256').update(fingerprint).digest('hex');
     }
 
     async getCheckpointRecords(runId: string): Promise<readonly CheckpointRecord[]> {
