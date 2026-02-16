@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import os from 'os';
 import fs from 'fs-extra';
 import path from 'path';
+import crypto from 'crypto';
 import { PluginGatewayService } from './PluginGatewayService';
 import { PluginCapabilityPolicyService } from './PluginCapabilityPolicyService';
 import { PluginExecutionAdapterRegistryService } from './PluginExecutionAdapterRegistryService';
@@ -15,6 +16,30 @@ describe('PluginGatewayService', () => {
         warn: vi.fn(),
         error: vi.fn()
     };
+
+    const originalApprovalSecret = process.env['DOMIA_PLUGIN_APPROVAL_SECRET'];
+
+    function signApproval(approval: {
+        id: string;
+        runId: string;
+        pluginId: string;
+        capability: string;
+        grantedBy: string;
+        expiresAt: string;
+    }, secret: string): string {
+        return crypto
+            .createHash('sha256')
+            .update([
+                approval.id,
+                approval.runId,
+                approval.pluginId,
+                approval.capability,
+                approval.grantedBy,
+                approval.expiresAt,
+                secret
+            ].join('|'))
+            .digest('hex');
+    }
 
     it('blocks invocation when policy does not allow', () => {
         const gateway = new PluginGatewayService(
@@ -142,6 +167,63 @@ describe('PluginGatewayService', () => {
             expect(result.data?.['preview']).toContain('plugin-read-content');
         } finally {
             process.chdir(previousCwd);
+            fs.removeSync(tempDir);
+        }
+    });
+
+    it('executes escalated capability when approval artifact is valid', () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'domia-plugin-read-'));
+        const previousCwd = process.cwd();
+
+        try {
+            process.env['DOMIA_PLUGIN_APPROVAL_SECRET'] = 'gateway-approval-secret';
+            const filePath = path.join(tempDir, 'readme.txt');
+            fs.writeFileSync(filePath, 'plugin-read-content-approved');
+            process.chdir(tempDir);
+
+            const gateway = new PluginGatewayService(
+                new PluginCapabilityPolicyService(),
+                new PluginExecutionAdapterRegistryService(),
+                new PluginApprovalService(),
+                logger
+            );
+
+            const approval = {
+                id: 'approval-escalated',
+                runId: 'r4',
+                pluginId: 'plugin-4',
+                capability: 'fs.write',
+                grantedBy: 'security-admin',
+                expiresAt: new Date(Date.now() + 60_000).toISOString()
+            };
+
+            const result = gateway.invoke(
+                {
+                    id: 'plugin-4',
+                    version: '1.0.0',
+                    name: 'Escalated Reader',
+                    trust: 'restricted',
+                    capabilities: ['fs.write', 'fs.read']
+                },
+                {
+                    runId: 'r4',
+                    pluginId: 'plugin-4',
+                    capability: 'fs.write',
+                    payload: {
+                        path: 'readme.txt',
+                        approval: {
+                            ...approval,
+                            signature: signApproval(approval, process.env['DOMIA_PLUGIN_APPROVAL_SECRET'] as string)
+                        }
+                    }
+                }
+            );
+
+            expect(result.success).toBe(false);
+            expect(result.message).toContain('no adapter');
+        } finally {
+            process.chdir(previousCwd);
+            process.env['DOMIA_PLUGIN_APPROVAL_SECRET'] = originalApprovalSecret;
             fs.removeSync(tempDir);
         }
     });
