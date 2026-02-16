@@ -1,6 +1,6 @@
 import { injectable } from 'tsyringe';
 import type { Plan } from '@domain/entities/Plan';
-import type { LLMEvaluationDecision } from '@domain/value-objects';
+import type { LLMEvaluationDecision, WorkflowExecutionGraph } from '@domain/value-objects';
 import type { ReplanningTrigger } from '@application/services/execution/ReplanningPolicyService';
 
 type StepFailureCode =
@@ -41,16 +41,21 @@ export class ReplanningCoordinator {
         failedStepDescription: string,
         failureReason: string,
         lastEvaluation?: LLMEvaluationDecision,
-        evaluatorAdvice?: string
+        evaluatorAdvice?: string,
+        executionGraph?: WorkflowExecutionGraph,
+        failedNodeId?: string
     ): string {
         const planOutline = currentPlan.items
             .map(item => `- [${item.status}] ${item.description}`)
             .join('\n');
+        const selectiveScope = this.buildSelectiveScope(executionGraph, failedNodeId);
 
         const evaluationContext = lastEvaluation
             ? [
                 `Evaluator decision: ${lastEvaluation.decision}`,
                 `Evaluator summary: ${lastEvaluation.summary}`,
+                `Evaluator confidence: ${lastEvaluation.confidence}`,
+                `Evaluator evidence: ${lastEvaluation.evidence.join(' | ')}`,
                 ...(lastEvaluation.advice ? [`Evaluator advice: ${lastEvaluation.advice}`] : [])
             ].join('\n')
             : 'No explicit evaluator decision captured for this failure.';
@@ -62,10 +67,46 @@ export class ReplanningCoordinator {
             `Failure reason: ${failureReason}`,
             'Evaluator context:',
             evaluationContext,
+            'Selective replanning scope:',
+            selectiveScope,
             ...(evaluatorAdvice ? ['Latest evaluator advice in workflow state:', evaluatorAdvice] : []),
             'Previous plan:',
             planOutline,
-            'Produce a revised plan that avoids repeating failed assumptions and keeps the same overall objective.'
+            'Produce a revised plan that prioritizes patching only the affected scope while keeping stable nodes unchanged and preserving the same overall objective.'
         ].join('\n\n');
+    }
+
+    private buildSelectiveScope(executionGraph?: WorkflowExecutionGraph, failedNodeId?: string): string {
+        if (!executionGraph || !failedNodeId) {
+            return 'Graph context unavailable; planner may patch globally.';
+        }
+
+        const incoming = executionGraph.edges
+            .filter((edge) => edge.toNodeId === failedNodeId)
+            .map((edge) => edge.fromNodeId);
+        const outgoing = executionGraph.edges
+            .filter((edge) => edge.fromNodeId === failedNodeId)
+            .map((edge) => edge.toNodeId);
+
+        const scopeNodeIds = [failedNodeId, ...incoming, ...outgoing];
+        const uniqueScope = [...new Set(scopeNodeIds)];
+        const scopeDetails = uniqueScope
+            .map((id) => {
+                const node = executionGraph.nodes.find((candidate) => candidate.id === id);
+                if (!node) {
+                    return `- [unknown] ${id}`;
+                }
+
+                return `- [${node.state}] ${node.id}: ${node.description}`;
+            })
+            .join('\n');
+
+        return [
+            `Failed node: ${failedNodeId}`,
+            `Incoming dependencies: ${incoming.length > 0 ? incoming.join(', ') : 'none'}`,
+            `Outgoing dependents: ${outgoing.length > 0 ? outgoing.join(', ') : 'none'}`,
+            'Scope nodes:',
+            scopeDetails
+        ].join('\n');
     }
 }

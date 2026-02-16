@@ -635,7 +635,9 @@ export class RunTestUseCase {
                             item.description,
                             proactiveReplan.reason,
                             currentState.lastEvaluation,
-                            currentState.evaluatorAdvice
+                            currentState.evaluatorAdvice,
+                            currentState.executionGraph,
+                            item.id
                         );
                         const replannedResult = await this.planner.plan(replanPrompt);
 
@@ -697,7 +699,9 @@ export class RunTestUseCase {
                             item.description,
                             errorMsg,
                             currentState.lastEvaluation,
-                            currentState.evaluatorAdvice
+                            currentState.evaluatorAdvice,
+                            currentState.executionGraph,
+                            item.id
                         );
                         const replannedResult = await this.planner.plan(replanPrompt);
 
