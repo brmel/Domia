@@ -55,68 +55,153 @@ export class WorkflowRunOrchestratorService {
             workflowDefinitionId: definition.id
         };
 
-        let completedSteps = 0;
-        let failedReason: string | null = null;
+        let sharedSession;
+        try {
+            sharedSession = await this.stepRunner.openSharedSession(definition);
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            const terminalReason = `Workflow session initialization failed: ${reason}`;
+            const completedAt = new Date().toISOString();
 
-        for (let stepIndex = 0; stepIndex < definition.steps.length; stepIndex++) {
-            const step = definition.steps[stepIndex];
-            if (!step) {
-                continue;
-            }
-
-            if (controller.state === TestRunState.CANCELLED) {
-                failedReason = 'Workflow cancelled by operator.';
-                break;
-            }
-
-            const stepRunId = uuidv4();
-            const stepStartedAt = new Date().toISOString();
-            const saveStepRunResult = await this.persistence.saveWorkflowStepRun({
-                id: stepRunId,
-                workflowRunId,
-                stepId: step.id,
-                stepIndex,
-                status: 'running',
-                startedAt: stepStartedAt
+            const updateRunResult = await this.persistence.updateWorkflowRun(workflowRunId, {
+                status: 'failed',
+                summary: terminalReason,
+                completedAt
             });
 
-            if (saveStepRunResult.isErr()) {
-                failedReason = saveStepRunResult.error.message;
-                break;
+            if (updateRunResult.isErr()) {
+                this.logger.warn('[WorkflowRunOrchestratorService] Failed to persist workflow session initialization failure', {
+                    workflowRunId,
+                    reason: updateRunResult.error.message
+                });
             }
 
             yield {
-                type: 'workflow_step_started',
+                type: 'workflow_failed',
                 workflowRunId,
-                stepId: step.id,
-                stepIndex
+                reason: terminalReason
             };
 
-            const governanceDecision = this.governance.assess(step, definition, workflowRunId);
-            if (!governanceDecision.allowed) {
-                const blockedReason = governanceDecision.reason;
-                const completedAt = new Date().toISOString();
+            return;
+        }
 
-                const blockedTransition = await this.persistence.commitAtomicWorkflowTransition({
+        let shouldNavigateSharedSession = sharedSession.shouldNavigate;
+
+        let completedSteps = 0;
+        let failedReason: string | null = null;
+
+        try {
+            for (let stepIndex = 0; stepIndex < definition.steps.length; stepIndex++) {
+                const step = definition.steps[stepIndex];
+                if (!step) {
+                    continue;
+                }
+
+                if (controller.state === TestRunState.CANCELLED) {
+                    failedReason = 'Workflow cancelled by operator.';
+                    break;
+                }
+
+                const stepRunId = uuidv4();
+                const stepStartedAt = new Date().toISOString();
+                const saveStepRunResult = await this.persistence.saveWorkflowStepRun({
+                    id: stepRunId,
                     workflowRunId,
-                    workflowRunUpdates: {
-                        status: 'failed',
-                        summary: blockedReason,
-                        completedAt
-                    },
-                    workflowStepRunId: stepRunId,
-                    workflowStepRunUpdates: {
-                        status: 'failed',
-                        summary: blockedReason,
-                        completedAt
-                    }
+                    stepId: step.id,
+                    stepIndex,
+                    status: 'running',
+                    startedAt: stepStartedAt
                 });
 
-                if (blockedTransition.isErr()) {
-                    this.logger.warn('[WorkflowRunOrchestratorService] Failed to atomically persist governance-blocked transition', {
+                if (saveStepRunResult.isErr()) {
+                    failedReason = saveStepRunResult.error.message;
+                    break;
+                }
+
+                yield {
+                    type: 'workflow_step_started',
+                    workflowRunId,
+                    stepId: step.id,
+                    stepIndex
+                };
+
+                const governanceDecision = this.governance.assess(step, definition, workflowRunId);
+                if (!governanceDecision.allowed) {
+                    const blockedReason = governanceDecision.reason;
+                    const completedAt = new Date().toISOString();
+
+                    const blockedTransition = await this.persistence.commitAtomicWorkflowTransition({
+                        workflowRunId,
+                        workflowRunUpdates: {
+                            status: 'failed',
+                            summary: blockedReason,
+                            completedAt
+                        },
+                        workflowStepRunId: stepRunId,
+                        workflowStepRunUpdates: {
+                            status: 'failed',
+                            summary: blockedReason,
+                            completedAt
+                        }
+                    });
+
+                    if (blockedTransition.isErr()) {
+                        this.logger.warn('[WorkflowRunOrchestratorService] Failed to atomically persist governance-blocked transition', {
+                            workflowRunId,
+                            stepRunId,
+                            reason: blockedTransition.error.message
+                        });
+                    }
+
+                    yield {
+                        type: 'workflow_step_completed',
+                        workflowRunId,
+                        stepId: step.id,
+                        stepIndex,
+                        success: false,
+                        summary: blockedReason
+                    };
+
+                    yield {
+                        type: 'workflow_failed',
+                        workflowRunId,
+                        reason: blockedReason
+                    };
+
+                    return;
+                }
+
+                const stepResult = await this.stepPolicy.runWithPolicy(step, async () =>
+                    this.stepRunner.runStep(step, stepIndex, definition, controller, {
+                        session: sharedSession,
+                        shouldNavigate: shouldNavigateSharedSession
+                    })
+                );
+
+                shouldNavigateSharedSession = false;
+
+                if (stepResult.testRunId) {
+                    yield {
+                        type: 'workflow_step_bound',
+                        workflowRunId,
+                        stepId: step.id,
+                        stepIndex,
+                        testRunId: stepResult.testRunId
+                    };
+                }
+
+                const updateStepRunResult = await this.persistence.updateWorkflowStepRun(stepRunId, {
+                    status: stepResult.success ? 'completed' : 'failed',
+                    ...(stepResult.summary ? { summary: stepResult.summary } : {}),
+                    ...(stepResult.testRunId ? { testRunId: stepResult.testRunId } : {}),
+                    completedAt: new Date().toISOString()
+                });
+
+                if (updateStepRunResult.isErr()) {
+                    this.logger.warn('[WorkflowRunOrchestratorService] Failed to update workflow step run', {
                         workflowRunId,
                         stepRunId,
-                        reason: blockedTransition.error.message
+                        reason: updateStepRunResult.error.message
                     });
                 }
 
@@ -125,139 +210,101 @@ export class WorkflowRunOrchestratorService {
                     workflowRunId,
                     stepId: step.id,
                     stepIndex,
-                    success: false,
-                    summary: blockedReason
+                    success: stepResult.success,
+                    ...(stepResult.summary ? { summary: stepResult.summary } : {})
                 };
 
-                yield {
-                    type: 'workflow_failed',
-                    workflowRunId,
-                    reason: blockedReason
-                };
-
-                return;
-            }
-
-            const stepResult = await this.stepPolicy.runWithPolicy(step, async () =>
-                this.stepRunner.runStep(step, stepIndex, definition, controller)
-            );
-
-            if (stepResult.testRunId) {
-                yield {
-                    type: 'workflow_step_bound',
-                    workflowRunId,
-                    stepId: step.id,
-                    stepIndex,
-                    testRunId: stepResult.testRunId
-                };
-            }
-
-            const updateStepRunResult = await this.persistence.updateWorkflowStepRun(stepRunId, {
-                status: stepResult.success ? 'completed' : 'failed',
-                ...(stepResult.summary ? { summary: stepResult.summary } : {}),
-                ...(stepResult.testRunId ? { testRunId: stepResult.testRunId } : {}),
-                completedAt: new Date().toISOString()
-            });
-
-            if (updateStepRunResult.isErr()) {
-                this.logger.warn('[WorkflowRunOrchestratorService] Failed to update workflow step run', {
-                    workflowRunId,
-                    stepRunId,
-                    reason: updateStepRunResult.error.message
-                });
-            }
-
-            yield {
-                type: 'workflow_step_completed',
-                workflowRunId,
-                stepId: step.id,
-                stepIndex,
-                success: stepResult.success,
-                ...(stepResult.summary ? { summary: stepResult.summary } : {})
-            };
-
-            if (!stepResult.success) {
-                if (step.continueOnFailure) {
-                    continue;
-                }
-
-                const terminalReason = stepResult.summary ?? `Step failed: ${step.name}`;
-                const completedAt = new Date().toISOString();
-                const terminalResult = await this.persistence.commitAtomicWorkflowTransition({
-                    workflowRunId,
-                    workflowRunUpdates: {
-                        status: 'failed',
-                        summary: terminalReason,
-                        completedAt
-                    },
-                    workflowStepRunId: stepRunId,
-                    workflowStepRunUpdates: {
-                        status: 'failed',
-                        ...(terminalReason ? { summary: terminalReason } : {}),
-                        ...(stepResult.testRunId ? { testRunId: stepResult.testRunId } : {}),
-                        completedAt
+                if (!stepResult.success) {
+                    if (step.continueOnFailure) {
+                        continue;
                     }
-                });
 
-                if (terminalResult.isErr()) {
-                    this.logger.warn('[WorkflowRunOrchestratorService] Failed to atomically persist terminal transition', {
+                    const terminalReason = stepResult.summary ?? `Step failed: ${step.name}`;
+                    const completedAt = new Date().toISOString();
+                    const terminalResult = await this.persistence.commitAtomicWorkflowTransition({
                         workflowRunId,
-                        stepRunId,
-                        reason: terminalResult.error.message
+                        workflowRunUpdates: {
+                            status: 'failed',
+                            summary: terminalReason,
+                            completedAt
+                        },
+                        workflowStepRunId: stepRunId,
+                        workflowStepRunUpdates: {
+                            status: 'failed',
+                            ...(terminalReason ? { summary: terminalReason } : {}),
+                            ...(stepResult.testRunId ? { testRunId: stepResult.testRunId } : {}),
+                            completedAt
+                        }
                     });
+
+                    if (terminalResult.isErr()) {
+                        this.logger.warn('[WorkflowRunOrchestratorService] Failed to atomically persist terminal transition', {
+                            workflowRunId,
+                            stepRunId,
+                            reason: terminalResult.error.message
+                        });
+                    }
+
+                    yield {
+                        type: 'workflow_failed',
+                        workflowRunId,
+                        reason: terminalReason
+                    };
+
+                    return;
                 }
 
-                yield {
-                    type: 'workflow_failed',
-                    workflowRunId,
-                    reason: terminalReason
-                };
+                completedSteps += 1;
+            }
 
+            if (!failedReason) {
+                const summary = `Workflow completed (${completedSteps}/${definition.steps.length} steps succeeded).`;
+                await this.persistence.updateWorkflowRun(workflowRunId, {
+                    status: 'completed',
+                    summary,
+                    completedAt: new Date().toISOString()
+                });
+
+                yield {
+                    type: 'workflow_completed',
+                    workflowRunId,
+                    success: true,
+                    summary
+                };
                 return;
             }
 
-            completedSteps += 1;
-        }
-
-        if (!failedReason) {
-            const summary = `Workflow completed (${completedSteps}/${definition.steps.length} steps succeeded).`;
+            const terminalStatus = controller.state === TestRunState.CANCELLED ? 'cancelled' : 'failed';
             await this.persistence.updateWorkflowRun(workflowRunId, {
-                status: 'completed',
-                summary,
+                status: terminalStatus,
+                summary: failedReason,
                 completedAt: new Date().toISOString()
             });
 
+            if (controller.state === TestRunState.CANCELLED) {
+                yield {
+                    type: 'workflow_completed',
+                    workflowRunId,
+                    success: false,
+                    summary: failedReason
+                };
+                return;
+            }
+
             yield {
-                type: 'workflow_completed',
+                type: 'workflow_failed',
                 workflowRunId,
-                success: true,
-                summary
+                reason: failedReason
             };
-            return;
+        } finally {
+            await sharedSession.dispose().catch((error: unknown) => {
+                const reason = error instanceof Error ? error.message : String(error);
+                this.logger.warn('[WorkflowRunOrchestratorService] Failed to dispose shared workflow session', {
+                    workflowRunId,
+                    reason
+                });
+            });
         }
-
-        const terminalStatus = controller.state === TestRunState.CANCELLED ? 'cancelled' : 'failed';
-        await this.persistence.updateWorkflowRun(workflowRunId, {
-            status: terminalStatus,
-            summary: failedReason,
-            completedAt: new Date().toISOString()
-        });
-
-        if (controller.state === TestRunState.CANCELLED) {
-            yield {
-                type: 'workflow_completed',
-                workflowRunId,
-                success: false,
-                summary: failedReason
-            };
-            return;
-        }
-
-        yield {
-            type: 'workflow_failed',
-            workflowRunId,
-            reason: failedReason
-        };
     }
 
 }

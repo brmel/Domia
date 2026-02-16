@@ -40,6 +40,7 @@ import { PlatformSessionFactory } from '../services/platform/PlatformSessionFact
 import type { ToolContext } from '../../domain/tools/Tool';
 import type { RunLifecycleState } from '@domain/value-objects/RunLifecycle';
 import type { SkillDefinition } from '@domain/skills/SkillContract';
+import type { PlatformSession } from '../services/platform/PlatformSession';
 
 type StepFailureCode = Extract<StepExecutionResult, { success: false }>['code'];
 
@@ -47,6 +48,12 @@ interface SkillRoutingContext {
     readonly skill: SkillDefinition;
     readonly graphSteps: readonly string[];
     readonly source: 'preferred' | 'auto';
+}
+
+export interface RunExecutionContext {
+    readonly session?: PlatformSession;
+    readonly shouldNavigate?: boolean;
+    readonly disposeSessionOnComplete?: boolean;
 }
 
 
@@ -91,8 +98,12 @@ export class RunTestUseCase {
         };
     }
 
-    async *execute(input: RunTestInput, controller: ExecutionController): AsyncGenerator<RunTestOutput, void, unknown> {
-        const url = this.resolveRunUrl(input.platformConfig);
+    async *execute(
+        input: RunTestInput,
+        controller: ExecutionController,
+        runContext?: RunExecutionContext
+    ): AsyncGenerator<RunTestOutput, void, unknown> {
+        const url = runContext?.session?.executionUrl ?? this.resolveRunUrl(input.platformConfig);
 
         const readinessDecision = this.readinessPolicy.assess(input, url);
         if (readinessDecision.blocked) {
@@ -122,13 +133,17 @@ export class RunTestUseCase {
         let browser: IBrowserAutomation | undefined;
         let disposeSession: (() => Promise<void>) | undefined;
         let shouldNavigate = true;
+        let ownsSession = false;
         let stepToolContext: ToolContext | undefined;
         
         try {
-            const session = await this.sessionFactory.createSession(input);
+            const session = runContext?.session ?? await this.sessionFactory.createSession(input);
             browser = session.browser;
             disposeSession = session.dispose;
-            shouldNavigate = session.shouldNavigate;
+            shouldNavigate = runContext?.shouldNavigate ?? session.shouldNavigate;
+            ownsSession = runContext?.session
+                ? (runContext.disposeSessionOnComplete ?? false)
+                : true;
 
             if (session.driver) {
                 stepToolContext = {
@@ -144,7 +159,7 @@ export class RunTestUseCase {
         } catch (error) {
             const err = error instanceof Error ? error : new Error(String(error));
             yield { type: 'error', error: new WorkflowError(`Error initializing session: ${err.message}`) };
-            if (disposeSession) {
+            if (disposeSession && ownsSession) {
                 await disposeSession();
             }
             releaseLane();
@@ -633,7 +648,7 @@ export class RunTestUseCase {
             await this.lifecycleManager.failTestRun(testRunId, msg);
             terminalError = error instanceof Error ? error : new Error(msg);
         } finally {
-            if (disposeSession) {
+            if (disposeSession && ownsSession) {
                 await disposeSession().catch(err =>
                     this.logger.warn(`[RunTestUseCase] Error during session cleanup: ${String(err)}`)
                 );

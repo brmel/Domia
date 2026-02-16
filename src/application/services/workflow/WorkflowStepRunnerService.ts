@@ -2,6 +2,8 @@ import { inject, injectable } from 'tsyringe';
 import type { WorkflowDefinition, WorkflowStepDefinition } from '@domain/entities/Workflow';
 import { RunTestUseCase } from '@application/use-cases';
 import { ExecutionController } from '@application/controllers/ExecutionController';
+import type { PlatformSession } from '@application/services/platform/PlatformSession';
+import { PlatformSessionFactory } from '@application/services/platform/PlatformSessionFactory';
 
 export interface WorkflowStepExecutionResult {
     readonly success: boolean;
@@ -9,15 +11,31 @@ export interface WorkflowStepExecutionResult {
     readonly testRunId?: string;
 }
 
+export interface WorkflowStepRuntimeContext {
+    readonly session: PlatformSession;
+    readonly shouldNavigate: boolean;
+}
+
 @injectable()
 export class WorkflowStepRunnerService {
-    constructor(@inject(RunTestUseCase) private readonly runTestUseCase: RunTestUseCase) {}
+    constructor(
+        @inject(RunTestUseCase) private readonly runTestUseCase: RunTestUseCase,
+        @inject(PlatformSessionFactory) private readonly sessionFactory: PlatformSessionFactory
+    ) {}
+
+    async openSharedSession(definition: WorkflowDefinition): Promise<PlatformSession> {
+        return this.sessionFactory.createSession({
+            platformConfig: definition.platformConfig,
+            prompt: definition.name
+        });
+    }
 
     async runStep(
         step: WorkflowStepDefinition,
         stepIndex: number,
         definition: WorkflowDefinition,
-        controller: ExecutionController
+        controller: ExecutionController,
+        runtimeContext?: WorkflowStepRuntimeContext
     ): Promise<WorkflowStepExecutionResult> {
         let testRunId: string | undefined;
         let completedSummary: string | undefined;
@@ -28,7 +46,14 @@ export class WorkflowStepRunnerService {
                 prompt: step.prompt,
                 ...(step.options ? { options: step.options } : {})
             },
-            controller
+            controller,
+            runtimeContext
+                ? {
+                    session: runtimeContext.session,
+                    shouldNavigate: runtimeContext.shouldNavigate,
+                    disposeSessionOnComplete: false
+                }
+                : undefined
         );
 
         for await (const event of generator) {

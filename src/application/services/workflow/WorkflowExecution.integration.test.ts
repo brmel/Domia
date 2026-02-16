@@ -43,6 +43,13 @@ describe('Workflow execution integration', () => {
                 yield { type: 'started' as const, testRunId: 'run-1' };
                 yield { type: 'completed' as const, success: true, summary: 'ok' };
             })
+        } as any, {
+            createSession: vi.fn(async () => ({
+                executionUrl: 'https://example.com',
+                shouldNavigate: true,
+                browser: {},
+                dispose: vi.fn(async () => undefined)
+            }))
         } as any);
 
         const governance = new WorkflowStepGovernanceService(
