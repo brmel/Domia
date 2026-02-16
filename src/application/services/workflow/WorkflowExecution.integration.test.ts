@@ -6,6 +6,7 @@ import { WorkflowExecutionService } from './WorkflowExecutionService';
 import { WorkflowStepPolicyService } from './WorkflowStepPolicyService';
 import { WorkflowStepRunnerService } from './WorkflowStepRunnerService';
 import { WorkflowStepGovernanceService } from './WorkflowStepGovernanceService';
+import { PlatformCapabilityNegotiationService } from '../platform/PlatformCapabilityNegotiationService';
 import { ExecutionController } from '@application/controllers/ExecutionController';
 import type { WorkflowDefinition } from '@domain/entities/Workflow';
 
@@ -67,7 +68,8 @@ describe('Workflow execution integration', () => {
             { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as never,
             new WorkflowStepPolicyService(),
             governance,
-            stepRunner
+            stepRunner,
+            new PlatformCapabilityNegotiationService()
         );
         const executionService = new WorkflowExecutionService(orchestrator);
 

@@ -11,6 +11,7 @@ import { WorkflowStepPolicyService } from './WorkflowStepPolicyService';
 import { WorkflowStepGovernanceService } from './WorkflowStepGovernanceService';
 import { WorkflowStepRunnerService } from './WorkflowStepRunnerService';
 import { GraphSchedulerService } from '../execution/GraphSchedulerService';
+import { PlatformCapabilityNegotiationService } from '../platform/PlatformCapabilityNegotiationService';
 
 @injectable()
 export class WorkflowRunOrchestratorService {
@@ -21,7 +22,8 @@ export class WorkflowRunOrchestratorService {
         @inject('ILogger') private readonly logger: ILogger,
         @inject(WorkflowStepPolicyService) private readonly stepPolicy: WorkflowStepPolicyService,
         @inject(WorkflowStepGovernanceService) private readonly governance: WorkflowStepGovernanceService,
-        @inject(WorkflowStepRunnerService) private readonly stepRunner: WorkflowStepRunnerService
+        @inject(WorkflowStepRunnerService) private readonly stepRunner: WorkflowStepRunnerService,
+        @inject(PlatformCapabilityNegotiationService) private readonly capabilityNegotiation: PlatformCapabilityNegotiationService
     ) {}
 
     async *executeWorkflow(definitionId: string, controller: ExecutionController): AsyncGenerator<WorkflowEvent, void, unknown> {
@@ -197,6 +199,58 @@ export class WorkflowRunOrchestratorService {
                     return;
                 }
 
+                const capabilityAssessment = this.capabilityNegotiation.assessStep(step, definition.platformConfig.platform);
+                if (capabilityAssessment.blocked) {
+                    const blockedReason = capabilityAssessment.reason ?? `Step '${step.name}' blocked by platform capability policy.`;
+                    const completedAt = new Date().toISOString();
+                    executionGraph = this.graphScheduler.updateNodeState(executionGraph, nextNode.id, 'failed');
+
+                    const blockedTransition = await this.persistence.commitAtomicWorkflowTransition({
+                        workflowRunId,
+                        workflowRunUpdates: {
+                            status: 'failed',
+                            summary: blockedReason,
+                            completedAt
+                        },
+                        workflowStepRunId: stepRunId,
+                        workflowStepRunUpdates: {
+                            status: 'failed',
+                            summary: blockedReason,
+                            completedAt
+                        }
+                    });
+
+                    if (blockedTransition.isErr()) {
+                        this.logger.warn('[WorkflowRunOrchestratorService] Failed to atomically persist capability-blocked transition', {
+                            workflowRunId,
+                            stepRunId,
+                            reason: blockedTransition.error.message
+                        });
+                    }
+
+                    yield {
+                        type: 'workflow_step_completed',
+                        workflowRunId,
+                        stepId: step.id,
+                        stepIndex,
+                        success: false,
+                        summary: blockedReason
+                    };
+
+                    yield {
+                        type: 'workflow_failed',
+                        workflowRunId,
+                        reason: blockedReason
+                    };
+
+                    return;
+                }
+
+                const degradedCapabilities = capabilityAssessment.decisions.filter((decision) => decision.support === 'degraded');
+                const degradationSummary = degradedCapabilities.length > 0
+                    ? `Capability degradation: ${degradedCapabilities.map((decision) => decision.capability).join(', ')}`
+                    : undefined;
+
                 const stepResult = await this.stepPolicy.runWithPolicy(step, async () =>
                     this.stepRunner.runStep(step, stepIndex, definition, controller, {
                         session: sharedSession,
@@ -218,7 +272,11 @@ export class WorkflowRunOrchestratorService {
 
                 const updateStepRunResult = await this.persistence.updateWorkflowStepRun(stepRunId, {
                     status: stepResult.success ? 'completed' : 'failed',
-                    ...(stepResult.summary ? { summary: stepResult.summary } : {}),
+                    ...((stepResult.summary || degradationSummary)
+                        ? {
+                            summary: [stepResult.summary, degradationSummary].filter(Boolean).join(' | ')
+                        }
+                        : {}),
                     ...(stepResult.testRunId ? { testRunId: stepResult.testRunId } : {}),
                     completedAt: new Date().toISOString()
                 });
@@ -237,7 +295,11 @@ export class WorkflowRunOrchestratorService {
                     stepId: step.id,
                     stepIndex,
                     success: stepResult.success,
-                    ...(stepResult.summary ? { summary: stepResult.summary } : {})
+                    ...((stepResult.summary || degradationSummary)
+                        ? {
+                            summary: [stepResult.summary, degradationSummary].filter(Boolean).join(' | ')
+                        }
+                        : {})
                 };
 
                 if (!stepResult.success) {

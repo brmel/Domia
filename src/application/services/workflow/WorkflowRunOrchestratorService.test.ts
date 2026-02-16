@@ -6,6 +6,7 @@ import { ExecutionController } from '@application/controllers/ExecutionControlle
 import type { WorkflowDefinition } from '@domain/entities/Workflow';
 import { TestRunState } from '@domain/enums/TestRunState';
 import { WorkflowStepPolicyService } from './WorkflowStepPolicyService';
+import { PlatformCapabilityNegotiationService } from '../platform/PlatformCapabilityNegotiationService';
 
 describe('WorkflowRunOrchestratorService', () => {
     const definition: WorkflowDefinition = {
@@ -68,7 +69,8 @@ describe('WorkflowRunOrchestratorService', () => {
                     dispose: vi.fn().mockResolvedValue(undefined)
                 }),
                 runStep: vi.fn().mockResolvedValue(options?.stepResult ?? { success: true, summary: 'step ok', testRunId: 'run-1' })
-            } as unknown as never
+            } as unknown as never,
+            new PlatformCapabilityNegotiationService()
         );
 
         return { service, persistence };
@@ -118,6 +120,62 @@ describe('WorkflowRunOrchestratorService', () => {
             expect.any(String),
             expect.objectContaining({ status: 'cancelled' })
         );
+    });
+
+    it('fails workflow when step requires unsupported platform capability', async () => {
+        const capabilityBlockedDefinition: WorkflowDefinition = {
+            ...definition,
+            steps: [
+                {
+                    id: 'step-capability',
+                    name: 'Control app menu',
+                    prompt: 'open menu bar and quit app',
+                    continueOnFailure: false
+                }
+            ]
+        };
+
+        const persistence = {
+            getWorkflowDefinition: vi.fn(() => okAsync(capabilityBlockedDefinition)),
+            saveWorkflowRun: vi.fn(() => okAsync(undefined)),
+            updateWorkflowRun: vi.fn(() => okAsync(undefined)),
+            saveWorkflowStepRun: vi.fn(() => okAsync(undefined)),
+            updateWorkflowStepRun: vi.fn(() => okAsync(undefined)),
+            commitAtomicWorkflowTransition: vi.fn(() => okAsync(undefined))
+        };
+
+        const runStep = vi.fn().mockResolvedValue({ success: true, summary: 'step ok', testRunId: 'run-1' });
+
+        const service = new WorkflowRunOrchestratorService(
+            persistence as unknown as never,
+            { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as never,
+            new WorkflowStepPolicyService(),
+            {
+                assess: vi.fn().mockReturnValue({ allowed: true })
+            } as unknown as never,
+            {
+                openSharedSession: vi.fn().mockResolvedValue({
+                    executionUrl: 'https://example.com',
+                    shouldNavigate: true,
+                    browser: {},
+                    dispose: vi.fn().mockResolvedValue(undefined)
+                }),
+                runStep
+            } as unknown as never,
+            new PlatformCapabilityNegotiationService()
+        );
+
+        const controller = new ExecutionController();
+        controller.start();
+
+        const events: string[] = [];
+        for await (const event of service.executeWorkflow('wf-1', controller)) {
+            events.push(event.type);
+        }
+
+        expect(runStep).not.toHaveBeenCalled();
+        expect(events).toContain('workflow_failed');
+        expect(persistence.commitAtomicWorkflowTransition).toHaveBeenCalledOnce();
     });
 
 });
