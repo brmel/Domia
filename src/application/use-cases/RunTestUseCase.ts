@@ -274,8 +274,10 @@ export class RunTestUseCase {
                 }
             }
 
-            // 1. Planning Phase
-            currentState = this.withWorkflowStatus(currentState, 'planning');
+            currentState = {
+                ...currentState,
+                status: 'planning'
+            };
             yield { type: 'state_updated', state: currentState };
             yield { type: 'thinking' };
             runLifecycle = this.durability.transition(testRunId, runLifecycle, 'planning');
@@ -545,7 +547,10 @@ export class RunTestUseCase {
                     }
 
                     result = next.value;
-                    currentState = this.withWorkflowStatus(currentState, 'validating');
+                    currentState = {
+                        ...currentState,
+                        status: 'validating'
+                    };
                     yield { type: 'state_updated', state: currentState };
                 } catch (e) {
                     const iteratorError = e instanceof Error ? e : new Error(String(e));
@@ -743,18 +748,6 @@ export class RunTestUseCase {
     private clearActiveItem(state: WorkflowState): WorkflowState {
         const { activeItemId: _removed, ...withoutActiveItem } = state;
         return withoutActiveItem;
-    }
-
-    private withWorkflowStatus(
-        state: WorkflowState,
-        status: WorkflowState['status'],
-        error?: string
-    ): WorkflowState {
-        return {
-            ...state,
-            status,
-            ...(error ? { error } : {})
-        };
     }
 
     private async replayRecoveryActions(params: {

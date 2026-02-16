@@ -126,5 +126,3 @@ export const AgentActionSchema = z.discriminatedUnion('type', [
     passAction,
     failAction
 ]);
-
-export type AgentActionInput = z.infer<typeof AgentActionSchema>;
