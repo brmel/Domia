@@ -37,6 +37,7 @@ async function main() {
         ['npm', ['run', 'typecheck']],
         ['npm', ['run', 'check:architecture']],
         ['npm', ['run', 'check:runtime-cutover']],
+        ['npm', ['run', 'check:kpi-slo']],
         ['npm', ['test']]
     ];
 

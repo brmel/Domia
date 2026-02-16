@@ -12,6 +12,7 @@
     "test": "vitest run",
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:runtime-cutover": "node scripts/check-runtime-cutover.mjs",
+    "check:kpi-slo": "node scripts/check-kpi-slo.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:cli": "tsx tests/cli/run-cli-tests.ts",
