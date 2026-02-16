@@ -20,6 +20,11 @@ import { RunRecoveryPolicyService } from '../services/execution/RunRecoveryPolic
 import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplayGuardService';
 import { RecoveryReplayIdempotencyService } from '../services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
+import { PlanningCoordinator, type SkillRoutingContext } from '../services/execution/coordinators/PlanningCoordinator';
+import { RunBootstrapCoordinator } from '../services/execution/coordinators/RunBootstrapCoordinator';
+import { StepExecutionCoordinator } from '../services/execution/coordinators/StepExecutionCoordinator';
+import { ReplanningCoordinator } from '../services/execution/coordinators/ReplanningCoordinator';
+import { TerminalizationCoordinator } from '../services/execution/coordinators/TerminalizationCoordinator';
 import {
     resolveRecoveryContext as resolveRecoveryContextForRun,
     replayRecoveryActions as replayRecoveryActionsForRun,
@@ -42,14 +47,6 @@ import type { ToolContext } from '../../domain/tools/Tool';
 import type { RunLifecycleState } from '@domain/value-objects/RunLifecycle';
 import type { SkillDefinition } from '@domain/skills/SkillContract';
 import type { PlatformSession } from '../services/platform/PlatformSession';
-
-type StepFailureCode = Extract<StepExecutionResult, { success: false }>['code'];
-
-interface SkillRoutingContext {
-    readonly skill: SkillDefinition;
-    readonly graphSteps: readonly string[];
-    readonly source: 'preferred' | 'auto';
-}
 
 export interface RunExecutionContext {
     readonly session?: PlatformSession;
@@ -83,7 +80,12 @@ export class RunTestUseCase {
         @inject(PluginGatewayService) private readonly pluginGateway: PluginGatewayService,
         @inject(RuntimeReadinessPolicyService) private readonly readinessPolicy: RuntimeReadinessPolicyService,
         @inject('ILogger') private logger: ILogger,
-        @inject(SkillExecutorService) private readonly skillExecutor: SkillExecutorService = new SkillExecutorService()
+        @inject(SkillExecutorService) private readonly skillExecutor: SkillExecutorService = new SkillExecutorService(),
+        @inject(PlanningCoordinator) private readonly planningCoordinator: PlanningCoordinator = new PlanningCoordinator(),
+        @inject(RunBootstrapCoordinator) private readonly bootstrapCoordinator: RunBootstrapCoordinator = new RunBootstrapCoordinator(),
+        @inject(StepExecutionCoordinator) private readonly stepExecutionCoordinator: StepExecutionCoordinator = new StepExecutionCoordinator(),
+        @inject(ReplanningCoordinator) private readonly replanningCoordinator: ReplanningCoordinator = new ReplanningCoordinator(),
+        @inject(TerminalizationCoordinator) private readonly terminalizationCoordinator: TerminalizationCoordinator = new TerminalizationCoordinator()
     ) { }
 
     private getRecoveryDependencies(): RunRecoveryDependencies {
@@ -105,7 +107,7 @@ export class RunTestUseCase {
         controller: ExecutionController,
         runContext?: RunExecutionContext
     ): AsyncGenerator<RunTestOutput, void, unknown> {
-        const url = runContext?.session?.executionUrl ?? this.resolveRunUrl(input.platformConfig);
+        const url = this.bootstrapCoordinator.resolveExecutionUrl(input, runContext);
 
         const readinessDecision = this.readinessPolicy.assess(input, url);
         if (readinessDecision.blocked) {
@@ -113,7 +115,7 @@ export class RunTestUseCase {
             return;
         }
 
-        const laneKey = this.resolveLaneKey(input);
+        const laneKey = this.bootstrapCoordinator.resolveLaneKey(input);
         const releaseLane = await this.laneService.acquire(laneKey);
 
         const initResult = await this.lifecycleManager.initializeTestRun(url, input.prompt);
@@ -335,7 +337,7 @@ export class RunTestUseCase {
                     planItems: resumedPlan.items.length
                 });
             } else {
-                const planningPrompt = this.buildPlanningPrompt(input.prompt, skillRoutingContext);
+                const planningPrompt = this.planningCoordinator.buildPlanningPrompt(input.prompt, skillRoutingContext);
                 const planResult = await this.planner.plan(planningPrompt);
 
                 if (planResult.isErr()) {
@@ -406,21 +408,7 @@ export class RunTestUseCase {
                 };
                 yield { type: 'state_updated', state: currentState };
 
-                const executionOptions = {
-                    vision: input.options?.vision ?? true,
-                    debugScreenshots: input.options?.debugScreenshots ?? false,
-                    maxActions: input.options?.maxSteps ?? 20,
-                    supervisedTerminalPass: input.options?.supervisedExecution ?? false,
-                    temporalObservation: input.options?.temporalObservation ?? false,
-                    temporalMode: input.options?.temporalMode ?? 'adaptive',
-                    ...(input.options?.temporalBurstFrames !== undefined ? { temporalBurstFrames: input.options.temporalBurstFrames } : {}),
-                    ...(input.options?.temporalBaselineIntervalMs !== undefined ? { temporalBaselineIntervalMs: input.options.temporalBaselineIntervalMs } : {}),
-                    ...(input.options?.temporalBurstIntervalMs !== undefined ? { temporalBurstIntervalMs: input.options.temporalBurstIntervalMs } : {}),
-                    ...(input.options?.temporalMaxFramesPerWindow !== undefined ? { temporalMaxFramesPerWindow: input.options.temporalMaxFramesPerWindow } : {}),
-                    ...(input.options?.temporalPromptTokenBudget !== undefined ? { temporalPromptTokenBudget: input.options.temporalPromptTokenBudget } : {}),
-                    ...(input.options?.temporalRedactSensitive !== undefined ? { temporalRedactSensitive: input.options.temporalRedactSensitive } : {}),
-                    ...(input.options?.temporalPersistWindow !== undefined ? { temporalPersistWindow: input.options.temporalPersistWindow } : {})
-                };
+                const executionOptions = this.stepExecutionCoordinator.buildExecutionOptions(input.options);
 
                 let pendingEvaluation: StepEvaluationTelemetry | undefined;
 
@@ -594,7 +582,7 @@ export class RunTestUseCase {
                 } else {
                     // Step Failed
                     const errorMsg = result ? `${result.code}: ${result.reason}` : 'unknown_error: Unknown error';
-                    const replanningTrigger = result ? this.mapResultCodeToReplanningTrigger(result.code) : undefined;
+                    const replanningTrigger = result ? this.replanningCoordinator.mapResultCodeToTrigger(result.code) : undefined;
                     const replanningAssessment = this.replanningPolicy.assess({
                         runId: testRunId,
                         replanCount,
@@ -625,7 +613,7 @@ export class RunTestUseCase {
                     };
 
                     if (replanningAssessment.shouldReplan) {
-                        const replanPrompt = this.buildReplanPrompt(
+                        const replanPrompt = this.replanningCoordinator.buildReplanPrompt(
                             input.prompt,
                             plan,
                             item.description,
@@ -716,18 +704,22 @@ export class RunTestUseCase {
             // Final status update
             // Emit exactly one terminal event.
             if (terminalError) {
-                currentState = this.withWorkflowStatus(currentState, 'failed', terminalError.message);
+                currentState = this.terminalizationCoordinator.applyTerminalState(currentState, 'failed', terminalError.message);
                 runLifecycle = this.durability.transition(testRunId, runLifecycle, 'failed');
                 await this.durability.checkpoint(testRunId, currentState, 'terminal_failure');
                 yield { type: 'error', error: terminalError };
             } else if (controller.state === TestRunState.CANCELLED) {
-                currentState = this.withWorkflowStatus(currentState, 'idle', 'cancelled');
+                currentState = this.terminalizationCoordinator.applyTerminalState(currentState, 'idle', 'cancelled');
                 runLifecycle = this.durability.transition(testRunId, runLifecycle, 'cancelled');
                 await this.durability.checkpoint(testRunId, currentState, 'terminal_cancelled');
                 yield { type: 'completed', success: false, summary: "Test cancelled by user." };
                 await this.lifecycleManager.finalizeTestRun(testRunId, false, "Test cancelled by user.");
             } else if (completed) {
-                currentState = this.withWorkflowStatus(currentState, hasUnresolvedVerificationFailure ? 'failed' : 'completed', hasUnresolvedVerificationFailure ? finalSummary : undefined);
+                currentState = this.terminalizationCoordinator.applyTerminalState(
+                    currentState,
+                    hasUnresolvedVerificationFailure ? 'failed' : 'completed',
+                    hasUnresolvedVerificationFailure ? finalSummary : undefined
+                );
                 runLifecycle = this.durability.transition(testRunId, runLifecycle, hasUnresolvedVerificationFailure ? 'failed' : 'completed');
                 await this.durability.checkpoint(testRunId, currentState, hasUnresolvedVerificationFailure ? 'terminal_failure' : 'terminal_success');
                 const isGlobalSuccess = !hasUnresolvedVerificationFailure;
@@ -783,62 +775,6 @@ export class RunTestUseCase {
         });
     }
 
-    private mapResultCodeToReplanningTrigger(
-        code: StepFailureCode
-    ): import('../services/execution/ReplanningPolicyService').ReplanningTrigger | undefined {
-        switch (code) {
-            case 'loop_detected':
-                return 'loop_detected';
-            case 'action_execution_error':
-                return 'action_execution_error';
-            case 'assertion_fail':
-            case 'agent_fail':
-                return 'assertion_fail';
-            case 'max_actions_reached':
-                return 'max_actions_reached';
-            case 'perception_error':
-            case 'llm_error':
-                return undefined;
-            default: {
-                const exhaustiveCheck: never = code;
-                return exhaustiveCheck;
-            }
-        }
-    }
-
-    private buildReplanPrompt(
-        originalPrompt: string,
-        currentPlan: Plan,
-        failedStepDescription: string,
-        failureReason: string,
-        lastEvaluation?: import('@domain/value-objects').LLMEvaluationDecision,
-        evaluatorAdvice?: string
-    ): string {
-        const planOutline = currentPlan.items
-            .map(item => `- [${item.status}] ${item.description}`)
-            .join('\n');
-
-        const evaluationContext = lastEvaluation
-            ? [
-                `Evaluator decision: ${lastEvaluation.decision}`,
-                `Evaluator summary: ${lastEvaluation.summary}`,
-                ...(lastEvaluation.advice ? [`Evaluator advice: ${lastEvaluation.advice}`] : [])
-            ].join('\n')
-            : 'No explicit evaluator decision captured for this failure.';
-
-        return [
-            `Original request: ${originalPrompt}`,
-            'Current plan execution failed and must be replanned.',
-            `Failed step: ${failedStepDescription}`,
-            `Failure reason: ${failureReason}`,
-            'Evaluator context:',
-            evaluationContext,
-            ...(evaluatorAdvice ? ['Latest evaluator advice in workflow state:', evaluatorAdvice] : []),
-            'Previous plan:',
-            planOutline,
-            'Produce a revised plan that avoids repeating failed assumptions and keeps the same overall objective.'
-        ].join('\n\n');
-    }
 
     private resolveSkillRoutingContext(input: RunTestInput, runId: string): SkillRoutingContext | undefined {
         const skillId = input.options?.preferredSkillId?.trim();
@@ -948,23 +884,6 @@ export class RunTestUseCase {
         return steps.slice(0, 6);
     }
 
-    private buildPlanningPrompt(basePrompt: string, skillRouting?: SkillRoutingContext): string {
-        if (!skillRouting) {
-            return basePrompt;
-        }
-
-        const graph = skillRouting.graphSteps.map((step, index) => `${index + 1}. ${step}`).join('\n');
-
-        return [
-            basePrompt,
-            'Skill routing context:',
-            `Selected skill: ${skillRouting.skill.id} v${skillRouting.skill.version} (${skillRouting.skill.trust})`,
-            `Routing source: ${skillRouting.source}`,
-            'Bounded skill execution graph:',
-            graph,
-            'Use this graph as preferred execution backbone while preserving safety and verification.'
-        ].join('\n\n');
-    }
 
     private evaluatePluginScaffold(input: RunTestInput, runId: string): void {
         const preflight = input.options?.pluginPreflight;
@@ -1006,36 +925,4 @@ export class RunTestUseCase {
         }
     }
 
-    private resolveRunUrl(platformConfig: RunTestInput['platformConfig']): string {
-        if (platformConfig.platform === 'web') {
-            return platformConfig.url;
-        }
-
-        if (platformConfig.connection.type === 'cdp') {
-            return platformConfig.connection.cdpUrl;
-        }
-
-        return 'electron://app';
-    }
-
-    private resolveLaneKey(input: RunTestInput): string {
-        const platformConfig = input.platformConfig;
-
-        const platform = platformConfig.platform;
-
-        if (platform === 'web') {
-            return `platform:web:${platformConfig.url}`;
-        }
-
-        if (platform === 'electron') {
-            if (platformConfig.connection.type === 'cdp') {
-                return `platform:electron:cdp:${platformConfig.connection.cdpUrl}`;
-            }
-
-            return `platform:electron:executable:${platformConfig.connection.executablePath}`;
-        }
-
-        const exhaustiveCheck: never = platform;
-        return `unsupported:${String(exhaustiveCheck)}`;
-    }
 }

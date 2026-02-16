@@ -37,6 +37,11 @@ import { RunRecoveryPolicyService } from './application/services/execution/RunRe
 import { RecoveryReplayGuardService } from './application/services/execution/RecoveryReplayGuardService';
 import { RecoveryReplayIdempotencyService } from './application/services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from './application/services/execution/ReplanningPolicyService';
+import { PlanningCoordinator } from './application/services/execution/coordinators/PlanningCoordinator';
+import { RunBootstrapCoordinator } from './application/services/execution/coordinators/RunBootstrapCoordinator';
+import { StepExecutionCoordinator } from './application/services/execution/coordinators/StepExecutionCoordinator';
+import { ReplanningCoordinator } from './application/services/execution/coordinators/ReplanningCoordinator';
+import { TerminalizationCoordinator } from './application/services/execution/coordinators/TerminalizationCoordinator';
 import { TemporalObservationPolicyService } from './application/services/perception/TemporalObservationPolicyService';
 import { TimelineContextAssembler } from './application/services/perception/TimelineContextAssembler';
 import { TemporalContextSelectorService } from './application/services/perception/TemporalContextSelectorService';
@@ -92,6 +97,11 @@ export function registerCoreServices(): void {
     container.registerSingleton(RecoveryReplayGuardService);
     container.registerSingleton(RecoveryReplayIdempotencyService);
     container.registerSingleton(ReplanningPolicyService);
+    container.registerSingleton(PlanningCoordinator);
+    container.registerSingleton(RunBootstrapCoordinator);
+    container.registerSingleton(StepExecutionCoordinator);
+    container.registerSingleton(ReplanningCoordinator);
+    container.registerSingleton(TerminalizationCoordinator);
     container.registerSingleton(TemporalObservationPolicyService);
     container.registerSingleton(TimelineContextAssembler);
     container.registerSingleton(TemporalContextSelectorService);
