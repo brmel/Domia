@@ -281,35 +281,65 @@ export class ActionToolMapper {
             case 'sub_task_success':
                 return {
                     decision: 'sub_task_success',
-                    summary: String(args['summary'] ?? 'Sub-task completed'),
-                    confidence: Number(args['confidence'] ?? 0.9),
-                    evidence: Array.isArray(args['evidence'])
-                        ? args['evidence'].filter((item): item is string => typeof item === 'string')
-                        : ['Evaluator reported step objective as satisfied.']
+                    summary: this.readRequiredStringArg(args, 'summary'),
+                    confidence: this.readRequiredConfidenceArg(args),
+                    evidence: this.readRequiredEvidenceArg(args)
                 };
             case 'need_retry':
                 return {
                     decision: 'need_retry',
-                    summary: String(args['summary'] ?? 'Retry required'),
-                    advice: String(args['advice'] ?? 'Retry with an alternative interaction strategy'),
-                    confidence: Number(args['confidence'] ?? 0.7),
-                    evidence: Array.isArray(args['evidence'])
-                        ? args['evidence'].filter((item): item is string => typeof item === 'string')
-                        : ['Evaluator observed recoverable mismatch or execution instability.']
+                    summary: this.readRequiredStringArg(args, 'summary'),
+                    advice: this.readRequiredStringArg(args, 'advice'),
+                    confidence: this.readRequiredConfidenceArg(args),
+                    evidence: this.readRequiredEvidenceArg(args)
                 };
             case 'need_reformulate':
                 return {
                     decision: 'need_reformulate',
-                    summary: String(args['summary'] ?? 'Objective blocked'),
-                    confidence: Number(args['confidence'] ?? 0.8),
-                    evidence: Array.isArray(args['evidence'])
-                        ? args['evidence'].filter((item): item is string => typeof item === 'string')
-                        : ['Evaluator concluded the current objective no longer matches page state.'],
+                    summary: this.readRequiredStringArg(args, 'summary'),
+                    confidence: this.readRequiredConfidenceArg(args),
+                    evidence: this.readRequiredEvidenceArg(args),
                     ...(typeof args['advice'] === 'string' ? { advice: args['advice'] } : {})
                 };
             default:
                 throw new Error(`Unknown evaluator tool call: ${name}`);
         }
+    }
+
+    private readRequiredStringArg(args: Record<string, unknown>, key: string): string {
+        const value = args[key];
+        if (typeof value !== 'string' || value.trim().length === 0) {
+            throw new Error(`Evaluator tool call missing required string arg '${key}'`);
+        }
+
+        return value;
+    }
+
+    private readRequiredConfidenceArg(args: Record<string, unknown>): number {
+        const value = args['confidence'];
+        if (typeof value !== 'number' || Number.isNaN(value) || value < 0 || value > 1) {
+            throw new Error("Evaluator tool call missing valid numeric arg 'confidence' (0..1)");
+        }
+
+        return value;
+    }
+
+    private readRequiredEvidenceArg(args: Record<string, unknown>): readonly string[] {
+        const value = args['evidence'];
+        if (!Array.isArray(value) || value.length === 0) {
+            throw new Error("Evaluator tool call missing required non-empty array arg 'evidence'");
+        }
+
+        const normalized = value
+            .filter((item): item is string => typeof item === 'string')
+            .map((item) => item.trim())
+            .filter((item) => item.length > 0);
+
+        if (normalized.length === 0) {
+            throw new Error("Evaluator tool call 'evidence' must contain at least one non-empty string");
+        }
+
+        return normalized;
     }
 
     mapActionToRegistryToolCall(action: AgentAction, toolContext?: ToolContext): MappedToolRequest | undefined {
