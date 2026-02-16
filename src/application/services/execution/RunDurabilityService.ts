@@ -7,6 +7,8 @@ import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel
 
 @injectable()
 export class RunDurabilityService {
+    private readonly lastCheckpointSignatureByRun = new Map<string, string>();
+
     constructor(
         @inject('IPersistenceAdapter') private readonly persistence: IPersistenceAdapter,
         @inject('ILogger') private readonly logger: ILogger
@@ -35,12 +37,34 @@ export class RunDurabilityService {
     }
 
     async checkpoint(runId: string, state: WorkflowState, reason: RunCheckpointReason): Promise<void> {
+        const signature = JSON.stringify({
+            reason,
+            stepNumber: state.stepNumber,
+            status: state.status,
+            activeItemId: state.activeItemId,
+            error: state.error,
+            historyLength: state.history.length
+        });
+
+        const previousSignature = this.lastCheckpointSignatureByRun.get(runId);
+        if (previousSignature === signature) {
+            this.logger.debug('[RunDurabilityService] Checkpoint skipped (duplicate signature)', {
+                runId,
+                reason,
+                stepNumber: state.stepNumber,
+                status: state.status
+            });
+            return;
+        }
+
         const result = await this.persistence.saveCheckpoint(runId, state, reason);
 
         if (result.isErr()) {
             this.logger.warn(`[RunDurabilityService] Checkpoint skipped: ${result.error.message}`, { runId, reason });
             return;
         }
+
+        this.lastCheckpointSignatureByRun.set(runId, signature);
 
         this.logger.debug(`[RunDurabilityService] Checkpoint saved`, {
             runId,

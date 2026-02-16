@@ -25,14 +25,27 @@ export class FileSystemStorage implements IStorageService {
 
         // Save Screenshots
         if (frame.vision.screenshots && frame.vision.screenshots.length > 0) {
-            for (let i = 0; i < frame.vision.screenshots.length; i++) {
-                const buffer = frame.vision.screenshots[i];
-                if (!buffer) continue;
-                const filename = i === 0 ? `${stepNumber}_screenshot.jpg` : `${stepNumber}_screenshot_${i}.jpg`;
+            const screenshotWrites = frame.vision.screenshots.map(async (buffer, index) => {
+                if (!buffer) {
+                    return undefined;
+                }
+
+                const filename = index === 0 ? `${stepNumber}_screenshot.jpg` : `${stepNumber}_screenshot_${index}.jpg`;
                 const filePath = path.join(baseDir, filename);
                 await fs.writeFile(filePath, buffer);
-                if (i === 0) assets['screenshot'] = filePath; // Primary
-                assets[`screenshot_${i}`] = filePath;
+
+                return { index, filePath };
+            });
+
+            const screenshotResults = (await Promise.all(screenshotWrites)).filter(
+                (value): value is { index: number; filePath: string } => Boolean(value)
+            );
+
+            for (const result of screenshotResults) {
+                if (result.index === 0) {
+                    assets['screenshot'] = result.filePath;
+                }
+                assets[`screenshot_${result.index}`] = result.filePath;
             }
         }
 

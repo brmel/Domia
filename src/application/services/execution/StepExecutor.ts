@@ -43,6 +43,10 @@ export interface ActionOverrideProvider {
     consumeActionOverride(): AgentAction | undefined;
 }
 
+const MAX_HISTORY_CONTEXT_ACTIONS = 25;
+const MAX_ADVICE_CONTEXT_CHARS = 600;
+const TEMPORAL_STABLE_FRAME_STREAK = 2;
+
 @injectable()
 export class StepExecutor {
     constructor(
@@ -217,13 +221,13 @@ export class StepExecutor {
             const context: LLMContext = {
                 goal: stepGoal,
                 snapshot,
-                previousActions: currentState.history,
+                previousActions: currentState.history.slice(-MAX_HISTORY_CONTEXT_ACTIONS),
                 currentUrl: runtimeUrl,
                 pageTitle: frame.metadata.title,
                 viewport,
                 stepsRemaining: maxActions - loopCount,
                 availableTools: this.toolContractService.getToolDescriptors(),
-                ...(adviceForNextAttempt ? { advice: adviceForNextAttempt } : {}),
+                ...(adviceForNextAttempt ? { advice: adviceForNextAttempt.slice(0, MAX_ADVICE_CONTEXT_CHARS) } : {}),
                 ...(temporalWindow ? { temporalWindow } : {})
             };
 
@@ -464,6 +468,8 @@ export class StepExecutor {
 
         const timelineFrames: SnapshotFrame[] = [this.toSnapshotFrame(baseFrame, options.temporalBaselineIntervalMs ?? 1000)];
         let previousTimestamp = baseFrame.timestamp;
+        let previousDomHash = timelineFrames[0]?.domHash;
+        let stableFrameStreak = 0;
 
         for (let index = 1; index < capturePlan.maxFrames; index++) {
             await new Promise(resolve => setTimeout(resolve, capturePlan.burstIntervalMs));
@@ -483,7 +489,20 @@ export class StepExecutor {
             const interval = Math.max(1, frame.timestamp - previousTimestamp);
             previousTimestamp = frame.timestamp;
 
-            timelineFrames.push(this.toSnapshotFrame(frame, interval));
+            const snapshotFrame = this.toSnapshotFrame(frame, interval);
+            timelineFrames.push(snapshotFrame);
+
+            if (snapshotFrame.domHash === previousDomHash) {
+                stableFrameStreak += 1;
+                if (stableFrameStreak >= TEMPORAL_STABLE_FRAME_STREAK) {
+                    this.logger.debug(`[StepExecutor] Temporal capture early-stop after ${index + 1} frames due to stable DOM signature`);
+                    break;
+                }
+            } else {
+                stableFrameStreak = 0;
+            }
+
+            previousDomHash = snapshotFrame.domHash;
         }
 
         const assembled = this.timelineAssembler.assemble(runId, timelineFrames, capturePlan.maxFramesPerWindow);
