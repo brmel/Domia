@@ -1,7 +1,7 @@
 
 import { injectable, inject } from 'tsyringe';
 import { IBrowserAutomation } from '../../domain/ports';
-import { UrlFactory, WorkflowState } from '../../domain/value-objects';
+import { ExecutionGraph, UrlFactory, WorkflowState } from '../../domain/value-objects';
 import { ExecutionController } from '../controllers/ExecutionController';
 import { WorkflowError } from '../../domain/errors';
 import { TestRunLifecycleManager } from '../services/TestRunLifecycleManager';
@@ -25,6 +25,7 @@ import { RunBootstrapCoordinator } from '../services/execution/coordinators/RunB
 import { StepExecutionCoordinator } from '../services/execution/coordinators/StepExecutionCoordinator';
 import { ReplanningCoordinator } from '../services/execution/coordinators/ReplanningCoordinator';
 import { TerminalizationCoordinator } from '../services/execution/coordinators/TerminalizationCoordinator';
+import { GraphSchedulerService } from '../services/execution/GraphSchedulerService';
 import {
     resolveRecoveryContext as resolveRecoveryContextForRun,
     replayRecoveryActions as replayRecoveryActionsForRun,
@@ -57,6 +58,8 @@ export interface RunExecutionContext {
 
 @injectable()
 export class RunTestUseCase {
+    private readonly graphScheduler = new GraphSchedulerService();
+
     constructor(
         @inject(TestRunLifecycleManager) private lifecycleManager: TestRunLifecycleManager,
         @inject(WorkflowPlanner) private planner: WorkflowPlanner,
@@ -310,7 +313,7 @@ export class RunTestUseCase {
                     };
                 } catch (error) {
                     const reason = error instanceof Error ? error.message : String(error);
-                    this.logger.warn('[RunTestUseCase] Skill runtime compilation failed, falling back to planner-only path', {
+                    this.logger.warn('[RunTestUseCase] Skill runtime compilation failed', {
                         testRunId,
                         skillId: skillRoutingContext.skill.id,
                         reason
@@ -326,6 +329,8 @@ export class RunTestUseCase {
                             summary: `Skill runtime failed: ${reason}`
                         }
                     };
+
+                    throw new WorkflowError(`Skill runtime compilation failed: ${reason}`);
                 }
             }
 
@@ -353,12 +358,33 @@ export class RunTestUseCase {
                 }
             }
 
-            currentState = { ...currentState, plan, status: 'thinking' };
+            let executionGraph = ExecutionGraph.fromPlan(plan);
+            if (startPlanIndex > 0) {
+                for (let completedIndex = 0; completedIndex < startPlanIndex; completedIndex++) {
+                    const completedItem = plan.items[completedIndex];
+                    if (!completedItem) {
+                        continue;
+                    }
+                    executionGraph = this.graphScheduler.updateNodeState(executionGraph, completedItem.id, 'completed');
+                }
+            }
+
+            currentState = { ...currentState, plan, executionGraph, status: 'thinking' };
             yield { type: 'state_updated', state: currentState };
             await this.durability.checkpoint(testRunId, currentState, 'plan_ready');
             runLifecycle = this.durability.transition(testRunId, runLifecycle, 'executing');
 
-            for (let i = startPlanIndex; i < plan.items.length; i++) {
+            while (true) {
+                const nextNode = this.graphScheduler.selectNextReadyNode(executionGraph);
+                if (!nextNode) {
+                    break;
+                }
+
+                const i = plan.items.findIndex((candidate) => candidate.id === nextNode.id);
+                if (i < 0) {
+                    throw new WorkflowError(`Execution graph node not found in plan items: ${nextNode.id}`);
+                }
+
                 const item = plan.items[i];
                 if (!item) continue;
 
@@ -398,10 +424,13 @@ export class RunTestUseCase {
                 const runningItem: PlanItem = { ...item, status: 'active' as PlanItemStatus };
                 const updatedItems = [...plan.items];
                 updatedItems[i] = runningItem;
+                executionGraph = this.graphScheduler.updateNodeState(executionGraph, runningItem.id, 'running');
                 currentState = {
                     ...currentState,
                     status: 'observing',
                     activeItemId: runningItem.id,
+                    activeNodeId: runningItem.id,
+                    executionGraph,
                     plan: { ...plan, items: updatedItems }
                 };
                 yield { type: 'state_updated', state: currentState };
@@ -568,9 +597,11 @@ export class RunTestUseCase {
                     const successItem: PlanItem = { ...item, status: 'completed' as PlanItemStatus };
                     const successItems = [...updatedItems];
                     successItems[i] = successItem;
+                    executionGraph = this.graphScheduler.updateNodeState(executionGraph, successItem.id, 'completed');
                     currentState = {
                         ...this.clearActiveItem(currentState),
                         status: 'idle',
+                        executionGraph,
                         plan: { ...plan, items: successItems }
                     };
                     yield { type: 'state_updated', state: currentState };
@@ -627,12 +658,14 @@ export class RunTestUseCase {
 
                         if (replannedResult.isOk() && replannedResult.value.items.length > 0) {
                             plan = replannedResult.value;
+                            executionGraph = ExecutionGraph.fromPlan(plan);
                             const clearedState = this.clearActiveItem(currentState);
                             const { error, ...stateWithoutError } = clearedState;
                             void error;
                             currentState = {
                                 ...stateWithoutError,
                                 status: 'thinking',
+                                executionGraph,
                                 plan
                             };
                             yield { type: 'state_updated', state: currentState };
@@ -642,7 +675,6 @@ export class RunTestUseCase {
                             consecutiveStepFailures = 0;
                             hasUnresolvedVerificationFailure = false;
                             finalSummary = undefined;
-                            i = -1;
                             continue;
                         }
 
@@ -658,10 +690,12 @@ export class RunTestUseCase {
                     const completedWithFailureItem: PlanItem = { ...item, status: 'failed' as PlanItemStatus };
                     const newItems = [...updatedItems];
                     newItems[i] = completedWithFailureItem;
+                    executionGraph = this.graphScheduler.updateNodeState(executionGraph, completedWithFailureItem.id, 'failed');
                     currentState = {
                         ...this.clearActiveItem(currentState),
                         status: 'failed',
                         error: errorMsg,
+                        executionGraph,
                         plan: { ...plan, items: newItems }
                     };
                     yield { type: 'state_updated', state: currentState };
@@ -741,8 +775,9 @@ export class RunTestUseCase {
     }
 
     private clearActiveItem(state: WorkflowState): WorkflowState {
-        const { activeItemId, ...withoutActiveItem } = state;
+        const { activeItemId, activeNodeId, ...withoutActiveItem } = state;
         void activeItemId;
+        void activeNodeId;
         return withoutActiveItem;
     }
 
