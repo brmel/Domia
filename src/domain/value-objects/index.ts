@@ -22,4 +22,13 @@ export type {
 } from './AgentAction';
 export { isTerminalAction } from './AgentAction';
 export type { LLMEvaluationDecision, EvaluationDecisionType } from './LLMEvaluationDecision';
+export type {
+	WorkflowExecutionGraph,
+	GraphNode,
+	GraphEdge,
+	GraphNodeFailure,
+	GraphNodeKind,
+	GraphNodeState
+} from './ExecutionGraph';
+export { ExecutionGraph } from './ExecutionGraph';
 export { WorkflowState } from './WorkflowState';

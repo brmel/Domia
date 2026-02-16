@@ -1,5 +1,6 @@
 import { Plan } from '../entities/Plan';
 import { AgentAction } from './AgentAction';
+import { WorkflowExecutionGraph } from './ExecutionGraph';
 import { LLMEvaluationDecision } from './LLMEvaluationDecision';
 
 export type WorkflowStatus =
@@ -20,7 +21,9 @@ export interface WorkflowState {
     readonly error?: string;
 
     readonly plan?: Plan;
+    readonly executionGraph?: WorkflowExecutionGraph;
     readonly activeItemId?: string;
+    readonly activeNodeId?: string;
     readonly history: readonly AgentAction[];
     readonly evaluatorAdvice?: string;
     readonly lastEvaluation?: LLMEvaluationDecision;
