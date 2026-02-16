@@ -11,7 +11,9 @@ describe('StepExecutor operator override', () => {
                 isErr: () => false,
                 value: {
                     decision: 'sub_task_success',
-                    summary: 'override succeeded'
+                    summary: 'override succeeded',
+                    confidence: 0.93,
+                    evidence: ['Operator override action executed successfully.']
                 }
             })
         };

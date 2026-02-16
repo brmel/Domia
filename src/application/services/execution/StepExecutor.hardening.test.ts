@@ -304,14 +304,18 @@ describe('StepExecutor hardening', () => {
                     value: {
                         decision: 'need_retry',
                         summary: 'Need one more confirmation step',
-                        advice: 'Re-check final state and confirm.'
+                        advice: 'Re-check final state and confirm.',
+                        confidence: 0.72,
+                        evidence: ['Terminal pass requires supervised confirmation.']
                     }
                 })
                 .mockResolvedValueOnce({
                     isErr: () => false,
                     value: {
                         decision: 'sub_task_success',
-                        summary: 'Confirmed done'
+                        summary: 'Confirmed done',
+                        confidence: 0.94,
+                        evidence: ['Final confirmation satisfied supervised pass criteria.']
                     }
                 })
         };
@@ -458,7 +462,9 @@ describe('StepExecutor hardening', () => {
                 value: {
                     decision: 'need_retry',
                     summary: 'Retry with alternate check',
-                    advice: 'Check for delayed render and re-evaluate.'
+                    advice: 'Check for delayed render and re-evaluate.',
+                    confidence: 0.63,
+                    evidence: ['Initial fail is provisional and should be retried.']
                 }
             })
         };
@@ -607,7 +613,9 @@ describe('StepExecutor hardening', () => {
                     value: {
                         decision: 'need_retry',
                         summary: 'Retry once',
-                        advice: 'Try an alternate interaction.'
+                        advice: 'Try an alternate interaction.',
+                        confidence: 0.68,
+                        evidence: ['First fail may be transient.']
                     }
                 })
                 .mockResolvedValueOnce({
@@ -615,7 +623,9 @@ describe('StepExecutor hardening', () => {
                     value: {
                         decision: 'need_reformulate',
                         summary: 'Blocked after retry',
-                        advice: 'Reformulate goal with narrower expectation.'
+                        advice: 'Reformulate goal with narrower expectation.',
+                        confidence: 0.82,
+                        evidence: ['Second fail indicates persistent blockage.']
                     }
                 })
         };
@@ -747,7 +757,9 @@ describe('StepExecutor hardening', () => {
                 value: {
                     decision: 'need_retry',
                     summary: 'Still searching',
-                    advice: 'Continue scrolling to find target content.'
+                    advice: 'Continue scrolling to find target content.',
+                    confidence: 0.66,
+                    evidence: ['No target signal yet after scroll.']
                 }
             })
         };
@@ -887,7 +899,9 @@ describe('StepExecutor hardening', () => {
                 value: {
                     decision: 'need_retry',
                     summary: 'Coordinates invalid for viewport',
-                    advice: 'Choose coordinates inside current viewport bounds.'
+                    advice: 'Choose coordinates inside current viewport bounds.',
+                    confidence: 0.71,
+                    evidence: ['Viewport guard rejected out-of-bounds coordinates.']
                 }
             })
         };
@@ -1009,7 +1023,9 @@ describe('StepExecutor hardening', () => {
                 isErr: () => false,
                 value: {
                     decision: 'sub_task_success',
-                    summary: 'Goal satisfied'
+                    summary: 'Goal satisfied',
+                    confidence: 0.94,
+                    evidence: ['Wait action completed and confirmation condition was met.']
                 }
             })
         };
@@ -1107,7 +1123,9 @@ describe('StepExecutor hardening', () => {
         expect(onEvaluation).toHaveBeenCalledWith({
             evaluation: {
                 decision: 'sub_task_success',
-                summary: 'Goal satisfied'
+                summary: 'Goal satisfied',
+                confidence: 0.94,
+                evidence: ['Wait action completed and confirmation condition was met.']
             },
             attemptedAction: {
                 type: ActionType.WAIT,

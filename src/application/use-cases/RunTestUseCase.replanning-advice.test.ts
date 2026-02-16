@@ -56,7 +56,9 @@ describe('RunTestUseCase replanning advice propagation', () => {
                         evaluation: {
                             decision: 'need_retry',
                             summary: 'Confirmation was weak',
-                            advice: 'Validate using explicit visible confirmation text.'
+                            advice: 'Validate using explicit visible confirmation text.',
+                            confidence: 0.64,
+                            evidence: ['Failure reason indicates weak verification confidence.']
                         },
                         attemptedAction: {
                             type: ActionType.FAIL,
