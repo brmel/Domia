@@ -20,6 +20,7 @@ import { RunRecoveryPolicyService } from '../services/execution/RunRecoveryPolic
 import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplayGuardService';
 import { RecoveryReplayIdempotencyService } from '../services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
+import { ObjectiveCompletionPolicyService } from '../services/execution/ObjectiveCompletionPolicyService';
 import { BranchRollbackService } from '../services/execution/BranchRollbackService';
 import { SelectiveReplannerService } from '../services/execution/SelectiveReplannerService';
 import { PlanningCoordinator, type SkillRoutingContext } from '../services/execution/coordinators/PlanningCoordinator';
@@ -92,7 +93,8 @@ export class RunTestUseCase {
         @inject(ReplanningCoordinator) private readonly replanningCoordinator: ReplanningCoordinator = new ReplanningCoordinator(),
         @inject(TerminalizationCoordinator) private readonly terminalizationCoordinator: TerminalizationCoordinator = new TerminalizationCoordinator(),
         @inject(SelectiveReplannerService) private readonly selectiveReplanner: SelectiveReplannerService = new SelectiveReplannerService(),
-        @inject(BranchRollbackService) private readonly branchRollback: BranchRollbackService = new BranchRollbackService()
+        @inject(BranchRollbackService) private readonly branchRollback: BranchRollbackService = new BranchRollbackService(),
+        @inject(ObjectiveCompletionPolicyService) private readonly objectiveCompletionPolicy: ObjectiveCompletionPolicyService = new ObjectiveCompletionPolicyService()
     ) { }
 
     private getRecoveryDependencies(): RunRecoveryDependencies {
@@ -650,8 +652,16 @@ export class RunTestUseCase {
                 }
             }
 
+            const completionAssessment = this.objectiveCompletionPolicy.assess({
+                plan,
+                ...(currentState.executionGraph ? { executionGraph: currentState.executionGraph } : {}),
+                hasUnresolvedVerificationFailure,
+                ...(finalSummary ? { failureSummary: finalSummary } : {})
+            });
+
             completed = true;
-            if (!finalSummary) finalSummary = "Test completed successfully.";
+            hasUnresolvedVerificationFailure = !completionAssessment.success;
+            finalSummary = completionAssessment.summary;
 
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
