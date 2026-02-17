@@ -12,7 +12,7 @@ import { StepExecutor, type StepExecutionResult } from '../services/execution/St
 import type { StepEvaluationTelemetry } from '../services/execution/StepExecutor';
 import type { RunExecutionLaneService } from '../services/execution/RunExecutionLaneService';
 import { RunDurabilityService } from '../services/execution/RunDurabilityService';
-import { RunBudgetPolicyService } from '../services/execution/RunBudgetPolicyService';
+import { RunBudgetPolicyService, type RunBudgetLimits } from '../services/execution/RunBudgetPolicyService';
 import { CheckpointCompactionService } from '../services/execution/CheckpointCompactionService';
 import { RecoveryReadModelService } from '../services/execution/RecoveryReadModelService';
 import { ManualRecoveryBootstrapService } from '../services/execution/ManualRecoveryBootstrapService';
@@ -24,7 +24,7 @@ import { BranchRollbackService } from '../services/execution/BranchRollbackServi
 import { SelectiveReplannerService } from '../services/execution/SelectiveReplannerService';
 import { PlanningCoordinator, type SkillRoutingContext } from '../services/execution/coordinators/PlanningCoordinator';
 import { RunBootstrapCoordinator } from '../services/execution/coordinators/RunBootstrapCoordinator';
-import { StepExecutionCoordinator } from '../services/execution/coordinators/StepExecutionCoordinator';
+import { StepExecutionCoordinator, type StepExecutionOptions } from '../services/execution/coordinators/StepExecutionCoordinator';
 import { ReplanningCoordinator } from '../services/execution/coordinators/ReplanningCoordinator';
 import { TerminalizationCoordinator } from '../services/execution/coordinators/TerminalizationCoordinator';
 import { GraphSchedulerService } from '../services/execution/GraphSchedulerService';
@@ -199,7 +199,6 @@ export class RunTestUseCase {
         let hasUnresolvedVerificationFailure = false;
         let consecutiveStepFailures = 0;
         let replanCount = 0;
-        let terminalPassSummary: string | undefined;
         let terminalError: Error | null = null;
         const maxConsecutiveStepFailures = this.replanningPolicy.resolveLimits().maxReplansPerRun + 1;
 
@@ -443,161 +442,42 @@ export class RunTestUseCase {
 
                 const executionOptions = this.stepExecutionCoordinator.buildExecutionOptions(input.options);
 
-                let pendingEvaluation: StepEvaluationTelemetry | undefined;
-
-                const stepGen = this.executor.executeStep(
+                const stepKernel = this.executePlanItemKernel(
                     testRunId,
-                    item.description,
+                    item,
                     browser,
                     url,
-                    currentState.stepNumber,
+                    currentState,
                     executionOptions,
                     {
-                        ...(stepToolContext ? { toolContext: stepToolContext } : {}),
-                        overrideProvider: controller,
-                        onEvaluation: (evaluationTelemetry: StepEvaluationTelemetry) => {
-                            pendingEvaluation = evaluationTelemetry;
-                        }
+                        budgetLimits,
+                        runStartMs,
+                        estimatedTokensUsed,
+                        retryCount,
+                        controller,
+                        ...(stepToolContext ? { stepToolContext } : {})
                     }
                 );
-                let result: StepExecutionResult | undefined;
-                let observedTerminalPass = false;
 
-                try {
-                    const iterator = stepGen[Symbol.asyncIterator]();
-                    let next = await iterator.next();
-                    while (!next.done) {
-                        if (pendingEvaluation) {
-                            const evaluation = pendingEvaluation.evaluation;
-                            yield {
-                                type: 'evaluating',
-                                actionType: pendingEvaluation.attemptedAction.type,
-                                decision: evaluation.decision,
-                                summary: evaluation.summary,
-                                confidence: evaluation.confidence,
-                                evidence: evaluation.evidence,
-                                ...(evaluation.advice ? { advice: evaluation.advice } : {}),
-                                executionOutcome: pendingEvaluation.executionOutcome,
-                                ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {})
-                            };
-
-                            currentState = {
-                                ...currentState,
-                                status: 'validating',
-                                evaluatorAdvice: evaluation.advice ?? evaluation.summary,
-                                lastEvaluation: evaluation
-                            };
-                            pendingEvaluation = undefined;
-                            yield { type: 'state_updated', state: currentState };
-                            await this.durability.checkpoint(testRunId, currentState, 'action_applied');
-                        }
-
-                        if (next.value.type === 'action') {
-                            const action = next.value.action;
-                            const assets = next.value.assets; // These are paths from StepExecutor
-
-                            const step: TestStep = {
-                                id: uuidv4(),
-                                testRunId,
-                                stepNumber: currentState.stepNumber + 1,
-                                actionType: action.type,
-                                actionPayload: action,
-                                ...(assets ? { assets } : {}),
-                                timestamp: new Date().toISOString()
-                            };
-
-                            const saveStepResult = await this.persistence.saveTestStep(step);
-                            if (saveStepResult.isErr()) {
-                                throw new WorkflowError(`Failed to persist test step: ${saveStepResult.error.message}`);
-                            }
-
-                            currentState = {
-                                ...currentState,
-                                status: 'acting',
-                                stepNumber: currentState.stepNumber + 1,
-                                history: [...currentState.history, action]
-                            };
-                            estimatedTokensUsed += Math.ceil(JSON.stringify(action).length / 4);
-                            yield { type: 'state_updated', state: currentState };
-                            await this.durability.checkpoint(testRunId, currentState, 'action_applied');
-
-                            if (action.type === 'pass') {
-                                observedTerminalPass = true;
-                                terminalPassSummary = 'summary' in action && typeof action.summary === 'string'
-                                    ? action.summary
-                                    : 'Test completed successfully.';
-                            }
-
-                            const budgetAssessment = this.budgetPolicy.evaluate(testRunId, budgetLimits, {
-                                actionsTaken: currentState.stepNumber,
-                                elapsedMs: Date.now() - runStartMs,
-                                estimatedTokensUsed,
-                                retryCount
-                            });
-
-                            if (budgetAssessment.status === 'exceeded') {
-                                throw new WorkflowError(
-                                    this.budgetPolicy.formatExceededMessage(
-                                        budgetLimits,
-                                        {
-                                            actionsTaken: currentState.stepNumber,
-                                            elapsedMs: Date.now() - runStartMs,
-                                            estimatedTokensUsed,
-                                            retryCount
-                                        },
-                                        budgetAssessment
-                                    )
-                                );
-                            }
-
-                            yield { type: 'acting', action: next.value.action };
-                        }
-                        next = await iterator.next();
+                const kernelIterator = stepKernel[Symbol.asyncIterator]();
+                let kernelNext = await kernelIterator.next();
+                while (!kernelNext.done) {
+                    if (kernelNext.value.type === 'state_updated') {
+                        currentState = kernelNext.value.state;
                     }
 
-                    if (pendingEvaluation) {
-                        const evaluation = pendingEvaluation.evaluation;
-                        yield {
-                            type: 'evaluating',
-                            actionType: pendingEvaluation.attemptedAction.type,
-                            decision: evaluation.decision,
-                            summary: evaluation.summary,
-                            confidence: evaluation.confidence,
-                            evidence: evaluation.evidence,
-                            ...(evaluation.advice ? { advice: evaluation.advice } : {}),
-                            executionOutcome: pendingEvaluation.executionOutcome,
-                            ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {})
-                        };
-
-                        currentState = {
-                            ...currentState,
-                            status: 'validating',
-                            evaluatorAdvice: evaluation.advice ?? evaluation.summary,
-                            lastEvaluation: evaluation
-                        };
-                        pendingEvaluation = undefined;
-                        yield { type: 'state_updated', state: currentState };
-                        await this.durability.checkpoint(testRunId, currentState, 'action_applied');
-                    }
-
-                    result = next.value;
-                    currentState = {
-                        ...currentState,
-                        status: 'validating'
-                    };
-                    yield { type: 'state_updated', state: currentState };
-                } catch (e) {
-                    const iteratorError = e instanceof Error ? e : new Error(String(e));
-                    if (iteratorError instanceof WorkflowError && iteratorError.message.startsWith('Run budget exceeded')) {
-                        throw iteratorError;
-                    }
-                    result = {
-                        success: false,
-                        terminal: 'error',
-                        code: 'action_execution_error',
-                        reason: `Step iterator failed: ${iteratorError.message}`
-                    };
+                    yield kernelNext.value;
+                    kernelNext = await kernelIterator.next();
                 }
+
+                const {
+                    state: kernelState,
+                    result,
+                    estimatedTokensUsed: nextEstimatedTokensUsed
+                } = kernelNext.value;
+
+                currentState = kernelState;
+                estimatedTokensUsed = nextEstimatedTokensUsed;
 
                 if (result && result.success) {
                     const successItem: PlanItem = { ...item, status: 'completed' as PlanItemStatus };
@@ -614,11 +494,6 @@ export class RunTestUseCase {
                     consecutiveStepFailures = 0;
                     hasUnresolvedVerificationFailure = false;
                     finalSummary = undefined;
-
-                    if (observedTerminalPass) {
-                        finalSummary = terminalPassSummary ?? 'Test completed successfully.';
-                        break;
-                    }
 
                     const proactiveReplan = this.evaluatePostStepReplan(currentState);
                     if (proactiveReplan.shouldReplan) {
@@ -818,6 +693,188 @@ export class RunTestUseCase {
             }
 
             await this.logCheckpointCompactionSummary(testRunId);
+        }
+    }
+
+    private async *executePlanItemKernel(
+        testRunId: string,
+        item: PlanItem,
+        browser: IBrowserAutomation,
+        url: string,
+        currentState: WorkflowState,
+        executionOptions: StepExecutionOptions,
+        runtime: {
+            budgetLimits: RunBudgetLimits;
+            runStartMs: number;
+            estimatedTokensUsed: number;
+            retryCount: number;
+            controller: ExecutionController;
+            stepToolContext?: ToolContext;
+        }
+    ): AsyncGenerator<RunTestOutput, {
+        state: WorkflowState;
+        result: StepExecutionResult;
+        estimatedTokensUsed: number;
+    }, unknown> {
+        let pendingEvaluation: StepEvaluationTelemetry | undefined;
+        let estimatedTokensUsed = runtime.estimatedTokensUsed;
+
+        const stepGen = this.executor.executeStep(
+            testRunId,
+            item.description,
+            browser,
+            url,
+            currentState.stepNumber,
+            executionOptions,
+            {
+                ...(runtime.stepToolContext ? { toolContext: runtime.stepToolContext } : {}),
+                overrideProvider: runtime.controller,
+                onEvaluation: (evaluationTelemetry: StepEvaluationTelemetry) => {
+                    pendingEvaluation = evaluationTelemetry;
+                }
+            }
+        );
+
+        try {
+            const iterator = stepGen[Symbol.asyncIterator]();
+            let next = await iterator.next();
+
+            while (!next.done) {
+                if (pendingEvaluation) {
+                    const evaluation = pendingEvaluation.evaluation;
+                    yield {
+                        type: 'evaluating',
+                        actionType: pendingEvaluation.attemptedAction.type,
+                        decision: evaluation.decision,
+                        summary: evaluation.summary,
+                        confidence: evaluation.confidence,
+                        evidence: evaluation.evidence,
+                        ...(evaluation.advice ? { advice: evaluation.advice } : {}),
+                        executionOutcome: pendingEvaluation.executionOutcome,
+                        ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {})
+                    };
+
+                    currentState = {
+                        ...currentState,
+                        status: 'validating',
+                        evaluatorAdvice: evaluation.advice ?? evaluation.summary,
+                        lastEvaluation: evaluation
+                    };
+                    pendingEvaluation = undefined;
+                    yield { type: 'state_updated', state: currentState };
+                    await this.durability.checkpoint(testRunId, currentState, 'action_applied');
+                }
+
+                if (next.value.type === 'action') {
+                    const action = next.value.action;
+                    const assets = next.value.assets;
+
+                    const step: TestStep = {
+                        id: uuidv4(),
+                        testRunId,
+                        stepNumber: currentState.stepNumber + 1,
+                        actionType: action.type,
+                        actionPayload: action,
+                        ...(assets ? { assets } : {}),
+                        timestamp: new Date().toISOString()
+                    };
+
+                    const saveStepResult = await this.persistence.saveTestStep(step);
+                    if (saveStepResult.isErr()) {
+                        throw new WorkflowError(`Failed to persist test step: ${saveStepResult.error.message}`);
+                    }
+
+                    currentState = {
+                        ...currentState,
+                        status: 'acting',
+                        stepNumber: currentState.stepNumber + 1,
+                        history: [...currentState.history, action]
+                    };
+                    estimatedTokensUsed += Math.ceil(JSON.stringify(action).length / 4);
+                    yield { type: 'state_updated', state: currentState };
+                    await this.durability.checkpoint(testRunId, currentState, 'action_applied');
+
+                    const budgetAssessment = this.budgetPolicy.evaluate(testRunId, runtime.budgetLimits, {
+                        actionsTaken: currentState.stepNumber,
+                        elapsedMs: Date.now() - runtime.runStartMs,
+                        estimatedTokensUsed,
+                        retryCount: runtime.retryCount
+                    });
+
+                    if (budgetAssessment.status === 'exceeded') {
+                        throw new WorkflowError(
+                            this.budgetPolicy.formatExceededMessage(
+                                runtime.budgetLimits,
+                                {
+                                    actionsTaken: currentState.stepNumber,
+                                    elapsedMs: Date.now() - runtime.runStartMs,
+                                    estimatedTokensUsed,
+                                    retryCount: runtime.retryCount
+                                },
+                                budgetAssessment
+                            )
+                        );
+                    }
+
+                    yield { type: 'acting', action };
+                }
+
+                next = await iterator.next();
+            }
+
+            if (pendingEvaluation) {
+                const evaluation = pendingEvaluation.evaluation;
+                yield {
+                    type: 'evaluating',
+                    actionType: pendingEvaluation.attemptedAction.type,
+                    decision: evaluation.decision,
+                    summary: evaluation.summary,
+                    confidence: evaluation.confidence,
+                    evidence: evaluation.evidence,
+                    ...(evaluation.advice ? { advice: evaluation.advice } : {}),
+                    executionOutcome: pendingEvaluation.executionOutcome,
+                    ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {})
+                };
+
+                currentState = {
+                    ...currentState,
+                    status: 'validating',
+                    evaluatorAdvice: evaluation.advice ?? evaluation.summary,
+                    lastEvaluation: evaluation
+                };
+                pendingEvaluation = undefined;
+                yield { type: 'state_updated', state: currentState };
+                await this.durability.checkpoint(testRunId, currentState, 'action_applied');
+            }
+
+            const result = next.value;
+            currentState = {
+                ...currentState,
+                status: 'validating'
+            };
+            yield { type: 'state_updated', state: currentState };
+
+            return {
+                state: currentState,
+                result,
+                estimatedTokensUsed
+            };
+        } catch (error) {
+            const iteratorError = error instanceof Error ? error : new Error(String(error));
+            if (iteratorError instanceof WorkflowError && iteratorError.message.startsWith('Run budget exceeded')) {
+                throw iteratorError;
+            }
+
+            return {
+                state: currentState,
+                result: {
+                    success: false,
+                    terminal: 'error',
+                    code: 'action_execution_error',
+                    reason: `Step iterator failed: ${iteratorError.message}`
+                },
+                estimatedTokensUsed
+            };
         }
     }
 
