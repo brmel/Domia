@@ -21,6 +21,7 @@ import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplay
 import { RecoveryReplayIdempotencyService } from '../services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
 import { ObjectiveCompletionPolicyService } from '../services/execution/ObjectiveCompletionPolicyService';
+import { EvidenceBlackboardService } from '../services/execution/EvidenceBlackboardService';
 import { BranchRollbackService } from '../services/execution/BranchRollbackService';
 import { SelectiveReplannerService } from '../services/execution/SelectiveReplannerService';
 import { PlanningCoordinator, type SkillRoutingContext } from '../services/execution/coordinators/PlanningCoordinator';
@@ -94,7 +95,8 @@ export class RunTestUseCase {
         @inject(TerminalizationCoordinator) private readonly terminalizationCoordinator: TerminalizationCoordinator = new TerminalizationCoordinator(),
         @inject(SelectiveReplannerService) private readonly selectiveReplanner: SelectiveReplannerService = new SelectiveReplannerService(),
         @inject(BranchRollbackService) private readonly branchRollback: BranchRollbackService = new BranchRollbackService(),
-        @inject(ObjectiveCompletionPolicyService) private readonly objectiveCompletionPolicy: ObjectiveCompletionPolicyService = new ObjectiveCompletionPolicyService()
+        @inject(ObjectiveCompletionPolicyService) private readonly objectiveCompletionPolicy: ObjectiveCompletionPolicyService = new ObjectiveCompletionPolicyService(),
+        @inject(EvidenceBlackboardService) private readonly evidenceBlackboard: EvidenceBlackboardService = new EvidenceBlackboardService()
     ) { }
 
     private getRecoveryDependencies(): RunRecoveryDependencies {
@@ -703,6 +705,7 @@ export class RunTestUseCase {
             }
 
             await this.logCheckpointCompactionSummary(testRunId);
+            this.evidenceBlackboard.clearRun(testRunId);
         }
     }
 

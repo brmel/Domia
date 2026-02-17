@@ -16,6 +16,8 @@ import { TemporalContextSelectorService } from '../perception/TemporalContextSel
 import { TemporalPrivacyFilterService } from '../perception/TemporalPrivacyFilterService';
 import { TemporalPromptAssemblerService } from '../perception/TemporalPromptAssemblerService';
 import { VerificationPolicyService } from './VerificationPolicyService';
+import { EvidenceBlackboardService } from './EvidenceBlackboardService';
+import type { VerificationPolicyProfile } from './coordinators/StepExecutionCoordinator';
 
 export type StepExecutionResult =
     | { readonly success: true; readonly terminal: 'pass' }
@@ -66,7 +68,8 @@ export class StepExecutor {
         @inject(TemporalContextSelectorService) private readonly temporalSelector: TemporalContextSelectorService,
         @inject(TemporalPrivacyFilterService) private readonly temporalPrivacyFilter: TemporalPrivacyFilterService,
         @inject(TemporalPromptAssemblerService) private readonly temporalPromptAssembler: TemporalPromptAssemblerService,
-        @inject('ILogger') private readonly logger: ILogger
+        @inject('ILogger') private readonly logger: ILogger,
+        @inject(EvidenceBlackboardService) private readonly evidenceBlackboard: EvidenceBlackboardService = new EvidenceBlackboardService()
     ) { }
 
     async *executeStep(
@@ -80,6 +83,7 @@ export class StepExecutor {
             debugScreenshots: boolean;
             maxActions: number;
             supervisedTerminalPass?: boolean;
+            verificationPolicyProfile?: VerificationPolicyProfile;
             temporalObservation?: boolean;
             temporalMode?: TemporalObservationMode;
             temporalBurstFrames?: number;
@@ -96,6 +100,12 @@ export class StepExecutor {
             overrideProvider?: ActionOverrideProvider;
         }
     ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, StepExecutionResult, unknown> {
+        const verificationPolicyProfile = options.verificationPolicyProfile;
+        const supervisedTerminalPass = verificationPolicyProfile?.enforceSupervisedTerminalPass ?? options.supervisedTerminalPass ?? true;
+        const effectiveVerificationPolicyProfile = {
+            ...(verificationPolicyProfile ?? {}),
+            enforceSupervisedTerminalPass: supervisedTerminalPass
+        };
         let loopCount = 0;
         let consecutiveScrollActions = 0;
         let stagnantSnapshotCount = 0;
@@ -204,6 +214,8 @@ export class StepExecutor {
 
                 yield { type: 'action', action: deterministicAction, assets };
 
+                this.evidenceBlackboard.recordAction(runId, deterministicAction, 'not_executed');
+
                 if (deterministicAction.type === ActionType.PASS) {
                     return { success: true, terminal: 'pass' };
                 }
@@ -218,6 +230,12 @@ export class StepExecutor {
                 }
             }
 
+            const composedAdvice = this.evidenceBlackboard.composeAdvice(
+                runId,
+                adviceForNextAttempt,
+                MAX_ADVICE_CONTEXT_CHARS
+            );
+
             const context: LLMContext = {
                 goal: stepGoal,
                 snapshot,
@@ -227,7 +245,7 @@ export class StepExecutor {
                 viewport,
                 stepsRemaining: maxActions - loopCount,
                 availableTools: this.toolContractService.getToolDescriptors(),
-                ...(adviceForNextAttempt ? { advice: adviceForNextAttempt.slice(0, MAX_ADVICE_CONTEXT_CHARS) } : {}),
+                ...(composedAdvice ? { advice: composedAdvice } : {}),
                 ...(temporalWindow ? { temporalWindow } : {})
             };
 
@@ -306,7 +324,7 @@ export class StepExecutor {
 
             yield { type: 'action', action, assets };
 
-            if (action.type === ActionType.PASS && !options.supervisedTerminalPass) {
+            if (action.type === ActionType.PASS && !supervisedTerminalPass) {
                 return { success: true, terminal: 'pass' };
             }
 
@@ -316,7 +334,7 @@ export class StepExecutor {
             if (action.type === ActionType.FAIL) {
                 executionOutcome = 'not_executed';
                 executionError = action.reason;
-            } else if (action.type === ActionType.PASS && options.supervisedTerminalPass) {
+            } else if (action.type === ActionType.PASS && supervisedTerminalPass) {
                 executionOutcome = 'not_executed';
             } else {
                 const viewportValidationError = this.validateActionAgainstViewport(action, viewport);
@@ -338,6 +356,8 @@ export class StepExecutor {
                     }
                 }
             }
+
+            this.evidenceBlackboard.recordAction(runId, action, executionOutcome);
 
             const evaluationResult = await this.llmProvider.generateEvaluation({
                 ...context,
@@ -362,8 +382,9 @@ export class StepExecutor {
                 const policyDecision = this.verificationPolicy.enforce(evaluation, {
                     attemptedAction: action,
                     executionOutcome,
-                    stepsRemaining: maxActions - loopCount
-                });
+                    stepsRemaining: maxActions - loopCount,
+                    priorActionCount: currentState.history.length
+                }, effectiveVerificationPolicyProfile);
                 governedEvaluation = policyDecision.evaluation;
 
                 if (policyDecision.adjusted) {
@@ -378,6 +399,8 @@ export class StepExecutor {
                     reason: `Verification policy rejected evaluator output: ${reason}`
                 };
             }
+
+            this.evidenceBlackboard.recordEvaluation(runId, governedEvaluation);
 
             if (executionContext?.onEvaluation) {
                 await executionContext.onEvaluation({
