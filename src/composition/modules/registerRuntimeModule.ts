@@ -1,0 +1,87 @@
+import { container } from 'tsyringe';
+import { TestRunLifecycleManager } from '@application/services/TestRunLifecycleManager';
+import { InMemoryRunExecutionLaneService } from '@application/services/execution/RunExecutionLaneService';
+import { RunDurabilityService } from '@application/services/execution/RunDurabilityService';
+import { RunBudgetPolicyService } from '@application/services/execution/RunBudgetPolicyService';
+import { RunLifecycleEngineService } from '@application/services/execution/RunLifecycleEngineService';
+import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
+import { RecoveryReadModelService } from '@application/services/execution/RecoveryReadModelService';
+import { ManualRecoveryBootstrapService } from '@application/services/execution/ManualRecoveryBootstrapService';
+import { RunRecoveryPolicyService } from '@application/services/execution/RunRecoveryPolicyService';
+import { RecoveryReplayGuardService } from '@application/services/execution/RecoveryReplayGuardService';
+import { RecoveryReplayIdempotencyService } from '@application/services/execution/RecoveryReplayIdempotencyService';
+import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
+import { BranchRollbackService } from '@application/services/execution/BranchRollbackService';
+import { SelectiveReplannerService } from '@application/services/execution/SelectiveReplannerService';
+import { PlanningCoordinator } from '@application/services/execution/coordinators/PlanningCoordinator';
+import { RunBootstrapCoordinator } from '@application/services/execution/coordinators/RunBootstrapCoordinator';
+import { StepExecutionCoordinator } from '@application/services/execution/coordinators/StepExecutionCoordinator';
+import { ReplanningCoordinator } from '@application/services/execution/coordinators/ReplanningCoordinator';
+import { TerminalizationCoordinator } from '@application/services/execution/coordinators/TerminalizationCoordinator';
+import { TemporalObservationPolicyService } from '@application/services/perception/TemporalObservationPolicyService';
+import { TimelineContextAssembler } from '@application/services/perception/TimelineContextAssembler';
+import { TemporalContextSelectorService } from '@application/services/perception/TemporalContextSelectorService';
+import { TemporalPrivacyFilterService } from '@application/services/perception/TemporalPrivacyFilterService';
+import { TemporalPromptAssemblerService } from '@application/services/perception/TemporalPromptAssemblerService';
+import { SkillRegistryService } from '@application/services/skills/SkillRegistryService';
+import { SkillGovernanceService } from '@application/services/skills/SkillGovernanceService';
+import { SkillExecutorService } from '@application/services/skills/SkillExecutorService';
+import { PluginCapabilityPolicyService } from '@application/services/plugins/PluginCapabilityPolicyService';
+import { PluginGatewayService } from '@application/services/plugins/PluginGatewayService';
+import { PluginRegistryService } from '@application/services/plugins/PluginRegistryService';
+import { PluginExecutionAdapterRegistryService } from '@application/services/plugins/PluginExecutionAdapterRegistryService';
+import { PluginApprovalService } from '@application/services/plugins/PluginApprovalService';
+import { ReadinessGateService } from '@application/services/hardening/ReadinessGateService';
+import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
+import { TrajectoryExportService } from '@infrastructure/services/exporters/TrajectoryExportService';
+import { RegistryBackedToolExecutor } from '@application/services/tooling/RegistryBackedToolExecutor';
+import { DefaultToolPolicyService } from '@application/services/tooling/ToolPolicyService';
+
+export function registerRuntimeModule(): void {
+    container.registerSingleton(TestRunLifecycleManager);
+    container.registerSingleton(InMemoryRunExecutionLaneService);
+    container.register('IRunExecutionLaneService', { useToken: InMemoryRunExecutionLaneService });
+    container.registerSingleton(RunDurabilityService);
+    container.registerSingleton(RunBudgetPolicyService);
+    container.registerSingleton(RunLifecycleEngineService);
+    container.register('IRunLifecycleEngine', { useToken: RunLifecycleEngineService });
+    container.registerSingleton(CheckpointCompactionService);
+    container.registerSingleton(RecoveryReadModelService);
+    container.registerSingleton(ManualRecoveryBootstrapService);
+    container.registerSingleton(RunRecoveryPolicyService);
+    container.registerSingleton(RecoveryReplayGuardService);
+    container.registerSingleton(RecoveryReplayIdempotencyService);
+    container.registerSingleton(ReplanningPolicyService);
+    container.registerSingleton(BranchRollbackService);
+    container.registerSingleton(SelectiveReplannerService);
+    container.registerSingleton(PlanningCoordinator);
+    container.registerSingleton(RunBootstrapCoordinator);
+    container.registerSingleton(StepExecutionCoordinator);
+    container.registerSingleton(ReplanningCoordinator);
+    container.registerSingleton(TerminalizationCoordinator);
+
+    container.registerSingleton(TemporalObservationPolicyService);
+    container.registerSingleton(TimelineContextAssembler);
+    container.registerSingleton(TemporalContextSelectorService);
+    container.registerSingleton(TemporalPrivacyFilterService);
+    container.registerSingleton(TemporalPromptAssemblerService);
+
+    container.registerSingleton(SkillRegistryService);
+    container.registerSingleton(SkillGovernanceService);
+    container.registerSingleton(SkillExecutorService);
+
+    container.registerSingleton(PluginRegistryService);
+    container.registerSingleton(PluginCapabilityPolicyService);
+    container.registerSingleton(PluginExecutionAdapterRegistryService);
+    container.registerSingleton(PluginApprovalService);
+    container.registerSingleton(PluginGatewayService);
+
+    container.registerSingleton(ReadinessGateService);
+    container.registerSingleton(RuntimeReadinessPolicyService);
+    container.registerSingleton(TrajectoryExportService);
+
+    container.registerSingleton(RegistryBackedToolExecutor);
+    container.registerSingleton(DefaultToolPolicyService);
+    container.register('IToolPolicyService', { useToken: DefaultToolPolicyService });
+    container.register('IToolExecutor', { useToken: RegistryBackedToolExecutor });
+}
