@@ -6,12 +6,9 @@ import { WebDriver, ElectronDriver, AppDriverFactory } from './infrastructure/ad
 import { ToolRegistry } from './domain/tools/ToolRegistry';
 import { RunTestUseCase } from './application/use-cases';
 import { ConsoleLogger } from './infrastructure/adapters/logger/ConsoleLogger';
+import { registerLlmModule } from './composition/modules/registerLlmModule';
+import { registerObservabilityModule } from './composition/modules/registerObservabilityModule';
 
-import { LangChainAdapter } from './infrastructure/adapters/llm/LangChainAdapter';
-import { LangChainToolCallingProvider } from './infrastructure/adapters/llm/LangChainToolCallingProvider';
-import { ToolCallingFailurePolicy } from './infrastructure/adapters/llm/ToolCallingFailurePolicy';
-import { LlmRuntimeConfigResolver } from './infrastructure/adapters/llm/LlmRuntimeConfigResolver';
-import { LangChainModelFactory } from './infrastructure/adapters/llm/LangChainModelFactory';
 import { ConfigService } from './infrastructure/config/ConfigService';
 import { SQLiteAdapter } from './infrastructure/adapters/persistence/SQLiteAdapter';
 import { TestRunLifecycleManager } from './application/services/TestRunLifecycleManager';
@@ -20,14 +17,9 @@ import { PerceptionPipeline } from './infrastructure/perception/PerceptionPipeli
 import { VisionSensor } from './infrastructure/perception/sensors/VisionSensor';
 import { DomSensor } from './infrastructure/perception/sensors/DomSensor';
 import { AriaSensor } from './infrastructure/perception/sensors/AriaSensor';
-import { FileSystemStorage } from './infrastructure/storage/FileSystemStorage';
-import { TraceService } from './infrastructure/services/TraceService';
-import { FileTraceExporter } from './infrastructure/services/exporters/FileTraceExporter';
-import { DebugExporter } from './infrastructure/services/exporters/DebugExporter';
 import { TrajectoryExportService } from './infrastructure/services/exporters/TrajectoryExportService';
 import { RegistryBackedToolExecutor } from './application/services/tooling/RegistryBackedToolExecutor';
 import { DefaultToolPolicyService } from './application/services/tooling/ToolPolicyService';
-import { ActionToolMapper } from './shared/tooling/ActionToolMapper';
 import { InMemoryRunExecutionLaneService } from './application/services/execution/RunExecutionLaneService';
 import { RunDurabilityService } from './application/services/execution/RunDurabilityService';
 import { RunBudgetPolicyService } from './application/services/execution/RunBudgetPolicyService';
@@ -127,17 +119,13 @@ export function registerCoreServices(): void {
     container.registerSingleton(WorkflowRunOrchestratorService);
     container.registerSingleton(WorkflowExecutionService);
     container.registerSingleton(TrajectoryExportService);
-    container.registerSingleton(ActionToolMapper);
+
     container.registerSingleton(RegistryBackedToolExecutor);
     container.registerSingleton(DefaultToolPolicyService);
     container.register('IToolPolicyService', { useToken: DefaultToolPolicyService });
     container.register('IToolExecutor', { useToken: RegistryBackedToolExecutor });
 
-    container.registerSingleton(LlmRuntimeConfigResolver);
-    container.registerSingleton(LangChainModelFactory);
-    container.registerSingleton(ToolCallingFailurePolicy);
-    container.register('IToolCallingProvider', { useClass: LangChainToolCallingProvider });
-    container.register('ILLMProvider', { useClass: LangChainAdapter });
+    registerLlmModule();
     container.register('RunTestUseCase', { useClass: RunTestUseCase });
 
     container.registerSingleton(VisionSensor);
@@ -150,18 +138,7 @@ export function registerCoreServices(): void {
 
     container.register('IPerceptionPipeline', { useClass: PerceptionPipeline });
 
-    container.registerSingleton('IStorageService', FileSystemStorage);
-    container.registerSingleton(TraceService);
-    container.register('ITraceService', { useToken: TraceService });
-
-    const traceService = container.resolve(TraceService);
-    const storage = container.resolve<import('@domain/ports/IStorageService').IStorageService>('IStorageService');
-
-    if (process.env['DOMIA_VERBOSE'] === 'true') {
-        traceService.addExporter(new FileTraceExporter(storage));
-    }
-
-    traceService.addExporter(new DebugExporter());
+    registerObservabilityModule();
 
 }
 
