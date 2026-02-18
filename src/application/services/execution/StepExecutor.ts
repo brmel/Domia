@@ -40,6 +40,7 @@ export interface StepEvaluationTelemetry {
     readonly attemptedAction: AgentAction;
     readonly executionOutcome: 'executed' | 'execution_error' | 'not_executed';
     readonly executionError?: string;
+    readonly executionObservation?: string;
 }
 
 export interface ActionOverrideProvider {
@@ -298,12 +299,34 @@ export class StepExecutor {
             }
 
             if (action.type !== ActionType.FAIL && this.loopDetector.isLoop(currentState.history, action)) {
-                return {
-                    success: false,
-                    terminal: 'error',
-                    code: 'loop_detected',
-                    reason: `Loop detected. Action '${action.type}' repeated too many times.`
+                const loopAdvice = action.type === ActionType.CLICK
+                    ? 'Loop detected on repeated click attempts. Choose a different strategy (for example extract evidence or navigate to a clearer state) instead of repeating the same click.'
+                    : `Loop detected on repeated '${action.type}' attempts. Choose a different strategy before retrying.`;
+
+                if (consecutiveEvaluatorRetries >= 2 || loopCount >= maxActions - 1) {
+                    return {
+                        success: false,
+                        terminal: 'error',
+                        code: 'loop_detected',
+                        reason: `Loop detected. Action '${action.type}' repeated too many times.`
+                    };
+                }
+
+                adviceForNextAttempt = loopAdvice;
+                consecutiveEvaluatorRetries += 1;
+                this.logger.warn('[StepExecutor] Loop detected; skipping deterministic rewrite and requesting alternative model action', {
+                    actionType: action.type,
+                    stepNumber: currentState.stepNumber + 1,
+                    loopCount
+                });
+
+                currentState = {
+                    ...currentState,
+                    history: [...currentState.history, action],
+                    stepNumber: currentState.stepNumber + 1
                 };
+                loopCount++;
+                continue;
             }
 
             if (action.type === ActionType.SCROLL) {
@@ -330,12 +353,25 @@ export class StepExecutor {
 
             let executionOutcome: 'executed' | 'execution_error' | 'not_executed' = 'not_executed';
             let executionError: string | undefined;
+            let executionObservation: string | undefined;
 
             if (action.type === ActionType.FAIL) {
                 executionOutcome = 'not_executed';
                 executionError = action.reason;
             } else if (action.type === ActionType.PASS && supervisedTerminalPass) {
                 executionOutcome = 'not_executed';
+            } else if (action.type === ActionType.EXTRACT) {
+                const extractResult = await browser.extractText(action.elementId);
+                if (extractResult.isErr()) {
+                    executionOutcome = 'execution_error';
+                    executionError = extractResult.error.message;
+                } else {
+                    executionOutcome = 'executed';
+                    const normalizedText = this.normalizeObservationText(extractResult.value);
+                    executionObservation = normalizedText
+                        ? `Extracted text: ${normalizedText}`
+                        : 'Extracted text was empty.';
+                }
             } else {
                 const viewportValidationError = this.validateActionAgainstViewport(action, viewport);
                 if (viewportValidationError) {
@@ -358,12 +394,20 @@ export class StepExecutor {
             }
 
             this.evidenceBlackboard.recordAction(runId, action, executionOutcome);
+            if (executionObservation) {
+                this.evidenceBlackboard.recordAction(runId, {
+                    type: ActionType.WAIT,
+                    durationMs: 0,
+                    thought: executionObservation
+                }, 'executed');
+            }
 
             const evaluationResult = await this.llmProvider.generateEvaluation({
                 ...context,
                 attemptedAction: action,
                 executionOutcome,
-                ...(executionError ? { executionError } : {})
+                ...(executionError ? { executionError } : {}),
+                ...(executionObservation ? { executionObservation } : {})
             });
 
             if (evaluationResult.isErr()) {
@@ -407,7 +451,8 @@ export class StepExecutor {
                     evaluation: governedEvaluation,
                     attemptedAction: action,
                     executionOutcome,
-                    ...(executionError ? { executionError } : {})
+                    ...(executionError ? { executionError } : {}),
+                    ...(executionObservation ? { executionObservation } : {})
                 });
             }
 
@@ -608,6 +653,10 @@ export class StepExecutor {
             || lastAction.type === ActionType.MOUSE_CLICK_LEFT
             || lastAction.type === ActionType.MOUSE_DOUBLE_CLICK
             || lastAction.type === ActionType.MOUSE_DRAG;
+    }
+
+    private normalizeObservationText(text: string): string {
+        return text.replace(/\s+/g, ' ').trim().slice(0, 400);
     }
 
     private validateActionAgainstViewport(
