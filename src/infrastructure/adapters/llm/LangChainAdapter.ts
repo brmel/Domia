@@ -61,7 +61,7 @@ export class LangChainAdapter implements ILLMProvider {
             this.logger.info('[LangChainAdapter] Agentic runtime path disabled for action generation', {
                 reason: rolloutMode.reason
             });
-            return this.generateLegacyAction(context);
+            return this.generateBaselineAction(context);
         }
 
         let lastError: LLMError | undefined;
@@ -79,7 +79,7 @@ export class LangChainAdapter implements ILLMProvider {
                 });
 
                 if (rolloutMode.shadowMode) {
-                    await this.compareWithLegacyAction(context, outcome.action);
+                    await this.compareWithBaselineAction(context, outcome.action);
                 }
                 return outcome.action;
             }
@@ -119,27 +119,27 @@ export class LangChainAdapter implements ILLMProvider {
         throw lastError || new LLMError("Failed to generate valid action after retries");
     }
 
-    private async generateLegacyAction(context: LLMContext): Promise<AgentAction> {
+    private async generateBaselineAction(context: LLMContext): Promise<AgentAction> {
         const request = this.buildActionRequest(context);
         const result = await this.toolCallingProvider.generateToolCall(request);
         return this.actionToolMapper.mapModelToolCallToAction(result.name, result.args);
     }
 
-    private async compareWithLegacyAction(context: LLMContext, primaryAction: AgentAction): Promise<void> {
+    private async compareWithBaselineAction(context: LLMContext, primaryAction: AgentAction): Promise<void> {
         try {
-            const legacyAction = await this.generateLegacyAction(context);
+            const baselineAction = await this.generateBaselineAction(context);
             const primarySerialized = JSON.stringify(primaryAction);
-            const legacySerialized = JSON.stringify(legacyAction);
+            const baselineSerialized = JSON.stringify(baselineAction);
 
-            if (primarySerialized !== legacySerialized) {
+            if (primarySerialized !== baselineSerialized) {
                 this.logger.warn('[LangChainAdapter] Shadow mode action mismatch detected', {
                     primary: primaryAction,
-                    legacy: legacyAction
+                    baseline: baselineAction
                 });
             }
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            this.logger.warn('[LangChainAdapter] Shadow mode legacy action generation failed', {
+            this.logger.warn('[LangChainAdapter] Shadow mode baseline action generation failed', {
                 message
             });
         }

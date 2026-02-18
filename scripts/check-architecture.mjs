@@ -14,9 +14,11 @@ const layerRules = [
         name: 'domain-purity',
         scope: /\/src\/domain\//,
         forbiddenImportPatterns: [
+            /@application\//,
             /@infrastructure\//,
             /@presentation\//,
             /@electron\//,
+            /\.\.\/\.\.\/application\//,
             /\.\.\/\.\.\/infrastructure\//,
             /\.\.\/\.\.\/presentation\//,
             /\.\.\/\.\.\/electron\//
