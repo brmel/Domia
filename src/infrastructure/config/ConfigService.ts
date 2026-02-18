@@ -53,6 +53,7 @@ export class ConfigService implements IConfigService {
             viewport: { ...this.config.viewport, ...updates.viewport },
             paths: { ...this.config.paths, ...updates.paths },
             limits: { ...this.config.limits, ...updates.limits },
+            verification: { ...this.config.verification, ...updates.verification },
         };
 
         this.save();

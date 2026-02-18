@@ -27,5 +27,10 @@
     "delayBetweenSteps": 1000,
     "temporalWindowRetentionCount": 30,
     "temporalWindowMaxBytesPerRun": 2000000
+  },
+  "verification": {
+    "enforceSupervisedTerminalPass": true,
+    "terminalPassMinConfidence": 0.9,
+    "terminalPassMinEvidenceItems": 2
   }
 }

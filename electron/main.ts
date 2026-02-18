@@ -52,11 +52,15 @@ function createWindow(): void {
   const agentViewService = container.resolve(AgentViewService);
   agentViewService.initialize(win);
 
-  ipcMain.on('agent-view:resize', (_, bounds: Electron.Rectangle) => {
+  ipcMain.on('agent-view:resize', (event, bounds: Electron.Rectangle) => {
+    const senderUrl = event.senderFrame?.url || event.sender.getURL();
+    console.log('[agent-view:resize]', { bounds, senderUrl });
     agentViewService.updateBounds(bounds);
   });
 
-  ipcMain.on('agent-view:show', (_, bounds: Electron.Rectangle) => {
+  ipcMain.on('agent-view:show', (event, bounds: Electron.Rectangle) => {
+    const senderUrl = event.senderFrame?.url || event.sender.getURL();
+    console.log('[agent-view:show]', { bounds, senderUrl });
     agentViewService.show(bounds);
   });
 

@@ -75,6 +75,20 @@ Profiles:
 - `staging`: readiness gates enabled, observe mode default
 - `production`: readiness gates enabled, soft-enforce required
 
+## Verification Contracts
+
+Terminal success behavior is policy-driven (not hardcoded by test type). Configure defaults in `domia.config.json`:
+
+```json
+"verification": {
+    "enforceSupervisedTerminalPass": true,
+    "terminalPassMinConfidence": 0.9,
+    "terminalPassMinEvidenceItems": 2
+}
+```
+
+You can also override these per run via run options (`verification.*`).
+
 ## Architecture
 
 Domia is built with a Hexagonal Architecture (Ports & Adapters):

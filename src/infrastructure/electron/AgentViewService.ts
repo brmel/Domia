@@ -16,6 +16,7 @@ export class AgentViewService {
     private readyPromise: Promise<void> | null = null;
 
     private readonly READINESS_STABILITY_DELAY_MS = 500;
+    private readonly AGENT_VIEW_BOOT_URL = 'about:blank#domia-agent-view';
 
     constructor(@inject('ILogger') private logger: ILogger) { }
 
@@ -51,8 +52,8 @@ export class AgentViewService {
             }
         });
 
-        this.view.webContents.loadURL('about:blank');
-        this.logger.debug('[AgentViewService] Loading about:blank');
+        this.view.webContents.loadURL(this.AGENT_VIEW_BOOT_URL);
+        this.logger.debug(`[AgentViewService] Loading ${this.AGENT_VIEW_BOOT_URL}`);
     }
 
     getView(): WebContentsView {
@@ -87,6 +88,26 @@ export class AgentViewService {
         }
     }
 
+    private sanitizeBounds(bounds: Rectangle): Rectangle | null {
+        if (!this.mainWindow) {
+            return null;
+        }
+
+        const [rawContentWidth, rawContentHeight] = this.mainWindow.getContentSize();
+        const contentWidth = rawContentWidth ?? 0;
+        const contentHeight = rawContentHeight ?? 0;
+        const x = Math.max(0, Math.floor(bounds.x));
+        const y = Math.max(0, Math.floor(bounds.y));
+        const width = Math.max(0, Math.min(Math.floor(bounds.width), Math.max(0, contentWidth - x)));
+        const height = Math.max(0, Math.min(Math.floor(bounds.height), Math.max(0, contentHeight - y)));
+
+        if (width <= 0 || height <= 0) {
+            return null;
+        }
+
+        return { x, y, width, height };
+    }
+
     show(bounds: Rectangle): void {
         this.logger.debug(`[AgentViewService] show() called with bounds: ${JSON.stringify(bounds)}`);
 
@@ -95,12 +116,18 @@ export class AgentViewService {
             return;
         }
 
+        const sanitizedBounds = this.sanitizeBounds(bounds);
+        if (!sanitizedBounds) {
+            this.logger.warn('[AgentViewService] show() ignored due to invalid sanitized bounds');
+            return;
+        }
+
         const children = this.mainWindow.contentView.children;
         const index = children.indexOf(this.view);
         const isLast = index === children.length - 1;
 
-        this.view.setBounds(bounds);
-        this.logger.debug(`[AgentViewService] View bounds set to: ${JSON.stringify(bounds)}`);
+        this.view.setBounds(sanitizedBounds);
+        this.logger.debug(`[AgentViewService] View bounds set to: ${JSON.stringify(sanitizedBounds)}`);
 
         if (index === -1) {
             this.mainWindow.contentView.addChildView(this.view);
@@ -116,8 +143,14 @@ export class AgentViewService {
 
     updateBounds(bounds: Rectangle): void {
         if (this.isVisible && this.view) {
-            this.logger.debug(`[AgentViewService] updateBounds() called with bounds: ${JSON.stringify(bounds)}`);
-            this.view.setBounds(bounds);
+            const sanitizedBounds = this.sanitizeBounds(bounds);
+            if (!sanitizedBounds) {
+                this.logger.warn('[AgentViewService] updateBounds() ignored due to invalid sanitized bounds');
+                return;
+            }
+
+            this.logger.debug(`[AgentViewService] updateBounds() called with bounds: ${JSON.stringify(sanitizedBounds)}`);
+            this.view.setBounds(sanitizedBounds);
         }
     }
 

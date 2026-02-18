@@ -61,21 +61,54 @@ export class PlaywrightAdapter implements IBrowserAutomation {
             }
 
             const contexts = this.browser!.contexts();
+            const appShellPrefix = process.env['VITE_DEV_SERVER_URL'];
+
+            const isAppShellPage = (url: string): boolean => {
+                if (!url) return false;
+                if (url.startsWith('file://')) return true;
+                if (appShellPrefix && url.startsWith(appShellPrefix)) return true;
+                return false;
+            };
+
+            const discoveredPages: Array<{ url: string; isDevTools: boolean; isExtension: boolean; isAppShell: boolean }> = [];
+            let preferredAgentPage: Page | null = null;
+            let fallbackNonShellPage: Page | null = null;
+
             for (const ctx of contexts) {
                 const pages = ctx.pages();
                 for (const p of pages) {
                     const url = p.url();
                     const isDevTools = url.startsWith('devtools://');
                     const isExtension = url.startsWith('chrome-extension://');
+                    const isAppShell = isAppShellPage(url);
+
+                    discoveredPages.push({ url, isDevTools, isExtension, isAppShell });
 
                     if (!isDevTools && !isExtension) {
-                        this.page = p;
-                        this.logger.info(`[PlaywrightAdapter] Found agent page at: ${url}`);
-                        return;
+                        if (url.includes('#domia-agent-view')) {
+                            preferredAgentPage = p;
+                        } else if (!isAppShell && !fallbackNonShellPage) {
+                            fallbackNonShellPage = p;
+                        }
                     }
                 }
             }
-            throw new NavigationError('Could not find agent WebContentsView page');
+
+            this.logger.debug('[PlaywrightAdapter] CDP pages discovered', { discoveredPages });
+
+            if (preferredAgentPage) {
+                this.page = preferredAgentPage;
+                this.logger.info(`[PlaywrightAdapter] Selected tagged agent page at: ${preferredAgentPage.url()}`);
+                return;
+            }
+
+            if (fallbackNonShellPage) {
+                this.page = fallbackNonShellPage;
+                this.logger.warn(`[PlaywrightAdapter] Tagged agent page not found; selected non-app target page: ${fallbackNonShellPage.url()}`);
+                return;
+            }
+
+            throw new NavigationError('Could not find a safe agent WebContentsView page (only app-shell/devtools targets detected)');
         } else {
             this.logger.info('[PlaywrightAdapter] Launching standalone browser');
             this.browser = await chromium.launch({

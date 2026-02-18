@@ -84,6 +84,7 @@ describe('StepExecutor performance hardening', () => {
                 vision: false,
                 debugScreenshots: false,
                 maxActions: 2,
+                supervisedTerminalPass: false,
                 temporalObservation: true,
                 temporalBurstFrames: 8,
                 temporalBurstIntervalMs: 0

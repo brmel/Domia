@@ -42,6 +42,7 @@ RULES:
 7. Use navigate only when a page change is truly required; do not navigate to empty or relative URLs. If navigating, use a full http/https URL.
 8. Do not fail on the first uncertainty. Re-check state and try one alternative action when feasible before returning fail.
 9. Avoid repeating scroll when the page state is unchanged; after a few no-progress attempts, choose a different action or fail with a clear reason.
+10. Do not call pass as your first model action for a step. Perform at least one concrete verification action first and only pass when you can cite clear evidence.
 
 Respond by calling exactly one tool.`;
 

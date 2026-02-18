@@ -37,6 +37,16 @@ export const DomiaConfigSchema = z.object({
         temporalWindowRetentionCount: 30,
         temporalWindowMaxBytesPerRun: 2_000_000
     }),
+
+    verification: z.object({
+        enforceSupervisedTerminalPass: z.boolean().default(true),
+        terminalPassMinConfidence: z.number().min(0).max(1).default(0.9),
+        terminalPassMinEvidenceItems: z.number().int().positive().default(2),
+    }).default({
+        enforceSupervisedTerminalPass: true,
+        terminalPassMinConfidence: 0.9,
+        terminalPassMinEvidenceItems: 2
+    }),
 });
 
 export type DomiaConfig = z.infer<typeof DomiaConfigSchema>;

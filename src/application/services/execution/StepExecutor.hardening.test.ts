@@ -159,7 +159,7 @@ describe('StepExecutor hardening', () => {
         expect(logger.warn).toHaveBeenCalled();
     });
 
-    it('does not invoke tool executor for terminal pass action', async () => {
+    it('does not invoke tool executor for terminal pass action when supervision is explicitly disabled', async () => {
         const llmProvider = {
             generateAction: vi.fn().mockResolvedValue({
                 isErr: () => false,
@@ -263,7 +263,7 @@ describe('StepExecutor hardening', () => {
             browser as unknown as never,
             'https://example.com',
             0,
-            { vision: false, debugScreenshots: false, maxActions: 5 }
+            { vision: false, debugScreenshots: false, maxActions: 5, supervisedTerminalPass: false }
         );
 
         const first = await generator.next();
@@ -315,7 +315,10 @@ describe('StepExecutor hardening', () => {
                         decision: 'sub_task_success',
                         summary: 'Confirmed done',
                         confidence: 0.94,
-                        evidence: ['Final confirmation satisfied supervised pass criteria.']
+                        evidence: [
+                            'Final confirmation signal observed after retry.',
+                            'No contradictory state detected in follow-up check.'
+                        ]
                     }
                 })
         };
@@ -438,6 +441,146 @@ describe('StepExecutor hardening', () => {
         expect(toolExecutor.execute).not.toHaveBeenCalled();
     });
 
+    it('enforces supervised terminal pass by default when option is omitted', async () => {
+        const llmProvider = {
+            generateAction: vi.fn()
+                .mockResolvedValueOnce({
+                    isErr: () => false,
+                    value: {
+                        type: ActionType.PASS,
+                        summary: 'looks complete',
+                        thought: 'pass now'
+                    }
+                })
+                .mockResolvedValueOnce({
+                    isErr: () => false,
+                    value: {
+                        type: ActionType.PASS,
+                        summary: 'confirmed complete',
+                        thought: 'pass confirmed'
+                    }
+                }),
+            generateEvaluation: vi.fn()
+                .mockResolvedValueOnce({
+                    isErr: () => false,
+                    value: {
+                        decision: 'need_retry',
+                        summary: 'Need one more confirmation step',
+                        advice: 'Re-check final state and confirm.',
+                        confidence: 0.72,
+                        evidence: ['Terminal pass requires supervised confirmation.']
+                    }
+                })
+                .mockResolvedValueOnce({
+                    isErr: () => false,
+                    value: {
+                        decision: 'sub_task_success',
+                        summary: 'Confirmed done',
+                        confidence: 0.95,
+                        evidence: ['Explicit confirmation signal one.', 'Explicit confirmation signal two.']
+                    }
+                })
+        };
+
+        const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
+        const perception = {
+            capture: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: {
+                    id: 'frame-1',
+                    timestamp: Date.now(),
+                    metadata: {
+                        url: 'https://example.com',
+                        title: 'Example',
+                        viewport: { width: 1200, height: 800 }
+                    },
+                    vision: { count: 0, screenshots: [], primaryScreenshot: undefined },
+                    semantic: {
+                        dom: {
+                            url: 'https://example.com',
+                            title: 'Example',
+                            rootElements: { html: {}, body: {} },
+                            elements: []
+                        },
+                        accessibility: null
+                    }
+                }
+            })
+        };
+
+        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}), saveTemporalWindow: vi.fn().mockResolvedValue({}) };
+        const trace = {
+            startTrace: vi.fn().mockResolvedValue(undefined),
+            endTrace: vi.fn().mockResolvedValue(undefined),
+            tracePerception: vi.fn().mockResolvedValue(undefined),
+            traceReasoning: vi.fn().mockResolvedValue(undefined)
+        };
+        const assertionGoalService = { evaluate: vi.fn().mockReturnValue(null) };
+        const toolContractService = { getToolDescriptors: vi.fn().mockReturnValue([]) };
+        const toolExecutor = {
+            execute: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: undefined
+            })
+        };
+
+        const temporalPolicy = {
+            planCapture: vi.fn().mockReturnValue({
+                mode: 'off',
+                enabled: false,
+                maxFrames: 1,
+                burstIntervalMs: 1,
+                maxFramesPerWindow: 1
+            })
+        };
+        const timelineAssembler = { assemble: vi.fn() };
+        const temporalSelector = { select: vi.fn() };
+        const temporalPrivacyFilter = { redact: vi.fn() };
+        const temporalPromptAssembler = { assemble: vi.fn() };
+        const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+        const executor = new StepExecutor(
+            llmProvider as unknown as never,
+            loopDetector as unknown as never,
+            perception as unknown as never,
+            storage as unknown as never,
+            trace as unknown as never,
+            assertionGoalService as unknown as never,
+            toolContractService as unknown as never,
+            toolExecutor as unknown as never,
+            temporalPolicy as unknown as never,
+            timelineAssembler as unknown as never,
+            temporalSelector as unknown as never,
+            temporalPrivacyFilter as unknown as never,
+            temporalPromptAssembler as unknown as never,
+            logger as unknown as never
+        );
+
+        const browser = {
+            getViewportSize: vi.fn().mockResolvedValue({ width: 1200, height: 800 })
+        };
+
+        const generator = executor.executeStep(
+            'run-supervised-default',
+            'verify',
+            browser as unknown as never,
+            'https://example.com',
+            0,
+            { vision: false, debugScreenshots: false, maxActions: 5 }
+        );
+
+        await generator.next();
+        await generator.next();
+        const terminal = await generator.next();
+
+        expect(terminal.done).toBe(true);
+        if (!terminal.done || typeof terminal.value !== 'object' || terminal.value === null || !('success' in terminal.value)) {
+            throw new Error('Expected terminal step execution result');
+        }
+        expect(terminal.value.success).toBe(true);
+        expect(llmProvider.generateEvaluation).toHaveBeenCalledTimes(2);
+    });
+
     it('treats first fail as provisional and can recover on next action', async () => {
         const llmProvider = {
             generateAction: vi.fn()
@@ -554,7 +697,7 @@ describe('StepExecutor hardening', () => {
             browser as unknown as never,
             'https://example.com/app',
             0,
-            { vision: false, debugScreenshots: false, maxActions: 5 }
+            { vision: false, debugScreenshots: false, maxActions: 5, supervisedTerminalPass: false }
         );
 
         const first = await generator.next();
@@ -990,7 +1133,7 @@ describe('StepExecutor hardening', () => {
             browser as unknown as never,
             'https://example.com',
             0,
-            { vision: false, debugScreenshots: false, maxActions: 5 }
+            { vision: false, debugScreenshots: false, maxActions: 5, supervisedTerminalPass: false }
         );
 
         const first = await generator.next();
@@ -1112,7 +1255,7 @@ describe('StepExecutor hardening', () => {
             browser as unknown as never,
             'https://example.com',
             0,
-            { vision: false, debugScreenshots: false, maxActions: 5 },
+            { vision: false, debugScreenshots: false, maxActions: 5, supervisedTerminalPass: false },
             { onEvaluation }
         );
 

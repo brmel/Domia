@@ -283,6 +283,23 @@ export class WebDriver implements IAppDriver {
                         .map(() => ({ success: true, message: `Waited ${params.durationMs}ms` } as ActionResult))
                         .mapErr(err => new Error(err.message));
                 }
+            },
+            {
+                name: 'extract_text',
+                description: 'Extract visible text from an element identified by its ID',
+                schema: z.object({ elementId: z.number() }),
+                metadata: {
+                    name: 'extract_text',
+                    platforms: ['web'],
+                    scope: ToolScope.UNIVERSAL,
+                    terminal: false
+                },
+                execute: (params: { elementId: number }): ResultAsync<ActionResult, Error> => {
+                    const id = ElementIdFactory.unsafe(params.elementId);
+                    return this.playwright.extractText(id)
+                        .map((text) => ({ success: true, message: `Extracted text from ${id}`, data: { text } } as ActionResult))
+                        .mapErr(err => new Error(err.message));
+                }
             }
         ];
         this.logger.info(`[WebDriver] Created ${tools.length} tools: ${tools.map(t => t.name).join(', ')}`);

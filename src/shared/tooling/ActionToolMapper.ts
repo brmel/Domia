@@ -441,6 +441,14 @@ export class ActionToolMapper {
                     toolName: 'navigate_to',
                     input: { url: action.url }
                 };
+            case ActionType.EXTRACT:
+                return {
+                    toolName: 'extract_text',
+                    input: {
+                        elementId: Number(action.elementId),
+                        ...electronWindowPayload
+                    }
+                };
             default:
                 return undefined;
         }

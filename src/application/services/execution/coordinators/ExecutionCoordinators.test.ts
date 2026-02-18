@@ -52,6 +52,25 @@ describe('Execution coordinators', () => {
         expect(options.maxActions).toBe(5);
         expect(options.temporalObservation).toBe(true);
         expect(options.temporalMode).toBe('forensic');
+        expect(options.supervisedTerminalPass).toBe(true);
+        expect(options.verificationPolicyProfile.terminalPassMinConfidence).toBe(0.9);
+        expect(options.verificationPolicyProfile.terminalPassMinEvidenceItems).toBe(2);
+    });
+
+    it('honors run-level verification profile overrides', () => {
+        const coordinator = new StepExecutionCoordinator();
+        const options = coordinator.buildExecutionOptions({
+            verification: {
+                enforceSupervisedTerminalPass: false,
+                terminalPassMinConfidence: 0.97,
+                terminalPassMinEvidenceItems: 4
+            }
+        });
+
+        expect(options.supervisedTerminalPass).toBe(false);
+        expect(options.verificationPolicyProfile.enforceSupervisedTerminalPass).toBe(false);
+        expect(options.verificationPolicyProfile.terminalPassMinConfidence).toBe(0.97);
+        expect(options.verificationPolicyProfile.terminalPassMinEvidenceItems).toBe(4);
     });
 
     it('maps replanning triggers and prompt context', () => {

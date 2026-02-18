@@ -95,6 +95,7 @@ describe('StepExecutor operator override', () => {
                 vision: false,
                 debugScreenshots: false,
                 maxActions: 3,
+                supervisedTerminalPass: false,
                 temporalObservation: false
             },
             {
