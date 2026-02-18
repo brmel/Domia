@@ -4,7 +4,6 @@ import { AgentAction, LLMEvaluationDecision } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
 import { LoopDetectorService } from './LoopDetectorService';
 import { AssertionGoalService } from '../assertion/AssertionGoalService';
-import { ToolContractService } from '../tooling/ToolContractService';
 import type { ToolContext } from '@domain/tools/Tool';
 import type { ToolExecutor } from '../tooling/ToolExecutor';
 import type { ILogger } from '@domain/ports';
@@ -19,6 +18,7 @@ import { EvidenceBlackboardService } from './EvidenceBlackboardService';
 import { StepActionExecutionService } from './StepActionExecutionService';
 import { TemporalWindowCaptureService } from './TemporalWindowCaptureService';
 import type { VerificationPolicyProfile } from './coordinators/StepExecutionCoordinator';
+import type { IToolCapabilityRegistry } from '../tooling/IToolCapabilityRegistry';
 
 export type StepExecutionResult =
     | { readonly success: true; readonly terminal: 'pass' }
@@ -62,7 +62,7 @@ export class StepExecutor {
         @inject('IStorageService') private storage: IStorageService,
         @inject('ITraceService') private trace: ITraceService,
         @inject(AssertionGoalService) private readonly assertionGoalService: AssertionGoalService,
-        @inject(ToolContractService) private readonly toolContractService: ToolContractService,
+        @inject('IToolCapabilityRegistry') private readonly toolCapabilityRegistry: IToolCapabilityRegistry,
         @inject('IToolExecutor') toolExecutor: ToolExecutor,
         @inject(TemporalObservationPolicyService) temporalPolicy: TemporalObservationPolicyService,
         @inject(TimelineContextAssembler) timelineAssembler: TimelineContextAssembler,
@@ -255,7 +255,7 @@ export class StepExecutor {
                 pageTitle: frame.metadata.title,
                 viewport,
                 stepsRemaining: maxActions - loopCount,
-                availableTools: this.toolContractService.getToolDescriptors(executionContext?.toolContext?.platform),
+                availableTools: this.toolCapabilityRegistry.getToolDescriptors(executionContext?.toolContext?.platform),
                 ...(composedAdvice ? { advice: composedAdvice } : {}),
                 ...(temporalWindow ? { temporalWindow } : {})
             };

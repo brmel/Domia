@@ -10,9 +10,10 @@ import {
     type ToolCallResult,
     type ToolDescriptor
 } from './ToolContracts';
+import type { IToolCapabilityRegistry } from './IToolCapabilityRegistry';
 
 @injectable()
-export class ToolContractService {
+export class ToolContractService implements IToolCapabilityRegistry {
     constructor(
         @inject(ToolRegistry) private readonly toolRegistry: ToolRegistry
     ) {}

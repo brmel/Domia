@@ -38,6 +38,7 @@ import { RegistryBackedToolExecutor } from '@application/services/tooling/Regist
 import { DefaultToolPolicyService } from '@application/services/tooling/ToolPolicyService';
 import { StepActionExecutionService } from '@application/services/execution/StepActionExecutionService';
 import { TemporalWindowCaptureService } from '@application/services/execution/TemporalWindowCaptureService';
+import { ToolContractService } from '@application/services/tooling/ToolContractService';
 
 export function registerRuntimeModule(): void {
     container.registerSingleton(TestRunLifecycleManager);
@@ -83,9 +84,11 @@ export function registerRuntimeModule(): void {
     container.registerSingleton(TrajectoryExportService);
 
     container.registerSingleton(RegistryBackedToolExecutor);
+    container.registerSingleton(ToolContractService);
     container.registerSingleton(DefaultToolPolicyService);
     container.registerSingleton(StepActionExecutionService);
     container.registerSingleton(TemporalWindowCaptureService);
     container.register('IToolPolicyService', { useToken: DefaultToolPolicyService });
+    container.register('IToolCapabilityRegistry', { useToken: ToolContractService });
     container.register('IToolExecutor', { useToken: RegistryBackedToolExecutor });
 }
