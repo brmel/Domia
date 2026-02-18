@@ -21,7 +21,14 @@ Response Format:
 {
   "goal": "Refined goal description",
   "steps": [
-    { "description": "Step 1 description", "type": "browser" },
+        {
+            "description": "Step 1 description",
+            "type": "browser",
+            "objective": "Concrete objective for this step",
+            "successCriteria": ["How we know this step succeeded"],
+            "evidenceExpectations": ["What evidence should be collected"],
+            "constraints": ["Important constraints to respect"]
+        },
     ...
   ] 
 }`,
@@ -31,7 +38,11 @@ Response Format:
             goal: z.string(),
             steps: z.array(z.object({
                 description: z.string(),
-                type: z.enum(['general', 'vision', 'code', 'browser'])
+                type: z.enum(['general', 'vision', 'code', 'browser']),
+                objective: z.string().optional(),
+                successCriteria: z.array(z.string()).optional(),
+                evidenceExpectations: z.array(z.string()).optional(),
+                constraints: z.array(z.string()).optional()
             }))
         });
 
@@ -51,7 +62,13 @@ Response Format:
                     id: nanoid(),
                     description: s.description,
                     status: 'pending',
-                    type: s.type as PlanItemType
+                    type: s.type as PlanItemType,
+                    contract: {
+                        objective: s.objective ?? s.description,
+                        successCriteria: s.successCriteria ?? [],
+                        evidenceExpectations: s.evidenceExpectations ?? [],
+                        constraints: s.constraints ?? []
+                    }
                 }))
             };
 

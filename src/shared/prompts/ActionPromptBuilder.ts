@@ -43,6 +43,7 @@ RULES:
 8. Do not fail on the first uncertainty. Re-check state and try one alternative action when feasible before returning fail.
 9. Avoid repeating scroll when the page state is unchanged; after a few no-progress attempts, choose a different action or fail with a clear reason.
 10. Do not call pass as your first model action for a step. Perform at least one concrete verification action first and only pass when you can cite clear evidence.
+11. When the goal requires validating a list/value (e.g., supported languages), use extract on concrete UI elements and base the decision on extracted content, not assumptions.
 
 Respond by calling exactly one tool.`;
 
@@ -97,9 +98,15 @@ export function buildActionUserPrompt(context: LLMContext): string {
         .join('\n');
 
     const formatPlan = (p: unknown): string => {
-        const plan = p as { items: { status: string; description: string }[] };
+        const plan = p as { items: { status: string; description: string; contract?: { objective?: string } }[] };
         if (!plan || !plan.items) return 'No active plan.';
-        return plan.items.map(item => `- [${item.status.toUpperCase()}] ${item.description}`).join('\n');
+        return plan.items
+            .map((item) => {
+                const objective = item.contract?.objective?.trim();
+                const summary = objective && objective.length > 0 ? objective : item.description;
+                return `- [${item.status.toUpperCase()}] ${summary}`;
+            })
+            .join('\n');
     };
 
     const availableTools = (context.availableTools ?? [])
@@ -178,6 +185,7 @@ ${attemptedAction}
 
 EXECUTION OUTCOME: ${context.executionOutcome}
 EXECUTION ERROR: ${context.executionError ?? 'None'}
+EXECUTION OBSERVATION: ${context.executionObservation ?? 'None'}
 
 PREVIOUS ACTIONS:
 ${previousActions || 'None'}
