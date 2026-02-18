@@ -4,6 +4,9 @@ import type {
     IToolCallingProvider,
     ToolCallingRequest,
     ToolCallingResult,
+    ToolCallingOutcome,
+    ToolCallingFailure,
+    ToolCallingFailureCode,
     ILogger
 } from '@domain/ports';
 import { LLMError } from '@domain/errors';
@@ -22,6 +25,25 @@ export class LangChainToolCallingProvider implements IToolCallingProvider {
     ) {}
 
     async generateToolCall(request: ToolCallingRequest): Promise<ToolCallingResult> {
+        const outcome = await this.generateToolCallOutcome(request);
+        if (outcome.ok) {
+            return outcome.result;
+        }
+
+        throw new LLMError(outcome.failure.message);
+    }
+
+    async generateToolCallOutcome(request: ToolCallingRequest): Promise<ToolCallingOutcome> {
+        try {
+            const result = await this.generateWithRetry(request);
+            return { ok: true, result };
+        } catch (error) {
+            const failure = this.classifyFailure(error);
+            return { ok: false, failure };
+        }
+    }
+
+    private async generateWithRetry(request: ToolCallingRequest): Promise<ToolCallingResult> {
         return retryAsync(
             async () => this.generateToolCallOnce(request),
             {
@@ -127,6 +149,100 @@ export class LangChainToolCallingProvider implements IToolCallingProvider {
         }
 
         return { name: firstCall.name, args: validation.data as Record<string, unknown> };
+    }
+
+    private classifyFailure(error: unknown): ToolCallingFailure {
+        const message = error instanceof Error ? error.message : String(error);
+        const lowerMessage = message.toLowerCase();
+
+        const code = this.resolveFailureCode(lowerMessage);
+        const recoverable = this.isRecoverable(code);
+        const retryable = this.isRetryable(code);
+
+        this.logger.warn('[LangChainToolCallingProvider] Tool calling failed', {
+            code,
+            recoverable,
+            retryable,
+            message
+        });
+
+        return {
+            code,
+            message,
+            recoverable,
+            retryable
+        };
+    }
+
+    private resolveFailureCode(message: string): ToolCallingFailureCode {
+        if (message.includes('no valid tool schemas')) {
+            return 'no_valid_tool_schema';
+        }
+
+        if (message.includes('does not support tool calling')) {
+            return 'model_no_tool_support';
+        }
+
+        if (message.includes('did not return any tool call')) {
+            return 'no_tool_call';
+        }
+
+        if (message.includes('did not include a valid name')) {
+            return 'invalid_tool_name';
+        }
+
+        if (message.includes('referenced unknown tool')) {
+            return 'unknown_tool';
+        }
+
+        if (message.includes('failed schema validation') || message.includes('missing or invalid object')) {
+            return 'invalid_tool_args';
+        }
+
+        if (isTransientLlmToolCallingError(message)) {
+            return 'provider_transient';
+        }
+
+        return 'provider_unknown';
+    }
+
+    private isRecoverable(code: ToolCallingFailureCode): boolean {
+        switch (code) {
+            case 'no_valid_tool_schema':
+            case 'model_no_tool_support':
+                return false;
+            case 'no_tool_call':
+            case 'invalid_tool_name':
+            case 'unknown_tool':
+            case 'invalid_tool_args':
+            case 'provider_transient':
+                return true;
+            case 'provider_unknown':
+                return false;
+            default: {
+                const exhaustiveCheck: never = code;
+                return exhaustiveCheck;
+            }
+        }
+    }
+
+    private isRetryable(code: ToolCallingFailureCode): boolean {
+        switch (code) {
+            case 'no_tool_call':
+            case 'invalid_tool_name':
+            case 'unknown_tool':
+            case 'invalid_tool_args':
+            case 'provider_transient':
+                return true;
+            case 'no_valid_tool_schema':
+            case 'model_no_tool_support':
+            case 'provider_unknown':
+                return false;
+            default: {
+                const exhaustiveCheck: never = code;
+                return exhaustiveCheck;
+            }
+        }
     }
 
     private readToolCalls(response: unknown): ReadonlyArray<{ name?: unknown; args?: unknown }> {

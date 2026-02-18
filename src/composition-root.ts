@@ -9,6 +9,7 @@ import { ConsoleLogger } from './infrastructure/adapters/logger/ConsoleLogger';
 
 import { LangChainAdapter } from './infrastructure/adapters/llm/LangChainAdapter';
 import { LangChainToolCallingProvider } from './infrastructure/adapters/llm/LangChainToolCallingProvider';
+import { ToolCallingFailurePolicy } from './infrastructure/adapters/llm/ToolCallingFailurePolicy';
 import { LlmRuntimeConfigResolver } from './infrastructure/adapters/llm/LlmRuntimeConfigResolver';
 import { LangChainModelFactory } from './infrastructure/adapters/llm/LangChainModelFactory';
 import { ConfigService } from './infrastructure/config/ConfigService';
@@ -132,6 +133,7 @@ export function registerCoreServices(): void {
 
     container.registerSingleton(LlmRuntimeConfigResolver);
     container.registerSingleton(LangChainModelFactory);
+    container.registerSingleton(ToolCallingFailurePolicy);
     container.register('IToolCallingProvider', { useClass: LangChainToolCallingProvider });
     container.register('ILLMProvider', { useClass: LangChainAdapter });
     container.register('RunTestUseCase', { useClass: RunTestUseCase });

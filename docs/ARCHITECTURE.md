@@ -15,6 +15,30 @@ A clean architecture design for an autonomous web testing agent with abstracted 
 
 ---
 
+## Agentic Runtime Contract
+
+Domia runtime changes MUST comply with the contract defined in
+[AGENTIC_RUNTIME_EXECUTION_PLAN.md](./AGENTIC_RUNTIME_EXECUTION_PLAN.md).
+
+### Runtime invariants
+
+1. The model decides the next action/tool call within the runtime-exposed capability set.
+2. Runtime enforces safety and correctness contracts (schema, policy, budgets), not tactical micromanagement.
+3. Planner, actor, and evaluator stay role-separated.
+4. A single lifecycle owner drives run transitions.
+5. LLM and execution failures use typed semantics.
+6. Policy behavior remains declarative and configurable where possible.
+
+### Acceptance checks for runtime PRs
+
+- [ ] No deterministic tactical tool substitution was added in the normal execution path.
+- [ ] New failure paths are represented via typed outcomes, not ad-hoc string matching.
+- [ ] Role boundaries (planner/actor/evaluator) are preserved.
+- [ ] Policy changes are configuration/policy-driven, not scattered constants.
+- [ ] Telemetry fields for new transitions/failures are explicit and structured.
+
+---
+
 ## Technology Stack
 
 | Category | Library | Purpose |

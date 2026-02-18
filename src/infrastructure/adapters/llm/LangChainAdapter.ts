@@ -21,6 +21,7 @@ import {
 } from '@shared/prompts/ActionPromptBuilder';
 import { LangChainModelFactory } from './LangChainModelFactory';
 import { LlmRuntimeConfigResolver } from './LlmRuntimeConfigResolver';
+import { ToolCallingFailurePolicy } from './ToolCallingFailurePolicy';
 
 @injectable()
 export class LangChainAdapter implements ILLMProvider {
@@ -35,6 +36,7 @@ export class LangChainAdapter implements ILLMProvider {
         @inject(ActionToolMapper) private readonly actionToolMapper: ActionToolMapper,
         @inject(LlmRuntimeConfigResolver) private readonly runtimeConfig: LlmRuntimeConfigResolver,
         @inject(LangChainModelFactory) private readonly modelFactory: LangChainModelFactory,
+        @inject(ToolCallingFailurePolicy) private readonly toolCallingFailurePolicy: ToolCallingFailurePolicy,
     ) {}
 
     generateAction(context: LLMContext): ResultAsync<AgentAction, LLMError> {
@@ -55,20 +57,35 @@ export class LangChainAdapter implements ILLMProvider {
         let lastError: LLMError | undefined;
         let correctionContext: { error: string } | undefined;
 
-        for (let i = 0; i < retries; i++) {
-            try {
-                return await this.doGenerateAction(context, correctionContext);
-            } catch (e: unknown) {
-                const errorMessage = e instanceof Error ? e.message : String(e);
-                const error = new LLMError(`Generation failed: ${errorMessage}`);
-                this.logger.error(`[LangChainAdapter] system error: ${error.message}`);
-                correctionContext = { error: error.message };
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            const outcome = await this.doGenerateAction(context, correctionContext);
 
-                if (i < retries - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                }
+            if (outcome.ok) {
+                return outcome.action;
+            }
 
-                lastError = error;
+            const failureAction = this.toolCallingFailurePolicy.resolve(outcome.failure, attempt, retries);
+            this.logger.warn('[LangChainAdapter] Tool-calling decision failed during action generation', {
+                code: outcome.failure.code,
+                recoverable: outcome.failure.recoverable,
+                retryable: outcome.failure.retryable,
+                attempt,
+                maxAttempts: retries,
+                decision: failureAction.type,
+                message: outcome.failure.message
+            });
+
+            if (failureAction.type === 'fail') {
+                lastError = new LLMError(`Generation failed: ${failureAction.reason}`);
+                break;
+            }
+
+            if (failureAction.type === 'retry_with_correction') {
+                correctionContext = { error: failureAction.reason };
+            }
+
+            if (attempt < retries) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
             }
         }
 
@@ -78,7 +95,7 @@ export class LangChainAdapter implements ILLMProvider {
     private async doGenerateAction(
         context: LLMContext,
         correction?: { error: string }
-    ): Promise<AgentAction> {
+    ): Promise<{ ok: true; action: AgentAction } | { ok: false; failure: import('@domain/ports').ToolCallingFailure }> {
         const systemPrompt = ACTION_SYSTEM_PROMPT;
         const promptText = buildActionUserPrompt(context);
         const config = this.configService.get();
@@ -94,7 +111,7 @@ export class LangChainAdapter implements ILLMProvider {
 
         this.logger.debug(`[LangChainAdapter] Invoking tool-calling provider. Correction active: ${!!correction}`);
 
-        const toolCall = await this.toolCallingProvider.generateToolCall({
+        const outcome = await this.toolCallingProvider.generateToolCallOutcome({
             systemPrompt,
             userPrompt: promptText,
             tools: this.actionToolMapper.getModelToolDefinitions(context.availableTools),
@@ -102,19 +119,33 @@ export class LangChainAdapter implements ILLMProvider {
             ...(correction ? { correctionError: correction.error } : {})
         });
 
-        const mapped = this.actionToolMapper.mapModelToolCallToAction(toolCall.name, toolCall.args);
-        this.logger.debug(`[LangChainAdapter] Native tool call mapped to action: ${toolCall.name}`);
-        return mapped;
+        if (!outcome.ok) {
+            return { ok: false, failure: outcome.failure };
+        }
+
+        const mapped = this.actionToolMapper.mapModelToolCallToAction(outcome.result.name, outcome.result.args);
+        this.logger.debug(`[LangChainAdapter] Native tool call mapped to action: ${outcome.result.name}`);
+        return { ok: true, action: mapped };
     }
 
     private async doGenerateEvaluation(context: LLMEvaluationContext): Promise<LLMEvaluationDecision> {
-        const toolCall = await this.toolCallingProvider.generateToolCall({
+        const outcome = await this.toolCallingProvider.generateToolCallOutcome({
             systemPrompt: EVALUATION_SYSTEM_PROMPT,
             userPrompt: buildEvaluationUserPrompt(context),
             tools: this.actionToolMapper.getEvaluationToolDefinitions()
         });
 
-        return this.actionToolMapper.mapModelToolCallToEvaluationDecision(toolCall.name, toolCall.args);
+        if (!outcome.ok) {
+            this.logger.warn('[LangChainAdapter] Evaluator tool-calling decision failed', {
+                code: outcome.failure.code,
+                recoverable: outcome.failure.recoverable,
+                retryable: outcome.failure.retryable,
+                message: outcome.failure.message
+            });
+            throw new LLMError(`Evaluation generation failed: ${outcome.failure.message}`);
+        }
+
+        return this.actionToolMapper.mapModelToolCallToEvaluationDecision(outcome.result.name, outcome.result.args);
     }
 
     generatePlan(prompt: string): ResultAsync<import('@domain/entities/Plan').Plan, LLMError> {
