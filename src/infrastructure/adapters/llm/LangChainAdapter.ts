@@ -22,6 +22,7 @@ import {
 import { LangChainModelFactory } from './LangChainModelFactory';
 import { LlmRuntimeConfigResolver } from './LlmRuntimeConfigResolver';
 import { ToolCallingFailurePolicy } from './ToolCallingFailurePolicy';
+import { RuntimeRolloutGateService } from './RuntimeRolloutGateService';
 
 @injectable()
 export class LangChainAdapter implements ILLMProvider {
@@ -37,6 +38,7 @@ export class LangChainAdapter implements ILLMProvider {
         @inject(LlmRuntimeConfigResolver) private readonly runtimeConfig: LlmRuntimeConfigResolver,
         @inject(LangChainModelFactory) private readonly modelFactory: LangChainModelFactory,
         @inject(ToolCallingFailurePolicy) private readonly toolCallingFailurePolicy: ToolCallingFailurePolicy,
+        @inject(RuntimeRolloutGateService) private readonly rolloutGate: RuntimeRolloutGateService,
     ) {}
 
     generateAction(context: LLMContext): ResultAsync<AgentAction, LLMError> {
@@ -54,13 +56,31 @@ export class LangChainAdapter implements ILLMProvider {
     }
 
     private async generateWithRetry(context: LLMContext, retries = 3): Promise<AgentAction> {
+        const rolloutMode = this.rolloutGate.resolveMode();
+        if (!rolloutMode.agenticEnabled) {
+            this.logger.info('[LangChainAdapter] Agentic runtime path disabled for action generation', {
+                reason: rolloutMode.reason
+            });
+            return this.generateLegacyAction(context);
+        }
+
         let lastError: LLMError | undefined;
         let correctionContext: { error: string } | undefined;
+        let usedRetry = false;
 
         for (let attempt = 1; attempt <= retries; attempt++) {
             const outcome = await this.doGenerateAction(context, correctionContext);
 
             if (outcome.ok) {
+                this.rolloutGate.recordDecision({
+                    validToolCall: true,
+                    usedRetry,
+                    terminalFailure: false
+                });
+
+                if (rolloutMode.shadowMode) {
+                    await this.compareWithLegacyAction(context, outcome.action);
+                }
                 return outcome.action;
             }
 
@@ -85,39 +105,58 @@ export class LangChainAdapter implements ILLMProvider {
             }
 
             if (attempt < retries) {
+                usedRetry = true;
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
         }
 
+        this.rolloutGate.recordDecision({
+            validToolCall: false,
+            usedRetry,
+            terminalFailure: true
+        });
+
         throw lastError || new LLMError("Failed to generate valid action after retries");
+    }
+
+    private async generateLegacyAction(context: LLMContext): Promise<AgentAction> {
+        const request = this.buildActionRequest(context);
+        const result = await this.toolCallingProvider.generateToolCall(request);
+        return this.actionToolMapper.mapModelToolCallToAction(result.name, result.args);
+    }
+
+    private async compareWithLegacyAction(context: LLMContext, primaryAction: AgentAction): Promise<void> {
+        try {
+            const legacyAction = await this.generateLegacyAction(context);
+            const primarySerialized = JSON.stringify(primaryAction);
+            const legacySerialized = JSON.stringify(legacyAction);
+
+            if (primarySerialized !== legacySerialized) {
+                this.logger.warn('[LangChainAdapter] Shadow mode action mismatch detected', {
+                    primary: primaryAction,
+                    legacy: legacyAction
+                });
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            this.logger.warn('[LangChainAdapter] Shadow mode legacy action generation failed', {
+                message
+            });
+        }
     }
 
     private async doGenerateAction(
         context: LLMContext,
         correction?: { error: string }
     ): Promise<{ ok: true; action: AgentAction } | { ok: false; failure: import('@domain/ports').ToolCallingFailure }> {
-        const systemPrompt = ACTION_SYSTEM_PROMPT;
-        const promptText = buildActionUserPrompt(context);
-        const config = this.configService.get();
-        const isVisionEnabled = config.ai.visionEnabled;
         const runtime = this.runtimeConfig.resolve();
         this.logger.debug(`[LangChainAdapter] Runtime provider=${runtime.provider} model=${runtime.model}${runtime.baseUrl ? ` baseUrl=${runtime.baseUrl}` : ''}`);
 
-        const images = isVisionEnabled
-            ? (context.snapshot.screenshots?.length
-                ? context.snapshot.screenshots
-                : (context.snapshot.screenshot ? [context.snapshot.screenshot] : []))
-            : [];
+        const request = this.buildActionRequest(context, correction);
 
         this.logger.debug(`[LangChainAdapter] Invoking tool-calling provider. Correction active: ${!!correction}`);
 
-        const outcome = await this.toolCallingProvider.generateToolCallOutcome({
-            systemPrompt,
-            userPrompt: promptText,
-            tools: this.actionToolMapper.getModelToolDefinitions(context.availableTools),
-            ...(images.length > 0 ? { imagesBase64: images } : {}),
-            ...(correction ? { correctionError: correction.error } : {})
-        });
+        const outcome = await this.toolCallingProvider.generateToolCallOutcome(request);
 
         if (!outcome.ok) {
             return { ok: false, failure: outcome.failure };
@@ -126,6 +165,24 @@ export class LangChainAdapter implements ILLMProvider {
         const mapped = this.actionToolMapper.mapModelToolCallToAction(outcome.result.name, outcome.result.args);
         this.logger.debug(`[LangChainAdapter] Native tool call mapped to action: ${outcome.result.name}`);
         return { ok: true, action: mapped };
+    }
+
+    private buildActionRequest(context: LLMContext, correction?: { error: string }): import('@domain/ports').ToolCallingRequest {
+        const config = this.configService.get();
+        const isVisionEnabled = config.ai.visionEnabled;
+        const images = isVisionEnabled
+            ? (context.snapshot.screenshots?.length
+                ? context.snapshot.screenshots
+                : (context.snapshot.screenshot ? [context.snapshot.screenshot] : []))
+            : [];
+
+        return {
+            systemPrompt: ACTION_SYSTEM_PROMPT,
+            userPrompt: buildActionUserPrompt(context),
+            tools: this.actionToolMapper.getModelToolDefinitions(context.availableTools),
+            ...(images.length > 0 ? { imagesBase64: images } : {}),
+            ...(correction ? { correctionError: correction.error } : {})
+        };
     }
 
     private async doGenerateEvaluation(context: LLMEvaluationContext): Promise<LLMEvaluationDecision> {

@@ -49,6 +49,69 @@ export const DomiaConfigSchema = z.object({
         terminalPassMinConfidence: 0.9,
         terminalPassMinEvidenceItems: 2
     }),
+
+    rollout: z.object({
+        agenticRuntime: z.object({
+            enabled: z.boolean().default(true),
+            shadowMode: z.boolean().default(false),
+            sloGates: z.object({
+                enabled: z.boolean().default(false),
+                minimumSamples: z.number().int().positive().default(20),
+                minimumMultilingualSamples: z.number().int().nonnegative().default(5),
+                thresholds: z.object({
+                    toolCallValidityRate: z.number().min(0).max(1).default(0.95),
+                    maxRetryRate: z.number().min(0).max(1).default(0.35),
+                    maxTerminalFailureRate: z.number().min(0).max(1).default(0.15),
+                    multilingualVerificationPassRate: z.number().min(0).max(1).default(0.8),
+                }).default({
+                    toolCallValidityRate: 0.95,
+                    maxRetryRate: 0.35,
+                    maxTerminalFailureRate: 0.15,
+                    multilingualVerificationPassRate: 0.8,
+                }),
+            }).default({
+                enabled: false,
+                minimumSamples: 20,
+                minimumMultilingualSamples: 5,
+                thresholds: {
+                    toolCallValidityRate: 0.95,
+                    maxRetryRate: 0.35,
+                    maxTerminalFailureRate: 0.15,
+                    multilingualVerificationPassRate: 0.8,
+                },
+            }),
+        }).default({
+            enabled: true,
+            shadowMode: false,
+            sloGates: {
+                enabled: false,
+                minimumSamples: 20,
+                minimumMultilingualSamples: 5,
+                thresholds: {
+                    toolCallValidityRate: 0.95,
+                    maxRetryRate: 0.35,
+                    maxTerminalFailureRate: 0.15,
+                    multilingualVerificationPassRate: 0.8,
+                },
+            },
+        }),
+    }).default({
+        agenticRuntime: {
+            enabled: true,
+            shadowMode: false,
+            sloGates: {
+                enabled: false,
+                minimumSamples: 20,
+                minimumMultilingualSamples: 5,
+                thresholds: {
+                    toolCallValidityRate: 0.95,
+                    maxRetryRate: 0.35,
+                    maxTerminalFailureRate: 0.15,
+                    multilingualVerificationPassRate: 0.8,
+                },
+            },
+        },
+    }),
 });
 
 export type DomiaConfig = z.infer<typeof DomiaConfigSchema>;
