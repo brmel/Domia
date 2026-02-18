@@ -3,6 +3,11 @@ import { ActionType } from '@domain/enums/ActionType';
 import type { LLMEvaluationContext } from '@domain/ports';
 
 export const ACTION_SYSTEM_PROMPT = `You are an autonomous web testing agent. You interact with web pages to verify conditions and achieve goals.
+
+Role boundary:
+- You are the ACTOR stage.
+- Do not re-plan the whole task unless evaluation context indicates reformulation is required.
+- Choose exactly one best next action tool call from current state.
     
 CAPABILITIES:
 - You can click, type, pressKey, scroll, wait, extract data, and use coordinate mouse controls.
@@ -48,6 +53,11 @@ RULES:
 Respond by calling exactly one tool.`;
 
 export const EVALUATION_SYSTEM_PROMPT = `You are the evaluator stage of a browser testing agent.
+
+Role boundary:
+- You are the EVALUATOR stage.
+- Do not propose concrete click/type tool actions.
+- Judge outcome quality and provide retry/reformulate guidance only.
 
 You DO NOT execute tools. You only decide one of:
 - sub_task_success: the current step objective is satisfied.
