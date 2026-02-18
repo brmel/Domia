@@ -13,6 +13,15 @@ export type WorkflowStatus =
     | 'completed'
     | 'failed';
 
+export interface EvaluatorAdviceDelta {
+    readonly decision: LLMEvaluationDecision['decision'];
+    readonly summary: string;
+    readonly advice?: string;
+    readonly evidence: readonly string[];
+    readonly confidence: number;
+    readonly timestamp: string;
+}
+
 export interface WorkflowState {
     readonly status: WorkflowStatus;
     readonly stepNumber: number;
@@ -26,6 +35,7 @@ export interface WorkflowState {
     readonly activeNodeId?: string;
     readonly history: readonly AgentAction[];
     readonly evaluatorAdvice?: string;
+    readonly evaluatorAdviceDelta?: EvaluatorAdviceDelta;
     readonly lastEvaluation?: LLMEvaluationDecision;
 }
 

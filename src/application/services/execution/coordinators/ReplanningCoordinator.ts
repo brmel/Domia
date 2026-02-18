@@ -1,6 +1,6 @@
 import { injectable } from 'tsyringe';
 import type { Plan } from '@domain/entities/Plan';
-import type { LLMEvaluationDecision, WorkflowExecutionGraph } from '@domain/value-objects';
+import type { LLMEvaluationDecision, WorkflowExecutionGraph, EvaluatorAdviceDelta } from '@domain/value-objects';
 import type { ReplanningTrigger } from '@application/services/execution/ReplanningPolicyService';
 
 type StepFailureCode =
@@ -42,6 +42,7 @@ export class ReplanningCoordinator {
         failureReason: string,
         lastEvaluation?: LLMEvaluationDecision,
         evaluatorAdvice?: string,
+        evaluatorAdviceDelta?: EvaluatorAdviceDelta,
         executionGraph?: WorkflowExecutionGraph,
         failedNodeId?: string
     ): string {
@@ -60,6 +61,17 @@ export class ReplanningCoordinator {
             ].join('\n')
             : 'No explicit evaluator decision captured for this failure.';
 
+        const adviceDeltaContext = evaluatorAdviceDelta
+            ? [
+                `Decision: ${evaluatorAdviceDelta.decision}`,
+                `Summary: ${evaluatorAdviceDelta.summary}`,
+                ...(evaluatorAdviceDelta.advice ? [`Advice: ${evaluatorAdviceDelta.advice}`] : []),
+                `Confidence: ${evaluatorAdviceDelta.confidence}`,
+                `Evidence: ${evaluatorAdviceDelta.evidence.join(' | ') || 'none'}`,
+                `Timestamp: ${evaluatorAdviceDelta.timestamp}`
+            ].join('\n')
+            : 'No structured evaluator advice delta available.';
+
         return [
             `Original request: ${originalPrompt}`,
             'Current plan execution failed and must be replanned.',
@@ -70,6 +82,8 @@ export class ReplanningCoordinator {
             'Selective replanning scope:',
             selectiveScope,
             ...(evaluatorAdvice ? ['Latest evaluator advice in workflow state:', evaluatorAdvice] : []),
+            'Evaluator advice delta:',
+            adviceDeltaContext,
             'Previous plan:',
             planOutline,
             'Produce a revised plan that prioritizes patching only the affected scope while keeping stable nodes unchanged and preserving the same overall objective.'

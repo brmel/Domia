@@ -31,4 +31,5 @@ export type {
 	GraphNodeState
 } from './ExecutionGraph';
 export { ExecutionGraph } from './ExecutionGraph';
+export type { EvaluatorAdviceDelta } from './WorkflowState';
 export { WorkflowState } from './WorkflowState';

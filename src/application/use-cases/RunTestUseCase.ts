@@ -524,6 +524,7 @@ export class RunTestUseCase {
                                 coordinator: this.replanningCoordinator,
                                 ...(currentState.lastEvaluation ? { lastEvaluation: currentState.lastEvaluation } : {}),
                                 ...(currentState.evaluatorAdvice ? { evaluatorAdvice: currentState.evaluatorAdvice } : {}),
+                                ...(currentState.evaluatorAdviceDelta ? { evaluatorAdviceDelta: currentState.evaluatorAdviceDelta } : {}),
                                 ...(currentState.executionGraph ? { executionGraph: currentState.executionGraph } : {}),
                                 failedNodeId: item.id
                             });
@@ -586,6 +587,7 @@ export class RunTestUseCase {
                                 coordinator: this.replanningCoordinator,
                                 ...(currentState.lastEvaluation ? { lastEvaluation: currentState.lastEvaluation } : {}),
                                 ...(currentState.evaluatorAdvice ? { evaluatorAdvice: currentState.evaluatorAdvice } : {}),
+                                ...(currentState.evaluatorAdviceDelta ? { evaluatorAdviceDelta: currentState.evaluatorAdviceDelta } : {}),
                                 ...(currentState.executionGraph ? { executionGraph: currentState.executionGraph } : {}),
                                 failedNodeId: item.id
                             });
@@ -764,13 +766,22 @@ export class RunTestUseCase {
                         evidence: evaluation.evidence,
                         ...(evaluation.advice ? { advice: evaluation.advice } : {}),
                         executionOutcome: pendingEvaluation.executionOutcome,
-                        ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {})
+                                ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {}),
+                                ...(pendingEvaluation.executionObservation ? { executionObservation: pendingEvaluation.executionObservation } : {})
                     };
 
                     currentState = {
                         ...currentState,
                         status: 'validating',
                         evaluatorAdvice: evaluation.advice ?? evaluation.summary,
+                        evaluatorAdviceDelta: {
+                            decision: evaluation.decision,
+                            summary: evaluation.summary,
+                            ...(evaluation.advice ? { advice: evaluation.advice } : {}),
+                            evidence: evaluation.evidence,
+                            confidence: evaluation.confidence,
+                            timestamp: new Date().toISOString()
+                        },
                         lastEvaluation: evaluation
                     };
                     pendingEvaluation = undefined;
@@ -846,13 +857,22 @@ export class RunTestUseCase {
                     evidence: evaluation.evidence,
                     ...(evaluation.advice ? { advice: evaluation.advice } : {}),
                     executionOutcome: pendingEvaluation.executionOutcome,
-                    ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {})
+                    ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {}),
+                    ...(pendingEvaluation.executionObservation ? { executionObservation: pendingEvaluation.executionObservation } : {})
                 };
 
                 currentState = {
                     ...currentState,
                     status: 'validating',
                     evaluatorAdvice: evaluation.advice ?? evaluation.summary,
+                    evaluatorAdviceDelta: {
+                        decision: evaluation.decision,
+                        summary: evaluation.summary,
+                        ...(evaluation.advice ? { advice: evaluation.advice } : {}),
+                        evidence: evaluation.evidence,
+                        confidence: evaluation.confidence,
+                        timestamp: new Date().toISOString()
+                    },
                     lastEvaluation: evaluation
                 };
                 pendingEvaluation = undefined;

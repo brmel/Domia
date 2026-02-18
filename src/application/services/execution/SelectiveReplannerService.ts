@@ -1,6 +1,6 @@
 import { injectable } from 'tsyringe';
 import type { Plan } from '@domain/entities/Plan';
-import type { WorkflowExecutionGraph, LLMEvaluationDecision } from '@domain/value-objects';
+import type { WorkflowExecutionGraph, LLMEvaluationDecision, EvaluatorAdviceDelta } from '@domain/value-objects';
 import type { WorkflowPlanner } from '../planning/WorkflowPlanner';
 import type { ReplanningCoordinator } from './coordinators/ReplanningCoordinator';
 
@@ -13,6 +13,7 @@ export interface SelectiveReplanInput {
     readonly coordinator: ReplanningCoordinator;
     readonly lastEvaluation?: LLMEvaluationDecision;
     readonly evaluatorAdvice?: string;
+    readonly evaluatorAdviceDelta?: EvaluatorAdviceDelta;
     readonly executionGraph?: WorkflowExecutionGraph;
     readonly failedNodeId?: string;
 }
@@ -27,6 +28,7 @@ export class SelectiveReplannerService {
             input.failureReason,
             input.lastEvaluation,
             input.evaluatorAdvice,
+            input.evaluatorAdviceDelta,
             input.executionGraph,
             input.failedNodeId
         );
