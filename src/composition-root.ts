@@ -83,6 +83,7 @@ export function registerCoreServices(): void {
     container.registerSingleton(RunDurabilityService);
     container.registerSingleton(RunBudgetPolicyService);
     container.registerSingleton(RunLifecycleEngineService);
+    container.register('IRunLifecycleEngine', { useToken: RunLifecycleEngineService });
     container.registerSingleton(CheckpointCompactionService);
     container.registerSingleton(RecoveryReadModelService);
     container.registerSingleton(ManualRecoveryBootstrapService);

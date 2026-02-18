@@ -1,9 +1,10 @@
 import { injectable } from 'tsyringe';
 import type { AgentAction, LLMEvaluationDecision } from '@domain/value-objects';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
+import type { IRunLifecycleEngine } from './IRunLifecycleEngine';
 
 @injectable()
-export class RunLifecycleEngineService {
+export class RunLifecycleEngineService implements IRunLifecycleEngine {
     applyEvaluation(state: WorkflowState, evaluation: LLMEvaluationDecision): WorkflowState {
         return {
             ...state,

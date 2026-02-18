@@ -25,6 +25,7 @@ import { EvidenceBlackboardService } from '../services/execution/EvidenceBlackbo
 import { BranchRollbackService } from '../services/execution/BranchRollbackService';
 import { SelectiveReplannerService } from '../services/execution/SelectiveReplannerService';
 import { RunLifecycleEngineService } from '../services/execution/RunLifecycleEngineService';
+import type { IRunLifecycleEngine } from '../services/execution/IRunLifecycleEngine';
 import { PlanningCoordinator, type SkillRoutingContext } from '../services/execution/coordinators/PlanningCoordinator';
 import { RunBootstrapCoordinator } from '../services/execution/coordinators/RunBootstrapCoordinator';
 import { StepExecutionCoordinator, type StepExecutionOptions } from '../services/execution/coordinators/StepExecutionCoordinator';
@@ -95,7 +96,7 @@ export class RunTestUseCase {
         @inject(ReplanningCoordinator) private readonly replanningCoordinator: ReplanningCoordinator = new ReplanningCoordinator(),
         @inject(TerminalizationCoordinator) private readonly terminalizationCoordinator: TerminalizationCoordinator = new TerminalizationCoordinator(),
         @inject(SelectiveReplannerService) private readonly selectiveReplanner: SelectiveReplannerService = new SelectiveReplannerService(),
-        @inject(RunLifecycleEngineService) private readonly runLifecycleEngine: RunLifecycleEngineService = new RunLifecycleEngineService(),
+        @inject('IRunLifecycleEngine') private readonly runLifecycleEngine: IRunLifecycleEngine = new RunLifecycleEngineService(),
         @inject(BranchRollbackService) private readonly branchRollback: BranchRollbackService = new BranchRollbackService(),
         @inject(ObjectiveCompletionPolicyService) private readonly objectiveCompletionPolicy: ObjectiveCompletionPolicyService = new ObjectiveCompletionPolicyService(),
         @inject(EvidenceBlackboardService) private readonly evidenceBlackboard: EvidenceBlackboardService = new EvidenceBlackboardService()
