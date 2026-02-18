@@ -17,6 +17,7 @@ import { TemporalPrivacyFilterService } from '../perception/TemporalPrivacyFilte
 import { TemporalPromptAssemblerService } from '../perception/TemporalPromptAssemblerService';
 import { VerificationPolicyService } from './VerificationPolicyService';
 import { EvidenceBlackboardService } from './EvidenceBlackboardService';
+import { StepActionExecutionService } from './StepActionExecutionService';
 import type { VerificationPolicyProfile } from './coordinators/StepExecutionCoordinator';
 
 export type StepExecutionResult =
@@ -63,14 +64,15 @@ export class StepExecutor {
         @inject('ITraceService') private trace: ITraceService,
         @inject(AssertionGoalService) private readonly assertionGoalService: AssertionGoalService,
         @inject(ToolContractService) private readonly toolContractService: ToolContractService,
-        @inject('IToolExecutor') private readonly toolExecutor: ToolExecutor,
+        @inject('IToolExecutor') toolExecutor: ToolExecutor,
         @inject(TemporalObservationPolicyService) private readonly temporalPolicy: TemporalObservationPolicyService,
         @inject(TimelineContextAssembler) private readonly timelineAssembler: TimelineContextAssembler,
         @inject(TemporalContextSelectorService) private readonly temporalSelector: TemporalContextSelectorService,
         @inject(TemporalPrivacyFilterService) private readonly temporalPrivacyFilter: TemporalPrivacyFilterService,
         @inject(TemporalPromptAssemblerService) private readonly temporalPromptAssembler: TemporalPromptAssemblerService,
         @inject('ILogger') private readonly logger: ILogger,
-        @inject(EvidenceBlackboardService) private readonly evidenceBlackboard: EvidenceBlackboardService = new EvidenceBlackboardService()
+        @inject(EvidenceBlackboardService) private readonly evidenceBlackboard: EvidenceBlackboardService = new EvidenceBlackboardService(),
+        @inject(StepActionExecutionService) private readonly actionExecution: StepActionExecutionService = new StepActionExecutionService(toolExecutor)
     ) { }
 
     async *executeStep(
@@ -351,47 +353,17 @@ export class StepExecutor {
                 return { success: true, terminal: 'pass' };
             }
 
-            let executionOutcome: 'executed' | 'execution_error' | 'not_executed' = 'not_executed';
-            let executionError: string | undefined;
-            let executionObservation: string | undefined;
+            const actionExecution = await this.actionExecution.execute({
+                action,
+                browser,
+                currentUrl: runtimeUrl,
+                viewport,
+                ...(executionContext?.toolContext ? { toolContext: executionContext.toolContext } : {})
+            });
 
-            if (action.type === ActionType.FAIL) {
-                executionOutcome = 'not_executed';
-                executionError = action.reason;
-            } else if (action.type === ActionType.PASS && supervisedTerminalPass) {
-                executionOutcome = 'not_executed';
-            } else if (action.type === ActionType.EXTRACT) {
-                const extractResult = await browser.extractText(action.elementId);
-                if (extractResult.isErr()) {
-                    executionOutcome = 'execution_error';
-                    executionError = extractResult.error.message;
-                } else {
-                    executionOutcome = 'executed';
-                    const normalizedText = this.normalizeObservationText(extractResult.value);
-                    executionObservation = normalizedText
-                        ? `Extracted text: ${normalizedText}`
-                        : 'Extracted text was empty.';
-                }
-            } else {
-                const viewportValidationError = this.validateActionAgainstViewport(action, viewport);
-                if (viewportValidationError) {
-                    executionOutcome = 'execution_error';
-                    executionError = viewportValidationError;
-                } else {
-                    const execResult = await this.toolExecutor.execute(action, {
-                        browser,
-                        currentUrl: runtimeUrl,
-                        ...(executionContext?.toolContext ? { toolContext: executionContext.toolContext } : {})
-                    });
-
-                    if (execResult.isErr()) {
-                        executionOutcome = 'execution_error';
-                        executionError = execResult.error.message;
-                    } else {
-                        executionOutcome = 'executed';
-                    }
-                }
-            }
+            const executionOutcome = actionExecution.outcome;
+            const executionError = actionExecution.error;
+            const executionObservation = actionExecution.observation;
 
             this.evidenceBlackboard.recordAction(runId, action, executionOutcome);
             if (executionObservation) {
@@ -655,39 +627,4 @@ export class StepExecutor {
             || lastAction.type === ActionType.MOUSE_DRAG;
     }
 
-    private normalizeObservationText(text: string): string {
-        return text.replace(/\s+/g, ' ').trim().slice(0, 400);
-    }
-
-    private validateActionAgainstViewport(
-        action: AgentAction,
-        viewport: { width: number; height: number }
-    ): string | undefined {
-        const isInBounds = (x: number, y: number): boolean => (
-            Number.isFinite(x)
-            && Number.isFinite(y)
-            && x >= 0
-            && y >= 0
-            && x < viewport.width
-            && y < viewport.height
-        );
-
-        switch (action.type) {
-            case ActionType.MOUSE_MOVE:
-            case ActionType.MOUSE_CLICK_LEFT:
-            case ActionType.MOUSE_CLICK_RIGHT:
-            case ActionType.MOUSE_DOUBLE_CLICK:
-                if (!isInBounds(action.x, action.y)) {
-                    return `Viewport safety check failed for '${action.type}': coordinates (${action.x}, ${action.y}) are outside viewport ${viewport.width}x${viewport.height}`;
-                }
-                return undefined;
-            case ActionType.MOUSE_DRAG:
-                if (!isInBounds(action.fromX, action.fromY) || !isInBounds(action.toX, action.toY)) {
-                    return `Viewport safety check failed for '${action.type}': drag coordinates (${action.fromX}, ${action.fromY}) -> (${action.toX}, ${action.toY}) are outside viewport ${viewport.width}x${viewport.height}`;
-                }
-                return undefined;
-            default:
-                return undefined;
-        }
-    }
 }

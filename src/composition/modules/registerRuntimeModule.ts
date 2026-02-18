@@ -36,6 +36,7 @@ import { RuntimeReadinessPolicyService } from '@application/services/hardening/R
 import { TrajectoryExportService } from '@infrastructure/services/exporters/TrajectoryExportService';
 import { RegistryBackedToolExecutor } from '@application/services/tooling/RegistryBackedToolExecutor';
 import { DefaultToolPolicyService } from '@application/services/tooling/ToolPolicyService';
+import { StepActionExecutionService } from '@application/services/execution/StepActionExecutionService';
 
 export function registerRuntimeModule(): void {
     container.registerSingleton(TestRunLifecycleManager);
@@ -82,6 +83,7 @@ export function registerRuntimeModule(): void {
 
     container.registerSingleton(RegistryBackedToolExecutor);
     container.registerSingleton(DefaultToolPolicyService);
+    container.registerSingleton(StepActionExecutionService);
     container.register('IToolPolicyService', { useToken: DefaultToolPolicyService });
     container.register('IToolExecutor', { useToken: RegistryBackedToolExecutor });
 }
