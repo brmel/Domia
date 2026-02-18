@@ -24,6 +24,15 @@ export class EvidenceBlackboardService {
         this.pushFact(runId, summary);
     }
 
+    recordObservation(runId: string, observation: string): void {
+        const normalized = observation.trim();
+        if (!normalized) {
+            return;
+        }
+
+        this.pushFact(runId, `Observation: ${normalized}`);
+    }
+
     composeAdvice(runId: string, evaluatorAdvice?: string, maxChars: number = 600): string | undefined {
         const facts = this.byRun.get(runId) ?? [];
         const factTail = facts.slice(-4).map((fact) => fact.summary).join(' || ');

@@ -367,11 +367,7 @@ export class StepExecutor {
 
             this.evidenceBlackboard.recordAction(runId, action, executionOutcome);
             if (executionObservation) {
-                this.evidenceBlackboard.recordAction(runId, {
-                    type: ActionType.WAIT,
-                    durationMs: 0,
-                    thought: executionObservation
-                }, 'executed');
+                this.evidenceBlackboard.recordObservation(runId, executionObservation);
             }
 
             const evaluationResult = await this.llmProvider.generateEvaluation({

@@ -32,4 +32,16 @@ describe('EvidenceBlackboardService', () => {
         service.clearRun('run-2');
         expect(service.composeAdvice('run-2')).toBeUndefined();
     });
+
+    it('records direct observation entries and ignores blank values', () => {
+        const service = new EvidenceBlackboardService();
+
+        service.recordObservation('run-3', '   Extracted text: user is logged in   ');
+        service.recordObservation('run-3', '   ');
+
+        const advice = service.composeAdvice('run-3');
+
+        expect(advice).toContain('Observation: Extracted text: user is logged in');
+        expect(advice).not.toContain('Observation:    ');
+    });
 });
