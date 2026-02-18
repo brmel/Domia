@@ -29,11 +29,13 @@ export const DomiaConfigSchema = z.object({
     limits: z.object({
         maxSteps: z.number().default(20),
         delayBetweenSteps: z.number().default(1000),
+        maxReplansPerRun: z.number().int().nonnegative().default(2),
         temporalWindowRetentionCount: z.number().int().positive().default(30),
         temporalWindowMaxBytesPerRun: z.number().int().positive().default(2_000_000),
     }).default({
         maxSteps: 20,
         delayBetweenSteps: 1000,
+        maxReplansPerRun: 2,
         temporalWindowRetentionCount: 30,
         temporalWindowMaxBytesPerRun: 2_000_000
     }),

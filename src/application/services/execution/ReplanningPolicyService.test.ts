@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { ReplanningPolicyService } from './ReplanningPolicyService';
 
-function createService(): { service: ReplanningPolicyService; logger: { debug: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> } } {
+function createService(maxReplansPerRun?: number): { service: ReplanningPolicyService; logger: { debug: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> } } {
     const logger = {
         debug: vi.fn(),
         info: vi.fn(),
@@ -10,8 +10,18 @@ function createService(): { service: ReplanningPolicyService; logger: { debug: R
         error: vi.fn()
     };
 
+    const configService = maxReplansPerRun === undefined
+        ? undefined
+        : {
+            get: () => ({
+                limits: {
+                    maxReplansPerRun
+                }
+            })
+        };
+
     return {
-        service: new ReplanningPolicyService(logger),
+        service: new ReplanningPolicyService(logger, configService as never),
         logger
     };
 }
@@ -24,6 +34,14 @@ describe('ReplanningPolicyService', () => {
 
         expect(limits.mode).toBe('active');
         expect(limits.maxReplansPerRun).toBe(2);
+    });
+
+    it('uses configured max replans when provided', () => {
+        const { service } = createService(4);
+
+        const limits = service.resolveLimits();
+
+        expect(limits.maxReplansPerRun).toBe(4);
     });
 
     it('approves replanning when trigger is present and budget remains', () => {

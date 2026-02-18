@@ -1,5 +1,5 @@
 import { inject, injectable } from 'tsyringe';
-import type { ILogger } from '@domain/ports';
+import type { ILogger, IConfigService } from '@domain/ports';
 
 export type ReplanningTrigger = 'loop_detected' | 'action_execution_error' | 'assertion_fail' | 'max_actions_reached';
 
@@ -20,17 +20,21 @@ export interface ReplanningAssessment {
     readonly reason: string;
 }
 
-const DEFAULT_LIMITS: ReplanningPolicyLimits = {
-    mode: 'active',
-    maxReplansPerRun: 2
-};
+const DEFAULT_MAX_REPLANS_PER_RUN = 2;
 
 @injectable()
 export class ReplanningPolicyService {
-    constructor(@inject('ILogger') private readonly logger: ILogger) {}
+    constructor(
+        @inject('ILogger') private readonly logger: ILogger,
+        @inject('IConfigService') private readonly configService?: IConfigService
+    ) {}
 
     resolveLimits(): ReplanningPolicyLimits {
-        return DEFAULT_LIMITS;
+        const configuredLimit = this.configService?.get().limits.maxReplansPerRun;
+        return {
+            mode: 'active',
+            maxReplansPerRun: configuredLimit ?? DEFAULT_MAX_REPLANS_PER_RUN
+        };
     }
 
     assess(input: ReplanningAssessmentInput): ReplanningAssessment {
