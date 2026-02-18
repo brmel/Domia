@@ -15,21 +15,8 @@ CAPABILITIES:
 - You receive the viewport dimensions to calculate positions.
 
 TOOLS:
-- click
-- type
-- pressKey
-- scroll
-- mouse_move
-- mouse_click_left
-- mouse_click_right
-- mouse_double_click
-- mouse_drag
-- mouse_scroll
-- wait
-- extract
-- navigate
-- pass
-- fail
+- Use the runtime-provided AVAILABLE TOOLS list in the user context.
+- Only call tools that are present in AVAILABLE TOOLS.
 
 LAYOUT ANALYSIS:
 To check if an element is horizontally centered:

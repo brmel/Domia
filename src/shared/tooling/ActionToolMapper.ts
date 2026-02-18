@@ -100,24 +100,9 @@ export class ActionToolMapper {
         ];
 
         const availableNames = new Set((availableTools ?? []).map(tool => tool.name));
-        const allowedActionTypes = new Set<ActionType>([
-            ActionType.CLICK,
-            ActionType.TYPE,
-            ActionType.SCROLL,
-            ActionType.MOUSE_MOVE,
-            ActionType.MOUSE_CLICK_LEFT,
-            ActionType.MOUSE_CLICK_RIGHT,
-            ActionType.MOUSE_DOUBLE_CLICK,
-            ActionType.MOUSE_DRAG,
-            ActionType.MOUSE_SCROLL,
-            ActionType.WAIT,
-            ActionType.NAVIGATE,
-            ActionType.PASS,
-            ActionType.FAIL
-        ]);
 
         if (availableNames.size === 0) {
-            return allTools.filter(tool => allowedActionTypes.has(tool.name as ActionType));
+            return allTools;
         }
         const mappedByRegistry = new Set<ActionType>([ActionType.PASS, ActionType.FAIL]);
 

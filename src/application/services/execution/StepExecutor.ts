@@ -245,7 +245,7 @@ export class StepExecutor {
                 pageTitle: frame.metadata.title,
                 viewport,
                 stepsRemaining: maxActions - loopCount,
-                availableTools: this.toolContractService.getToolDescriptors(),
+                availableTools: this.toolContractService.getToolDescriptors(executionContext?.toolContext?.platform),
                 ...(composedAdvice ? { advice: composedAdvice } : {}),
                 ...(temporalWindow ? { temporalWindow } : {})
             };
