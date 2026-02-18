@@ -98,12 +98,14 @@ export class PlaywrightAdapter implements IBrowserAutomation {
 
             if (preferredAgentPage) {
                 this.page = preferredAgentPage;
+                this.attachPageLifecycleHandlers(this.page);
                 this.logger.info(`[PlaywrightAdapter] Selected tagged agent page at: ${preferredAgentPage.url()}`);
                 return;
             }
 
             if (fallbackNonShellPage) {
                 this.page = fallbackNonShellPage;
+                this.attachPageLifecycleHandlers(this.page);
                 this.logger.warn(`[PlaywrightAdapter] Tagged agent page not found; selected non-app target page: ${fallbackNonShellPage.url()}`);
                 return;
             }
@@ -119,11 +121,13 @@ export class PlaywrightAdapter implements IBrowserAutomation {
                 ignoreHTTPSErrors: true
             });
             this.page = await context.newPage();
+            this.attachPageLifecycleHandlers(this.page);
             this.logger.info('[PlaywrightAdapter] Created new page');
         }
     }
 
     navigateTo(url: Url): ResultAsync<void, NavigationError> {
+        this.ensureRecoverablePage();
         if (!this.page) {
             return errAsync(new NavigationError('Browser not launched'));
         }
@@ -305,6 +309,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
     }
 
     async getViewportSize(): Promise<{ width: number; height: number }> {
+        this.ensureRecoverablePage();
         if (!this.page) {
             return { width: AGENT_VIEW_CONFIG.DEFAULT_WIDTH, height: AGENT_VIEW_CONFIG.DEFAULT_HEIGHT };
         }
@@ -313,6 +318,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
     }
 
     async waitForDOMStable(timeout: number = 5000): Promise<void> {
+        this.ensureRecoverablePage();
         if (!this.page) return;
         this.logger.debug('[PlaywrightAdapter] Waiting for DOM stability');
         try {
@@ -339,15 +345,18 @@ export class PlaywrightAdapter implements IBrowserAutomation {
     }
 
     getPage(): Page | null {
+        this.ensureRecoverablePage();
         return this.page;
     }
 
     setAttachedPage(page: Page): void {
         this.page = page;
         this.browser = page.context().browser();
+        this.attachPageLifecycleHandlers(page);
     }
 
     private findElement(elementId: ElementId): ResultAsync<ElementHandle, InteractionError> {
+        this.ensureRecoverablePage();
         if (!this.page) {
             return errAsync(new InteractionError('Browser not launched', elementId));
         }
@@ -357,5 +366,39 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         ).andThen((el) =>
             el ? okAsync(el) : errAsync(new InteractionError('Element not found', elementId))
         );
+    }
+
+    private ensureRecoverablePage(): void {
+        if (this.page && !this.page.isClosed()) {
+            return;
+        }
+
+        this.page = null;
+        if (!this.browser) {
+            return;
+        }
+
+        for (const context of this.browser.contexts()) {
+            const candidate = context.pages().find((page) => !page.isClosed());
+            if (candidate) {
+                this.page = candidate;
+                this.attachPageLifecycleHandlers(candidate);
+                this.logger.warn(`[PlaywrightAdapter] Recovered active page after closure: ${candidate.url()}`);
+                return;
+            }
+        }
+    }
+
+    private attachPageLifecycleHandlers(page: Page): void {
+        page.on('crash', () => {
+            this.logger.error('[PlaywrightAdapter] Active page crashed');
+        });
+
+        page.on('close', () => {
+            this.logger.warn('[PlaywrightAdapter] Active page closed');
+            if (this.page === page) {
+                this.page = null;
+            }
+        });
     }
 }

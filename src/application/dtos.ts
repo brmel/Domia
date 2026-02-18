@@ -35,6 +35,7 @@ export type RunTestOutput =
         advice?: string;
         executionOutcome: 'executed' | 'execution_error' | 'not_executed';
         executionError?: string;
+        executionObservation?: string;
     }
     | { type: 'acting'; action: AgentAction }
     | { type: 'state_updated'; state: import('../domain/value-objects').WorkflowState }

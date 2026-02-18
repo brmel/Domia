@@ -33,6 +33,7 @@ export interface LLMEvaluationContext extends LLMContext {
     readonly attemptedAction: AgentAction;
     readonly executionOutcome: 'executed' | 'execution_error' | 'not_executed';
     readonly executionError?: string;
+    readonly executionObservation?: string;
 }
 
 /**
