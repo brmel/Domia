@@ -31,6 +31,7 @@ import { ActionToolMapper } from './shared/tooling/ActionToolMapper';
 import { InMemoryRunExecutionLaneService } from './application/services/execution/RunExecutionLaneService';
 import { RunDurabilityService } from './application/services/execution/RunDurabilityService';
 import { RunBudgetPolicyService } from './application/services/execution/RunBudgetPolicyService';
+import { RunLifecycleEngineService } from './application/services/execution/RunLifecycleEngineService';
 import { CheckpointCompactionService } from './application/services/execution/CheckpointCompactionService';
 import { RecoveryReadModelService } from './application/services/execution/RecoveryReadModelService';
 import { ManualRecoveryBootstrapService } from './application/services/execution/ManualRecoveryBootstrapService';
@@ -89,6 +90,7 @@ export function registerCoreServices(): void {
     container.register('IRunExecutionLaneService', { useToken: InMemoryRunExecutionLaneService });
     container.registerSingleton(RunDurabilityService);
     container.registerSingleton(RunBudgetPolicyService);
+    container.registerSingleton(RunLifecycleEngineService);
     container.registerSingleton(CheckpointCompactionService);
     container.registerSingleton(RecoveryReadModelService);
     container.registerSingleton(ManualRecoveryBootstrapService);

@@ -24,6 +24,7 @@ import { ObjectiveCompletionPolicyService } from '../services/execution/Objectiv
 import { EvidenceBlackboardService } from '../services/execution/EvidenceBlackboardService';
 import { BranchRollbackService } from '../services/execution/BranchRollbackService';
 import { SelectiveReplannerService } from '../services/execution/SelectiveReplannerService';
+import { RunLifecycleEngineService } from '../services/execution/RunLifecycleEngineService';
 import { PlanningCoordinator, type SkillRoutingContext } from '../services/execution/coordinators/PlanningCoordinator';
 import { RunBootstrapCoordinator } from '../services/execution/coordinators/RunBootstrapCoordinator';
 import { StepExecutionCoordinator, type StepExecutionOptions } from '../services/execution/coordinators/StepExecutionCoordinator';
@@ -94,6 +95,7 @@ export class RunTestUseCase {
         @inject(ReplanningCoordinator) private readonly replanningCoordinator: ReplanningCoordinator = new ReplanningCoordinator(),
         @inject(TerminalizationCoordinator) private readonly terminalizationCoordinator: TerminalizationCoordinator = new TerminalizationCoordinator(),
         @inject(SelectiveReplannerService) private readonly selectiveReplanner: SelectiveReplannerService = new SelectiveReplannerService(),
+        @inject(RunLifecycleEngineService) private readonly runLifecycleEngine: RunLifecycleEngineService = new RunLifecycleEngineService(),
         @inject(BranchRollbackService) private readonly branchRollback: BranchRollbackService = new BranchRollbackService(),
         @inject(ObjectiveCompletionPolicyService) private readonly objectiveCompletionPolicy: ObjectiveCompletionPolicyService = new ObjectiveCompletionPolicyService(),
         @inject(EvidenceBlackboardService) private readonly evidenceBlackboard: EvidenceBlackboardService = new EvidenceBlackboardService()
@@ -489,7 +491,7 @@ export class RunTestUseCase {
                     successItems[i] = successItem;
                     executionGraph = this.graphScheduler.updateNodeState(executionGraph, successItem.id, 'completed');
                     currentState = {
-                        ...this.clearActiveItem(currentState),
+                        ...this.runLifecycleEngine.clearActiveItem(currentState),
                         status: 'idle',
                         executionGraph,
                         plan: { ...plan, items: successItems }
@@ -593,7 +595,7 @@ export class RunTestUseCase {
                             });
 
                             executionGraph = ExecutionGraph.fromPlan(plan);
-                            const clearedState = this.clearActiveItem(currentState);
+                            const clearedState = this.runLifecycleEngine.clearActiveItem(currentState);
                             const { error, ...stateWithoutError } = clearedState;
                             void error;
                             currentState = {
@@ -624,7 +626,7 @@ export class RunTestUseCase {
                     newItems[i] = completedWithFailureItem;
                     executionGraph = this.graphScheduler.updateNodeState(executionGraph, completedWithFailureItem.id, 'failed');
                     currentState = {
-                        ...this.clearActiveItem(currentState),
+                        ...this.runLifecycleEngine.clearActiveItem(currentState),
                         status: 'failed',
                         error: errorMsg,
                         executionGraph,
@@ -766,24 +768,11 @@ export class RunTestUseCase {
                         evidence: evaluation.evidence,
                         ...(evaluation.advice ? { advice: evaluation.advice } : {}),
                         executionOutcome: pendingEvaluation.executionOutcome,
-                                ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {}),
-                                ...(pendingEvaluation.executionObservation ? { executionObservation: pendingEvaluation.executionObservation } : {})
+                        ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {}),
+                        ...(pendingEvaluation.executionObservation ? { executionObservation: pendingEvaluation.executionObservation } : {})
                     };
 
-                    currentState = {
-                        ...currentState,
-                        status: 'validating',
-                        evaluatorAdvice: evaluation.advice ?? evaluation.summary,
-                        evaluatorAdviceDelta: {
-                            decision: evaluation.decision,
-                            summary: evaluation.summary,
-                            ...(evaluation.advice ? { advice: evaluation.advice } : {}),
-                            evidence: evaluation.evidence,
-                            confidence: evaluation.confidence,
-                            timestamp: new Date().toISOString()
-                        },
-                        lastEvaluation: evaluation
-                    };
+                    currentState = this.runLifecycleEngine.applyEvaluation(currentState, evaluation);
                     pendingEvaluation = undefined;
                     yield { type: 'state_updated', state: currentState };
                     await this.durability.checkpoint(testRunId, currentState, 'action_applied');
@@ -808,12 +797,7 @@ export class RunTestUseCase {
                         throw new WorkflowError(`Failed to persist test step: ${saveStepResult.error.message}`);
                     }
 
-                    currentState = {
-                        ...currentState,
-                        status: 'acting',
-                        stepNumber: currentState.stepNumber + 1,
-                        history: [...currentState.history, action]
-                    };
+                    currentState = this.runLifecycleEngine.applyAction(currentState, action);
                     estimatedTokensUsed += Math.ceil(JSON.stringify(action).length / 4);
                     yield { type: 'state_updated', state: currentState };
                     await this.durability.checkpoint(testRunId, currentState, 'action_applied');
@@ -861,20 +845,7 @@ export class RunTestUseCase {
                     ...(pendingEvaluation.executionObservation ? { executionObservation: pendingEvaluation.executionObservation } : {})
                 };
 
-                currentState = {
-                    ...currentState,
-                    status: 'validating',
-                    evaluatorAdvice: evaluation.advice ?? evaluation.summary,
-                    evaluatorAdviceDelta: {
-                        decision: evaluation.decision,
-                        summary: evaluation.summary,
-                        ...(evaluation.advice ? { advice: evaluation.advice } : {}),
-                        evidence: evaluation.evidence,
-                        confidence: evaluation.confidence,
-                        timestamp: new Date().toISOString()
-                    },
-                    lastEvaluation: evaluation
-                };
+                currentState = this.runLifecycleEngine.applyEvaluation(currentState, evaluation);
                 pendingEvaluation = undefined;
                 yield { type: 'state_updated', state: currentState };
                 await this.durability.checkpoint(testRunId, currentState, 'action_applied');
@@ -913,13 +884,6 @@ export class RunTestUseCase {
 
     private async resolveRecoveryContext(input: RunTestInput): Promise<RecoveryBootstrapContext | null> {
         return resolveRecoveryContextForRun(this.getRecoveryDependencies(), input);
-    }
-
-    private clearActiveItem(state: WorkflowState): WorkflowState {
-        const { activeItemId, activeNodeId, ...withoutActiveItem } = state;
-        void activeItemId;
-        void activeNodeId;
-        return withoutActiveItem;
     }
 
     private evaluatePostStepReplan(state: WorkflowState): { shouldReplan: boolean; reason: string } {
