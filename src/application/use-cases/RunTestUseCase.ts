@@ -517,17 +517,12 @@ export class RunTestUseCase {
                         };
 
                         try {
-                            plan = await this.selectiveReplanner.replan({
+                            plan = await this.executeScopedReplan({
                                 originalPrompt: input.prompt,
                                 currentPlan: plan,
                                 failedStepDescription: item.description,
                                 failureReason: proactiveReplan.reason,
-                                planner: this.planner,
-                                coordinator: this.replanningCoordinator,
-                                ...(currentState.lastEvaluation ? { lastEvaluation: currentState.lastEvaluation } : {}),
-                                ...(currentState.evaluatorAdvice ? { evaluatorAdvice: currentState.evaluatorAdvice } : {}),
-                                ...(currentState.evaluatorAdviceDelta ? { evaluatorAdviceDelta: currentState.evaluatorAdviceDelta } : {}),
-                                ...(currentState.executionGraph ? { executionGraph: currentState.executionGraph } : {}),
+                                currentState,
                                 failedNodeId: item.id
                             });
                         } catch (error) {
@@ -580,17 +575,12 @@ export class RunTestUseCase {
 
                     if (replanningAssessment.shouldReplan) {
                         try {
-                            plan = await this.selectiveReplanner.replan({
+                            plan = await this.executeScopedReplan({
                                 originalPrompt: input.prompt,
                                 currentPlan: plan,
                                 failedStepDescription: item.description,
                                 failureReason: errorMsg,
-                                planner: this.planner,
-                                coordinator: this.replanningCoordinator,
-                                ...(currentState.lastEvaluation ? { lastEvaluation: currentState.lastEvaluation } : {}),
-                                ...(currentState.evaluatorAdvice ? { evaluatorAdvice: currentState.evaluatorAdvice } : {}),
-                                ...(currentState.evaluatorAdviceDelta ? { evaluatorAdviceDelta: currentState.evaluatorAdviceDelta } : {}),
-                                ...(currentState.executionGraph ? { executionGraph: currentState.executionGraph } : {}),
+                                currentState,
                                 failedNodeId: item.id
                             });
 
@@ -884,6 +874,29 @@ export class RunTestUseCase {
 
     private async resolveRecoveryContext(input: RunTestInput): Promise<RecoveryBootstrapContext | null> {
         return resolveRecoveryContextForRun(this.getRecoveryDependencies(), input);
+    }
+
+    private async executeScopedReplan(input: {
+        originalPrompt: string;
+        currentPlan: Plan;
+        failedStepDescription: string;
+        failureReason: string;
+        currentState: WorkflowState;
+        failedNodeId: string;
+    }): Promise<Plan> {
+        return this.selectiveReplanner.replan({
+            originalPrompt: input.originalPrompt,
+            currentPlan: input.currentPlan,
+            failedStepDescription: input.failedStepDescription,
+            failureReason: input.failureReason,
+            planner: this.planner,
+            coordinator: this.replanningCoordinator,
+            ...(input.currentState.lastEvaluation ? { lastEvaluation: input.currentState.lastEvaluation } : {}),
+            ...(input.currentState.evaluatorAdvice ? { evaluatorAdvice: input.currentState.evaluatorAdvice } : {}),
+            ...(input.currentState.evaluatorAdviceDelta ? { evaluatorAdviceDelta: input.currentState.evaluatorAdviceDelta } : {}),
+            ...(input.currentState.executionGraph ? { executionGraph: input.currentState.executionGraph } : {}),
+            failedNodeId: input.failedNodeId
+        });
     }
 
     private evaluatePostStepReplan(state: WorkflowState): { shouldReplan: boolean; reason: string } {
