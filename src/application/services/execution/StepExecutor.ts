@@ -10,7 +10,6 @@ import type { ToolExecutor } from '../tooling/ToolExecutor';
 import type { ILogger } from '@domain/ports';
 import { TemporalObservationPolicyService } from '../perception/TemporalObservationPolicyService';
 import { TimelineContextAssembler } from '../perception/TimelineContextAssembler';
-import type { SnapshotFrame, TimelineContextWindow } from '@domain/value-objects/TemporalObservation';
 import type { TemporalObservationMode } from '../perception/TemporalObservationPolicyService';
 import { TemporalContextSelectorService } from '../perception/TemporalContextSelectorService';
 import { TemporalPrivacyFilterService } from '../perception/TemporalPrivacyFilterService';
@@ -18,6 +17,7 @@ import { TemporalPromptAssemblerService } from '../perception/TemporalPromptAsse
 import { VerificationPolicyService } from './VerificationPolicyService';
 import { EvidenceBlackboardService } from './EvidenceBlackboardService';
 import { StepActionExecutionService } from './StepActionExecutionService';
+import { TemporalWindowCaptureService } from './TemporalWindowCaptureService';
 import type { VerificationPolicyProfile } from './coordinators/StepExecutionCoordinator';
 
 export type StepExecutionResult =
@@ -50,7 +50,6 @@ export interface ActionOverrideProvider {
 
 const MAX_HISTORY_CONTEXT_ACTIONS = 25;
 const MAX_ADVICE_CONTEXT_CHARS = 600;
-const TEMPORAL_STABLE_FRAME_STREAK = 2;
 
 @injectable()
 export class StepExecutor {
@@ -65,14 +64,23 @@ export class StepExecutor {
         @inject(AssertionGoalService) private readonly assertionGoalService: AssertionGoalService,
         @inject(ToolContractService) private readonly toolContractService: ToolContractService,
         @inject('IToolExecutor') toolExecutor: ToolExecutor,
-        @inject(TemporalObservationPolicyService) private readonly temporalPolicy: TemporalObservationPolicyService,
-        @inject(TimelineContextAssembler) private readonly timelineAssembler: TimelineContextAssembler,
-        @inject(TemporalContextSelectorService) private readonly temporalSelector: TemporalContextSelectorService,
-        @inject(TemporalPrivacyFilterService) private readonly temporalPrivacyFilter: TemporalPrivacyFilterService,
-        @inject(TemporalPromptAssemblerService) private readonly temporalPromptAssembler: TemporalPromptAssemblerService,
+        @inject(TemporalObservationPolicyService) temporalPolicy: TemporalObservationPolicyService,
+        @inject(TimelineContextAssembler) timelineAssembler: TimelineContextAssembler,
+        @inject(TemporalContextSelectorService) temporalSelector: TemporalContextSelectorService,
+        @inject(TemporalPrivacyFilterService) temporalPrivacyFilter: TemporalPrivacyFilterService,
+        @inject(TemporalPromptAssemblerService) temporalPromptAssembler: TemporalPromptAssemblerService,
         @inject('ILogger') private readonly logger: ILogger,
         @inject(EvidenceBlackboardService) private readonly evidenceBlackboard: EvidenceBlackboardService = new EvidenceBlackboardService(),
-        @inject(StepActionExecutionService) private readonly actionExecution: StepActionExecutionService = new StepActionExecutionService(toolExecutor)
+        @inject(StepActionExecutionService) private readonly actionExecution: StepActionExecutionService = new StepActionExecutionService(toolExecutor),
+        @inject(TemporalWindowCaptureService) private readonly temporalWindowCapture: TemporalWindowCaptureService = new TemporalWindowCaptureService(
+            temporalPolicy,
+            perception,
+            timelineAssembler,
+            temporalSelector,
+            temporalPrivacyFilter,
+            temporalPromptAssembler,
+            logger
+        )
     ) { }
 
     async *executeStep(
@@ -141,7 +149,7 @@ export class StepExecutor {
                 : 0;
             previousDomElementCount = domElementCount;
 
-            const temporalWindow = await this.captureTemporalWindowIfEnabled(runId, browser, frame, options, {
+            const temporalWindow = await this.temporalWindowCapture.capture(runId, browser, frame, options, {
                 domVelocity,
                 interactionInFlight: this.isInteractionLikelyInFlight(currentState.history),
                 recentAssertionMismatch: consecutiveEvaluatorRetries > 0,
@@ -479,115 +487,6 @@ export class StepExecutor {
             terminal: 'max_actions',
             code: 'max_actions_reached',
             reason: `Max actions (${maxActions}) reached for step: ${stepGoal}`
-        };
-    }
-
-    private async captureTemporalWindowIfEnabled(
-        runId: string,
-        browser: IBrowserAutomation,
-        baseFrame: import('@domain/value-objects/PerceptionFrame').PerceptionFrame,
-        options: {
-            vision: boolean;
-            debugScreenshots: boolean;
-            temporalObservation?: boolean;
-            temporalMode?: TemporalObservationMode;
-            temporalBurstFrames?: number;
-            temporalBaselineIntervalMs?: number;
-            temporalBurstIntervalMs?: number;
-            temporalMaxFramesPerWindow?: number;
-            temporalPromptTokenBudget?: number;
-            temporalRedactSensitive?: boolean;
-        },
-        signal: {
-            domVelocity: number;
-            interactionInFlight: boolean;
-            recentAssertionMismatch: boolean;
-            recentExecutionError?: boolean;
-            stagnantCycles?: number;
-        }
-    ): Promise<TimelineContextWindow | undefined> {
-        const capturePlan = this.temporalPolicy.planCapture({
-            featureEnabled: true,
-            requested: Boolean(options.temporalObservation),
-            ...(options.temporalMode ? { mode: options.temporalMode } : {}),
-            signal,
-            overrides: {
-                ...(options.temporalBaselineIntervalMs ? { baselineIntervalMs: options.temporalBaselineIntervalMs } : {}),
-                ...(options.temporalBurstIntervalMs ? { burstIntervalMs: options.temporalBurstIntervalMs } : {}),
-                ...(options.temporalBurstFrames ? { burstMaxFrames: options.temporalBurstFrames } : {}),
-                ...(options.temporalMaxFramesPerWindow ? { maxFramesPerWindow: options.temporalMaxFramesPerWindow } : {})
-            }
-        });
-
-        if (!capturePlan.enabled) {
-            return undefined;
-        }
-
-        const timelineFrames: SnapshotFrame[] = [this.toSnapshotFrame(baseFrame, options.temporalBaselineIntervalMs ?? 1000)];
-        let previousTimestamp = baseFrame.timestamp;
-        let previousDomHash = timelineFrames[0]?.domHash;
-        let stableFrameStreak = 0;
-
-        for (let index = 1; index < capturePlan.maxFrames; index++) {
-            await new Promise(resolve => setTimeout(resolve, capturePlan.burstIntervalMs));
-
-            const frameResult = await this.perception.capture(browser, {
-                vision: options.vision || options.debugScreenshots,
-                aria: true,
-                dom: true
-            });
-
-            if (frameResult.isErr()) {
-                this.logger.debug(`[StepExecutor] Temporal capture stopped at frame ${index}: ${frameResult.error.message}`);
-                break;
-            }
-
-            const frame = frameResult.value;
-            const interval = Math.max(1, frame.timestamp - previousTimestamp);
-            previousTimestamp = frame.timestamp;
-
-            const snapshotFrame = this.toSnapshotFrame(frame, interval);
-            timelineFrames.push(snapshotFrame);
-
-            if (snapshotFrame.domHash === previousDomHash) {
-                stableFrameStreak += 1;
-                if (stableFrameStreak >= TEMPORAL_STABLE_FRAME_STREAK) {
-                    this.logger.debug(`[StepExecutor] Temporal capture early-stop after ${index + 1} frames due to stable DOM signature`);
-                    break;
-                }
-            } else {
-                stableFrameStreak = 0;
-            }
-
-            previousDomHash = snapshotFrame.domHash;
-        }
-
-        const assembled = this.timelineAssembler.assemble(runId, timelineFrames, capturePlan.maxFramesPerWindow);
-        const selected = this.temporalSelector.select(assembled.frames, { maxFrames: capturePlan.maxFramesPerWindow });
-        const redacted = this.temporalPrivacyFilter.redact(selected.frames, { enabled: options.temporalRedactSensitive ?? true });
-
-        return this.temporalPromptAssembler.assemble({
-            runId,
-            mode: capturePlan.mode,
-            frames: redacted.frames,
-            maxFramesPerWindow: capturePlan.maxFramesPerWindow,
-            droppedFrameCount: selected.droppedFrameCount,
-            redactionApplied: redacted.redactionApplied,
-            ...(options.temporalPromptTokenBudget !== undefined ? { tokenBudget: options.temporalPromptTokenBudget } : {})
-        });
-    }
-
-    private toSnapshotFrame(
-        frame: import('@domain/value-objects/PerceptionFrame').PerceptionFrame,
-        intervalMs: number
-    ): SnapshotFrame {
-        const domHash = `${frame.metadata.url}|${frame.metadata.title}|${frame.semantic.dom?.elements?.length ?? 0}`;
-
-        return {
-            timestamp: frame.timestamp,
-            intervalMs,
-            domHash,
-            note: 'perception-capture'
         };
     }
 
