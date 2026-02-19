@@ -124,6 +124,7 @@ export class StepExecutor {
         let adviceForNextAttempt: string | undefined;
         let consecutiveEvaluatorRetries = 0;
         let previousDomElementCount = 0;
+        const blockedActionSignatures = new Map<string, number>();
         let currentState: { history: AgentAction[], stepNumber: number } = { history: [], stepNumber: initialStepNumber };
         const maxActions = options.maxActions;
 
@@ -308,10 +309,40 @@ export class StepExecutor {
                 });
             }
 
+            const actionSignature = this.buildActionSignature(action);
+            if (action.type !== ActionType.FAIL && blockedActionSignatures.has(actionSignature)) {
+                const blockedAdvice = this.buildLoopAdvice(action, stepGoal, true);
+
+                if (consecutiveEvaluatorRetries >= 2 || loopCount >= maxActions - 1) {
+                    return {
+                        success: false,
+                        terminal: 'error',
+                        code: 'loop_detected',
+                        reason: `Loop detected. Action '${action.type}' repeated too many times.`
+                    };
+                }
+
+                adviceForNextAttempt = blockedAdvice;
+                consecutiveEvaluatorRetries += 1;
+                this.logger.warn('[StepExecutor] Blocked repeated ineffective action and requested alternative model action', {
+                    actionType: action.type,
+                    signature: actionSignature,
+                    stepNumber: currentState.stepNumber + 1,
+                    loopCount
+                });
+
+                currentState = {
+                    ...currentState,
+                    history: [...currentState.history, action],
+                    stepNumber: currentState.stepNumber + 1
+                };
+                loopCount++;
+                continue;
+            }
+
             if (action.type !== ActionType.FAIL && this.loopDetector.isLoop(currentState.history, action)) {
-                const loopAdvice = action.type === ActionType.CLICK
-                    ? 'Loop detected on repeated click attempts. Choose a different strategy (for example extract evidence or navigate to a clearer state) instead of repeating the same click.'
-                    : `Loop detected on repeated '${action.type}' attempts. Choose a different strategy before retrying.`;
+                const loopAdvice = this.buildLoopAdvice(action, stepGoal, false);
+                blockedActionSignatures.set(actionSignature, (blockedActionSignatures.get(actionSignature) ?? 0) + 1);
 
                 if (consecutiveEvaluatorRetries >= 2 || loopCount >= maxActions - 1) {
                     return {
@@ -520,6 +551,61 @@ export class StepExecutor {
             || lastAction.type === ActionType.MOUSE_CLICK_LEFT
             || lastAction.type === ActionType.MOUSE_DOUBLE_CLICK
             || lastAction.type === ActionType.MOUSE_DRAG;
+    }
+
+    private buildActionSignature(action: AgentAction): string {
+        switch (action.type) {
+            case ActionType.CLICK:
+                return `click:${String(action.elementId)}`;
+            case ActionType.TYPE:
+                return `type:${String(action.elementId)}:${action.text}`;
+            case ActionType.NAVIGATE:
+                return `navigate:${action.url}`;
+            case ActionType.SCROLL:
+                return `scroll:${action.direction}`;
+            case ActionType.EXTRACT:
+                return `extract:${String(action.elementId)}`;
+            case ActionType.MOUSE_MOVE:
+                return `mouse_move:${action.x}:${action.y}`;
+            case ActionType.MOUSE_CLICK_LEFT:
+                return `mouse_click_left:${action.x}:${action.y}`;
+            case ActionType.MOUSE_CLICK_RIGHT:
+                return `mouse_click_right:${action.x}:${action.y}`;
+            case ActionType.MOUSE_DOUBLE_CLICK:
+                return `mouse_double_click:${action.x}:${action.y}`;
+            case ActionType.MOUSE_DRAG:
+                return `mouse_drag:${action.fromX}:${action.fromY}:${action.toX}:${action.toY}:${action.steps ?? 0}`;
+            case ActionType.MOUSE_SCROLL:
+                return `mouse_scroll:${action.deltaX}:${action.deltaY}`;
+            case ActionType.WAIT:
+                return `wait:${action.durationMs}`;
+            case ActionType.PRESS_KEY:
+                return `press_key:${action.key}`;
+            case ActionType.PASS:
+                return `pass:${action.summary}`;
+            case ActionType.FAIL:
+                return `fail:${action.reason}`;
+            default:
+                return JSON.stringify(action);
+        }
+    }
+
+    private buildLoopAdvice(action: AgentAction, stepGoal: string, isBlocked: boolean): string {
+        const prefix = isBlocked
+            ? `Action '${action.type}' was already detected as ineffective. Do not repeat it.`
+            : action.type === ActionType.CLICK
+                ? 'Loop detected on repeated click attempts. Do not repeat the same click.'
+                : `Loop detected on repeated '${action.type}' attempts.`;
+
+        if (this.isLanguageValidationGoal(stepGoal)) {
+            return `${prefix} For language validation, extract visible language labels/options and verify the required set (for example Arabic, English, French) from extracted evidence before passing.`;
+        }
+
+        return `${prefix} Choose a different strategy (for example extract evidence or navigate to a clearer state) before retrying.`;
+    }
+
+    private isLanguageValidationGoal(stepGoal: string): boolean {
+        return /language|languages|multilingual|locale|arabic|english|french/i.test(stepGoal);
     }
 
 }
