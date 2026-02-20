@@ -223,15 +223,12 @@ export class RunTestUseCase {
             }
 
             if (recoveryContext) {
-                yield {
-                    type: 'recovery_replay',
-                    telemetry: {
-                        sourceRunId: recoveryContext.sourceRunId,
-                        targetStepNumber: recoveryTargetStepNumber,
-                        replayedCount: 0,
-                        status: 'started'
-                    }
-                };
+                yield this.buildRecoveryReplayEvent({
+                    sourceRunId: recoveryContext.sourceRunId,
+                    targetStepNumber: recoveryTargetStepNumber,
+                    replayedCount: 0,
+                    status: 'started'
+                });
 
                 const replayOutcome = await this.replayRecoveryActions({
                     testRunId,
@@ -244,26 +241,20 @@ export class RunTestUseCase {
                 });
 
                 if (replayOutcome.type === 'ok' || replayOutcome.type === 'cancelled') {
-                    yield {
-                        type: 'recovery_replay',
-                        telemetry: {
-                            sourceRunId: recoveryContext.sourceRunId,
-                            targetStepNumber: recoveryTargetStepNumber,
-                            replayedCount: replayOutcome.replayedCount,
-                            status: replayOutcome.type === 'ok' ? 'completed' : 'cancelled'
-                        }
-                    };
+                    yield this.buildRecoveryReplayEvent({
+                        sourceRunId: recoveryContext.sourceRunId,
+                        targetStepNumber: recoveryTargetStepNumber,
+                        replayedCount: replayOutcome.replayedCount,
+                        status: replayOutcome.type === 'ok' ? 'completed' : 'cancelled'
+                    });
                 } else {
-                    yield {
-                        type: 'recovery_replay',
-                        telemetry: {
-                            sourceRunId: recoveryContext.sourceRunId,
-                            targetStepNumber: recoveryTargetStepNumber,
-                            replayedCount: replayOutcome.replayedCount,
-                            status: replayOutcome.type,
-                            reason: replayOutcome.reason
-                        }
-                    };
+                    yield this.buildRecoveryReplayEvent({
+                        sourceRunId: recoveryContext.sourceRunId,
+                        targetStepNumber: recoveryTargetStepNumber,
+                        replayedCount: replayOutcome.replayedCount,
+                        status: replayOutcome.type,
+                        reason: replayOutcome.reason
+                    });
                 }
 
                 if (replayOutcome.type === 'blocked') {
@@ -935,6 +926,25 @@ export class RunTestUseCase {
         targetStepNumber: number;
     }): Promise<RecoveryReplayOutcome> {
         return replayRecoveryActionsForRun(this.getRecoveryDependencies(), params);
+    }
+
+    private buildRecoveryReplayEvent(params: {
+        sourceRunId: string;
+        targetStepNumber: number;
+        replayedCount: number;
+        status: 'started' | 'completed' | 'cancelled' | 'failed' | 'blocked';
+        reason?: string;
+    }): RunTestOutput {
+        return {
+            type: 'recovery_replay',
+            telemetry: {
+                sourceRunId: params.sourceRunId,
+                targetStepNumber: params.targetStepNumber,
+                replayedCount: params.replayedCount,
+                status: params.status,
+                ...(params.reason ? { reason: params.reason } : {})
+            }
+        };
     }
 
     private async logCheckpointCompactionSummary(runId: string): Promise<void> {
