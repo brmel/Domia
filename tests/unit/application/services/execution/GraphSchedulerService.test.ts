@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
 import type { WorkflowExecutionGraph } from '@domain/value-objects';
-import { GraphSchedulerService } from './GraphSchedulerService';
+import { GraphSchedulerService } from '@application/services/execution/GraphSchedulerService';
 
 function createGraph(): WorkflowExecutionGraph {
     return {

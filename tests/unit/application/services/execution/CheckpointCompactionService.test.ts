@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { CheckpointCompactionService } from './CheckpointCompactionService';
+import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 
 function checkpoint(step: number, createdAt: string): CheckpointRecord {

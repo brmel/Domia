@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
-import { ReplanningPolicyService } from './ReplanningPolicyService';
+import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 
 function createService(maxReplansPerRun?: number): { service: ReplanningPolicyService; logger: { debug: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> } } {
     const logger = {

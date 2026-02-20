@@ -1,10 +1,10 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { okAsync, errAsync } from 'neverthrow';
-import { StepActionExecutionService } from './StepActionExecutionService';
+import { StepActionExecutionService } from '@application/services/execution/StepActionExecutionService';
 import { ActionType } from '@domain/enums/ActionType';
 import type { AgentAction } from '@domain/value-objects';
-import type { ToolExecutor } from '../tooling/ToolExecutor';
+import type { ToolExecutor } from '@application/services/tooling/ToolExecutor';
 import type { IBrowserAutomation } from '@domain/ports';
 
 function createService(executeImpl?: ReturnType<typeof vi.fn>) {

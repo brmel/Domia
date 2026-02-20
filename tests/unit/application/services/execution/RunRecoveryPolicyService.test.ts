@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { RunRecoveryPolicyService } from './RunRecoveryPolicyService';
+import { RunRecoveryPolicyService } from '@application/services/execution/RunRecoveryPolicyService';
 
 describe('RunRecoveryPolicyService', () => {
     const service = new RunRecoveryPolicyService();

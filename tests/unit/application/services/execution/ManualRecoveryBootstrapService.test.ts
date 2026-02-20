@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { ManualRecoveryBootstrapService } from './ManualRecoveryBootstrapService';
+import { ManualRecoveryBootstrapService } from '@application/services/execution/ManualRecoveryBootstrapService';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { Plan } from '@domain/entities/Plan';
 import { ActionType } from '@domain/enums/ActionType';

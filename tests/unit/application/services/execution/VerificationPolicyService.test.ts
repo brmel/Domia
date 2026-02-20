@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
 import { ActionType } from '@domain/enums/ActionType';
 import { ElementIdFactory } from '@domain/value-objects';
-import { VerificationPolicyService } from './VerificationPolicyService';
+import { VerificationPolicyService } from '@application/services/execution/VerificationPolicyService';
 
 describe('VerificationPolicyService', () => {
     it('accepts high-confidence explicit pass success unchanged', () => {

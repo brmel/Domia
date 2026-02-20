@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ActionType } from '@domain/enums/ActionType';
 import type { AgentAction } from '@domain/value-objects';
 import { ElementIdFactory } from '@domain/value-objects';
-import { RecoveryReplayGuardService } from './RecoveryReplayGuardService';
+import { RecoveryReplayGuardService } from '@application/services/execution/RecoveryReplayGuardService';
 
 describe('RecoveryReplayGuardService', () => {
     const service = new RecoveryReplayGuardService();

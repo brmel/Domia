@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { BranchRollbackService } from './BranchRollbackService';
+import { BranchRollbackService } from '@application/services/execution/BranchRollbackService';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 
 function checkpoint(input: {

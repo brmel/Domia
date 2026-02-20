@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { okAsync, errAsync } from 'neverthrow';
 import { PersistenceError } from '@domain/errors';
-import { RecoveryReplayIdempotencyService } from './RecoveryReplayIdempotencyService';
+import { RecoveryReplayIdempotencyService } from '@application/services/execution/RecoveryReplayIdempotencyService';
 
 describe('RecoveryReplayIdempotencyService', () => {
     it('builds node replay idempotency key with run/branch/node/action format', () => {

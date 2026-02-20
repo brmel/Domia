@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { ObjectiveCompletionPolicyService } from './ObjectiveCompletionPolicyService';
+import { ObjectiveCompletionPolicyService } from '@application/services/execution/ObjectiveCompletionPolicyService';
 
 describe('ObjectiveCompletionPolicyService', () => {
     it('fails when unresolved verification failure exists', () => {

@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { okAsync } from 'neverthrow';
-import { RunDurabilityService } from './RunDurabilityService';
+import { RunDurabilityService } from '@application/services/execution/RunDurabilityService';
 
 describe('RunDurabilityService', () => {
     it('skips duplicate checkpoints with identical signatures', async () => {

@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { ok } from 'neverthrow';
-import { SelectiveReplannerService } from './SelectiveReplannerService';
+import { SelectiveReplannerService } from '@application/services/execution/SelectiveReplannerService';
 
 describe('SelectiveReplannerService', () => {
     it('patches only scoped neighborhood and preserves stable nodes', async () => {

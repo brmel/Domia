@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
-import { StepExecutor } from './StepExecutor';
+import { StepExecutor } from '@application/services/execution/StepExecutor';
 import { ActionType } from '@domain/enums/ActionType';
 
 describe('StepExecutor hardening', () => {

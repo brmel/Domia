@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
 import { ActionType } from '@domain/enums/ActionType';
-import { EvidenceBlackboardService } from './EvidenceBlackboardService';
+import { EvidenceBlackboardService } from '@application/services/execution/EvidenceBlackboardService';
 
 describe('EvidenceBlackboardService', () => {
     it('composes advice from evaluator guidance and recent facts', () => {
