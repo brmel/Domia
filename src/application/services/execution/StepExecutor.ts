@@ -17,6 +17,7 @@ import { VerificationPolicyService } from './VerificationPolicyService';
 import { EvidenceBlackboardService } from './EvidenceBlackboardService';
 import { StepActionExecutionService } from './StepActionExecutionService';
 import { TemporalWindowCaptureService } from './TemporalWindowCaptureService';
+import { ExecutionHeuristicsService } from './ExecutionHeuristicsService';
 import type { VerificationPolicyProfile } from './coordinators/StepExecutionCoordinator';
 import type { IToolCapabilityRegistry } from '../tooling/IToolCapabilityRegistry';
 import type { Plan } from '@domain/entities/Plan';
@@ -73,6 +74,7 @@ export class StepExecutor {
         @inject('ILogger') private readonly logger: ILogger,
         @inject(EvidenceBlackboardService) private readonly evidenceBlackboard: EvidenceBlackboardService = new EvidenceBlackboardService(),
         @inject(StepActionExecutionService) private readonly actionExecution: StepActionExecutionService = new StepActionExecutionService(toolExecutor),
+        @inject(ExecutionHeuristicsService) private readonly executionHeuristics: ExecutionHeuristicsService = new ExecutionHeuristicsService(),
         @inject(TemporalWindowCaptureService) private readonly temporalWindowCapture: TemporalWindowCaptureService = new TemporalWindowCaptureService(
             temporalPolicy,
             perception,
@@ -154,7 +156,7 @@ export class StepExecutor {
 
             const temporalWindow = await this.temporalWindowCapture.capture(runId, browser, frame, options, {
                 domVelocity,
-                interactionInFlight: this.isInteractionLikelyInFlight(currentState.history),
+                interactionInFlight: this.executionHeuristics.isInteractionLikelyInFlight(currentState.history),
                 recentAssertionMismatch: consecutiveEvaluatorRetries > 0,
                 recentExecutionError: adviceForNextAttempt ? /error|failed|timeout|blocked/i.test(adviceForNextAttempt) : false,
                 stagnantCycles: stagnantSnapshotCount
@@ -208,7 +210,7 @@ export class StepExecutor {
                 accessibilityTree: frame.semantic.accessibility
             };
 
-            const snapshotSignature = this.buildSnapshotSignature(snapshot, runtimeUrl);
+            const snapshotSignature = this.executionHeuristics.buildSnapshotSignature(snapshot, runtimeUrl);
             if (previousSnapshotSignature && snapshotSignature === previousSnapshotSignature) {
                 stagnantSnapshotCount += 1;
             } else {
@@ -341,9 +343,9 @@ export class StepExecutor {
                 continue;
             }
 
-            const actionSignature = this.resolveActionSignature(action);
+            const actionSignature = this.executionHeuristics.resolveActionSignature(action, this.loopDetector);
             if (action.type !== ActionType.FAIL && blockedActionSignatures.has(actionSignature)) {
-                const blockedAdvice = this.buildLoopAdvice(action, true);
+                const blockedAdvice = this.executionHeuristics.buildLoopAdvice(action, true);
 
                 if (consecutiveEvaluatorRetries >= 2 || loopCount >= maxActions - 1) {
                     return {
@@ -373,7 +375,7 @@ export class StepExecutor {
             }
 
             if (action.type !== ActionType.FAIL && this.loopDetector.isLoop(currentState.history, action)) {
-                const loopAdvice = this.buildLoopAdvice(action, false);
+                const loopAdvice = this.executionHeuristics.buildLoopAdvice(action, false);
                 blockedActionSignatures.set(actionSignature, (blockedActionSignatures.get(actionSignature) ?? 0) + 1);
 
                 if (consecutiveEvaluatorRetries >= 2 || loopCount >= maxActions - 1) {
@@ -551,90 +553,6 @@ export class StepExecutor {
             code: 'max_actions_reached',
             reason: `Max actions (${maxActions}) reached for step: ${stepGoal}`
         };
-    }
-
-    private buildSnapshotSignature(snapshot: import('@domain/value-objects').DOMSnapshot, currentUrl: string): string {
-        const topElements = snapshot.elements
-            .slice(0, 25)
-            .map((element) => `${element.tag}:${(element.role ?? '').toLowerCase()}:${this.normalizeForSignature(element.text).slice(0, 48)}`)
-            .join('|');
-
-        return [
-            this.normalizeForSignature(currentUrl),
-            this.normalizeForSignature(snapshot.title),
-            String(snapshot.elements.length),
-            topElements
-        ].join('::');
-    }
-
-    private normalizeForSignature(input: string): string {
-        return input.toLowerCase().replace(/\s+/g, ' ').trim();
-    }
-
-    private isInteractionLikelyInFlight(history: readonly AgentAction[]): boolean {
-        const lastAction = history[history.length - 1];
-        if (!lastAction) {
-            return false;
-        }
-
-        return lastAction.type === ActionType.CLICK
-            || lastAction.type === ActionType.TYPE
-            || lastAction.type === ActionType.PRESS_KEY
-            || lastAction.type === ActionType.MOUSE_CLICK_LEFT
-            || lastAction.type === ActionType.MOUSE_DOUBLE_CLICK
-            || lastAction.type === ActionType.MOUSE_DRAG;
-    }
-
-    private buildLoopAdvice(action: AgentAction, isBlocked: boolean): string {
-        const prefix = isBlocked
-            ? `Action '${action.type}' was already detected as ineffective. Do not repeat it.`
-            : action.type === ActionType.CLICK
-                ? 'Loop detected on repeated click attempts. Do not repeat the same click.'
-                : `Loop detected on repeated '${action.type}' attempts.`;
-
-        return `${prefix} Choose a different strategy (for example extract evidence or navigate to a clearer state) before retrying.`;
-    }
-
-    private resolveActionSignature(action: AgentAction): string {
-        const detector = this.loopDetector as unknown as { getActionSignature?: (candidate: AgentAction) => string };
-        if (typeof detector.getActionSignature === 'function') {
-            return detector.getActionSignature(action);
-        }
-
-        switch (action.type) {
-            case ActionType.CLICK:
-                return `click:${String(action.elementId)}`;
-            case ActionType.TYPE:
-                return `type:${String(action.elementId)}:${action.text}`;
-            case ActionType.NAVIGATE:
-                return `navigate:${action.url}`;
-            case ActionType.SCROLL:
-                return `scroll:${action.direction}`;
-            case ActionType.EXTRACT:
-                return `extract:${String(action.elementId)}`;
-            case ActionType.MOUSE_MOVE:
-                return `mouse_move:${action.x}:${action.y}`;
-            case ActionType.MOUSE_CLICK_LEFT:
-                return `mouse_click_left:${action.x}:${action.y}`;
-            case ActionType.MOUSE_CLICK_RIGHT:
-                return `mouse_click_right:${action.x}:${action.y}`;
-            case ActionType.MOUSE_DOUBLE_CLICK:
-                return `mouse_double_click:${action.x}:${action.y}`;
-            case ActionType.MOUSE_DRAG:
-                return `mouse_drag:${action.fromX}:${action.fromY}:${action.toX}:${action.toY}:${action.steps ?? 0}`;
-            case ActionType.MOUSE_SCROLL:
-                return `mouse_scroll:${action.deltaX}:${action.deltaY}`;
-            case ActionType.WAIT:
-                return `wait:${action.durationMs}`;
-            case ActionType.PRESS_KEY:
-                return `press_key:${action.key}`;
-            case ActionType.PASS:
-                return 'pass';
-            case ActionType.FAIL:
-                return 'fail';
-            default:
-                return JSON.stringify(action);
-        }
     }
 
 }
