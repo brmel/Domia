@@ -148,7 +148,7 @@ export class RunTestUseCase {
         const skillRoutingContext = this.resolveSkillRoutingContext(input, testRunId);
         this.evaluatePluginPreflight(input, testRunId);
 
-        let browser: IBrowserAutomation | undefined;
+        let browser: IBrowserAutomation;
         let disposeSession: (() => Promise<void>) | undefined;
         let shouldNavigate = true;
         let ownsSession = false;
@@ -169,10 +169,6 @@ export class RunTestUseCase {
                     platform: session.driver.getCapabilities().platform,
                     logger: this.logger
                 };
-            }
-            
-            if (!browser) {
-                throw new WorkflowError('Failed to initialize browser automation interface');
             }
         } catch (error) {
             const err = error instanceof Error ? error : new Error(String(error));
