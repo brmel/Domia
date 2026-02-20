@@ -391,14 +391,14 @@ export class RunTestUseCase {
                 if (!item) continue;
                 const executionGoal = input.prompt;
 
-                if (controller.state === TestRunState.PAUSED) {
-                    runLifecycle = this.durability.transition(testRunId, runLifecycle, 'paused');
-                    await this.durability.checkpoint(testRunId, currentState, 'pause_requested');
-                    await controller.waitForResume();
-                    runLifecycle = this.durability.transition(testRunId, runLifecycle, 'executing');
-                    await this.durability.checkpoint(testRunId, currentState, 'resume_requested');
-                }
-                if (controller.state === TestRunState.CANCELLED) {
+                const controlFlow = await this.applyControllerFlow({
+                    controller,
+                    testRunId,
+                    runLifecycle,
+                    currentState
+                });
+                runLifecycle = controlFlow.runLifecycle;
+                if (controlFlow.cancelled) {
                     break;
                 }
 
@@ -934,6 +934,28 @@ export class RunTestUseCase {
                 status: params.status,
                 ...(params.reason ? { reason: params.reason } : {})
             }
+        };
+    }
+
+    private async applyControllerFlow(input: {
+        controller: ExecutionController;
+        testRunId: string;
+        runLifecycle: RunLifecycleState;
+        currentState: WorkflowState;
+    }): Promise<{ runLifecycle: RunLifecycleState; cancelled: boolean }> {
+        let runLifecycle = input.runLifecycle;
+
+        if (input.controller.state === TestRunState.PAUSED) {
+            runLifecycle = this.durability.transition(input.testRunId, runLifecycle, 'paused');
+            await this.durability.checkpoint(input.testRunId, input.currentState, 'pause_requested');
+            await input.controller.waitForResume();
+            runLifecycle = this.durability.transition(input.testRunId, runLifecycle, 'executing');
+            await this.durability.checkpoint(input.testRunId, input.currentState, 'resume_requested');
+        }
+
+        return {
+            runLifecycle,
+            cancelled: input.controller.state === TestRunState.CANCELLED
         };
     }
 
