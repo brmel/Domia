@@ -506,15 +506,13 @@ export class RunTestUseCase {
                             throw new WorkflowError(`Proactive replanning failed: ${plannerError}`);
                         }
 
-                        executionGraph = ExecutionGraph.fromPlan(plan);
-                        currentState = {
-                            ...currentState,
-                            status: 'thinking',
-                            plan,
-                            executionGraph
-                        };
+                        const proactiveReplanState = await this.applyReplanState(testRunId, currentState, plan, {
+                            clearActiveItem: false,
+                            removeError: false
+                        });
+                        executionGraph = proactiveReplanState.executionGraph;
+                        currentState = proactiveReplanState.state;
                         yield { type: 'state_updated', state: currentState };
-                        await this.durability.checkpoint(testRunId, currentState, 'plan_ready');
                         replanCount += 1;
                     }
                 } else {
@@ -560,18 +558,13 @@ export class RunTestUseCase {
                                 failedNodeId: item.id
                             });
 
-                            executionGraph = ExecutionGraph.fromPlan(plan);
-                            const clearedState = this.runLifecycleEngine.clearActiveItem(currentState);
-                            const { error, ...stateWithoutError } = clearedState;
-                            void error;
-                            currentState = {
-                                ...stateWithoutError,
-                                status: 'thinking',
-                                executionGraph,
-                                plan
-                            };
+                            const failureReplanState = await this.applyReplanState(testRunId, currentState, plan, {
+                                clearActiveItem: true,
+                                removeError: true
+                            });
+                            executionGraph = failureReplanState.executionGraph;
+                            currentState = failureReplanState.state;
                             yield { type: 'state_updated', state: currentState };
-                            await this.durability.checkpoint(testRunId, currentState, 'plan_ready');
 
                             replanCount += 1;
                             consecutiveStepFailures = 0;
@@ -941,6 +934,39 @@ export class RunTestUseCase {
                 status: params.status,
                 ...(params.reason ? { reason: params.reason } : {})
             }
+        };
+    }
+
+    private async applyReplanState(
+        testRunId: string,
+        state: WorkflowState,
+        plan: Plan,
+        options: { clearActiveItem: boolean; removeError: boolean }
+    ): Promise<{ state: WorkflowState; executionGraph: NonNullable<WorkflowState['executionGraph']> }> {
+        const executionGraph = ExecutionGraph.fromPlan(plan);
+        const baseState = options.clearActiveItem ? this.runLifecycleEngine.clearActiveItem(state) : state;
+        const nextState: WorkflowState = options.removeError
+            ? (() => {
+                const { error, ...stateWithoutError } = baseState;
+                void error;
+                return {
+                    ...stateWithoutError,
+                    status: 'thinking',
+                    executionGraph,
+                    plan
+                };
+            })()
+            : {
+                ...baseState,
+                status: 'thinking',
+                plan,
+                executionGraph
+            };
+
+        await this.durability.checkpoint(testRunId, nextState, 'plan_ready');
+        return {
+            state: nextState,
+            executionGraph
         };
     }
 
