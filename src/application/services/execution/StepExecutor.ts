@@ -322,12 +322,7 @@ export class StepExecutor {
 
             if (!passEligibility.allowed) {
                 if (this.isLoopTerminationThresholdReached(consecutiveEvaluatorRetries, loopCount, maxActions)) {
-                    return {
-                        success: false,
-                        terminal: 'error',
-                        code: 'loop_detected',
-                        reason: "Loop detected. Repeated PASS attempts without additional verification evidence."
-                    };
+                    return this.buildLoopDetectedResult("Loop detected. Repeated PASS attempts without additional verification evidence.");
                 }
 
                 adviceForNextAttempt = passEligibility.advice ?? 'Perform a non-pass verification action before attempting PASS again.';
@@ -348,12 +343,7 @@ export class StepExecutor {
                 const blockedAdvice = this.executionHeuristics.buildLoopAdvice(action, true);
 
                 if (this.isLoopTerminationThresholdReached(consecutiveEvaluatorRetries, loopCount, maxActions)) {
-                    return {
-                        success: false,
-                        terminal: 'error',
-                        code: 'loop_detected',
-                        reason: `Loop detected. Action '${action.type}' repeated too many times.`
-                    };
+                    return this.buildLoopDetectedResult(`Loop detected. Action '${action.type}' repeated too many times.`);
                 }
 
                 adviceForNextAttempt = blockedAdvice;
@@ -374,12 +364,7 @@ export class StepExecutor {
                 blockedActionSignatures.set(actionSignature, (blockedActionSignatures.get(actionSignature) ?? 0) + 1);
 
                 if (this.isLoopTerminationThresholdReached(consecutiveEvaluatorRetries, loopCount, maxActions)) {
-                    return {
-                        success: false,
-                        terminal: 'error',
-                        code: 'loop_detected',
-                        reason: `Loop detected. Action '${action.type}' repeated too many times.`
-                    };
+                    return this.buildLoopDetectedResult(`Loop detected. Action '${action.type}' repeated too many times.`);
                 }
 
                 adviceForNextAttempt = loopAdvice;
@@ -399,12 +384,7 @@ export class StepExecutor {
 
                 const noProgressScrollLoop = stagnantSnapshotCount >= 3 && consecutiveScrollActions >= 3;
                 if (noProgressScrollLoop) {
-                    return {
-                        success: false,
-                        terminal: 'error',
-                        code: 'loop_detected',
-                        reason: 'No observable page change after repeated scroll actions.'
-                    };
+                    return this.buildLoopDetectedResult('No observable page change after repeated scroll actions.');
                 }
             } else {
                 consecutiveScrollActions = 0;
@@ -565,6 +545,15 @@ export class StepExecutor {
                 stepNumber: currentState.stepNumber + 1
             },
             loopCount: loopCount + 1
+        };
+    }
+
+    private buildLoopDetectedResult(reason: string): StepExecutionResult {
+        return {
+            success: false,
+            terminal: 'error',
+            code: 'loop_detected',
+            reason
         };
     }
 
