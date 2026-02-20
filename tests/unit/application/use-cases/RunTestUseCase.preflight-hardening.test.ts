@@ -1,15 +1,15 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { ok, okAsync } from 'neverthrow';
-import { RunTestUseCase } from './RunTestUseCase';
-import { ExecutionController } from '../controllers/ExecutionController';
-import { RecoveryReadModelService } from '../services/execution/RecoveryReadModelService';
-import { RunRecoveryPolicyService } from '../services/execution/RunRecoveryPolicyService';
-import { CheckpointCompactionService } from '../services/execution/CheckpointCompactionService';
-import { ManualRecoveryBootstrapService } from '../services/execution/ManualRecoveryBootstrapService';
-import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplayGuardService';
-import { RecoveryReplayIdempotencyService } from '../services/execution/RecoveryReplayIdempotencyService';
-import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
+import { RunTestUseCase } from '@application/use-cases/RunTestUseCase';
+import { ExecutionController } from '@application/controllers/ExecutionController';
+import { RecoveryReadModelService } from '@application/services/execution/RecoveryReadModelService';
+import { RunRecoveryPolicyService } from '@application/services/execution/RunRecoveryPolicyService';
+import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
+import { ManualRecoveryBootstrapService } from '@application/services/execution/ManualRecoveryBootstrapService';
+import { RecoveryReplayGuardService } from '@application/services/execution/RecoveryReplayGuardService';
+import { RecoveryReplayIdempotencyService } from '@application/services/execution/RecoveryReplayIdempotencyService';
+import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 
 describe('RunTestUseCase preflight hardening', () => {
     it('does not fail run when skill/plugin preflight throws', async () => {

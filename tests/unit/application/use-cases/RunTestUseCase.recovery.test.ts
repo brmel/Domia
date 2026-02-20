@@ -6,15 +6,15 @@ import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel
 import type { Plan } from '@domain/entities/Plan';
 import type { RunTestOutput } from '@application/dtos';
 import { ElementIdFactory, WorkflowState } from '@domain/value-objects';
-import { RunTestUseCase } from './RunTestUseCase';
-import { ExecutionController } from '../controllers/ExecutionController';
-import { RecoveryReadModelService } from '../services/execution/RecoveryReadModelService';
-import { RunRecoveryPolicyService } from '../services/execution/RunRecoveryPolicyService';
-import { CheckpointCompactionService } from '../services/execution/CheckpointCompactionService';
-import { ManualRecoveryBootstrapService } from '../services/execution/ManualRecoveryBootstrapService';
-import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplayGuardService';
-import { RecoveryReplayIdempotencyService } from '../services/execution/RecoveryReplayIdempotencyService';
-import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
+import { RunTestUseCase } from '@application/use-cases/RunTestUseCase';
+import { ExecutionController } from '@application/controllers/ExecutionController';
+import { RecoveryReadModelService } from '@application/services/execution/RecoveryReadModelService';
+import { RunRecoveryPolicyService } from '@application/services/execution/RunRecoveryPolicyService';
+import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
+import { ManualRecoveryBootstrapService } from '@application/services/execution/ManualRecoveryBootstrapService';
+import { RecoveryReplayGuardService } from '@application/services/execution/RecoveryReplayGuardService';
+import { RecoveryReplayIdempotencyService } from '@application/services/execution/RecoveryReplayIdempotencyService';
+import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 import { ActionType } from '@domain/enums/ActionType';
 
 function createPlan(items: Plan['items']): Plan {
@@ -316,7 +316,7 @@ describe('RunTestUseCase recovery flow', () => {
         expect(ctx.executor.executeStep).toHaveBeenNthCalledWith(
             1,
             'new-run',
-            'pending one',
+            'resume partial plan',
             expect.anything(),
             'https://example.com',
             3,
@@ -326,7 +326,7 @@ describe('RunTestUseCase recovery flow', () => {
         expect(ctx.executor.executeStep).toHaveBeenNthCalledWith(
             2,
             'new-run',
-            'pending two',
+            'resume partial plan',
             expect.anything(),
             'https://example.com',
             3,
