@@ -46,7 +46,10 @@ describe('StepExecutor performance hardening', () => {
 
         const executor = new StepExecutor(
             llmProvider as unknown as never,
-            { isLoop: vi.fn().mockReturnValue(false) } as unknown as never,
+            {
+            isLoop: vi.fn().mockReturnValue(false),
+            getActionSignature: vi.fn((action: { type: string }) => action.type)
+        } as unknown as never,
             { capture: perceptionCapture } as unknown as never,
             { savePerceptionAssets: vi.fn().mockResolvedValue({}) } as unknown as never,
             {

@@ -63,7 +63,10 @@ describe('StepExecutor operator override', () => {
 
         const executor = new StepExecutor(
             llmProvider as unknown as never,
-            { isLoop: vi.fn().mockReturnValue(false) } as unknown as never,
+            {
+            isLoop: vi.fn().mockReturnValue(false),
+            getActionSignature: vi.fn((action: { type: string }) => action.type)
+        } as unknown as never,
             perception as unknown as never,
             { savePerceptionAssets: vi.fn().mockResolvedValue({}) } as unknown as never,
             trace as unknown as never,

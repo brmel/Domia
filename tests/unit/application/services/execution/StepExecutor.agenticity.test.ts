@@ -36,7 +36,8 @@ describe('StepExecutor agenticity contract', () => {
         };
 
         const loopDetector = {
-            isLoop: vi.fn((_: unknown, action: { type: ActionType }) => action.type === ActionType.CLICK)
+            isLoop: vi.fn((_: unknown, action: { type: ActionType }) => action.type === ActionType.CLICK),
+            getActionSignature: vi.fn((action: { type: string; elementId?: number }) => `${action.type}:${String(action.elementId ?? '')}`)
         };
 
         const perception = {

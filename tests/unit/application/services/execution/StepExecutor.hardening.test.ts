@@ -15,7 +15,10 @@ describe('StepExecutor hardening', () => {
                 }
             })
         };
-        const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
+        const loopDetector = {
+            isLoop: vi.fn().mockReturnValue(false),
+            getActionSignature: vi.fn((action: { type: string }) => action.type)
+        };
 
         const perception = {
             capture: vi.fn().mockResolvedValue({
@@ -181,7 +184,10 @@ describe('StepExecutor hardening', () => {
                 }
             })
         };
-        const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
+        const loopDetector = {
+            isLoop: vi.fn().mockReturnValue(false),
+            getActionSignature: vi.fn((action: { type: string }) => action.type)
+        };
 
         const perception = {
             capture: vi.fn().mockResolvedValue({
@@ -349,7 +355,10 @@ describe('StepExecutor hardening', () => {
                 })
         };
 
-        const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
+        const loopDetector = {
+            isLoop: vi.fn().mockReturnValue(false),
+            getActionSignature: vi.fn((action: { type: string }) => action.type)
+        };
 
         const perception = {
             capture: vi.fn().mockResolvedValue({
@@ -530,7 +539,10 @@ describe('StepExecutor hardening', () => {
                 })
         };
 
-        const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
+        const loopDetector = {
+            isLoop: vi.fn().mockReturnValue(false),
+            getActionSignature: vi.fn((action: { type: string }) => action.type)
+        };
         const perception = {
             capture: vi.fn().mockResolvedValue({
                 isErr: () => false,
@@ -681,7 +693,10 @@ describe('StepExecutor hardening', () => {
                 }
             })
         };
-        const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
+        const loopDetector = {
+            isLoop: vi.fn().mockReturnValue(false),
+            getActionSignature: vi.fn((action: { type: string }) => action.type)
+        };
 
         const perception = {
             capture: vi.fn().mockResolvedValue({
@@ -842,7 +857,10 @@ describe('StepExecutor hardening', () => {
                     }
                 })
         };
-        const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
+        const loopDetector = {
+            isLoop: vi.fn().mockReturnValue(false),
+            getActionSignature: vi.fn((action: { type: string }) => action.type)
+        };
 
         const perception = {
             capture: vi.fn().mockResolvedValue({
@@ -976,7 +994,10 @@ describe('StepExecutor hardening', () => {
                 }
             })
         };
-        const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
+        const loopDetector = {
+            isLoop: vi.fn().mockReturnValue(false),
+            getActionSignature: vi.fn((action: { type: string }) => action.type)
+        };
 
         const perception = {
             capture: vi.fn().mockResolvedValue({
@@ -1119,7 +1140,10 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
+        const loopDetector = {
+            isLoop: vi.fn().mockReturnValue(false),
+            getActionSignature: vi.fn((action: { type: string }) => action.type)
+        };
         const perception = {
             capture: vi.fn().mockResolvedValue({
                 isErr: () => false,
@@ -1243,7 +1267,10 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const loopDetector = { isLoop: vi.fn().mockReturnValue(false) };
+        const loopDetector = {
+            isLoop: vi.fn().mockReturnValue(false),
+            getActionSignature: vi.fn((action: { type: string }) => action.type)
+        };
         const perception = {
             capture: vi.fn().mockResolvedValue({
                 isErr: () => false,

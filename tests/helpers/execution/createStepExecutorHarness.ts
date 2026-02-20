@@ -89,7 +89,8 @@ export function createStepExecutorHarness(): StepExecutorHarness {
             return action.type === ActionType.CLICK
                 && last?.type === ActionType.CLICK
                 && last.elementId === action.elementId;
-        })
+        }),
+        getActionSignature: vi.fn((action: { type: string; elementId?: number }) => `${action.type}:${String(action.elementId ?? '')}`)
     };
 
     const perception = {
