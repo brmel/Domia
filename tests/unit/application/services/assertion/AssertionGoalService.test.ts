@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { AssertionGoalService } from './AssertionGoalService';
+import { AssertionGoalService } from '@application/services/assertion/AssertionGoalService';
 import type { DOMSnapshot } from '@domain/value-objects/DOMSnapshot';
 import { ActionType } from '@domain/enums/ActionType';
 import { ElementIdFactory } from '@domain/value-objects';

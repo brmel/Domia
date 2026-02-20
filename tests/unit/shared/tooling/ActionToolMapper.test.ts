@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { ActionToolMapper } from './ActionToolMapper';
+import { ActionToolMapper } from '@shared/tooling/ActionToolMapper';
 import { ActionType } from '@domain/enums/ActionType';
 
 describe('ActionToolMapper evaluator robustness', () => {
@@ -49,6 +49,6 @@ describe('ActionToolMapper evaluator robustness', () => {
     it('rejects action tool calls with negative elementId values', () => {
         const mapper = new ActionToolMapper();
 
-        expect(() => mapper.mapModelToolCallToAction(ActionType.EXTRACT, { elementId: -1 })).toThrow("elementId");
+        expect(() => mapper.mapModelToolCallToAction(ActionType.EXTRACT, { elementId: -1 })).toThrow('elementId');
     });
 });
