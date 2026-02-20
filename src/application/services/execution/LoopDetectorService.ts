@@ -36,8 +36,10 @@ export class LoopDetectorService {
                 return 'pass';
             case ActionType.FAIL:
                 return 'fail';
-            default:
-                return JSON.stringify(action);
+            default: {
+                const exhaustiveCheck: never = action;
+                return exhaustiveCheck;
+            }
         }
     }
 
