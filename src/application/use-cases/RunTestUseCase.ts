@@ -144,7 +144,6 @@ export class RunTestUseCase {
         const budgetLimits = this.budgetPolicy.resolveLimits(input.options);
         const runStartMs = Date.now();
         let estimatedTokensUsed = 0;
-        const retryCount = 0;
         const recoveryContext = await this.resolveRecoveryContext(input);
         const skillRoutingContext = this.resolveSkillRoutingContext(input, testRunId);
         this.evaluatePluginPreflight(input, testRunId);
@@ -407,7 +406,7 @@ export class RunTestUseCase {
                     actionsTaken: currentState.stepNumber,
                     elapsedMs: Date.now() - runStartMs,
                     estimatedTokensUsed,
-                    retryCount
+                    retryCount: 0
                 });
 
                 if (preStepBudgetAssessment.status === 'exceeded') {
@@ -418,7 +417,7 @@ export class RunTestUseCase {
                                 actionsTaken: currentState.stepNumber,
                                 elapsedMs: Date.now() - runStartMs,
                                 estimatedTokensUsed,
-                                retryCount
+                                retryCount: 0
                             },
                             preStepBudgetAssessment
                         )
@@ -453,7 +452,6 @@ export class RunTestUseCase {
                         budgetLimits,
                         runStartMs,
                         estimatedTokensUsed,
-                        retryCount,
                         controller,
                         ...(stepToolContext ? { stepToolContext } : {})
                     }
@@ -709,7 +707,6 @@ export class RunTestUseCase {
             budgetLimits: RunBudgetLimits;
             runStartMs: number;
             estimatedTokensUsed: number;
-            retryCount: number;
             controller: ExecutionController;
             stepToolContext?: ToolContext;
         }
@@ -739,13 +736,14 @@ export class RunTestUseCase {
         );
 
         try {
-            const iterator = stepGen[Symbol.asyncIterator]();
-            let next = await iterator.next();
+            const consumePendingEvaluation = async (): Promise<RunTestOutput[]> => {
+                if (!pendingEvaluation) {
+                    return [];
+                }
 
-            while (!next.done) {
-                if (pendingEvaluation) {
-                    const evaluation = pendingEvaluation.evaluation;
-                    yield {
+                const evaluation = pendingEvaluation.evaluation;
+                const events: RunTestOutput[] = [
+                    {
                         type: 'evaluating',
                         actionType: pendingEvaluation.attemptedAction.type,
                         decision: evaluation.decision,
@@ -756,12 +754,23 @@ export class RunTestUseCase {
                         executionOutcome: pendingEvaluation.executionOutcome,
                         ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {}),
                         ...(pendingEvaluation.executionObservation ? { executionObservation: pendingEvaluation.executionObservation } : {})
-                    };
+                    }
+                ];
 
-                    currentState = this.runLifecycleEngine.applyEvaluation(currentState, evaluation);
-                    pendingEvaluation = undefined;
-                    yield { type: 'state_updated', state: currentState };
-                    await this.durability.checkpoint(testRunId, currentState, 'action_applied');
+                currentState = this.runLifecycleEngine.applyEvaluation(currentState, evaluation);
+                pendingEvaluation = undefined;
+                events.push({ type: 'state_updated', state: currentState });
+                await this.durability.checkpoint(testRunId, currentState, 'action_applied');
+
+                return events;
+            };
+
+            const iterator = stepGen[Symbol.asyncIterator]();
+            let next = await iterator.next();
+
+            while (!next.done) {
+                for (const event of await consumePendingEvaluation()) {
+                    yield event;
                 }
 
                 if (next.value.type === 'action') {
@@ -792,7 +801,7 @@ export class RunTestUseCase {
                         actionsTaken: currentState.stepNumber,
                         elapsedMs: Date.now() - runtime.runStartMs,
                         estimatedTokensUsed,
-                        retryCount: runtime.retryCount
+                        retryCount: 0
                     });
 
                     if (budgetAssessment.status === 'exceeded') {
@@ -803,7 +812,7 @@ export class RunTestUseCase {
                                     actionsTaken: currentState.stepNumber,
                                     elapsedMs: Date.now() - runtime.runStartMs,
                                     estimatedTokensUsed,
-                                    retryCount: runtime.retryCount
+                                    retryCount: 0
                                 },
                                 budgetAssessment
                             )
@@ -816,25 +825,8 @@ export class RunTestUseCase {
                 next = await iterator.next();
             }
 
-            if (pendingEvaluation) {
-                const evaluation = pendingEvaluation.evaluation;
-                yield {
-                    type: 'evaluating',
-                    actionType: pendingEvaluation.attemptedAction.type,
-                    decision: evaluation.decision,
-                    summary: evaluation.summary,
-                    confidence: evaluation.confidence,
-                    evidence: evaluation.evidence,
-                    ...(evaluation.advice ? { advice: evaluation.advice } : {}),
-                    executionOutcome: pendingEvaluation.executionOutcome,
-                    ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {}),
-                    ...(pendingEvaluation.executionObservation ? { executionObservation: pendingEvaluation.executionObservation } : {})
-                };
-
-                currentState = this.runLifecycleEngine.applyEvaluation(currentState, evaluation);
-                pendingEvaluation = undefined;
-                yield { type: 'state_updated', state: currentState };
-                await this.durability.checkpoint(testRunId, currentState, 'action_applied');
+            for (const event of await consumePendingEvaluation()) {
+                yield event;
             }
 
             const result = next.value;
