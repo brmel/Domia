@@ -720,6 +720,11 @@ export class RunTestUseCase {
         );
 
         try {
+            const emitStateUpdate = async (): Promise<RunTestOutput> => {
+                await this.durability.checkpoint(testRunId, currentState, 'action_applied');
+                return { type: 'state_updated', state: currentState };
+            };
+
             const consumePendingEvaluation = async (): Promise<RunTestOutput[]> => {
                 if (!pendingEvaluation) {
                     return [];
@@ -743,8 +748,7 @@ export class RunTestUseCase {
 
                 currentState = this.runLifecycleEngine.applyEvaluation(currentState, evaluation);
                 pendingEvaluation = undefined;
-                events.push({ type: 'state_updated', state: currentState });
-                await this.durability.checkpoint(testRunId, currentState, 'action_applied');
+                events.push(await emitStateUpdate());
 
                 return events;
             };
@@ -778,8 +782,7 @@ export class RunTestUseCase {
 
                     currentState = this.runLifecycleEngine.applyAction(currentState, action);
                     estimatedTokensUsed += Math.ceil(JSON.stringify(action).length / 4);
-                    yield { type: 'state_updated', state: currentState };
-                    await this.durability.checkpoint(testRunId, currentState, 'action_applied');
+                    yield await emitStateUpdate();
 
                     this.throwIfBudgetExceeded(testRunId, runtime.budgetLimits, this.buildBudgetSnapshot({
                         actionsTaken: currentState.stepNumber,
