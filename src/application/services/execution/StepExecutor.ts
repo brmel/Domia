@@ -270,11 +270,11 @@ export class StepExecutor {
                 agentInput: {
                     goal: stepGoal,
                     currentUrl: runtimeUrl,
-                        promptPreview: JSON.stringify(context).substring(0, 500) + '...',
-                        ...(temporalWindow ? {
-                            timelineSummary: temporalWindow.summary,
-                            timelineFrameCount: temporalWindow.frames.length
-                        } : {})
+                    promptPreview: JSON.stringify(context).substring(0, 500) + '...',
+                    ...(temporalWindow ? {
+                        timelineSummary: temporalWindow.summary,
+                        timelineFrameCount: temporalWindow.frames.length
+                    } : {})
                 }
             });
 
@@ -321,7 +321,7 @@ export class StepExecutor {
             );
 
             if (!passEligibility.allowed) {
-                if (consecutiveEvaluatorRetries >= 2 || loopCount >= maxActions - 1) {
+                if (this.isLoopTerminationThresholdReached(consecutiveEvaluatorRetries, loopCount, maxActions)) {
                     return {
                         success: false,
                         terminal: 'error',
@@ -347,7 +347,7 @@ export class StepExecutor {
             if (action.type !== ActionType.FAIL && blockedActionSignatures.has(actionSignature)) {
                 const blockedAdvice = this.executionHeuristics.buildLoopAdvice(action, true);
 
-                if (consecutiveEvaluatorRetries >= 2 || loopCount >= maxActions - 1) {
+                if (this.isLoopTerminationThresholdReached(consecutiveEvaluatorRetries, loopCount, maxActions)) {
                     return {
                         success: false,
                         terminal: 'error',
@@ -365,12 +365,7 @@ export class StepExecutor {
                     loopCount
                 });
 
-                currentState = {
-                    ...currentState,
-                    history: [...currentState.history, action],
-                    stepNumber: currentState.stepNumber + 1
-                };
-                loopCount++;
+                ({ currentState, loopCount } = this.advanceStateAfterRetry(currentState, action, loopCount));
                 continue;
             }
 
@@ -378,7 +373,7 @@ export class StepExecutor {
                 const loopAdvice = this.executionHeuristics.buildLoopAdvice(action, false);
                 blockedActionSignatures.set(actionSignature, (blockedActionSignatures.get(actionSignature) ?? 0) + 1);
 
-                if (consecutiveEvaluatorRetries >= 2 || loopCount >= maxActions - 1) {
+                if (this.isLoopTerminationThresholdReached(consecutiveEvaluatorRetries, loopCount, maxActions)) {
                     return {
                         success: false,
                         terminal: 'error',
@@ -395,12 +390,7 @@ export class StepExecutor {
                     loopCount
                 });
 
-                currentState = {
-                    ...currentState,
-                    history: [...currentState.history, action],
-                    stepNumber: currentState.stepNumber + 1
-                };
-                loopCount++;
+                ({ currentState, loopCount } = this.advanceStateAfterRetry(currentState, action, loopCount));
                 continue;
             }
 
@@ -552,6 +542,29 @@ export class StepExecutor {
             terminal: 'max_actions',
             code: 'max_actions_reached',
             reason: `Max actions (${maxActions}) reached for step: ${stepGoal}`
+        };
+    }
+
+    private isLoopTerminationThresholdReached(
+        consecutiveEvaluatorRetries: number,
+        loopCount: number,
+        maxActions: number
+    ): boolean {
+        return consecutiveEvaluatorRetries >= 2 || loopCount >= maxActions - 1;
+    }
+
+    private advanceStateAfterRetry(
+        currentState: { history: AgentAction[]; stepNumber: number },
+        action: AgentAction,
+        loopCount: number
+    ): { currentState: { history: AgentAction[]; stepNumber: number }; loopCount: number } {
+        return {
+            currentState: {
+                ...currentState,
+                history: [...currentState.history, action],
+                stepNumber: currentState.stepNumber + 1
+            },
+            loopCount: loopCount + 1
         };
     }
 
