@@ -402,27 +402,11 @@ export class RunTestUseCase {
                     break;
                 }
 
-                const preStepBudgetAssessment = this.budgetPolicy.evaluate(testRunId, budgetLimits, {
+                this.throwIfBudgetExceeded(testRunId, budgetLimits, this.buildBudgetSnapshot({
                     actionsTaken: currentState.stepNumber,
-                    elapsedMs: Date.now() - runStartMs,
-                    estimatedTokensUsed,
-                    retryCount: 0
-                });
-
-                if (preStepBudgetAssessment.status === 'exceeded') {
-                    throw new WorkflowError(
-                        this.budgetPolicy.formatExceededMessage(
-                            budgetLimits,
-                            {
-                                actionsTaken: currentState.stepNumber,
-                                elapsedMs: Date.now() - runStartMs,
-                                estimatedTokensUsed,
-                                retryCount: 0
-                            },
-                            preStepBudgetAssessment
-                        )
-                    );
-                }
+                    runStartMs,
+                    estimatedTokensUsed
+                }));
 
                 const runningItem: PlanItem = { ...item, status: 'active' as PlanItemStatus };
                 const updatedItems = [...plan.items];
@@ -797,27 +781,11 @@ export class RunTestUseCase {
                     yield { type: 'state_updated', state: currentState };
                     await this.durability.checkpoint(testRunId, currentState, 'action_applied');
 
-                    const budgetAssessment = this.budgetPolicy.evaluate(testRunId, runtime.budgetLimits, {
+                    this.throwIfBudgetExceeded(testRunId, runtime.budgetLimits, this.buildBudgetSnapshot({
                         actionsTaken: currentState.stepNumber,
-                        elapsedMs: Date.now() - runtime.runStartMs,
-                        estimatedTokensUsed,
-                        retryCount: 0
-                    });
-
-                    if (budgetAssessment.status === 'exceeded') {
-                        throw new WorkflowError(
-                            this.budgetPolicy.formatExceededMessage(
-                                runtime.budgetLimits,
-                                {
-                                    actionsTaken: currentState.stepNumber,
-                                    elapsedMs: Date.now() - runtime.runStartMs,
-                                    estimatedTokensUsed,
-                                    retryCount: 0
-                                },
-                                budgetAssessment
-                            )
-                        );
-                    }
+                        runStartMs: runtime.runStartMs,
+                        estimatedTokensUsed
+                    }));
 
                     yield { type: 'acting', action };
                 }
@@ -918,6 +886,40 @@ export class RunTestUseCase {
         targetStepNumber: number;
     }): Promise<RecoveryReplayOutcome> {
         return replayRecoveryActionsForRun(this.getRecoveryDependencies(), params);
+    }
+
+    private buildBudgetSnapshot(params: {
+        actionsTaken: number;
+        runStartMs: number;
+        estimatedTokensUsed: number;
+    }): {
+        actionsTaken: number;
+        elapsedMs: number;
+        estimatedTokensUsed: number;
+        retryCount: number;
+    } {
+        return {
+            actionsTaken: params.actionsTaken,
+            elapsedMs: Date.now() - params.runStartMs,
+            estimatedTokensUsed: params.estimatedTokensUsed,
+            retryCount: 0
+        };
+    }
+
+    private throwIfBudgetExceeded(testRunId: string, limits: RunBudgetLimits, snapshot: {
+        actionsTaken: number;
+        elapsedMs: number;
+        estimatedTokensUsed: number;
+        retryCount: number;
+    }): void {
+        const assessment = this.budgetPolicy.evaluate(testRunId, limits, snapshot);
+        if (assessment.status !== 'exceeded') {
+            return;
+        }
+
+        throw new WorkflowError(
+            this.budgetPolicy.formatExceededMessage(limits, snapshot, assessment)
+        );
     }
 
     private buildRecoveryReplayEvent(params: {
