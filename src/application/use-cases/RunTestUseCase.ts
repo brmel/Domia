@@ -7,7 +7,6 @@ import { WorkflowError } from '../../domain/errors';
 import { TestRunLifecycleManager } from '../services/TestRunLifecycleManager';
 import { RunTestInput, RunTestOutput } from '../dtos';
 import { TestRunState } from '../../domain/enums/TestRunState';
-import { WorkflowPlanner } from '../services/planning/WorkflowPlanner';
 import { StepExecutor, type StepExecutionResult } from '../services/execution/StepExecutor';
 import type { StepEvaluationTelemetry } from '../services/execution/StepExecutor';
 import type { RunExecutionLaneService } from '../services/execution/RunExecutionLaneService';
@@ -23,7 +22,6 @@ import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyS
 import { ObjectiveCompletionPolicyService } from '../services/execution/ObjectiveCompletionPolicyService';
 import { EvidenceBlackboardService } from '../services/execution/EvidenceBlackboardService';
 import { BranchRollbackService } from '../services/execution/BranchRollbackService';
-import { SelectiveReplannerService } from '../services/execution/SelectiveReplannerService';
 import { RunLifecycleEngineService } from '../services/execution/RunLifecycleEngineService';
 import type { IRunLifecycleEngine } from '../services/execution/IRunLifecycleEngine';
 import { PlanningCoordinator, type SkillRoutingContext } from '../services/execution/coordinators/PlanningCoordinator';
@@ -41,7 +39,6 @@ import {
 } from '../services/execution/RunRecoveryOrchestration';
 import { SkillRegistryService } from '../services/skills/SkillRegistryService';
 import { SkillGovernanceService } from '../services/skills/SkillGovernanceService';
-import { SkillExecutorService } from '../services/skills/SkillExecutorService';
 import { PluginRegistryService } from '../services/plugins/PluginRegistryService';
 import { PluginGatewayService } from '../services/plugins/PluginGatewayService';
 import { RuntimeReadinessPolicyService } from '../services/hardening/RuntimeReadinessPolicyService';
@@ -68,7 +65,6 @@ export class RunTestUseCase {
 
     constructor(
         @inject(TestRunLifecycleManager) private lifecycleManager: TestRunLifecycleManager,
-        @inject(WorkflowPlanner) private planner: WorkflowPlanner,
         @inject(StepExecutor) private executor: StepExecutor,
         @inject('IPersistenceAdapter') private persistence: import('../../domain/ports').IPersistenceAdapter,
         @inject('ITraceService') private trace: import('../../domain/ports/ITraceService').ITraceService,
@@ -89,13 +85,11 @@ export class RunTestUseCase {
         @inject(PluginGatewayService) private readonly pluginGateway: PluginGatewayService,
         @inject(RuntimeReadinessPolicyService) private readonly readinessPolicy: RuntimeReadinessPolicyService,
         @inject('ILogger') private logger: ILogger,
-        @inject(SkillExecutorService) private readonly skillExecutor: SkillExecutorService = new SkillExecutorService(),
         @inject(PlanningCoordinator) private readonly planningCoordinator: PlanningCoordinator = new PlanningCoordinator(),
         @inject(RunBootstrapCoordinator) private readonly bootstrapCoordinator: RunBootstrapCoordinator = new RunBootstrapCoordinator(),
         @inject(StepExecutionCoordinator) private readonly stepExecutionCoordinator: StepExecutionCoordinator = new StepExecutionCoordinator(),
         @inject(ReplanningCoordinator) private readonly replanningCoordinator: ReplanningCoordinator = new ReplanningCoordinator(),
         @inject(TerminalizationCoordinator) private readonly terminalizationCoordinator: TerminalizationCoordinator = new TerminalizationCoordinator(),
-        @inject(SelectiveReplannerService) private readonly selectiveReplanner: SelectiveReplannerService = new SelectiveReplannerService(),
         @inject('IRunLifecycleEngine') private readonly runLifecycleEngine: IRunLifecycleEngine = new RunLifecycleEngineService(),
         @inject(BranchRollbackService) private readonly branchRollback: BranchRollbackService = new BranchRollbackService(),
         @inject(ObjectiveCompletionPolicyService) private readonly objectiveCompletionPolicy: ObjectiveCompletionPolicyService = new ObjectiveCompletionPolicyService(),
@@ -281,79 +275,18 @@ export class RunTestUseCase {
             yield { type: 'state_updated', state: currentState };
             yield { type: 'thinking' };
             runLifecycle = this.durability.transition(testRunId, runLifecycle, 'planning');
-            let plan: Plan;
-            let runtimeSkillPlan: Plan | undefined;
-
-            if (!resumedPlan && skillRoutingContext) {
-                yield {
-                    type: 'skill_invocation',
-                    telemetry: {
-                        runId: testRunId,
-                        skillId: skillRoutingContext.skill.id,
-                        source: skillRoutingContext.source,
-                        status: 'started',
-                        summary: `Skill runtime started for ${skillRoutingContext.skill.id}`
-                    }
-                };
-
-                try {
-                    runtimeSkillPlan = this.skillExecutor.buildRuntimePlan(skillRoutingContext.skill, input.prompt);
-                    yield {
-                        type: 'skill_invocation',
-                        telemetry: {
-                            runId: testRunId,
-                            skillId: skillRoutingContext.skill.id,
-                            source: skillRoutingContext.source,
-                            status: 'completed',
-                            summary: `Skill runtime compiled with ${runtimeSkillPlan.items.length} bounded steps`,
-                            injectedPlanItems: runtimeSkillPlan.items.length
-                        }
-                    };
-                } catch (error) {
-                    const reason = error instanceof Error ? error.message : String(error);
-                    this.logger.warn('[RunTestUseCase] Skill runtime compilation failed', {
-                        testRunId,
-                        skillId: skillRoutingContext.skill.id,
-                        reason
-                    });
-
-                    yield {
-                        type: 'skill_invocation',
-                        telemetry: {
-                            runId: testRunId,
-                            skillId: skillRoutingContext.skill.id,
-                            source: skillRoutingContext.source,
-                            status: 'failed',
-                            summary: `Skill runtime failed: ${reason}`
-                        }
-                    };
-
-                    throw new WorkflowError(`Skill runtime compilation failed: ${reason}`);
-                }
-            }
+            const plan: Plan = resumedPlan
+                ?? this.planningCoordinator.buildSingleStepPlan(
+                    this.planningCoordinator.buildPlanningPrompt(input.prompt, skillRoutingContext)
+                );
 
             if (resumedPlan) {
-                plan = resumedPlan;
                 this.logger.info('[RunTestUseCase] Recovery bootstrap reusing checkpoint plan', {
                     testRunId,
                     sourceRunId: recoveryContext?.sourceRunId,
                     startPlanIndex,
                     planItems: resumedPlan.items.length
                 });
-            } else {
-                const planningPrompt = this.planningCoordinator.buildPlanningPrompt(input.prompt, skillRoutingContext);
-                const planResult = await this.planner.plan(planningPrompt);
-
-                if (planResult.isErr()) {
-                    throw new WorkflowError(`Planning failed: ${planResult.error.message}`);
-                }
-
-                plan = planResult.value;
-                estimatedTokensUsed += Math.ceil(planningPrompt.length / 4);
-
-                if (runtimeSkillPlan) {
-                    plan = this.skillExecutor.prependRuntimePlan(plan, runtimeSkillPlan);
-                }
             }
 
             let executionGraph = ExecutionGraph.fromPlan(plan);
@@ -385,7 +318,7 @@ export class RunTestUseCase {
 
                 const item = plan.items[i];
                 if (!item) continue;
-                const executionGoal = input.prompt;
+                const executionGoal = item.description;
 
                 const controlFlow = await this.applyControllerFlow({
                     controller,
@@ -472,45 +405,6 @@ export class RunTestUseCase {
                     consecutiveStepFailures = 0;
                     hasUnresolvedVerificationFailure = false;
                     finalSummary = undefined;
-
-                    const proactiveReplan = this.evaluatePostStepReplan(currentState);
-                    if (proactiveReplan.shouldReplan) {
-                        const replanningLimits = this.replanningPolicy.resolveLimits();
-                        yield {
-                            type: 'replanning',
-                            telemetry: {
-                                runId: testRunId,
-                                status: 'executed',
-                                reason: proactiveReplan.reason,
-                                mode: replanningLimits.mode,
-                                replanCount,
-                                maxReplansPerRun: replanningLimits.maxReplansPerRun
-                            }
-                        };
-
-                        try {
-                            plan = await this.executeScopedReplan({
-                                originalPrompt: input.prompt,
-                                currentPlan: plan,
-                                failedStepDescription: executionGoal,
-                                failureReason: proactiveReplan.reason,
-                                currentState,
-                                failedNodeId: item.id
-                            });
-                        } catch (error) {
-                            const plannerError = error instanceof Error ? error.message : String(error);
-                            throw new WorkflowError(`Proactive replanning failed: ${plannerError}`);
-                        }
-
-                        const proactiveReplanState = await this.applyReplanState(testRunId, currentState, plan, {
-                            clearActiveItem: false,
-                            removeError: false
-                        });
-                        executionGraph = proactiveReplanState.executionGraph;
-                        currentState = proactiveReplanState.state;
-                        yield { type: 'state_updated', state: currentState };
-                        replanCount += 1;
-                    }
                 } else {
                     const errorMsg = result ? `${result.code}: ${result.reason}` : 'unknown_error: Unknown error';
                     const replanningTrigger = result ? this.replanningCoordinator.mapResultCodeToTrigger(result.code) : undefined;
@@ -542,39 +436,6 @@ export class RunTestUseCase {
                             maxReplansPerRun: replanningLimits.maxReplansPerRun
                         }
                     };
-
-                    if (replanningAssessment.shouldReplan) {
-                        try {
-                            plan = await this.executeScopedReplan({
-                                originalPrompt: input.prompt,
-                                currentPlan: plan,
-                                failedStepDescription: executionGoal,
-                                failureReason: errorMsg,
-                                currentState,
-                                failedNodeId: item.id
-                            });
-
-                            const failureReplanState = await this.applyReplanState(testRunId, currentState, plan, {
-                                clearActiveItem: true,
-                                removeError: true
-                            });
-                            executionGraph = failureReplanState.executionGraph;
-                            currentState = failureReplanState.state;
-                            yield { type: 'state_updated', state: currentState };
-
-                            replanCount += 1;
-                            consecutiveStepFailures = 0;
-                            hasUnresolvedVerificationFailure = false;
-                            finalSummary = undefined;
-                            continue;
-                        } catch (error) {
-                            const plannerError = error instanceof Error ? error.message : String(error);
-                            this.logger.warn('[RunTestUseCase] Replanning attempt failed; continuing failure path', {
-                                runId: testRunId,
-                                reason: plannerError
-                            });
-                        }
-                    }
 
                     const completedWithFailureItem: PlanItem = { ...item, status: 'failed' as PlanItemStatus };
                     const newItems = [...updatedItems];
@@ -824,50 +685,6 @@ export class RunTestUseCase {
         return resolveRecoveryContextForRun(this.getRecoveryDependencies(), input);
     }
 
-    private async executeScopedReplan(input: {
-        originalPrompt: string;
-        currentPlan: Plan;
-        failedStepDescription: string;
-        failureReason: string;
-        currentState: WorkflowState;
-        failedNodeId: string;
-    }): Promise<Plan> {
-        return this.selectiveReplanner.replan({
-            originalPrompt: input.originalPrompt,
-            currentPlan: input.currentPlan,
-            failedStepDescription: input.failedStepDescription,
-            failureReason: input.failureReason,
-            planner: this.planner,
-            coordinator: this.replanningCoordinator,
-            ...(input.currentState.lastEvaluation ? { lastEvaluation: input.currentState.lastEvaluation } : {}),
-            ...(input.currentState.evaluatorAdvice ? { evaluatorAdvice: input.currentState.evaluatorAdvice } : {}),
-            ...(input.currentState.evaluatorAdviceDelta ? { evaluatorAdviceDelta: input.currentState.evaluatorAdviceDelta } : {}),
-            ...(input.currentState.executionGraph ? { executionGraph: input.currentState.executionGraph } : {}),
-            failedNodeId: input.failedNodeId
-        });
-    }
-
-    private evaluatePostStepReplan(state: WorkflowState): { shouldReplan: boolean; reason: string } {
-        const evaluation = state.lastEvaluation;
-
-        if (!evaluation) {
-            return { shouldReplan: false, reason: 'No evaluator signal available' };
-        }
-
-        if (evaluation.decision !== 'sub_task_success') {
-            return { shouldReplan: false, reason: 'Evaluator decision is not success; standard loop handles progression' };
-        }
-
-        if (evaluation.confidence < 0.9) {
-            return {
-                shouldReplan: true,
-                reason: `Proactive rolling-horizon replanning: success confidence ${evaluation.confidence.toFixed(2)} below threshold 0.90`
-            };
-        }
-
-        return { shouldReplan: false, reason: 'Success confidence is above proactive replanning threshold' };
-    }
-
     private async replayRecoveryActions(params: {
         testRunId: string;
         sourceRunId: string;
@@ -952,39 +769,6 @@ export class RunTestUseCase {
         return {
             runLifecycle,
             cancelled: input.controller.state === TestRunState.CANCELLED
-        };
-    }
-
-    private async applyReplanState(
-        testRunId: string,
-        state: WorkflowState,
-        plan: Plan,
-        options: { clearActiveItem: boolean; removeError: boolean }
-    ): Promise<{ state: WorkflowState; executionGraph: NonNullable<WorkflowState['executionGraph']> }> {
-        const executionGraph = ExecutionGraph.fromPlan(plan);
-        const baseState = options.clearActiveItem ? this.runLifecycleEngine.clearActiveItem(state) : state;
-        const nextState: WorkflowState = options.removeError
-            ? (() => {
-                const { error, ...stateWithoutError } = baseState;
-                void error;
-                return {
-                    ...stateWithoutError,
-                    status: 'thinking',
-                    executionGraph,
-                    plan
-                };
-            })()
-            : {
-                ...baseState,
-                status: 'thinking',
-                plan,
-                executionGraph
-            };
-
-        await this.durability.checkpoint(testRunId, nextState, 'plan_ready');
-        return {
-            state: nextState,
-            executionGraph
         };
     }
 

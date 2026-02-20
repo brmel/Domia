@@ -151,7 +151,6 @@ function createUseCaseContext(
 
     const useCase = new RunTestUseCase(
         lifecycleManager as unknown as never,
-        planner as unknown as never,
         executor as unknown as never,
         persistence as unknown as never,
         trace as unknown as never,
@@ -236,7 +235,7 @@ describe('RunTestUseCase recovery flow', () => {
             events.push(event);
         }
 
-        expect(ctx.planner.plan).toHaveBeenCalledTimes(1);
+        expect(ctx.planner.plan).not.toHaveBeenCalled();
         expect(events.some(e => e.type === 'completed' && e.success === true)).toBe(true);
     });
 
@@ -254,7 +253,7 @@ describe('RunTestUseCase recovery flow', () => {
 
         expect(ctx.durability.getCheckpointRecords).toHaveBeenCalledTimes(1);
         expect(ctx.durability.getCheckpointRecords).toHaveBeenCalledWith('new-run');
-        expect(ctx.planner.plan).toHaveBeenCalledTimes(1);
+        expect(ctx.planner.plan).not.toHaveBeenCalled();
         expect(events.some(e => e.type === 'completed' && e.success === true)).toBe(true);
     });
 
@@ -316,7 +315,7 @@ describe('RunTestUseCase recovery flow', () => {
         expect(ctx.executor.executeStep).toHaveBeenNthCalledWith(
             1,
             'new-run',
-            'resume partial plan',
+            'pending one',
             expect.anything(),
             'https://example.com',
             3,
@@ -326,7 +325,7 @@ describe('RunTestUseCase recovery flow', () => {
         expect(ctx.executor.executeStep).toHaveBeenNthCalledWith(
             2,
             'new-run',
-            'resume partial plan',
+            'pending two',
             expect.anything(),
             'https://example.com',
             3,
@@ -673,9 +672,9 @@ describe('RunTestUseCase recovery flow', () => {
         }
 
         expect(ctx.browser.wait).toHaveBeenCalledTimes(1);
-        expect(ctx.planner.plan).toHaveBeenCalledTimes(1);
-        expect(ctx.executor.executeStep).toHaveBeenCalledTimes(2);
-        expect(events.some((event) => event.type === 'replanning' && event.telemetry.status === 'executed')).toBe(true);
-        expect(events.some((event) => event.type === 'completed' && event.success === true)).toBe(true);
+        expect(ctx.planner.plan).not.toHaveBeenCalled();
+        expect(ctx.executor.executeStep).toHaveBeenCalledTimes(1);
+        expect(events.some((event) => event.type === 'replanning')).toBe(true);
+        expect(events.some((event) => event.type === 'completed' && event.success === false)).toBe(true);
     });
 });

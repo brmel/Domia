@@ -6,12 +6,21 @@ import { ActionType } from '@domain/enums/ActionType';
 describe('StepExecutor hardening', () => {
     it('continues when perception/temporal persistence fails', async () => {
         const llmProvider = {
-            generateAction: vi.fn(),
+            generateAction: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: {
+                    type: ActionType.EXTRACT,
+                    elementId: 1,
+                    thought: 'extract language labels'
+                }
+            }),
             generateEvaluation: vi.fn().mockResolvedValue({
                 isErr: () => false,
                 value: {
                     decision: 'sub_task_success',
-                    summary: 'done'
+                    summary: 'done',
+                    confidence: 0.95,
+                    evidence: ['explicit extraction observed required labels']
                 }
             })
         };
@@ -61,13 +70,7 @@ describe('StepExecutor hardening', () => {
             traceReasoning: vi.fn().mockResolvedValue(undefined)
         };
 
-        const assertionGoalService = {
-            evaluate: vi.fn().mockReturnValue({
-                type: ActionType.PASS,
-                summary: 'ok',
-                thought: 'done'
-            })
-        };
+        const assertionGoalService = {};
 
         const toolContractService = { getToolDescriptors: vi.fn().mockReturnValue([]) };
         const toolExecutor = {

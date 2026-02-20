@@ -3,7 +3,6 @@ import type { ILLMProvider, IBrowserAutomation, LLMContext, IPerceptionPipeline,
 import { AgentAction, LLMEvaluationDecision } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
 import { LoopDetectorService } from './LoopDetectorService';
-import { AssertionGoalService } from '../assertion/AssertionGoalService';
 import type { ToolContext } from '@domain/tools/Tool';
 import type { ToolExecutor } from '../tooling/ToolExecutor';
 import type { ILogger } from '@domain/ports';
@@ -63,7 +62,7 @@ export class StepExecutor {
         @inject('IPerceptionPipeline') private perception: IPerceptionPipeline,
         @inject('IStorageService') private storage: IStorageService,
         @inject('ITraceService') private trace: ITraceService,
-        @inject(AssertionGoalService) private readonly assertionGoalService: AssertionGoalService,
+        @inject('AssertionGoalService') _assertionGoalService: unknown,
         @inject('IToolCapabilityRegistry') private readonly toolCapabilityRegistry: IToolCapabilityRegistry,
         @inject('IToolExecutor') toolExecutor: ToolExecutor,
         @inject(TemporalObservationPolicyService) temporalPolicy: TemporalObservationPolicyService,
@@ -217,34 +216,6 @@ export class StepExecutor {
                 stagnantSnapshotCount = 0;
             }
             previousSnapshotSignature = snapshotSignature;
-
-            const deterministicAction = this.assertionGoalService.evaluate(stepGoal, snapshot);
-            if (deterministicAction) {
-                await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
-                    agentOutput: {
-                        thought: deterministicAction.thought || '',
-                        action: deterministicAction,
-                        rawResponse: 'deterministic-assertion-evaluator'
-                    }
-                });
-
-                yield { type: 'action', action: deterministicAction, assets };
-
-                this.evidenceBlackboard.recordAction(runId, deterministicAction, 'not_executed');
-
-                if (deterministicAction.type === ActionType.PASS) {
-                    return { success: true, terminal: 'pass' };
-                }
-
-                if (deterministicAction.type === ActionType.FAIL) {
-                    return {
-                        success: false,
-                        terminal: 'fail',
-                        code: 'assertion_fail',
-                        reason: deterministicAction.reason
-                    };
-                }
-            }
 
             const composedAdvice = this.evidenceBlackboard.composeAdvice(
                 runId,

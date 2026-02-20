@@ -1,5 +1,7 @@
 import { injectable } from 'tsyringe';
 import type { SkillDefinition } from '@domain/skills/SkillContract';
+import type { Plan } from '@domain/entities/Plan';
+import { nanoid } from 'nanoid';
 
 export interface SkillRoutingContext {
     readonly skill: SkillDefinition;
@@ -9,6 +11,26 @@ export interface SkillRoutingContext {
 
 @injectable()
 export class PlanningCoordinator {
+    buildSingleStepPlan(prompt: string): Plan {
+        const now = new Date();
+
+        return {
+            id: nanoid(),
+            goal: prompt,
+            status: 'planning',
+            createdAt: now,
+            updatedAt: now,
+            items: [
+                {
+                    id: nanoid(),
+                    description: prompt,
+                    status: 'pending',
+                    type: 'browser'
+                }
+            ]
+        };
+    }
+
     buildPlanningPrompt(basePrompt: string, skillRouting?: SkillRoutingContext): string {
         if (!skillRouting) {
             return basePrompt;

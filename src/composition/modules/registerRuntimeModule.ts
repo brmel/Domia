@@ -12,7 +12,6 @@ import { RecoveryReplayGuardService } from '@application/services/execution/Reco
 import { RecoveryReplayIdempotencyService } from '@application/services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 import { BranchRollbackService } from '@application/services/execution/BranchRollbackService';
-import { SelectiveReplannerService } from '@application/services/execution/SelectiveReplannerService';
 import { PlanningCoordinator } from '@application/services/execution/coordinators/PlanningCoordinator';
 import { RunBootstrapCoordinator } from '@application/services/execution/coordinators/RunBootstrapCoordinator';
 import { StepExecutionCoordinator } from '@application/services/execution/coordinators/StepExecutionCoordinator';
@@ -25,7 +24,6 @@ import { TemporalPrivacyFilterService } from '@application/services/perception/T
 import { TemporalPromptAssemblerService } from '@application/services/perception/TemporalPromptAssemblerService';
 import { SkillRegistryService } from '@application/services/skills/SkillRegistryService';
 import { SkillGovernanceService } from '@application/services/skills/SkillGovernanceService';
-import { SkillExecutorService } from '@application/services/skills/SkillExecutorService';
 import { PluginCapabilityPolicyService } from '@application/services/plugins/PluginCapabilityPolicyService';
 import { PluginGatewayService } from '@application/services/plugins/PluginGatewayService';
 import { PluginRegistryService } from '@application/services/plugins/PluginRegistryService';
@@ -56,7 +54,6 @@ export function registerRuntimeModule(): void {
     container.registerSingleton(RecoveryReplayIdempotencyService);
     container.registerSingleton(ReplanningPolicyService);
     container.registerSingleton(BranchRollbackService);
-    container.registerSingleton(SelectiveReplannerService);
     container.registerSingleton(PlanningCoordinator);
     container.registerSingleton(RunBootstrapCoordinator);
     container.registerSingleton(StepExecutionCoordinator);
@@ -71,7 +68,6 @@ export function registerRuntimeModule(): void {
 
     container.registerSingleton(SkillRegistryService);
     container.registerSingleton(SkillGovernanceService);
-    container.registerSingleton(SkillExecutorService);
 
     container.registerSingleton(PluginRegistryService);
     container.registerSingleton(PluginCapabilityPolicyService);

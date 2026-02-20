@@ -126,14 +126,6 @@ export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
                 set({ testRunId: event.testRunId, status: AgentStatus.RUNNING });
                 break;
 
-            case 'observing':
-                set({ currentPhase: 'planning' }); // optimizing to calling observing "planning" or just ignore phase updates for now if strict
-                break;
-
-            case 'planning':
-                set({ currentPhase: 'planning' });
-                break;
-
             case 'thinking':
                 set({ currentPhase: 'executing' });
                 break;
@@ -166,18 +158,6 @@ export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
                     currentPhase: null,
                     currentAction: null,
                 });
-                break;
-
-            case 'cancelled':
-                set({ status: AgentStatus.CANCELLED, currentPhase: null });
-                break;
-
-            case 'paused':
-                set({ status: AgentStatus.PAUSED });
-                break;
-
-            case 'resumed':
-                set({ status: AgentStatus.RUNNING });
                 break;
 
             case 'error':

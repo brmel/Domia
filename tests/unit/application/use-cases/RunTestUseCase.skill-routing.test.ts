@@ -92,7 +92,6 @@ function createUseCaseWithSkillRouting(skillRegistryOverrides?: { get?: ReturnTy
 
     const useCase = new RunTestUseCase(
         lifecycleManager as unknown as never,
-        planner as unknown as never,
         executor as unknown as never,
         persistence as unknown as never,
         trace as unknown as never,
@@ -163,18 +162,20 @@ describe('RunTestUseCase skill routing', () => {
             events.push(event as unknown as { type: string; [key: string]: unknown });
         }
 
-        const planningPrompt = planner.plan.mock.calls[0]?.[0] as string;
-        expect(planningPrompt).toContain('Skill routing context:');
-        expect(planningPrompt).toContain('Selected skill: checkout.skill v1.0.0 (verified)');
-        expect(planningPrompt).toContain('Bounded skill execution graph:');
-        expect(planningPrompt).toContain('Validate precondition: user authenticated');
-        expect(planningPrompt).toContain('Verify postcondition: order confirmation visible');
-        expect(events.filter((event) => event.type === 'skill_invocation')).toHaveLength(2);
-        expect(executor.executeStep).toHaveBeenCalledTimes(3);
+        expect(planner.plan).not.toHaveBeenCalled();
+
+        const executionGoal = executor.executeStep.mock.calls[0]?.[1] as string;
+        expect(executionGoal).toContain('Skill routing context:');
+        expect(executionGoal).toContain('Selected skill: checkout.skill v1.0.0 (verified)');
+        expect(executionGoal).toContain('Bounded skill execution graph:');
+        expect(executionGoal).toContain('Validate precondition: user authenticated');
+        expect(executionGoal).toContain('Verify postcondition: order confirmation visible');
+        expect(events.filter((event) => event.type === 'skill_invocation')).toHaveLength(0);
+        expect(executor.executeStep).toHaveBeenCalledTimes(1);
     });
 
     it('auto-selects matching skill when preferred skill is not provided', async () => {
-        const { useCase, planner } = createUseCaseWithSkillRouting({
+        const { useCase, planner, executor } = createUseCaseWithSkillRouting({
             list: vi.fn().mockReturnValue([
                 {
                     id: 'profile.update',
@@ -199,8 +200,9 @@ describe('RunTestUseCase skill routing', () => {
             void event;
         }
 
-        const planningPrompt = planner.plan.mock.calls[0]?.[0] as string;
-        expect(planningPrompt).toContain('Selected skill: profile.update v1.0.0 (verified)');
-        expect(planningPrompt).toContain('Routing source: auto');
+        expect(planner.plan).not.toHaveBeenCalled();
+        const executionGoal = executor.executeStep.mock.calls[0]?.[1] as string;
+        expect(executionGoal).toContain('Selected skill: profile.update v1.0.0 (verified)');
+        expect(executionGoal).toContain('Routing source: auto');
     });
 });

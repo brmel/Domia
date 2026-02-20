@@ -16,19 +16,6 @@ import { ActionType } from '@domain/enums/ActionType';
 
 describe('RunTestUseCase budget hardening', () => {
     it('terminates run with workflow error when budget is exceeded', async () => {
-        const planner = {
-            plan: vi.fn().mockResolvedValue(ok({
-                id: 'plan-budget',
-                goal: 'goal',
-                status: 'executing',
-                createdAt: new Date('2026-01-01T00:00:00.000Z'),
-                updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-                items: [
-                    { id: 'item-1', description: 'execute action', status: 'pending', type: 'general' }
-                ]
-            }))
-        };
-
         const lifecycleManager = {
             initializeTestRun: vi.fn().mockResolvedValue(ok('run-budget')),
             finalizeTestRun: vi.fn().mockResolvedValue(undefined),
@@ -101,7 +88,6 @@ describe('RunTestUseCase budget hardening', () => {
 
         const useCase = new RunTestUseCase(
             lifecycleManager as unknown as never,
-            planner as unknown as never,
             executor as unknown as never,
             persistence as unknown as never,
             trace as unknown as never,

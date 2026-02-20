@@ -12,8 +12,8 @@ import { RecoveryReplayGuardService } from '@application/services/execution/Reco
 import type { RecoveryReplayIdempotencyService } from '@application/services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 
-describe('RunTestUseCase replanning advice propagation', () => {
-    it('includes evaluator context in replanning prompt after failed step', async () => {
+describe('RunTestUseCase no-plan behavior', () => {
+    it('does not invoke planner or replanning after failed step', async () => {
         const planner = {
             plan: vi.fn()
                 .mockResolvedValueOnce(ok({
@@ -156,7 +156,6 @@ describe('RunTestUseCase replanning advice propagation', () => {
 
         const useCase = new RunTestUseCase(
             lifecycleManager as unknown as never,
-            planner as unknown as never,
             executor as unknown as never,
             persistence as unknown as never,
             trace as unknown as never,
@@ -183,19 +182,19 @@ describe('RunTestUseCase replanning advice propagation', () => {
         );
 
         const controller = new ExecutionController();
+        const events: Array<{ type: string; [key: string]: unknown }> = [];
         for await (const event of useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'do the task',
             options: { maxSteps: 5 }
         }, controller)) {
-            void event;
+            events.push(event as unknown as { type: string; [key: string]: unknown });
         }
 
-        expect(planner.plan).toHaveBeenCalledTimes(2);
-        const secondPlannerCallPrompt = planner.plan.mock.calls[1]?.[0] as string;
-        expect(secondPlannerCallPrompt).toContain('Evaluator context:');
-        expect(secondPlannerCallPrompt).toContain('Evaluator decision: need_retry');
-        expect(secondPlannerCallPrompt).toContain('Evaluator advice: Validate using explicit visible confirmation text.');
-        expect(secondPlannerCallPrompt).toContain('Latest evaluator advice in workflow state:');
+        expect(planner.plan).not.toHaveBeenCalled();
+        expect(executor.executeStep).toHaveBeenCalledTimes(1);
+        expect(events.some((event) => event.type === 'completed')).toBe(true);
+        const completed = events.find((event) => event.type === 'completed');
+        expect(completed?.['success']).toBe(false);
     });
 });
