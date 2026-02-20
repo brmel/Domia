@@ -10,8 +10,7 @@ import type {
     ILogger
 } from '@domain/ports';
 import { LLMError } from '@domain/errors';
-import { retryAsync } from '@shared/reliability/retry';
-import { RETRY_PROFILES, isTransientLlmToolCallingError } from '@shared/reliability/retryProfiles';
+import { isTransientLlmToolCallingError } from '@shared/reliability/retryProfiles';
 import type { ZodTypeAny } from 'zod';
 import { LangChainModelFactory } from './LangChainModelFactory';
 import { LlmRuntimeConfigResolver } from './LlmRuntimeConfigResolver';
@@ -35,28 +34,12 @@ export class LangChainToolCallingProvider implements IToolCallingProvider {
 
     async generateToolCallOutcome(request: ToolCallingRequest): Promise<ToolCallingOutcome> {
         try {
-            const result = await this.generateWithRetry(request);
+            const result = await this.generateToolCallOnce(request);
             return { ok: true, result };
         } catch (error) {
             const failure = this.classifyFailure(error);
             return { ok: false, failure };
         }
-    }
-
-    private async generateWithRetry(request: ToolCallingRequest): Promise<ToolCallingResult> {
-        return retryAsync(
-            async () => this.generateToolCallOnce(request),
-            {
-                ...RETRY_PROFILES.llmToolCalling,
-                shouldRetry: (error) => isTransientLlmToolCallingError(error),
-                onRetry: (info) => {
-                    const message = info.error instanceof Error ? info.error.message : String(info.error);
-                    this.logger.warn(
-                        `[LangChainToolCallingProvider] Retry ${info.attempt}/${info.maxAttempts - 1} after error: ${message}`
-                    );
-                }
-            }
-        );
     }
 
     private async generateToolCallOnce(request: ToolCallingRequest): Promise<ToolCallingResult> {

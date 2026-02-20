@@ -47,7 +47,7 @@ export class ReplanningCoordinator {
         failedNodeId?: string
     ): string {
         const planOutline = currentPlan.items
-            .map(item => `- [${item.status}] ${item.description}`)
+            .map((item, index) => `${index + 1}. ${this.sanitizePlanText(item.contract?.objective ?? item.description)}`)
             .join('\n');
         const selectiveScope = this.buildSelectiveScope(executionGraph, failedNodeId);
 
@@ -75,7 +75,7 @@ export class ReplanningCoordinator {
         return [
             `Original request: ${originalPrompt}`,
             'Current plan execution failed and must be replanned.',
-            `Failed step: ${failedStepDescription}`,
+            `Failed step: ${this.sanitizePlanText(failedStepDescription)}`,
             `Failure reason: ${failureReason}`,
             'Evaluator context:',
             evaluationContext,
@@ -86,8 +86,15 @@ export class ReplanningCoordinator {
             adviceDeltaContext,
             'Previous plan:',
             planOutline,
-            'Produce a revised plan that prioritizes patching only the affected scope while keeping stable nodes unchanged and preserving the same overall objective.'
+            'Produce a revised plan that prioritizes patching only the affected scope while keeping stable nodes unchanged and preserving the same overall objective.',
+            'Do not include meta-process directives (for example implementing retry mechanisms); focus on observable user-facing objectives and evidence collection.'
         ].join('\n\n');
+    }
+
+    private sanitizePlanText(value: string): string {
+        return value
+            .replace(/\[(?:running|pending|active|failed|completed)\]\s*/gi, '')
+            .trim();
     }
 
     private buildSelectiveScope(executionGraph?: WorkflowExecutionGraph, failedNodeId?: string): string {

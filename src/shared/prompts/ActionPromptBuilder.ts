@@ -36,6 +36,9 @@ RULES:
 9. Avoid repeating scroll when the page state is unchanged; after a few no-progress attempts, choose a different action or fail with a clear reason.
 10. Do not call pass as your first model action for a step. Perform at least one concrete verification action first and only pass when you can cite clear evidence.
 11. When the goal requires validating a list/value (e.g., supported languages), use extract on concrete UI elements and base the decision on extracted content, not assumptions.
+12. If the evaluator advises retry/confirmation after a pass attempt, do not call pass again immediately; perform at least one non-pass verification action before another pass attempt.
+13. For goals that validate multiple required items, gather explicit evidence for each required item before pass.
+14. If the same interaction repeats without producing new evidence, switch to a different action type (prefer extract on relevant visible elements) instead of repeating the interaction.
 
 Respond by calling exactly one tool.`;
 
@@ -88,6 +91,10 @@ export function buildActionUserPrompt(context: LLMContext): string {
         .slice(-5)
         .map((a, i) => {
             const desc = ('elementDescriptor' in a && a.elementDescriptor) ? ` on ${a.elementDescriptor}` : '';
+            if (a.type === ActionType.PASS) return `${i + 1}. pass(summary=${a.summary})`;
+            if (a.type === ActionType.FAIL) return `${i + 1}. fail(reason=${a.reason})`;
+            if (a.type === ActionType.CLICK) return `${i + 1}. click(elementId=${a.elementId})${desc}`;
+            if (a.type === ActionType.EXTRACT) return `${i + 1}. extract(elementId=${a.elementId})${desc}`;
             if (a.type === ActionType.PRESS_KEY) return `${i + 1}. pressKey(${a.key})`;
             if (a.type === ActionType.NAVIGATE) return `${i + 1}. navigate to ${a.url}`;
             return `${i + 1}. ${a.type}${desc}`;

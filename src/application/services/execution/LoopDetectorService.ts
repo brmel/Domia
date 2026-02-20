@@ -4,6 +4,43 @@ import { ActionType } from '@domain/enums/ActionType';
 
 @injectable()
 export class LoopDetectorService {
+    getActionSignature(action: AgentAction): string {
+        switch (action.type) {
+            case ActionType.CLICK:
+                return `click:${String(action.elementId)}`;
+            case ActionType.TYPE:
+                return `type:${String(action.elementId)}:${action.text}`;
+            case ActionType.NAVIGATE:
+                return `navigate:${action.url}`;
+            case ActionType.SCROLL:
+                return `scroll:${action.direction}`;
+            case ActionType.EXTRACT:
+                return `extract:${String(action.elementId)}`;
+            case ActionType.MOUSE_MOVE:
+                return `mouse_move:${action.x}:${action.y}`;
+            case ActionType.MOUSE_CLICK_LEFT:
+                return `mouse_click_left:${action.x}:${action.y}`;
+            case ActionType.MOUSE_CLICK_RIGHT:
+                return `mouse_click_right:${action.x}:${action.y}`;
+            case ActionType.MOUSE_DOUBLE_CLICK:
+                return `mouse_double_click:${action.x}:${action.y}`;
+            case ActionType.MOUSE_DRAG:
+                return `mouse_drag:${action.fromX}:${action.fromY}:${action.toX}:${action.toY}:${action.steps ?? 0}`;
+            case ActionType.MOUSE_SCROLL:
+                return `mouse_scroll:${action.deltaX}:${action.deltaY}`;
+            case ActionType.WAIT:
+                return `wait:${action.durationMs}`;
+            case ActionType.PRESS_KEY:
+                return `press_key:${action.key}`;
+            case ActionType.PASS:
+                return 'pass';
+            case ActionType.FAIL:
+                return 'fail';
+            default:
+                return JSON.stringify(action);
+        }
+    }
+
     isLoop(history: readonly AgentAction[], nextAction: AgentAction): boolean {
         if (history.length >= 2) {
             const lastAction = history[history.length - 1];
@@ -32,55 +69,6 @@ export class LoopDetectorService {
     }
 
     private areActionsIdentical(a1: AgentAction, a2: AgentAction): boolean {
-        if (a1.type !== a2.type) return false;
-
-        switch (a1.type) {
-            case ActionType.CLICK: {
-                const b = a2 as Extract<AgentAction, { type: ActionType.CLICK }>;
-                const a = a1 as Extract<AgentAction, { type: ActionType.CLICK }>;
-                return b.elementId === a.elementId;
-            }
-            case ActionType.TYPE: {
-                const b = a2 as Extract<AgentAction, { type: ActionType.TYPE }>;
-                const a = a1 as Extract<AgentAction, { type: ActionType.TYPE }>;
-                return b.elementId === a.elementId && b.text === a.text;
-            }
-            case ActionType.NAVIGATE: {
-                const b = a2 as Extract<AgentAction, { type: ActionType.NAVIGATE }>;
-                const a = a1 as Extract<AgentAction, { type: ActionType.NAVIGATE }>;
-                return b.url === a.url;
-            }
-            case ActionType.SCROLL: {
-                const b = a2 as Extract<AgentAction, { type: ActionType.SCROLL }>;
-                const a = a1 as Extract<AgentAction, { type: ActionType.SCROLL }>;
-                return b.direction === a.direction;
-            }
-            case ActionType.MOUSE_MOVE: {
-                const b = a2 as Extract<AgentAction, { type: ActionType.MOUSE_MOVE }>;
-                const a = a1 as Extract<AgentAction, { type: ActionType.MOUSE_MOVE }>;
-                return b.x === a.x && b.y === a.y;
-            }
-            case ActionType.MOUSE_DOUBLE_CLICK: {
-                const b = a2 as Extract<AgentAction, { type: ActionType.MOUSE_DOUBLE_CLICK }>;
-                const a = a1 as Extract<AgentAction, { type: ActionType.MOUSE_DOUBLE_CLICK }>;
-                return b.x === a.x && b.y === a.y;
-            }
-            case ActionType.MOUSE_DRAG: {
-                const b = a2 as Extract<AgentAction, { type: ActionType.MOUSE_DRAG }>;
-                const a = a1 as Extract<AgentAction, { type: ActionType.MOUSE_DRAG }>;
-                return b.fromX === a.fromX
-                    && b.fromY === a.fromY
-                    && b.toX === a.toX
-                    && b.toY === a.toY
-                    && b.steps === a.steps;
-            }
-            case ActionType.MOUSE_SCROLL: {
-                const b = a2 as Extract<AgentAction, { type: ActionType.MOUSE_SCROLL }>;
-                const a = a1 as Extract<AgentAction, { type: ActionType.MOUSE_SCROLL }>;
-                return b.deltaX === a.deltaX && b.deltaY === a.deltaY;
-            }
-            default:
-                return JSON.stringify(a1) === JSON.stringify(a2);
-        }
+        return this.getActionSignature(a1) === this.getActionSignature(a2);
     }
 }

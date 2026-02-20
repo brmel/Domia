@@ -13,6 +13,8 @@ interface ParsedAssertionGoal {
     readonly targetText: string;
 }
 
+type CanonicalLanguage = 'arabic' | 'english' | 'french';
+
 @injectable()
 export class AssertionGoalService {
     createDeterministicPlan(goal: string): Plan | null {
@@ -45,6 +47,11 @@ export class AssertionGoalService {
     }
 
     evaluate(goal: string, snapshot: DOMSnapshot): AgentAction | null {
+        const languageValidationResult = this.evaluateLanguageLabelValidation(goal, snapshot);
+        if (languageValidationResult) {
+            return languageValidationResult;
+        }
+
         const parsed = this.parse(goal);
         if (!parsed) {
             return null;
@@ -68,6 +75,34 @@ export class AssertionGoalService {
         }
 
         return null;
+    }
+
+    private evaluateLanguageLabelValidation(goal: string, snapshot: DOMSnapshot): AgentAction | null {
+        const normalizedGoal = this.normalize(goal);
+        if (!normalizedGoal.includes('language') || !/(validate|verify|check|confirm|ensure|labels?)/i.test(goal)) {
+            return null;
+        }
+
+        const requiredLanguages = this.extractRequiredLanguages(normalizedGoal);
+        if (requiredLanguages.length === 0) {
+            return null;
+        }
+
+        const textCorpus = this.buildNormalizedTextCorpus(snapshot);
+        const missing = requiredLanguages.filter((language) => {
+            const aliases = this.getLanguageAliases(language);
+            return !aliases.some((alias) => textCorpus.includes(this.normalize(alias)));
+        });
+
+        if (missing.length > 0) {
+            return null;
+        }
+
+        return {
+            type: ActionType.PASS,
+            summary: `Language labels validated: ${requiredLanguages.join(', ')}.`,
+            thought: 'Deterministic assertion evaluator found all required language labels in visible content.',
+        };
     }
 
     private parse(goal: string): ParsedAssertionGoal | null {
@@ -130,9 +165,54 @@ export class AssertionGoalService {
         });
     }
 
+    private extractRequiredLanguages(normalizedGoal: string): CanonicalLanguage[] {
+        const required = new Set<CanonicalLanguage>();
+        const languagePatterns: Array<{ language: CanonicalLanguage; patterns: readonly string[] }> = [
+            { language: 'arabic', patterns: ['arabic', 'ar', 'العربية', 'عربي', 'عربى'] },
+            { language: 'english', patterns: ['english', 'en'] },
+            { language: 'french', patterns: ['french', 'fr', 'francais', 'français'] },
+        ];
+
+        for (const candidate of languagePatterns) {
+            if (candidate.patterns.some((pattern) => normalizedGoal.includes(this.normalize(pattern)))) {
+                required.add(candidate.language);
+            }
+        }
+
+        return [...required];
+    }
+
+    private buildNormalizedTextCorpus(snapshot: DOMSnapshot): string {
+        const accessibilityText = this.collectAccessibilityText(snapshot.accessibilityTree);
+        return [
+            snapshot.title,
+            ...snapshot.elements.map((element) => element.text),
+            ...accessibilityText,
+        ]
+            .map((text) => this.normalize(text))
+            .join(' ');
+    }
+
+    private getLanguageAliases(language: CanonicalLanguage): readonly string[] {
+        switch (language) {
+            case 'arabic':
+                return ['arabic', 'ar', 'العربية', 'عربي', 'عربى'];
+            case 'english':
+                return ['english', 'en'];
+            case 'french':
+                return ['french', 'fr', 'francais', 'français'];
+            default: {
+                const exhaustive: never = language;
+                return exhaustive;
+            }
+        }
+    }
+
     private normalize(input: string): string {
         return input
             .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
             .replace(/\s+/g, ' ')
             .trim();
     }

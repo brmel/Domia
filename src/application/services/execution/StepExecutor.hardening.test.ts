@@ -125,7 +125,11 @@ describe('StepExecutor hardening', () => {
         );
 
         const browser = {
-            getViewportSize: vi.fn().mockResolvedValue({ width: 1200, height: 800 })
+            getViewportSize: vi.fn().mockResolvedValue({ width: 1200, height: 800 }),
+            extractText: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: 'English Arabic French'
+            })
         };
 
         const generator = executor.executeStep(
@@ -254,7 +258,11 @@ describe('StepExecutor hardening', () => {
         );
 
         const browser = {
-            getViewportSize: vi.fn().mockResolvedValue({ width: 1200, height: 800 })
+            getViewportSize: vi.fn().mockResolvedValue({ width: 1200, height: 800 }),
+            extractText: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: 'English Arabic French'
+            })
         };
 
         const generator = executor.executeStep(
@@ -279,7 +287,7 @@ describe('StepExecutor hardening', () => {
         expect(llmProvider.generateEvaluation).not.toHaveBeenCalled();
     });
 
-    it('requires evaluator confirmation for terminal pass in supervised mode', async () => {
+    it('requires prior verification action before terminal pass in supervised mode', async () => {
         const llmProvider = {
             generateAction: vi.fn()
                 .mockResolvedValueOnce({
@@ -288,6 +296,14 @@ describe('StepExecutor hardening', () => {
                         type: ActionType.PASS,
                         summary: 'looks complete',
                         thought: 'pass now'
+                    }
+                })
+                .mockResolvedValueOnce({
+                    isErr: () => false,
+                    value: {
+                        type: ActionType.EXTRACT,
+                        elementId: 1,
+                        thought: 'collect evidence before pass retry'
                     }
                 })
                 .mockResolvedValueOnce({
@@ -307,6 +323,16 @@ describe('StepExecutor hardening', () => {
                         advice: 'Re-check final state and confirm.',
                         confidence: 0.72,
                         evidence: ['Terminal pass requires supervised confirmation.']
+                    }
+                })
+                .mockResolvedValueOnce({
+                    isErr: () => false,
+                    value: {
+                        decision: 'need_retry',
+                        summary: 'Evidence extracted; now issue explicit pass.',
+                        advice: 'Issue PASS with concise evidence summary.',
+                        confidence: 0.81,
+                        evidence: ['Extraction completed for confirmation.']
                     }
                 })
                 .mockResolvedValueOnce({
@@ -399,7 +425,11 @@ describe('StepExecutor hardening', () => {
         );
 
         const browser = {
-            getViewportSize: vi.fn().mockResolvedValue({ width: 1200, height: 800 })
+            getViewportSize: vi.fn().mockResolvedValue({ width: 1200, height: 800 }),
+            extractText: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: 'English Arabic French'
+            })
         };
 
         const generator = executor.executeStep(
@@ -418,7 +448,7 @@ describe('StepExecutor hardening', () => {
         }
         expect(first.value.type).toBe('action');
         if (first.value.type === 'action') {
-            expect(first.value.action.type).toBe(ActionType.PASS);
+            expect(first.value.action.type).toBe(ActionType.EXTRACT);
         }
 
         const second = await generator.next();
@@ -437,11 +467,11 @@ describe('StepExecutor hardening', () => {
             throw new Error('Expected terminal step execution result');
         }
         expect(terminal.value.success).toBe(true);
-        expect(llmProvider.generateEvaluation).toHaveBeenCalledTimes(2);
+        expect(llmProvider.generateEvaluation).toHaveBeenCalledTimes(1);
         expect(toolExecutor.execute).not.toHaveBeenCalled();
     });
 
-    it('enforces supervised terminal pass by default when option is omitted', async () => {
+    it('enforces supervised pass gating by default when option is omitted', async () => {
         const llmProvider = {
             generateAction: vi.fn()
                 .mockResolvedValueOnce({
@@ -450,6 +480,14 @@ describe('StepExecutor hardening', () => {
                         type: ActionType.PASS,
                         summary: 'looks complete',
                         thought: 'pass now'
+                    }
+                })
+                .mockResolvedValueOnce({
+                    isErr: () => false,
+                    value: {
+                        type: ActionType.EXTRACT,
+                        elementId: 1,
+                        thought: 'collect evidence before pass retry'
                     }
                 })
                 .mockResolvedValueOnce({
@@ -469,6 +507,16 @@ describe('StepExecutor hardening', () => {
                         advice: 'Re-check final state and confirm.',
                         confidence: 0.72,
                         evidence: ['Terminal pass requires supervised confirmation.']
+                    }
+                })
+                .mockResolvedValueOnce({
+                    isErr: () => false,
+                    value: {
+                        decision: 'need_retry',
+                        summary: 'Evidence extracted; now issue explicit pass.',
+                        advice: 'Issue PASS with concise evidence summary.',
+                        confidence: 0.81,
+                        evidence: ['Extraction completed for confirmation.']
                     }
                 })
                 .mockResolvedValueOnce({
@@ -557,7 +605,11 @@ describe('StepExecutor hardening', () => {
         );
 
         const browser = {
-            getViewportSize: vi.fn().mockResolvedValue({ width: 1200, height: 800 })
+            getViewportSize: vi.fn().mockResolvedValue({ width: 1200, height: 800 }),
+            extractText: vi.fn().mockResolvedValue({
+                isErr: () => false,
+                value: 'English Arabic French'
+            })
         };
 
         const generator = executor.executeStep(
@@ -569,8 +621,26 @@ describe('StepExecutor hardening', () => {
             { vision: false, debugScreenshots: false, maxActions: 5 }
         );
 
-        await generator.next();
-        await generator.next();
+        const first = await generator.next();
+        expect(first.done).toBe(false);
+        if (first.done || typeof first.value !== 'object' || first.value === null || !('type' in first.value)) {
+            throw new Error('Expected first action yield before terminal result');
+        }
+        expect(first.value.type).toBe('action');
+        if (first.value.type === 'action') {
+            expect(first.value.action.type).toBe(ActionType.EXTRACT);
+        }
+
+        const second = await generator.next();
+        expect(second.done).toBe(false);
+        if (second.done || typeof second.value !== 'object' || second.value === null || !('type' in second.value)) {
+            throw new Error('Expected second action yield before terminal result');
+        }
+        expect(second.value.type).toBe('action');
+        if (second.value.type === 'action') {
+            expect(second.value.action.type).toBe(ActionType.PASS);
+        }
+
         const terminal = await generator.next();
 
         expect(terminal.done).toBe(true);
@@ -578,7 +648,7 @@ describe('StepExecutor hardening', () => {
             throw new Error('Expected terminal step execution result');
         }
         expect(terminal.value.success).toBe(true);
-        expect(llmProvider.generateEvaluation).toHaveBeenCalledTimes(2);
+        expect(llmProvider.generateEvaluation).toHaveBeenCalledTimes(1);
     });
 
     it('treats first fail as provisional and can recover on next action', async () => {

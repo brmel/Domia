@@ -6,18 +6,7 @@ import { ActionType } from '@domain/enums/ActionType';
 describe('StepExecutor language validation integration', () => {
     it('breaks repeated click loop and validates multilingual bar via extraction', async () => {
         const generateAction = vi.fn(async (context: { advice?: string }) => {
-            if (context.advice?.includes('explicit pass action')) {
-                return {
-                    isErr: () => false,
-                    value: {
-                        type: ActionType.PASS,
-                        summary: 'Validated language bar contains Arabic, English, and French',
-                        thought: 'Issue explicit supervised pass with evidence-backed summary'
-                    }
-                };
-            }
-
-            if (context.advice && /extract[\s\S]*language|language[\s\S]*extract/i.test(context.advice)) {
+            if (context.advice?.includes('Choose a different strategy')) {
                 return {
                     isErr: () => false,
                     value: {
@@ -193,16 +182,16 @@ describe('StepExecutor language validation integration', () => {
             }
         }
 
-        expect(actionEvents.map((entry) => entry.type)).toEqual([ActionType.CLICK, ActionType.EXTRACT, ActionType.PASS]);
+        expect(actionEvents.map((entry) => entry.type)).toEqual([ActionType.CLICK, ActionType.EXTRACT]);
         expect(browser.extractText).toHaveBeenCalledTimes(1);
         expect(toolExecutor.execute).toHaveBeenCalledTimes(1);
-        expect(generateAction).toHaveBeenCalledTimes(4);
+        expect(generateAction).toHaveBeenCalledTimes(3);
 
         const advicePayloads = generateAction.mock.calls
             .map((call) => call[0] as { advice?: string })
             .filter((payload) => typeof payload.advice === 'string')
             .map((payload) => payload.advice ?? '');
 
-        expect(advicePayloads.some((advice) => advice.includes('extract visible language labels/options'))).toBe(true);
+        expect(advicePayloads.some((advice) => advice.includes('Choose a different strategy'))).toBe(true);
     });
 });

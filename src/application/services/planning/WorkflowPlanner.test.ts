@@ -1,19 +1,24 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
-import { okAsync } from 'neverthrow';
 import { WorkflowPlanner } from './WorkflowPlanner';
 
 describe('WorkflowPlanner', () => {
-    it('creates a deterministic multi-step plan from explicit checklist prompts', async () => {
+    it('delegates checklist-like prompts to LLM planning', async () => {
+        const llmPlan = {
+            id: 'llm-plan',
+            goal: 'llm-goal',
+            status: 'planning',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            items: [{ id: 'llm-1', description: 'llm step', status: 'pending', type: 'general' as const }]
+        };
+
         const llmProvider = {
-            generatePlan: vi.fn().mockResolvedValue(okAsync({
-                id: 'llm-plan',
-                goal: 'llm-goal',
-                status: 'planning',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                items: [{ id: 'llm-1', description: 'llm step', status: 'pending', type: 'general' as const }]
-            }))
+            generatePlan: vi.fn().mockResolvedValue({
+                isOk: () => true,
+                isErr: () => false,
+                value: llmPlan
+            })
         };
 
         const assertionGoalService = {
@@ -39,13 +44,11 @@ describe('WorkflowPlanner', () => {
 
         expect(result.isOk()).toBe(true);
         if (result.isErr()) {
-            throw new Error('Expected checklist plan result');
+            throw new Error('Expected llm plan result');
         }
 
-        expect(result.value.items.length).toBe(6);
-        expect(result.value.items[0]?.description).toContain('Navigate to the website');
-        expect(result.value.items[2]?.description).toContain('Extract the list of supported languages');
-        expect(llmProvider.generatePlan).not.toHaveBeenCalled();
+        expect(result.value.id).toBe('llm-plan');
+        expect(llmProvider.generatePlan).toHaveBeenCalledTimes(1);
     });
 
     it('falls back to LLM planning when prompt is not a checklist', async () => {

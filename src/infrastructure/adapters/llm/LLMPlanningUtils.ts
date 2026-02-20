@@ -23,6 +23,11 @@ Plan Item Types:
 - vision: Use for verifying visual layout or appearance
 - general: Use for logical steps or data processing
 
+Planning constraints:
+- For validation goals, include explicit evidence-collection objectives (for example extracting visible text/labels) before final verification.
+- Avoid micro-objectives that are only repeated interaction mechanics (for example "retry clicking until it works").
+- Keep objectives user-facing and outcome-oriented, not process/mechanism-oriented.
+
 Response Format:
 {
   "goal": "Refined goal description",

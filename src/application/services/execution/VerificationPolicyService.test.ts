@@ -27,7 +27,7 @@ describe('VerificationPolicyService', () => {
         expect(decision.evaluation.decision).toBe('sub_task_success');
     });
 
-    it('requires explicit pass action before terminal success in supervised mode', () => {
+    it('accepts high-confidence non-pass success without forcing explicit pass action', () => {
         const service = new VerificationPolicyService();
 
         const decision = service.enforce(
@@ -45,9 +45,8 @@ describe('VerificationPolicyService', () => {
             }
         );
 
-        expect(decision.adjusted).toBe(true);
-        expect(decision.evaluation.decision).toBe('need_retry');
-        expect(decision.reason).toContain('explicit pass action');
+        expect(decision.adjusted).toBe(false);
+        expect(decision.evaluation.decision).toBe('sub_task_success');
     });
 
     it('downgrades low-confidence success to retry', () => {
@@ -165,4 +164,28 @@ describe('VerificationPolicyService', () => {
         expect(decision.adjusted).toBe(false);
         expect(decision.evaluation.decision).toBe('sub_task_success');
     });
+
+    it('blocks supervised pass when no prior verification action exists', () => {
+        const service = new VerificationPolicyService();
+
+        const decision = service.evaluatePassEligibility(
+            { type: ActionType.PASS, summary: 'done', thought: 'pass' },
+            []
+        );
+
+        expect(decision.allowed).toBe(false);
+        expect(decision.reason).toContain('prior verification action');
+    });
+
+    it('allows supervised pass after a prior non-terminal verification action', () => {
+        const service = new VerificationPolicyService();
+
+        const decision = service.evaluatePassEligibility(
+            { type: ActionType.PASS, summary: 'done', thought: 'pass' },
+            [{ type: ActionType.EXTRACT, elementId: ElementIdFactory.unsafe(1), thought: 'extract' }]
+        );
+
+        expect(decision.allowed).toBe(true);
+    });
+
 });

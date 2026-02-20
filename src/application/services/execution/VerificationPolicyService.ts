@@ -16,6 +16,12 @@ export interface VerificationPolicyDecision {
     readonly reason: string;
 }
 
+export interface PassActionEligibilityDecision {
+    readonly allowed: boolean;
+    readonly reason: string;
+    readonly advice?: string;
+}
+
 type PolicyRule = (
     evaluation: LLMEvaluationDecision,
     context: VerificationPolicyContext,
@@ -54,42 +60,70 @@ export class VerificationPolicyService {
         return this.accept(evaluation, 'Evaluation accepted by verification policy');
     }
 
-    private getOrderedRules(): readonly PolicyRule[] {
-        return [
-            this.applyTerminalPassContract.bind(this),
-            this.applyExplicitPassRequirementRule.bind(this),
-            this.applyLowConfidenceRule.bind(this),
-            this.applyExecutionErrorRetryRule.bind(this)
-        ];
-    }
+    evaluatePassEligibility(
+        action: AgentAction,
+        history: readonly AgentAction[],
+        profileOverrides?: Partial<VerificationPolicyProfile>
+    ): PassActionEligibilityDecision {
+        const profile = this.resolveProfile(profileOverrides);
+        if (!profile.enforceSupervisedTerminalPass || action.type !== ActionType.PASS) {
+            return {
+                allowed: true,
+                reason: 'Pass eligibility accepted by policy'
+            };
+        }
 
-    private applyExplicitPassRequirementRule(
-        evaluation: LLMEvaluationDecision,
-        context: VerificationPolicyContext,
-        profile: VerificationPolicyProfile
-    ): VerificationPolicyDecision | null {
-        if (
-            !profile.enforceSupervisedTerminalPass
-            || evaluation.decision !== 'sub_task_success'
-            || context.attemptedAction.type === ActionType.PASS
-        ) {
-            return null;
+        const hasPriorVerificationAction = history
+            .some((candidate) => candidate.type !== ActionType.PASS && candidate.type !== ActionType.FAIL);
+
+        if (!hasPriorVerificationAction) {
+            return {
+                allowed: false,
+                reason: 'Pass attempt requires at least one prior verification action',
+                advice: 'Perform at least one concrete verification action first (for example extract, click+observe, or wait+re-check), then issue PASS.'
+            };
+        }
+
+        const lastPassIndex = (() => {
+            for (let index = history.length - 1; index >= 0; index -= 1) {
+                if (history[index]?.type === ActionType.PASS) {
+                    return index;
+                }
+            }
+            return -1;
+        })();
+
+        if (lastPassIndex < 0) {
+            return {
+                allowed: true,
+                reason: 'First pass attempt is allowed in supervised mode'
+            };
+        }
+
+        const hasFreshEvidenceAction = history
+            .slice(lastPassIndex + 1)
+            .some((candidate) => candidate.type !== ActionType.PASS && candidate.type !== ActionType.FAIL);
+
+        if (hasFreshEvidenceAction) {
+            return {
+                allowed: true,
+                reason: 'Pass attempt has fresh evidence action since previous pass'
+            };
         }
 
         return {
-            evaluation: {
-                decision: 'need_retry',
-                summary: 'Supervised mode requires an explicit pass action before terminal success.',
-                advice: 'If goal is satisfied, issue a PASS action with concise evidence summary.',
-                confidence: this.normalizeRetryConfidence(evaluation.confidence),
-                evidence: [
-                    ...evaluation.evidence,
-                    'Policy requires explicit terminal PASS in supervised mode.'
-                ]
-            },
-            adjusted: true,
-            reason: 'Sub-task success converted to retry until explicit pass action is issued'
+            allowed: false,
+            reason: 'Repeated pass attempt without fresh evidence action',
+            advice: 'Perform at least one non-pass verification action first (for example extract or targeted interaction), then issue PASS.'
         };
+    }
+
+    private getOrderedRules(): readonly PolicyRule[] {
+        return [
+            this.applyTerminalPassContract.bind(this),
+            this.applyLowConfidenceRule.bind(this),
+            this.applyExecutionErrorRetryRule.bind(this)
+        ];
     }
 
     private applyLowConfidenceRule(

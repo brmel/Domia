@@ -399,6 +399,7 @@ export class RunTestUseCase {
 
                 const item = plan.items[i];
                 if (!item) continue;
+                const executionGoal = input.prompt;
 
                 if (controller.state === TestRunState.PAUSED) {
                     runLifecycle = this.durability.transition(testRunId, runLifecycle, 'paused');
@@ -451,7 +452,8 @@ export class RunTestUseCase {
 
                 const stepKernel = this.executePlanItemKernel(
                     testRunId,
-                    item,
+                    executionGoal,
+                    plan,
                     browser,
                     url,
                     currentState,
@@ -521,7 +523,7 @@ export class RunTestUseCase {
                             plan = await this.executeScopedReplan({
                                 originalPrompt: input.prompt,
                                 currentPlan: plan,
-                                failedStepDescription: item.description,
+                                failedStepDescription: executionGoal,
                                 failureReason: proactiveReplan.reason,
                                 currentState,
                                 failedNodeId: item.id
@@ -579,7 +581,7 @@ export class RunTestUseCase {
                             plan = await this.executeScopedReplan({
                                 originalPrompt: input.prompt,
                                 currentPlan: plan,
-                                failedStepDescription: item.description,
+                                failedStepDescription: executionGoal,
                                 failureReason: errorMsg,
                                 currentState,
                                 failedNodeId: item.id
@@ -706,7 +708,8 @@ export class RunTestUseCase {
 
     private async *executePlanItemKernel(
         testRunId: string,
-        item: PlanItem,
+        executionGoal: string,
+        plan: Plan,
         browser: IBrowserAutomation,
         url: string,
         currentState: WorkflowState,
@@ -729,7 +732,7 @@ export class RunTestUseCase {
 
         const stepGen = this.executor.executeStep(
             testRunId,
-            item.description,
+            executionGoal,
             browser,
             url,
             currentState.stepNumber,
@@ -737,6 +740,7 @@ export class RunTestUseCase {
             {
                 ...(runtime.stepToolContext ? { toolContext: runtime.stepToolContext } : {}),
                 overrideProvider: runtime.controller,
+                plan,
                 onEvaluation: (evaluationTelemetry: StepEvaluationTelemetry) => {
                     pendingEvaluation = evaluationTelemetry;
                 }

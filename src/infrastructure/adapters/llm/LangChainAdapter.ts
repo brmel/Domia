@@ -10,6 +10,7 @@ import type {
     IToolCallingProvider
 } from '@domain/ports';
 import type { AgentAction, LLMEvaluationDecision } from '@domain/value-objects';
+import { ActionType } from '@domain/enums/ActionType';
 import { LLMError } from '@domain/errors';
 import { LLMPlanningUtils } from './LLMPlanningUtils';
 import { ActionToolMapper } from '@shared/tooling/ActionToolMapper';
@@ -186,23 +187,72 @@ export class LangChainAdapter implements ILLMProvider {
     }
 
     private async doGenerateEvaluation(context: LLMEvaluationContext): Promise<LLMEvaluationDecision> {
-        const outcome = await this.toolCallingProvider.generateToolCallOutcome({
-            systemPrompt: EVALUATION_SYSTEM_PROMPT,
-            userPrompt: buildEvaluationUserPrompt(context),
-            tools: this.actionToolMapper.getEvaluationToolDefinitions()
-        });
+        const outcome = await this.toolCallingProvider.generateToolCallOutcome(
+            this.buildEvaluationRequest(context)
+        );
 
         if (!outcome.ok) {
-            this.logger.warn('[LangChainAdapter] Evaluator tool-calling decision failed', {
+            this.logger.warn('[LangChainAdapter] Evaluator tool-calling decision failed; using deterministic fallback', {
                 code: outcome.failure.code,
                 recoverable: outcome.failure.recoverable,
                 retryable: outcome.failure.retryable,
                 message: outcome.failure.message
             });
-            throw new LLMError(`Evaluation generation failed: ${outcome.failure.message}`);
+
+            return this.buildFallbackEvaluationDecision(context, outcome.failure.message);
         }
 
         return this.actionToolMapper.mapModelToolCallToEvaluationDecision(outcome.result.name, outcome.result.args);
+    }
+
+    private buildEvaluationRequest(context: LLMEvaluationContext): import('@domain/ports').ToolCallingRequest {
+        return {
+            systemPrompt: EVALUATION_SYSTEM_PROMPT,
+            userPrompt: buildEvaluationUserPrompt(context),
+            tools: this.actionToolMapper.getEvaluationToolDefinitions()
+        };
+    }
+
+    private buildFallbackEvaluationDecision(
+        context: LLMEvaluationContext,
+        failureMessage: string
+    ): LLMEvaluationDecision {
+        if (context.executionOutcome === 'execution_error') {
+            return {
+                decision: 'need_retry',
+                summary: 'Execution reported an error; retry with a simpler interaction.',
+                advice: context.executionError ?? 'Retry with a single concrete interaction and re-check visible state.',
+                confidence: 0.6,
+                evidence: [
+                    context.executionError ?? 'Execution error reported.',
+                    `Evaluator fallback engaged: ${failureMessage}`
+                ]
+            };
+        }
+
+        if (context.attemptedAction.type === ActionType.PASS) {
+            return {
+                decision: 'need_retry',
+                summary: 'Pass attempt requires one concrete verification action first.',
+                advice: 'Run one explicit verification action (for example extract visible labels), then reassess pass.',
+                confidence: 0.58,
+                evidence: [
+                    'Attempted action was PASS.',
+                    `Evaluator fallback engaged: ${failureMessage}`
+                ]
+            };
+        }
+
+        return {
+            decision: 'need_retry',
+            summary: 'Evaluator output was invalid; continue with one focused verification action.',
+            advice: 'Do not repeat the same action blindly; choose one concrete evidence-gathering action.',
+            confidence: 0.55,
+            evidence: [
+                context.executionObservation ?? 'Current snapshot available for another verification action.',
+                `Evaluator fallback engaged: ${failureMessage}`
+            ]
+        };
     }
 
     generatePlan(prompt: string): ResultAsync<import('@domain/entities/Plan').Plan, LLMError> {

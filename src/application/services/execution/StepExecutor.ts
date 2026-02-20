@@ -19,6 +19,7 @@ import { StepActionExecutionService } from './StepActionExecutionService';
 import { TemporalWindowCaptureService } from './TemporalWindowCaptureService';
 import type { VerificationPolicyProfile } from './coordinators/StepExecutionCoordinator';
 import type { IToolCapabilityRegistry } from '../tooling/IToolCapabilityRegistry';
+import type { Plan } from '@domain/entities/Plan';
 
 export type StepExecutionResult =
     | { readonly success: true; readonly terminal: 'pass' }
@@ -109,6 +110,7 @@ export class StepExecutor {
             toolContext?: ToolContext;
             onEvaluation?: (telemetry: StepEvaluationTelemetry) => void | Promise<void>;
             overrideProvider?: ActionOverrideProvider;
+            plan?: Plan;
         }
     ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, StepExecutionResult, unknown> {
         const verificationPolicyProfile = options.verificationPolicyProfile;
@@ -257,6 +259,7 @@ export class StepExecutor {
                 viewport,
                 stepsRemaining: maxActions - loopCount,
                 availableTools: this.toolCapabilityRegistry.getToolDescriptors(executionContext?.toolContext?.platform),
+                ...(executionContext?.plan ? { plan: executionContext.plan } : {}),
                 ...(composedAdvice ? { advice: composedAdvice } : {}),
                 ...(temporalWindow ? { temporalWindow } : {})
             };
@@ -309,9 +312,38 @@ export class StepExecutor {
                 });
             }
 
-            const actionSignature = this.buildActionSignature(action);
+            const passEligibility = this.verificationPolicy.evaluatePassEligibility(
+                action,
+                currentState.history,
+                effectiveVerificationPolicyProfile
+            );
+
+            if (!passEligibility.allowed) {
+                if (consecutiveEvaluatorRetries >= 2 || loopCount >= maxActions - 1) {
+                    return {
+                        success: false,
+                        terminal: 'error',
+                        code: 'loop_detected',
+                        reason: "Loop detected. Repeated PASS attempts without additional verification evidence."
+                    };
+                }
+
+                adviceForNextAttempt = passEligibility.advice ?? 'Perform a non-pass verification action before attempting PASS again.';
+                consecutiveEvaluatorRetries += 1;
+                loopCount += 1;
+
+                this.logger.warn('[StepExecutor] Pass attempt deferred by verification policy', {
+                    stepNumber: currentState.stepNumber + 1,
+                    reason: passEligibility.reason,
+                    loopCount
+                });
+
+                continue;
+            }
+
+            const actionSignature = this.resolveActionSignature(action);
             if (action.type !== ActionType.FAIL && blockedActionSignatures.has(actionSignature)) {
-                const blockedAdvice = this.buildLoopAdvice(action, stepGoal, true);
+                const blockedAdvice = this.buildLoopAdvice(action, true);
 
                 if (consecutiveEvaluatorRetries >= 2 || loopCount >= maxActions - 1) {
                     return {
@@ -341,7 +373,7 @@ export class StepExecutor {
             }
 
             if (action.type !== ActionType.FAIL && this.loopDetector.isLoop(currentState.history, action)) {
-                const loopAdvice = this.buildLoopAdvice(action, stepGoal, false);
+                const loopAdvice = this.buildLoopAdvice(action, false);
                 blockedActionSignatures.set(actionSignature, (blockedActionSignatures.get(actionSignature) ?? 0) + 1);
 
                 if (consecutiveEvaluatorRetries >= 2 || loopCount >= maxActions - 1) {
@@ -388,7 +420,7 @@ export class StepExecutor {
 
             yield { type: 'action', action, assets };
 
-            if (action.type === ActionType.PASS && !supervisedTerminalPass) {
+            if (action.type === ActionType.PASS) {
                 return { success: true, terminal: 'pass' };
             }
 
@@ -553,7 +585,22 @@ export class StepExecutor {
             || lastAction.type === ActionType.MOUSE_DRAG;
     }
 
-    private buildActionSignature(action: AgentAction): string {
+    private buildLoopAdvice(action: AgentAction, isBlocked: boolean): string {
+        const prefix = isBlocked
+            ? `Action '${action.type}' was already detected as ineffective. Do not repeat it.`
+            : action.type === ActionType.CLICK
+                ? 'Loop detected on repeated click attempts. Do not repeat the same click.'
+                : `Loop detected on repeated '${action.type}' attempts.`;
+
+        return `${prefix} Choose a different strategy (for example extract evidence or navigate to a clearer state) before retrying.`;
+    }
+
+    private resolveActionSignature(action: AgentAction): string {
+        const detector = this.loopDetector as unknown as { getActionSignature?: (candidate: AgentAction) => string };
+        if (typeof detector.getActionSignature === 'function') {
+            return detector.getActionSignature(action);
+        }
+
         switch (action.type) {
             case ActionType.CLICK:
                 return `click:${String(action.elementId)}`;
@@ -582,30 +629,12 @@ export class StepExecutor {
             case ActionType.PRESS_KEY:
                 return `press_key:${action.key}`;
             case ActionType.PASS:
-                return `pass:${action.summary}`;
+                return 'pass';
             case ActionType.FAIL:
-                return `fail:${action.reason}`;
+                return 'fail';
             default:
                 return JSON.stringify(action);
         }
-    }
-
-    private buildLoopAdvice(action: AgentAction, stepGoal: string, isBlocked: boolean): string {
-        const prefix = isBlocked
-            ? `Action '${action.type}' was already detected as ineffective. Do not repeat it.`
-            : action.type === ActionType.CLICK
-                ? 'Loop detected on repeated click attempts. Do not repeat the same click.'
-                : `Loop detected on repeated '${action.type}' attempts.`;
-
-        if (this.isLanguageValidationGoal(stepGoal)) {
-            return `${prefix} For language validation, extract visible language labels/options and verify the required set (for example Arabic, English, French) from extracted evidence before passing.`;
-        }
-
-        return `${prefix} Choose a different strategy (for example extract evidence or navigate to a clearer state) before retrying.`;
-    }
-
-    private isLanguageValidationGoal(stepGoal: string): boolean {
-        return /language|languages|multilingual|locale|arabic|english|french/i.test(stepGoal);
     }
 
 }

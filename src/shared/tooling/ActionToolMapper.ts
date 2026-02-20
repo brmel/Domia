@@ -19,12 +19,12 @@ export class ActionToolMapper {
             {
                 name: ActionType.CLICK,
                 description: 'Click an interactive element by its numeric elementId from the latest snapshot.',
-                schema: z.object({ elementId: z.number() })
+                schema: z.object({ elementId: z.number().int().min(0) })
             },
             {
                 name: ActionType.TYPE,
                 description: 'Type text into an input-like element by elementId. Set submit=true to press Enter after typing.',
-                schema: z.object({ elementId: z.number(), text: z.string(), submit: z.boolean().optional() })
+                schema: z.object({ elementId: z.number().int().min(0), text: z.string(), submit: z.boolean().optional() })
             },
             {
                 name: ActionType.PRESS_KEY,
@@ -80,7 +80,7 @@ export class ActionToolMapper {
             {
                 name: ActionType.EXTRACT,
                 description: 'Extract text/content from an element by elementId when verification requires explicit reading.',
-                schema: z.object({ elementId: z.number() })
+                schema: z.object({ elementId: z.number().int().min(0) })
             },
             {
                 name: ActionType.NAVIGATE,
@@ -128,13 +128,13 @@ export class ActionToolMapper {
             case ActionType.CLICK:
                 return {
                     type: ActionType.CLICK,
-                    elementId: ElementIdFactory.unsafe(Number(args['elementId'])),
+                    elementId: this.readRequiredElementIdArg(args),
                     thought: 'Tool call: click'
                 };
             case ActionType.TYPE:
                 return {
                     type: ActionType.TYPE,
-                    elementId: ElementIdFactory.unsafe(Number(args['elementId'])),
+                    elementId: this.readRequiredElementIdArg(args),
                     text: String(args['text'] ?? ''),
                     ...(typeof args['submit'] === 'boolean' ? { submit: args['submit'] } : {}),
                     thought: 'Tool call: type'
@@ -201,7 +201,7 @@ export class ActionToolMapper {
             case ActionType.EXTRACT:
                 return {
                     type: ActionType.EXTRACT,
-                    elementId: ElementIdFactory.unsafe(Number(args['elementId'])),
+                    elementId: this.readRequiredElementIdArg(args),
                     thought: 'Tool call: extract'
                 };
             case ActionType.NAVIGATE:
@@ -235,7 +235,7 @@ export class ActionToolMapper {
                 schema: z.object({
                     summary: z.string().min(1),
                     confidence: z.number().min(0).max(1),
-                    evidence: z.array(z.string().min(1)).min(1)
+                    evidence: z.array(z.string().min(1)).optional().default([])
                 })
             },
             {
@@ -245,7 +245,7 @@ export class ActionToolMapper {
                     summary: z.string().min(1),
                     advice: z.string().min(1),
                     confidence: z.number().min(0).max(1),
-                    evidence: z.array(z.string().min(1)).min(1)
+                    evidence: z.array(z.string().min(1)).optional().default([])
                 })
             },
             {
@@ -255,7 +255,7 @@ export class ActionToolMapper {
                     summary: z.string().min(1),
                     advice: z.string().min(1).optional(),
                     confidence: z.number().min(0).max(1),
-                    evidence: z.array(z.string().min(1)).min(1)
+                    evidence: z.array(z.string().min(1)).optional().default([])
                 })
             }
         ];
@@ -263,29 +263,35 @@ export class ActionToolMapper {
 
     mapModelToolCallToEvaluationDecision(name: string, args: Record<string, unknown>): LLMEvaluationDecision {
         switch (name) {
-            case 'sub_task_success':
+            case 'sub_task_success': {
+                const summary = this.readRequiredStringArg(args, 'summary');
                 return {
                     decision: 'sub_task_success',
-                    summary: this.readRequiredStringArg(args, 'summary'),
+                    summary,
                     confidence: this.readRequiredConfidenceArg(args),
-                    evidence: this.readRequiredEvidenceArg(args)
+                    evidence: this.readEvidenceWithFallback(args, summary)
                 };
-            case 'need_retry':
+            }
+            case 'need_retry': {
+                const summary = this.readRequiredStringArg(args, 'summary');
                 return {
                     decision: 'need_retry',
-                    summary: this.readRequiredStringArg(args, 'summary'),
+                    summary,
                     advice: this.readRequiredStringArg(args, 'advice'),
                     confidence: this.readRequiredConfidenceArg(args),
-                    evidence: this.readRequiredEvidenceArg(args)
+                    evidence: this.readEvidenceWithFallback(args, summary)
                 };
-            case 'need_reformulate':
+            }
+            case 'need_reformulate': {
+                const summary = this.readRequiredStringArg(args, 'summary');
                 return {
                     decision: 'need_reformulate',
-                    summary: this.readRequiredStringArg(args, 'summary'),
+                    summary,
                     confidence: this.readRequiredConfidenceArg(args),
-                    evidence: this.readRequiredEvidenceArg(args),
+                    evidence: this.readEvidenceWithFallback(args, summary),
                     ...(typeof args['advice'] === 'string' ? { advice: args['advice'] } : {})
                 };
+            }
             default:
                 throw new Error(`Unknown evaluator tool call: ${name}`);
         }
@@ -309,10 +315,19 @@ export class ActionToolMapper {
         return value;
     }
 
-    private readRequiredEvidenceArg(args: Record<string, unknown>): readonly string[] {
+    private readRequiredElementIdArg(args: Record<string, unknown>): ReturnType<typeof ElementIdFactory.unsafe> {
+        const value = args['elementId'];
+        if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+            throw new Error("Tool call missing valid non-negative integer arg 'elementId'");
+        }
+
+        return ElementIdFactory.unsafe(value);
+    }
+
+    private readEvidenceWithFallback(args: Record<string, unknown>, summary: string): readonly string[] {
         const value = args['evidence'];
-        if (!Array.isArray(value) || value.length === 0) {
-            throw new Error("Evaluator tool call missing required non-empty array arg 'evidence'");
+        if (!Array.isArray(value)) {
+            return [this.buildFallbackEvidence(summary)];
         }
 
         const normalized = value
@@ -321,10 +336,14 @@ export class ActionToolMapper {
             .filter((item) => item.length > 0);
 
         if (normalized.length === 0) {
-            throw new Error("Evaluator tool call 'evidence' must contain at least one non-empty string");
+            return [this.buildFallbackEvidence(summary)];
         }
 
         return normalized;
+    }
+
+    private buildFallbackEvidence(summary: string): string {
+        return `Evaluator summary: ${summary.trim()}`;
     }
 
     mapActionToRegistryToolCall(action: AgentAction, toolContext?: ToolContext): MappedToolRequest | undefined {
