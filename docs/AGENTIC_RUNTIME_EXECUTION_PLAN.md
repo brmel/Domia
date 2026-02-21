@@ -635,30 +635,6 @@ Observed architecture pain points:
 
 ---
 
-## Task 9.3 — Staged Rollout with Feature Flags and SLO Gates
-
-### How to implement
-- Roll out runtime kernel and LLM gateway changes behind flags.
-- Compare old/new paths in shadow mode.
-- Promote only when SLOs are stable:
-  - tool-call validity
-  - retry rate
-  - terminal failure rate
-  - multilingual verification pass rate
-
-### Why it is better
-- Low-risk migration for critical runtime.
-
-### How it simplifies code
-- Avoids emergency hotfix complexity from big-bang deployment.
-
-### Robust / modular / maintainable impact
-- Robustness: controlled production hardening.
-- Modularity: feature-flagged modules can be isolated.
-- Maintainability: reversible rollout path.
-
----
-
 ## Suggested Delivery Cadence
 - **Sprint 1:** Phase 0 + Phase 1
 - **Sprint 2:** Phase 2 + Phase 3

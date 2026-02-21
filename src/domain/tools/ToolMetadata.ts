@@ -10,11 +10,8 @@ export interface ToolMetadata {
     readonly name: string;
     readonly platforms: readonly PlatformType[];
     readonly scope: ToolScope;
-    readonly namespace?: string;
     readonly category?: string;
     readonly terminal?: boolean;
-    readonly version?: string;
-    readonly tags?: readonly string[];
 }
 
 export function createToolMetadata(
