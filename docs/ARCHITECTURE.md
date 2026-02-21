@@ -46,7 +46,7 @@ Domia runtime changes MUST comply with the contract defined in
 | **Shell** | [electron-vite](https://github.com/electron-vite/electron-vite-react) | Electron + React + Vite |
 | **Result Types** | [neverthrow](https://github.com/supermacro/neverthrow) | Type-safe error handling |
 | **DI Container** | [tsyringe](https://github.com/microsoft/tsyringe) | Dependency injection |
-| **LLM API** | [@vercel/ai](https://github.com/vercel/ai) | Unified multi-provider LLM |
+| **LLM API** | [@google/generative-ai](https://github.com/google/generative-ai-js) | Google Gemini LLM |
 | **Browser** | [Playwright](https://playwright.dev) | Browser automation |
 | **Storage** | [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) | Local persistence |
 | **UI State** | [zustand](https://github.com/pmndrs/zustand) | React state management |
@@ -178,7 +178,7 @@ graph TB
     
     subgraph Infrastructure["Infrastructure Layer"]
         DI[tsyringe Container]
-        LLM["@vercel/ai Adapter"]
+        LLM["Gemini Adapter"]
         Browser[Playwright Adapter]
         Store[SQLite Adapter]
         IO[I/O Adapters]
@@ -254,7 +254,7 @@ Implements all ports. Contains external library integrations.
 | `UIInputAdapter` | `IInputPort` | Parses from React forms |
 | `FileOutputAdapter` | `IOutputPort` | Writes to filesystem |
 | `PlaywrightAdapter` | `IBrowserAutomation` | Playwright |
-| `VercelAIAdapter` | `ILLMProvider` | @vercel/ai SDK |
+| `GeminiAdapter` | `ILLMProvider` | @google/generative-ai SDK |
 | `SQLiteAdapter` | `ITestRunStorage` | better-sqlite3 |
 
 ### Layer 4: Presentation (Outermost)
@@ -471,7 +471,7 @@ src/
 │   ├── adapters/
 │   │   ├── io/             # UIInputAdapter, FileOutputAdapter
 │   │   ├── browser/        # PlaywrightAdapter
-│   │   ├── llm/            # VercelAIAdapter, OllamaAdapter
+│   │   ├── llm/            # GeminiAdapter, GeminiToolCallingProvider
 │   │   └── storage/        # SQLiteAdapter, FileSystemAdapter
 │   ├── config/             # Provider configurations
 │   └── di/                 # tsyringe container setup

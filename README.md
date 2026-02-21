@@ -95,7 +95,7 @@ Domia is built with a Hexagonal Architecture (Ports & Adapters):
 
 -   **Core Domain**: Contains the business logic, entities (TestRun, Plan, AgentAction), and ports.
 -   **Application Layer**: Orchestrates use cases (`RunTestUseCase`), services (`PlannerService`), and workflows.
--   **Infrastructure**: Implements adapters for Browser (Playwright), LLM (LangChain/Google), Persistence (SQLite), and UI.
+-   **Infrastructure**: Implements adapters for Browser (Playwright), LLM (Google Gemini), Persistence (SQLite), and UI.
 
 ## Contributing
 

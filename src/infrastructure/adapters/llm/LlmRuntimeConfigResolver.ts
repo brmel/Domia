@@ -16,12 +16,9 @@ export class LlmRuntimeConfigResolver {
         const model = process.env['DOMIA_LLM_MODEL'] || config.ai.model;
 
         const baseUrl = process.env['DOMIA_LLM_BASE_URL']
-            || process.env['VLLM_BASE_URL']
             || config.ai.baseUrl;
 
         const apiKey = process.env['DOMIA_LLM_API_KEY']
-            || process.env['VLLM_API_KEY']
-            || process.env['OPENAI_API_KEY']
             || process.env['GOOGLE_API_KEY']
             || process.env['GEMINI_API_KEY']
             || config.ai.apiKey;

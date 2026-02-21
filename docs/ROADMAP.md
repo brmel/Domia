@@ -12,9 +12,7 @@ A phased implementation plan leveraging open-source libraries to minimize boiler
     "neverthrow": "^7.0.0",
     "tsyringe": "^4.8.0",
     "reflect-metadata": "^0.2.0",
-    "ai": "^3.0.0",
-    "@ai-sdk/anthropic": "^0.0.50",
-    "@ai-sdk/openai": "^0.0.60",
+    "@google/generative-ai": "^0.24.1",
     "playwright": "^1.45.0",
     "better-sqlite3": "^11.0.0",
     "zustand": "^4.5.0",
@@ -110,22 +108,20 @@ export class PlaywrightAdapter implements IBrowserAutomation {
 
 ## Phase 3: LLM Adapter (Week 4)
 
-**Goal**: @vercel/ai adapter with multi-provider support.
+**Goal**: Google Gemini adapter with tool calling support.
 
 | Provider | Package | Model Examples |
 |----------|---------|----------------|
-| Anthropic | `@ai-sdk/anthropic` | claude-3-5-sonnet |
-| OpenAI | `@ai-sdk/openai` | gpt-4o |
-| Google | `@ai-sdk/google` | gemini-pro |
+| Google | `@google/generative-ai` | gemini-2.0-flash |
 
 ```typescript
 @injectable()
-export class VercelAIAdapter implements ILLMProvider {
+export class GeminiAdapter implements ILLMProvider {
   generateAction(context: LLMContext): ResultAsync<AgentAction, LLMError> {
     return ResultAsync.fromPromise(
-      generateText({ model: this.getModel(), prompt: this.format(context) }),
+      this.generateWithRetry(context),
       (e) => new LLMError(String(e))
-    ).andThen(r => this.parseAction(r.text));
+    );
   }
 }
 ```

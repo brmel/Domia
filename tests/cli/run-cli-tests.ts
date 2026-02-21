@@ -15,8 +15,7 @@ function printUsage() {
     console.log('  npm run test:cli              # Web quality suite');
     console.log('  npm run test:cli -- web       # Web only');
     console.log('  npm run test:cli -- electron  # Electron only');
-    console.log('  npm run test:cli -- all       # Web + Electron + vLLM');
-    console.log('  npm run test:cli -- vllm      # vLLM provider route only\n');
+    console.log('  npm run test:cli -- all       # Web + Electron\n');
 }
 
 async function runTest(testFile: string, testName: string): Promise<boolean> {
@@ -63,11 +62,6 @@ async function runTests() {
     if (platform === 'electron' || platform === 'all') {
         const electronPassed = await runTest('tests/cli/electron-test.ts', 'Electron Platform');
         results.push({ name: 'Electron', passed: electronPassed });
-    }
-
-    if (platform === 'vllm' || platform === 'all') {
-        const vllmPassed = await runTest('tests/cli/vllm-test.ts', 'vLLM Provider');
-        results.push({ name: 'vLLM', passed: vllmPassed });
     }
     
     console.log(chalk.cyan('\nSummary:'));

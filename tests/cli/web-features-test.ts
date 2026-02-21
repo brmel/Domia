@@ -307,43 +307,13 @@ async function runFeatureCases(baseUrl: string): Promise<FeatureCaseResult[]> {
     const optionsOk = optionsResult.success
         && optionsResult.output.includes('[Debug Mode Enabled]')
         && optionsResult.output.includes('[Verbose Mode Enabled: Saving artifacts]')
-        && optionsResult.output.includes('[LLM] provider=google')
-        && !optionsResult.output.includes('provider=vllm');
+        && optionsResult.output.includes('[LLM] provider=google');
 
     results.push({
         name: 'cli-option-matrix',
         passed: optionsOk,
         ...(optionsOk ? {} : { details: 'Expected debug/verbose/provider logs were not all present.' })
     });
-
-    const vllmBaseUrl = process.env['VLLM_BASE_URL'];
-    if (!vllmBaseUrl) {
-        results.push({
-            name: 'vllm-on-provider-route',
-            passed: true,
-            details: 'Skipped: VLLM_BASE_URL not configured.'
-        });
-    } else {
-        const vllmModel = process.env['VLLM_MODEL'] || 'Qwen/Qwen2.5-7B-Instruct';
-        const vllmResult = await runCLITest({
-            url: baseUrl,
-            prompt: 'make sure button Start Scenario is present',
-            maxSteps: 2,
-            headless: true,
-            provider: 'vllm',
-            model: vllmModel,
-            baseUrl: vllmBaseUrl,
-            apiKey: process.env['VLLM_API_KEY'] || process.env['OPENAI_API_KEY'] || 'not-required'
-        });
-        logTestResult('Web Feature: vLLM Provider Route', vllmResult);
-
-        const vllmOk = vllmResult.success && vllmResult.output.includes('[LLM] provider=vllm');
-        results.push({
-            name: 'vllm-on-provider-route',
-            passed: vllmOk,
-            ...(vllmOk ? {} : { details: 'vLLM run did not succeed with explicit provider routing.' })
-        });
-    }
 
     const badUrlResult = await runCLITest({
         url: 'http://127.0.0.1:9',

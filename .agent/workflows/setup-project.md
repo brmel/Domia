@@ -30,8 +30,8 @@ npm install neverthrow
 # Dependency injection
 npm install tsyringe reflect-metadata
 
-# LLM integration (unified API)
-npm install ai @ai-sdk/anthropic @ai-sdk/openai
+# LLM integration (Google Gemini)
+npm install @google/generative-ai
 
 # Browser automation
 npm install playwright

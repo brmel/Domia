@@ -41,7 +41,7 @@ export interface LLMEvaluationContext extends LLMContext {
  * Abstracts LLM capabilities for agent reasoning
  */
 export interface LLMConfig {
-    readonly provider: 'openai' | 'anthropic' | 'google' | 'vllm';
+    readonly provider: 'google';
     readonly model: string;
     readonly apiKey?: string;
     readonly baseUrl?: string;
