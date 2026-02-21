@@ -2,20 +2,18 @@ import { inject, injectable } from 'tsyringe';
 import type { ILogger } from '@domain/ports';
 import type { RunTestInput } from '@application/dtos';
 
-export type RunBudgetDimension = 'actions' | 'duration' | 'tokens' | 'retries';
+export type RunBudgetDimension = 'actions' | 'duration' | 'tokens';
 
 export interface RunBudgetLimits {
     readonly maxActions: number;
     readonly maxDurationMs: number;
     readonly maxEstimatedTokens: number;
-    readonly maxRetries: number;
 }
 
 export interface RunBudgetSnapshot {
     readonly actionsTaken: number;
     readonly elapsedMs: number;
     readonly estimatedTokensUsed: number;
-    readonly retryCount: number;
 }
 
 export interface RunBudgetAssessment {
@@ -26,8 +24,7 @@ export interface RunBudgetAssessment {
 const DEFAULT_LIMITS: RunBudgetLimits = {
     maxActions: 20,
     maxDurationMs: 15 * 60 * 1000,
-    maxEstimatedTokens: 120_000,
-    maxRetries: 40
+    maxEstimatedTokens: 120_000
 };
 
 @injectable()
@@ -38,8 +35,7 @@ export class RunBudgetPolicyService {
         return {
             maxActions: this.safePositiveInt(options?.maxSteps, DEFAULT_LIMITS.maxActions),
             maxDurationMs: this.safePositiveInt(options?.maxDurationMs, DEFAULT_LIMITS.maxDurationMs),
-            maxEstimatedTokens: this.safePositiveInt(options?.maxEstimatedTokens, DEFAULT_LIMITS.maxEstimatedTokens),
-            maxRetries: this.safeNonNegativeInt(options?.maxRetries, DEFAULT_LIMITS.maxRetries)
+            maxEstimatedTokens: this.safePositiveInt(options?.maxEstimatedTokens, DEFAULT_LIMITS.maxEstimatedTokens)
         };
     }
 
@@ -56,10 +52,6 @@ export class RunBudgetPolicyService {
 
         if (snapshot.estimatedTokensUsed > limits.maxEstimatedTokens) {
             exceeded.push('tokens');
-        }
-
-        if (snapshot.retryCount > limits.maxRetries) {
-            exceeded.push('retries');
         }
 
         return {
@@ -83,7 +75,7 @@ export class RunBudgetPolicyService {
     }
 
     formatExceededMessage(limits: RunBudgetLimits, snapshot: RunBudgetSnapshot, assessment: RunBudgetAssessment): string {
-        return `Run budget exceeded (${assessment.exceeded.join(', ')}). actions=${snapshot.actionsTaken}/${limits.maxActions}, durationMs=${snapshot.elapsedMs}/${limits.maxDurationMs}, tokens=${snapshot.estimatedTokensUsed}/${limits.maxEstimatedTokens}, retries=${snapshot.retryCount}/${limits.maxRetries}`;
+        return `Run budget exceeded (${assessment.exceeded.join(', ')}). actions=${snapshot.actionsTaken}/${limits.maxActions}, durationMs=${snapshot.elapsedMs}/${limits.maxDurationMs}, tokens=${snapshot.estimatedTokensUsed}/${limits.maxEstimatedTokens}`;
     }
 
     private safePositiveInt(value: number | undefined, defaultValue: number): number {
@@ -94,11 +86,4 @@ export class RunBudgetPolicyService {
         return Math.floor(value);
     }
 
-    private safeNonNegativeInt(value: number | undefined, defaultValue: number): number {
-        if (!Number.isFinite(value) || value === undefined || value < 0) {
-            return defaultValue;
-        }
-
-        return Math.floor(value);
-    }
 }

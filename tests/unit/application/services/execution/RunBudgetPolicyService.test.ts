@@ -25,7 +25,6 @@ describe('RunBudgetPolicyService', () => {
         expect(limits.maxActions).toBe(20);
         expect(limits.maxDurationMs).toBe(15 * 60 * 1000);
         expect(limits.maxEstimatedTokens).toBe(120_000);
-        expect(limits.maxRetries).toBe(40);
     });
 
     it('returns warning when one or more dimensions exceed limits', () => {
@@ -35,14 +34,12 @@ describe('RunBudgetPolicyService', () => {
             {
                 maxActions: 2,
                 maxDurationMs: 100,
-                maxEstimatedTokens: 50,
-                maxRetries: 1
+                maxEstimatedTokens: 50
             },
             {
                 actionsTaken: 3,
                 elapsedMs: 120,
-                estimatedTokensUsed: 80,
-                retryCount: 0
+                estimatedTokensUsed: 80
             }
         );
 
@@ -58,14 +55,12 @@ describe('RunBudgetPolicyService', () => {
             {
                 maxActions: 1,
                 maxDurationMs: 1,
-                maxEstimatedTokens: 1,
-                maxRetries: 0
+                maxEstimatedTokens: 1
             },
             {
                 actionsTaken: 2,
                 elapsedMs: 2,
-                estimatedTokensUsed: 2,
-                retryCount: 1
+                estimatedTokensUsed: 2
             }
         );
 

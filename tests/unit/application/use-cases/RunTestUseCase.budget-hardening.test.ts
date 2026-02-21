@@ -71,8 +71,7 @@ describe('RunTestUseCase budget hardening', () => {
             resolveLimits: vi.fn().mockReturnValue({
                 maxActions: 0,
                 maxDurationMs: 999999,
-                maxEstimatedTokens: 999999,
-                maxRetries: 0
+                maxEstimatedTokens: 999999
             }),
             assess: vi.fn().mockReturnValue({ status: 'exceeded', exceeded: ['actions'] }),
             evaluate: vi.fn().mockReturnValue({ status: 'exceeded', exceeded: ['actions'] }),

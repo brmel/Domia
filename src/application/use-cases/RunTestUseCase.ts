@@ -24,7 +24,7 @@ import { EvidenceBlackboardService } from '../services/execution/EvidenceBlackbo
 import { BranchRollbackService } from '../services/execution/BranchRollbackService';
 import { RunLifecycleEngineService } from '../services/execution/RunLifecycleEngineService';
 import type { IRunLifecycleEngine } from '../services/execution/IRunLifecycleEngine';
-import { PlanningCoordinator, type SkillRoutingContext } from '../services/execution/coordinators/PlanningCoordinator';
+import { PlanningCoordinator } from '../services/execution/coordinators/PlanningCoordinator';
 import { RunBootstrapCoordinator } from '../services/execution/coordinators/RunBootstrapCoordinator';
 import { StepExecutionCoordinator, type StepExecutionOptions } from '../services/execution/coordinators/StepExecutionCoordinator';
 import { ReplanningCoordinator } from '../services/execution/coordinators/ReplanningCoordinator';
@@ -33,14 +33,14 @@ import { GraphSchedulerService } from '../services/execution/GraphSchedulerServi
 import {
     resolveRecoveryContext as resolveRecoveryContextForRun,
     replayRecoveryActions as replayRecoveryActionsForRun,
-    type RecoveryBootstrapContext,
-    type RecoveryReplayOutcome,
     type RunRecoveryDependencies
 } from '../services/execution/RunRecoveryOrchestration';
 import { SkillRegistryService } from '../services/skills/SkillRegistryService';
 import { SkillGovernanceService } from '../services/skills/SkillGovernanceService';
 import { PluginRegistryService } from '../services/plugins/PluginRegistryService';
 import { PluginGatewayService } from '../services/plugins/PluginGatewayService';
+import { SkillRoutingCoordinator } from '../services/execution/coordinators/SkillRoutingCoordinator';
+import { PluginPreflightCoordinator } from '../services/execution/coordinators/PluginPreflightCoordinator';
 import { RuntimeReadinessPolicyService } from '../services/hardening/RuntimeReadinessPolicyService';
 import type { Plan, PlanItem, PlanItemStatus } from '@domain/entities/Plan';
 import { TestStep } from '../../domain/ports';
@@ -49,7 +49,6 @@ import type { ILogger } from '../../domain/ports';
 import { PlatformSessionFactory } from '../services/platform/PlatformSessionFactory';
 import type { ToolContext } from '../../domain/tools/Tool';
 import type { RunLifecycleState } from '@domain/value-objects/RunLifecycle';
-import type { SkillDefinition } from '@domain/skills/SkillContract';
 import type { PlatformSession } from '../services/platform/PlatformSession';
 
 export interface RunExecutionContext {
@@ -62,6 +61,8 @@ export interface RunExecutionContext {
 @injectable()
 export class RunTestUseCase {
     private readonly graphScheduler = new GraphSchedulerService();
+    private readonly skillRoutingCoordinator: SkillRoutingCoordinator;
+    private readonly pluginPreflightCoordinator: PluginPreflightCoordinator;
 
     constructor(
         @inject(TestRunLifecycleManager) private lifecycleManager: TestRunLifecycleManager,
@@ -79,10 +80,10 @@ export class RunTestUseCase {
         @inject(RecoveryReplayGuardService) private readonly recoveryReplayGuard: RecoveryReplayGuardService,
         @inject(RecoveryReplayIdempotencyService) private readonly recoveryReplayIdempotency: RecoveryReplayIdempotencyService,
         @inject(ReplanningPolicyService) private readonly replanningPolicy: ReplanningPolicyService,
-        @inject(SkillRegistryService) private readonly skillRegistry: SkillRegistryService,
-        @inject(SkillGovernanceService) private readonly skillGovernance: SkillGovernanceService,
-        @inject(PluginRegistryService) private readonly pluginRegistry: PluginRegistryService,
-        @inject(PluginGatewayService) private readonly pluginGateway: PluginGatewayService,
+        @inject(SkillRegistryService) skillRegistry: SkillRegistryService,
+        @inject(SkillGovernanceService) skillGovernance: SkillGovernanceService,
+        @inject(PluginRegistryService) pluginRegistry: PluginRegistryService,
+        @inject(PluginGatewayService) pluginGateway: PluginGatewayService,
         @inject(RuntimeReadinessPolicyService) private readonly readinessPolicy: RuntimeReadinessPolicyService,
         @inject('ILogger') private logger: ILogger,
         @inject(PlanningCoordinator) private readonly planningCoordinator: PlanningCoordinator = new PlanningCoordinator(),
@@ -94,9 +95,12 @@ export class RunTestUseCase {
         @inject(BranchRollbackService) private readonly branchRollback: BranchRollbackService = new BranchRollbackService(),
         @inject(ObjectiveCompletionPolicyService) private readonly objectiveCompletionPolicy: ObjectiveCompletionPolicyService = new ObjectiveCompletionPolicyService(),
         @inject(EvidenceBlackboardService) private readonly evidenceBlackboard: EvidenceBlackboardService = new EvidenceBlackboardService()
-    ) { }
+    ) {
+        this.skillRoutingCoordinator = new SkillRoutingCoordinator(skillRegistry, skillGovernance, logger);
+        this.pluginPreflightCoordinator = new PluginPreflightCoordinator(pluginRegistry, pluginGateway, logger);
+    }
 
-    private getRecoveryDependencies(): RunRecoveryDependencies {
+    private get recoveryDeps(): RunRecoveryDependencies {
         return {
             persistence: this.persistence,
             durability: this.durability,
@@ -138,9 +142,9 @@ export class RunTestUseCase {
         const budgetLimits = this.budgetPolicy.resolveLimits(input.options);
         const runStartMs = Date.now();
         let estimatedTokensUsed = 0;
-        const recoveryContext = await this.resolveRecoveryContext(input);
-        const skillRoutingContext = this.resolveSkillRoutingContext(input, testRunId);
-        this.evaluatePluginPreflight(input, testRunId);
+        const recoveryContext = await resolveRecoveryContextForRun(this.recoveryDeps, input);
+        const skillRoutingContext = this.skillRoutingCoordinator.resolve(input, testRunId);
+        this.pluginPreflightCoordinator.evaluate(input, testRunId);
 
         let browser: IBrowserAutomation;
         let disposeSession: (() => Promise<void>) | undefined;
@@ -219,7 +223,7 @@ export class RunTestUseCase {
                     status: 'started'
                 });
 
-                const replayOutcome = await this.replayRecoveryActions({
+                const replayOutcome = await replayRecoveryActionsForRun(this.recoveryDeps, {
                     testRunId,
                     sourceRunId: recoveryContext.sourceRunId,
                     sourceBranchId: recoveryContext.branchId,
@@ -681,22 +685,6 @@ export class RunTestUseCase {
         }
     }
 
-    private async resolveRecoveryContext(input: RunTestInput): Promise<RecoveryBootstrapContext | null> {
-        return resolveRecoveryContextForRun(this.getRecoveryDependencies(), input);
-    }
-
-    private async replayRecoveryActions(params: {
-        testRunId: string;
-        sourceRunId: string;
-        sourceBranchId: string;
-        browser: IBrowserAutomation;
-        controller: ExecutionController;
-        state: WorkflowState;
-        targetStepNumber: number;
-    }): Promise<RecoveryReplayOutcome> {
-        return replayRecoveryActionsForRun(this.getRecoveryDependencies(), params);
-    }
-
     private buildBudgetSnapshot(params: {
         actionsTaken: number;
         runStartMs: number;
@@ -705,13 +693,11 @@ export class RunTestUseCase {
         actionsTaken: number;
         elapsedMs: number;
         estimatedTokensUsed: number;
-        retryCount: number;
     } {
         return {
             actionsTaken: params.actionsTaken,
             elapsedMs: Date.now() - params.runStartMs,
-            estimatedTokensUsed: params.estimatedTokensUsed,
-            retryCount: 0
+            estimatedTokensUsed: params.estimatedTokensUsed
         };
     }
 
@@ -719,7 +705,6 @@ export class RunTestUseCase {
         actionsTaken: number;
         elapsedMs: number;
         estimatedTokensUsed: number;
-        retryCount: number;
     }): void {
         const assessment = this.budgetPolicy.evaluate(testRunId, limits, snapshot);
         if (assessment.status !== 'exceeded') {
@@ -782,156 +767,6 @@ export class RunTestUseCase {
             compactedCheckpoints: compactedView.compacted.length,
             latestReason: compactedView.latest?.reason
         });
-    }
-
-
-    private resolveSkillRoutingContext(input: RunTestInput, runId: string): SkillRoutingContext | undefined {
-        const skillId = input.options?.preferredSkillId?.trim();
-
-        try {
-            const allowedTrustLevels = input.options?.allowedSkillTrustLevels ?? ['verified'];
-
-            if (skillId) {
-                const preferredSkill = this.skillRegistry.get(skillId);
-                if (!preferredSkill) {
-                    this.logger.warn('[RunTestUseCase] Skill routing skipped: preferred skill not found', { runId, skillId });
-                    return undefined;
-                }
-
-                const allowed = this.skillGovernance.isAllowed(preferredSkill, allowedTrustLevels);
-                this.logger.info('[RunTestUseCase] Skill routing evaluated preferred skill', {
-                    runId,
-                    skillId,
-                    skillTrust: preferredSkill.trust,
-                    allowed
-                });
-
-                if (!allowed) {
-                    return undefined;
-                }
-
-                return {
-                    skill: preferredSkill,
-                    source: 'preferred',
-                    graphSteps: this.buildSkillExecutionGraph(preferredSkill)
-                };
-            }
-
-            const autoSkill = this.selectAutoSkill(input.prompt, allowedTrustLevels);
-            if (!autoSkill) {
-                return undefined;
-            }
-
-            this.logger.info('[RunTestUseCase] Skill routing auto-selected skill', {
-                runId,
-                skillId: autoSkill.id,
-                skillTrust: autoSkill.trust
-            });
-
-            return {
-                skill: autoSkill,
-                source: 'auto',
-                graphSteps: this.buildSkillExecutionGraph(autoSkill)
-            };
-        } catch (error) {
-            const reason = error instanceof Error ? error.message : String(error);
-            this.logger.warn('[RunTestUseCase] Skill routing failed non-fatally', { runId, ...(skillId ? { skillId } : {}), reason });
-            return undefined;
-        }
-    }
-
-    private selectAutoSkill(prompt: string, allowedTrustLevels: readonly SkillDefinition['trust'][]): SkillDefinition | undefined {
-        const scoredSkills = this.skillRegistry
-            .list()
-            .filter(skill => this.skillGovernance.isAllowed(skill, allowedTrustLevels))
-            .map(skill => ({
-                skill,
-                score: this.scoreSkillMatch(prompt, skill)
-            }))
-            .filter(entry => entry.score > 0)
-            .sort((left, right) => right.score - left.score);
-
-        return scoredSkills[0]?.skill;
-    }
-
-    private scoreSkillMatch(prompt: string, skill: SkillDefinition): number {
-        const normalizedPrompt = prompt.toLowerCase();
-        const tokens = [
-            ...skill.id.toLowerCase().split(/[^a-z0-9]+/g),
-            ...skill.description.toLowerCase().split(/[^a-z0-9]+/g),
-            ...skill.preconditions.flatMap((item) => item.toLowerCase().split(/[^a-z0-9]+/g)),
-            ...skill.postconditions.flatMap((item) => item.toLowerCase().split(/[^a-z0-9]+/g))
-        ].filter(token => token.length >= 3);
-
-        if (tokens.length === 0) {
-            return 0;
-        }
-
-        let score = 0;
-        for (const token of new Set(tokens)) {
-            if (normalizedPrompt.includes(token)) {
-                score += 1;
-            }
-        }
-
-        return score;
-    }
-
-    private buildSkillExecutionGraph(skill: SkillDefinition): readonly string[] {
-        const steps: string[] = [];
-
-        skill.preconditions.forEach((precondition) => {
-            steps.push(`Validate precondition: ${precondition}`);
-        });
-
-        steps.push(`Execute skill objective: ${skill.description}`);
-
-        skill.postconditions.forEach((postcondition) => {
-            steps.push(`Verify postcondition: ${postcondition}`);
-        });
-
-        return steps.slice(0, 6);
-    }
-
-
-    private evaluatePluginPreflight(input: RunTestInput, runId: string): void {
-        const preflight = input.options?.pluginPreflight;
-        if (!preflight) {
-            return;
-        }
-
-        try {
-            const manifest = this.pluginRegistry.get(preflight.pluginId);
-            if (!manifest) {
-                this.logger.warn('[RunTestUseCase] Plugin preflight skipped: plugin not found', {
-                    runId,
-                    pluginId: preflight.pluginId
-                });
-                return;
-            }
-
-            const result = this.pluginGateway.authorize(manifest, {
-                runId,
-                pluginId: preflight.pluginId,
-                capability: preflight.capability,
-                payload: {}
-            });
-
-            this.logger.info('[RunTestUseCase] Plugin preflight evaluated', {
-                runId,
-                pluginId: preflight.pluginId,
-                capability: preflight.capability,
-                success: result.success,
-                message: result.message
-            });
-        } catch (error) {
-            const reason = error instanceof Error ? error.message : String(error);
-            this.logger.warn('[RunTestUseCase] Plugin preflight failed non-fatally', {
-                runId,
-                pluginId: preflight.pluginId,
-                reason
-            });
-        }
     }
 
 }
