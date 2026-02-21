@@ -10,9 +10,6 @@ export type PlatformFieldValue =
   | Omit<WebPlatformConfig, 'platform'>
   | Omit<ElectronPlatformConfig, 'platform'>;
 
-/**
- * Props passed to platform-specific field renderers
- */
 export interface FieldRenderProps {
   value: PlatformFieldValue;
   onChange: (value: PlatformFieldValue) => void;
@@ -20,10 +17,6 @@ export interface FieldRenderProps {
   disabled: boolean;
 }
 
-/**
- * Platform definition interface
- * Each platform must implement this
- */
 export interface PlatformDefinition<T extends BasePlatformConfig> {
   type: T['platform'];
   label: string;
@@ -35,10 +28,6 @@ export interface PlatformDefinition<T extends BasePlatformConfig> {
   defaultValues: Omit<T, 'platform'>;
 }
 
-/**
- * Central registry of all supported platforms
- * Add new platforms here
- */
 type WebFieldValue = Omit<WebPlatformConfig, 'platform'>;
 type ElectronFieldValue = Omit<ElectronPlatformConfig, 'platform'>;
 
@@ -72,9 +61,6 @@ export const platformRegistry: {
   },
 };
 
-/**
- * Get all available platforms
- */
 export function getAvailablePlatforms(): Array<PlatformDefinition<BasePlatformConfig>> {
   return Object.values(platformRegistry);
 }

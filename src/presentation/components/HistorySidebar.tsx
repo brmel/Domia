@@ -24,8 +24,7 @@ export function HistorySidebar({ onClose, disabled = false }: HistorySidebarProp
         if (confirm('Are you sure you want to delete all history? This cannot be undone.')) {
             try {
                 await clearMutation.mutateAsync();
-            } catch (err) {
-                console.error('Failed to clear history', err);
+            } catch (_) {
                 alert('Failed to clear history');
             }
         }

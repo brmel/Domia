@@ -49,7 +49,6 @@ export const LiveViewContainer: React.FC = () => {
 
             if (bounds.width > 0 && bounds.height > 0) {
                 const running = isRunningRef.current;
-                console.log('[LiveViewContainer] Sending bounds:', bounds, 'isRunning:', running);
                 if (running) {
                     window.electron?.agentView?.resize(bounds);
                     window.electron?.agentView?.show(bounds);
@@ -57,7 +56,7 @@ export const LiveViewContainer: React.FC = () => {
                     window.electron?.agentView?.hide();
                 }
             } else {
-                console.warn('[LiveViewContainer] Invalid bounds calculated:', bounds);
+                // Invalid bounds — skip resize
             }
         };
 

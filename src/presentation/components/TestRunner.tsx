@@ -34,17 +34,11 @@ export function TestRunner(): React.ReactElement {
         onData: (event) => {
             handleEvent(event as Parameters<typeof handleEvent>[0]);
         },
-        onError: (err) => {
-            console.error('Subscription error:', err);
-        },
+        onError: () => {},
         enabled: typeof window !== 'undefined' && 'electronTRPC' in window
     });
 
-    const cancelMutation = trpc.test.cancel.useMutation({
-        onError: (err) => {
-            console.error('Failed to cancel test:', err);
-        }
-    });
+    const cancelMutation = trpc.test.cancel.useMutation({});
 
     const overrideActionMutation = trpc.test.overrideAction.useMutation({
         onSuccess: () => {

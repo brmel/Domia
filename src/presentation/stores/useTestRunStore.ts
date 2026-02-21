@@ -8,9 +8,6 @@ import { AgentStatus } from '../../domain/types/AgentStatus';
 import type { PlatformType } from '../../domain/types/PlatformConfig';
 import type { PlatformFieldValue } from '../config/platformRegistry';
 
-/**
- * TestRun state for UI
- */
 export interface TestRunStoreState {
     status: AgentStatus;
     testRunId: TestRunId | null;

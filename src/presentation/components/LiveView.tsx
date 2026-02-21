@@ -2,10 +2,6 @@ import React from 'react';
 import { useTestRunStore } from '../stores';
 import { LiveViewContainer } from './LiveViewContainer';
 
-/**
- * LiveView Component
- * Renders the native agent browser view using Electron WebContentsView
- */
 export function LiveView(): React.ReactElement {
     const { status } = useTestRunStore();
 

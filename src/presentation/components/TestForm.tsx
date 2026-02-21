@@ -30,8 +30,7 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
     const runMutation = trpc.test.run.useMutation({
-        onError: (error) => {
-            console.error('Failed to start test:', error);
+        onError: () => {
             setStatus(AgentStatus.FAILED);
         },
         onSuccess: () => {
@@ -195,17 +194,11 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
         runMutation.mutate(finalData);
     };
 
-    const stopMutation = trpc.test.cancel.useMutation({
-        onError: (err) => console.error('Failed to stop test:', err)
-    });
+    const stopMutation = trpc.test.cancel.useMutation({});
 
-    const pauseMutation = trpc.test.pause.useMutation({
-        onError: (err) => console.error('Failed to pause test:', err)
-    });
+    const pauseMutation = trpc.test.pause.useMutation({});
 
-    const resumeMutation = trpc.test.resume.useMutation({
-        onError: (err) => console.error('Failed to resume test:', err)
-    });
+    const resumeMutation = trpc.test.resume.useMutation({});
 
     const handleStop = (): void => {
         stopMutation.mutate();
