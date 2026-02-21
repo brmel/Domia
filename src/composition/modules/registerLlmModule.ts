@@ -1,18 +1,18 @@
 import { container } from 'tsyringe';
 import { ActionToolMapper } from '@shared/tooling/ActionToolMapper';
-import { LangChainAdapter } from '@infrastructure/adapters/llm/LangChainAdapter';
-import { LangChainToolCallingProvider } from '@infrastructure/adapters/llm/LangChainToolCallingProvider';
+import { GeminiAdapter } from '@infrastructure/adapters/llm/GeminiAdapter';
+import { GeminiToolCallingProvider } from '@infrastructure/adapters/llm/GeminiToolCallingProvider';
 import { ToolCallingFailurePolicy } from '@infrastructure/adapters/llm/ToolCallingFailurePolicy';
 import { LlmRuntimeConfigResolver } from '@infrastructure/adapters/llm/LlmRuntimeConfigResolver';
-import { LangChainModelFactory } from '@infrastructure/adapters/llm/LangChainModelFactory';
+import { GeminiModelFactory } from '@infrastructure/adapters/llm/GeminiModelFactory';
 import { RuntimeRolloutGateService } from '@infrastructure/adapters/llm/RuntimeRolloutGateService';
 
 export function registerLlmModule(): void {
     container.registerSingleton(ActionToolMapper);
     container.registerSingleton(LlmRuntimeConfigResolver);
-    container.registerSingleton(LangChainModelFactory);
+    container.registerSingleton(GeminiModelFactory);
     container.registerSingleton(ToolCallingFailurePolicy);
     container.registerSingleton(RuntimeRolloutGateService);
-    container.register('IToolCallingProvider', { useClass: LangChainToolCallingProvider });
-    container.register('ILLMProvider', { useClass: LangChainAdapter });
+    container.register('IToolCallingProvider', { useClass: GeminiToolCallingProvider });
+    container.register('ILLMProvider', { useClass: GeminiAdapter });
 }
