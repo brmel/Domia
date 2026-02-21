@@ -17,7 +17,6 @@ interface StepTraceEvent {
         readonly goal?: string;
         readonly currentUrl?: string;
         readonly promptPreview?: string;
-        readonly timelineSummary?: string;
     };
     readonly agentOutput?: {
         readonly action?: AgentAction | null;
@@ -64,8 +63,7 @@ export class TrajectoryExportService {
                     contextSnapshot: {
                         goal: runResult.value.prompt,
                         currentUrl: runResult.value.url,
-                        ...(trace.agentInput?.promptPreview ? { promptPreview: trace.agentInput.promptPreview } : {}),
-                        ...(trace.agentInput?.timelineSummary ? { timelineSummary: trace.agentInput.timelineSummary } : {})
+                        ...(trace.agentInput?.promptPreview ? { promptPreview: trace.agentInput.promptPreview } : {})
                     },
                     finalExecutedAction: step.actionPayload,
                     ...(evaluatorOutcome ? { evaluatorOutcome } : {})

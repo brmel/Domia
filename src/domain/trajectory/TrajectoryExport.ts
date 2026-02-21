@@ -15,7 +15,6 @@ export interface TrajectoryStepRecord {
         readonly goal: string;
         readonly currentUrl: string;
         readonly promptPreview?: string;
-        readonly timelineSummary?: string;
     };
     readonly modelProposal?: AgentAction;
     readonly operatorCorrection?: AgentAction;

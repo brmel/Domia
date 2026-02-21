@@ -1,7 +1,3 @@
-/**
- * Domain Layer Public API
- */
-
 export * from './errors';
 export * from './value-objects';
 export type { TestRun, TestRunStatus } from './entities';

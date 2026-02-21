@@ -14,10 +14,6 @@ export interface RawElement {
 @injectable()
 export class DomScanner {
 
-    /**
-     * Injects a script into the page to identify and extract interactive elements.
-     * Returns raw data that needs to be mapped to domain objects.
-     */
     async scan(page: Page): Promise<RawElement[]> {
         const extractionScript = `
             (() => {
@@ -140,8 +136,7 @@ export class DomScanner {
 
         try {
             return await page.evaluate(extractionScript) as RawElement[];
-        } catch (error) {
-            console.warn(`[DomScanner] Scan failed: ${error}`);
+        } catch (_) {
             return [];
         }
     }

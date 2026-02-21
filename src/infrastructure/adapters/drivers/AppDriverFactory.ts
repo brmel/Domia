@@ -6,27 +6,8 @@ import { WebDriver } from './WebDriver';
 import { ElectronDriver, ElectronConnectionConfig } from './ElectronDriver';
 import { DriverToolRegistrar } from './DriverToolRegistrar';
 
-/**
- * Configuration for driver creation from PlatformConfig
- */
 export type DriverConfig = AppDriverCreateConfig;
 
-/**
- * AppDriverFactory
- * 
- * Factory for creating and initializing the appropriate IAppDriver implementation
- * based on the target platform. Follows the Factory Pattern for clean separation.
- * 
- * Responsibilities:
- * 1. Select correct driver implementation based on platform
- * 2. Register driver's tools with ToolRegistry
- * 3. Return configured driver instance
- * 
- * Usage:
- * ```typescript
- * const driver = await factory.createDriver({ platform: 'electron', connectionOptions: { cdpUrl: 'http://localhost:9222' } });
- * ```
- */
 @injectable()
 export class AppDriverFactory implements IAppDriverFactory {
     constructor(
@@ -36,13 +17,6 @@ export class AppDriverFactory implements IAppDriverFactory {
         @inject(ElectronDriver) private readonly electronDriver: ElectronDriver
     ) { }
 
-    /**
-     * Create and initialize a driver for the specified platform
-     * 
-     * @param config - Driver configuration including platformConfig and execution options
-     * @returns Configured and connected IAppDriver instance
-     * @throws Error if platform is not supported or connection fails
-     */
     async createDriver(config: AppDriverCreateConfig): Promise<IAppDriver> {
         const platform = config.platformConfig.platform;
         this.logger.info(`[AppDriverFactory] Creating driver for platform: ${platform}`);
@@ -69,9 +43,6 @@ export class AppDriverFactory implements IAppDriverFactory {
         return driver;
     }
 
-    /**
-     * Create and connect a WebDriver instance
-     */
     private async createWebDriver(config: AppDriverCreateConfig): Promise<IAppDriver> {
         if (config.platformConfig.platform !== 'web') {
             throw new Error('[AppDriverFactory] Invalid platform config for WebDriver');
@@ -91,9 +62,6 @@ export class AppDriverFactory implements IAppDriverFactory {
         return driver;
     }
 
-    /**
-     * Create and connect an ElectronDriver instance
-     */
     private async createElectronDriver(config: AppDriverCreateConfig): Promise<IAppDriver> {
         if (config.platformConfig.platform !== 'electron') {
             throw new Error('[AppDriverFactory] Invalid platform config for ElectronDriver');

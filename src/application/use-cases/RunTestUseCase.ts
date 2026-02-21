@@ -206,7 +206,7 @@ export class RunTestUseCase {
             const urlResult = UrlFactory.create(url);
             if (urlResult.isErr()) throw new WorkflowError(`Invalid URL: ${urlResult.error.message}`);
 
-            yield { type: 'thinking' }; // Loading state
+            yield { type: 'thinking' };
 
             if (shouldNavigate) {
                 const navResult = await browser.navigateTo(urlResult.value);

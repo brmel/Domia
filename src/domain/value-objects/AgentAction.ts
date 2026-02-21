@@ -1,10 +1,6 @@
 import type { ElementId } from './Brand';
 import { ActionType } from '../enums/ActionType';
 
-/**
- * AgentAction Value Object
- * Discriminated union of all possible agent actions
- */
 export type AgentAction =
     | ClickAction
     | TypeAction
@@ -126,9 +122,6 @@ export interface FailAction {
     readonly thought?: string;
 }
 
-/**
- * Type guard for terminal actions
- */
 export function isTerminalAction(action: AgentAction): action is PassAction | FailAction {
     return action.type === ActionType.PASS || action.type === ActionType.FAIL;
 }

@@ -12,45 +12,12 @@ export interface AppCapabilities {
     readonly supportsNativeInteraction: boolean;
 }
 
-/**
- * IAppDriver Port
- * 
- * The unified interface for driving any application (Web, Electron, Mobile).
- * It decouples the Agent from the specific automation technology (Playwright, Appium, CDP).
- */
+/** Unified interface for driving any application (Web, Electron, Mobile). */
 export interface IAppDriver {
-    /**
-     * Connects to the target application.
-     * - Web: Launches browser or connects to existing.
-     * - Electron: Connects via CDP port.
-     */
     connect(config?: unknown): ResultAsync<void, NavigationError | Error>;
-
-    /**
-     * Disconnects/Closes the session.
-     */
     disconnect(): Promise<void>;
-
-    /**
-     * Returns the capabilities of this driver.
-     */
     getCapabilities(): AppCapabilities;
-
-    /**
-     * captureSnapshot
-     * Returns the current state of the application (Visual + Structural).
-     */
     captureSnapshot(): Promise<AppSnapshot>;
-
-    /**
-     * getTools
-     * Returns the list of tools this driver supports.
-     */
     getTools(): ToolDefinition[];
-
-    /**
-     * getBrowserAutomation
-     * Returns the underlying IBrowserAutomation interface used by current execution services.
-     */
     getBrowserAutomation(): import('./IBrowserAutomation').IBrowserAutomation;
 }

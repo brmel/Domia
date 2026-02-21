@@ -92,8 +92,7 @@ function createServiceContext(): {
             return {
                 trace: {
                     agentInput: {
-                        promptPreview: 'Prompt preview',
-                        timelineSummary: 'Timeline summary'
+                        promptPreview: 'Prompt preview'
                     },
                     events: [
                         {

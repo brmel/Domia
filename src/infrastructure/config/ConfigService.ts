@@ -67,8 +67,8 @@ export class ConfigService implements IConfigService {
             };
 
             fs.writeJsonSync(this.configPath, configToSave, { spaces: 2 });
-        } catch (error) {
-            console.error('Failed to save config:', error);
+        } catch (_) {
+            // Config save failure is non-fatal
         }
     }
 }

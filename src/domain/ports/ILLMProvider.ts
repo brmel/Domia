@@ -12,9 +12,6 @@ export interface LLMToolDescriptor {
     readonly sideEffects?: readonly ('none' | 'ui' | 'filesystem' | 'network' | 'system')[] | undefined;
 }
 
-/**
- * Context provided to LLM for action generation
- */
 export interface LLMContext {
     readonly goal: string;
     readonly currentUrl: string;
@@ -35,10 +32,6 @@ export interface LLMEvaluationContext extends LLMContext {
     readonly executionObservation?: string;
 }
 
-/**
- * ILLMProvider Port
- * Abstracts LLM capabilities for agent reasoning
- */
 export interface LLMConfig {
     readonly provider: 'google';
     readonly model: string;

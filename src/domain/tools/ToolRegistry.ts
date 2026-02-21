@@ -11,9 +11,6 @@ export class ToolRegistry {
     private platformTools: Map<PlatformType, Set<string>> = new Map();
     private currentPlatform: PlatformType | undefined = undefined;
 
-    /**
-     * Registers a new tool with platform awareness
-     */
     register(tool: ToolDefinition): void {
         this.tools.set(tool.name, tool);
         
@@ -25,37 +22,18 @@ export class ToolRegistry {
         }
     }
 
-    /**
-     * Registers multiple tools at once
-     */
     registerMany(tools: ToolDefinition[]): void {
         tools.forEach(tool => this.register(tool));
     }
 
-    /**
-     * Retrieves a tool by name
-     */
     getTool(name: string): ToolDefinition | undefined {
         return this.tools.get(name);
     }
 
-    /**
-     * Set the active platform (filters tool list)
-     */
     setActivePlatform(platform: PlatformType): void {
         this.currentPlatform = platform;
     }
 
-    /**
-     * Get currently active platform
-     */
-    getActivePlatform(): PlatformType | undefined {
-        return this.currentPlatform;
-    }
-
-    /**
-     * Get all tools available for a specific platform
-     */
     getToolsForPlatform(platform: PlatformType): ToolDefinition[] {
         const toolNames = this.platformTools.get(platform) || new Set();
         return Array.from(toolNames)
@@ -63,9 +41,6 @@ export class ToolRegistry {
             .filter((tool): tool is ToolDefinition => tool !== undefined);
     }
 
-    /**
-     * Returns all registered tools (filtered by active platform if set)
-     */
     getAllTools(): ToolDefinition[] {
         if (!this.currentPlatform) {
             return Array.from(this.tools.values());
@@ -73,9 +48,6 @@ export class ToolRegistry {
         return this.getToolsForPlatform(this.currentPlatform);
     }
 
-    /**
-     * Executes a tool by name with given parameters and platform context
-     */
     executeTool(name: string, params: unknown, context: ToolContext): ResultAsync<ActionResult, Error> {
         const tool = this.tools.get(name);
         if (!tool) {
@@ -97,33 +69,6 @@ export class ToolRegistry {
         return tool.execute(params, context);
     }
 
-    /**
-     * Get tools by category
-     */
-    getToolsByCategory(category: string): ToolDefinition[] {
-        return Array.from(this.tools.values())
-            .filter(tool => tool.metadata.category === category);
-    }
-
-    /**
-     * Check if tool is available on platform
-     */
-    isToolAvailable(toolName: string, platform: PlatformType): boolean {
-        const tool = this.tools.get(toolName);
-        if (!tool) return false;
-        return tool.metadata.platforms.includes(platform);
-    }
-
-    /**
-     * Switch platform and update available tools filter
-     */
-    switchPlatform(newPlatform: PlatformType): void {
-        this.currentPlatform = newPlatform;
-    }
-
-    /**
-     * Clears all registered tools
-     */
     clear(): void {
         this.tools.clear();
         this.platformTools.clear();

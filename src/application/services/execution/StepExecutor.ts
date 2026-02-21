@@ -126,7 +126,7 @@ export class StepExecutor {
             await this.trace.tracePerception(runId, currentState.stepNumber + 1, {
                 timestamp: Date.now(),
                 sensorData: {
-                    domCount: frame.semantic.dom ? 1 : 0, // Simplified for now
+                    domCount: frame.semantic.dom ? 1 : 0,
                     ariaPresent: !!frame.semantic.accessibility,
                     visionPresent: frame.vision.count > 0,
                     metadata: frame.metadata

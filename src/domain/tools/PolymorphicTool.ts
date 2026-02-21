@@ -9,24 +9,14 @@ import {
     createToolMetadata 
 } from './ToolMetadata';
 
-/**
- * Platform-specific implementation of a tool
- */
 export interface PlatformImplementation<TParams = unknown> {
-    /** Platform this implementation is for */
     readonly platform: PlatformType;
-    
-    /** Execute the tool on this platform */
     execute(params: TParams, context: ToolContext): ResultAsync<ActionResult, Error>;
 }
 
 /**
- * PolymorphicTool - One tool definition with multiple platform implementations
- * 
- * This solves the problem of:
- * 1. Avoiding tool duplication
- * 2. Having platform-specific behavior
- * 3. Presenting a unified interface to the LLM
+ * One tool definition with multiple platform implementations.
+ * Avoids tool duplication while allowing platform-specific behavior.
  */
 export class PolymorphicTool<TParams = unknown> implements ToolDefinition<TParams> {
     readonly name: string;
@@ -71,12 +61,6 @@ export class PolymorphicTool<TParams = unknown> implements ToolDefinition<TParam
         this.metadata = createToolMetadata(metadataConfig);
     }
     
-    /**
-     * Register platform-specific implementation
-     * 
-     * @param impl - Platform implementation containing platform type and execute function
-     * @returns this (for method chaining)
-     */
     addImplementation(impl: PlatformImplementation<TParams>): this {
         if (!this.metadata.platforms.includes(impl.platform)) {
             throw new Error(
@@ -89,12 +73,7 @@ export class PolymorphicTool<TParams = unknown> implements ToolDefinition<TParam
         return this;
     }
     
-    /**
-     * Execute using platform-appropriate implementation
-     * 
-     * This method is called by ToolRegistry.executeTool()
-     * It automatically selects the correct implementation based on the platform in the context
-     */
+    /** Selects the correct platform implementation based on context. */
     execute(params: TParams, context: ToolContext): ResultAsync<ActionResult, Error> {
         const impl = this.implementations.get(context.platform);
         
@@ -106,26 +85,5 @@ export class PolymorphicTool<TParams = unknown> implements ToolDefinition<TParam
         }
         
         return impl.execute(params, context);
-    }
-    
-    /**
-     * Check if this tool has an implementation for the given platform
-     */
-    isAvailableOn(platform: PlatformType): boolean {
-        return this.implementations.has(platform);
-    }
-    
-    /**
-     * Get all platforms that have implementations
-     */
-    getImplementedPlatforms(): PlatformType[] {
-        return Array.from(this.implementations.keys());
-    }
-    
-    /**
-     * Get the implementation for a specific platform (for debugging/testing)
-     */
-    getImplementation(platform: PlatformType): PlatformImplementation<TParams> | undefined {
-        return this.implementations.get(platform);
     }
 }
