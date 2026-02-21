@@ -4,7 +4,7 @@ import { StepExecutor } from '@application/services/execution/StepExecutor';
 import { ActionType } from '@domain/enums/ActionType';
 
 describe('StepExecutor performance hardening', () => {
-    it('stops temporal capture early on stable DOM signatures', async () => {
+    it('captures perception once per action loop iteration', async () => {
         const llmProvider = {
             generateAction: vi.fn().mockResolvedValue({
                 isErr: () => false,
@@ -60,19 +60,6 @@ describe('StepExecutor performance hardening', () => {
             } as unknown as never,
             { getToolDescriptors: vi.fn().mockReturnValue([]) } as unknown as never,
             { execute: vi.fn() } as unknown as never,
-            {
-                planCapture: vi.fn().mockReturnValue({
-                    enabled: true,
-                    mode: 'adaptive',
-                    maxFrames: 8,
-                    maxFramesPerWindow: 8,
-                    burstIntervalMs: 0
-                })
-            } as unknown as never,
-            { assemble: vi.fn((_runId: string, frames: unknown[]) => ({ frames })) } as unknown as never,
-            { select: vi.fn((frames: unknown[]) => ({ frames, droppedFrameCount: 0 })) } as unknown as never,
-            { redact: vi.fn((frames: unknown[]) => ({ frames, redactionApplied: false })) } as unknown as never,
-            { assemble: vi.fn(({ frames }: { frames: unknown[] }) => ({ frames, summary: 'stable', fromTimestamp: 1, toTimestamp: 2 })) } as unknown as never,
             { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as never
         );
 
@@ -87,15 +74,12 @@ describe('StepExecutor performance hardening', () => {
                 debugScreenshots: false,
                 maxActions: 2,
                 supervisedTerminalPass: false,
-                temporalObservation: true,
-                temporalBurstFrames: 8,
-                temporalBurstIntervalMs: 0
             }
         );
 
         await gen.next();
         await gen.next();
 
-        expect(perceptionCapture).toHaveBeenCalledTimes(3);
+        expect(perceptionCapture).toHaveBeenCalledTimes(1);
     });
 });

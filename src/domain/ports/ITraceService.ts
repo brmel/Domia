@@ -13,22 +13,11 @@ export interface StepTrace {
         currentUrl: string;
         promptPreview: string; // Truncated for large prompts
         fullPrompt?: unknown; // Only populated in ultra-verbose
-        timelineSummary?: string;
-        timelineFrameCount?: number;
     };
     agentOutput?: {
         thought: string;
         action: AgentAction | Record<string, unknown> | null;
         rawResponse: string;
-    };
-    temporal?: {
-        mode?: 'off' | 'baseline' | 'adaptive' | 'forensic';
-        frameCount: number;
-        fromTimestamp: number;
-        toTimestamp: number;
-        summary: string;
-        tokenEstimate?: number;
-        redactionApplied?: boolean;
     };
 }
 

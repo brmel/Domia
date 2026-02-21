@@ -25,30 +25,6 @@
   "limits": {
     "maxSteps": 20,
     "delayBetweenSteps": 1000,
-    "maxReplansPerRun": 2,
-    "temporalWindowRetentionCount": 30,
-    "temporalWindowMaxBytesPerRun": 2000000
-  },
-  "verification": {
-    "enforceSupervisedTerminalPass": true,
-    "terminalPassMinConfidence": 0.9,
-    "terminalPassMinEvidenceItems": 2
-  },
-  "rollout": {
-    "agenticRuntime": {
-      "enabled": true,
-      "shadowMode": false,
-      "sloGates": {
-        "enabled": false,
-        "minimumSamples": 20,
-        "minimumMultilingualSamples": 5,
-        "thresholds": {
-          "toolCallValidityRate": 0.95,
-          "maxRetryRate": 0.35,
-          "maxTerminalFailureRate": 0.15,
-          "multilingualVerificationPassRate": 0.8
-        }
-      }
-    }
+    "maxReplansPerRun": 2
   }
 }

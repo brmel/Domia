@@ -3,15 +3,12 @@ import fs from 'fs-extra';
 import path from 'path';
 import { ConfigService } from '../config/ConfigService';
 import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
-import type { TimelineContextWindow } from '@domain/value-objects/TemporalObservation';
 
 import type { StepTrace } from '@domain/ports/ITraceService';
 import { IStorageService, StepArtifacts } from '@domain/ports/IStorageService';
 
 @injectable()
 export class FileSystemStorage implements IStorageService {
-    private static readonly DEFAULT_TEMPORAL_RETENTION_COUNT = 30;
-    private static readonly DEFAULT_TEMPORAL_MAX_BYTES_PER_RUN = 2_000_000;
 
     constructor(
         @inject(ConfigService) private configService: ConfigService
@@ -97,99 +94,6 @@ export class FileSystemStorage implements IStorageService {
         );
     }
 
-    async saveTemporalWindow(runId: string, stepNumber: number, temporalWindow: TimelineContextWindow): Promise<Record<string, string>> {
-        const config = this.configService.get();
-        const baseDir = path.resolve(config.paths.artifactsDir, runId, 'steps');
-        await fs.ensureDir(baseDir);
-
-        const filename = `${stepNumber}_timeline.json`;
-        const filePath = path.join(baseDir, filename);
-        await fs.writeJson(filePath, temporalWindow, { spaces: 2 });
-        await this.pruneTemporalWindows(
-            baseDir,
-            this.resolveTemporalRetentionCount(config),
-            this.resolveTemporalMaxBytesPerRun(config)
-        );
-
-        return {
-            timeline: filePath
-        };
-    }
-
-    private resolveTemporalRetentionCount(config: ReturnType<ConfigService['get']>): number {
-        const configuredValue = config.limits?.temporalWindowRetentionCount;
-        if (!Number.isFinite(configuredValue) || !configuredValue || configuredValue <= 0) {
-            return FileSystemStorage.DEFAULT_TEMPORAL_RETENTION_COUNT;
-        }
-
-        return Math.floor(configuredValue);
-    }
-
-    private resolveTemporalMaxBytesPerRun(config: ReturnType<ConfigService['get']>): number {
-        const configuredValue = config.limits?.temporalWindowMaxBytesPerRun;
-        if (!Number.isFinite(configuredValue) || !configuredValue || configuredValue <= 0) {
-            return FileSystemStorage.DEFAULT_TEMPORAL_MAX_BYTES_PER_RUN;
-        }
-
-        return Math.floor(configuredValue);
-    }
-
-    private async pruneTemporalWindows(baseDir: string, retentionCount: number, maxBytesPerRun: number): Promise<void> {
-        if (retentionCount <= 0) {
-            return;
-        }
-
-        const files = await fs.readdir(baseDir);
-        const temporalFiles = files
-            .map((name) => {
-                const match = /^(\d+)_timeline\.json$/.exec(name);
-                if (!match || !match[1]) {
-                    return undefined;
-                }
-
-                return {
-                    name,
-                    stepNumber: Number(match[1])
-                };
-            })
-            .filter((entry): entry is { name: string; stepNumber: number } => Boolean(entry))
-            .sort((left, right) => right.stepNumber - left.stepNumber);
-
-        const filesToDeleteByCount = temporalFiles.slice(retentionCount);
-        for (const file of filesToDeleteByCount) {
-            await fs.remove(path.join(baseDir, file.name));
-        }
-
-        if (maxBytesPerRun <= 0) {
-            return;
-        }
-
-        const retainedFiles = temporalFiles.slice(0, retentionCount);
-        const retainedWithStats = await Promise.all(
-            retainedFiles.map(async (file) => {
-                const fullPath = path.join(baseDir, file.name);
-                const stat = await fs.stat(fullPath);
-                return {
-                    ...file,
-                    fullPath,
-                    size: stat.size
-                };
-            })
-        );
-
-        let totalSize = retainedWithStats.reduce((sum, file) => sum + file.size, 0);
-        const oldestFirst = [...retainedWithStats].sort((left, right) => left.stepNumber - right.stepNumber);
-
-        for (const file of oldestFirst) {
-            if (totalSize <= maxBytesPerRun) {
-                break;
-            }
-
-            await fs.remove(file.fullPath);
-            totalSize -= file.size;
-        }
-    }
-
     async getStepArtifacts(runId: string, stepNumber: number): Promise<StepArtifacts> {
         const config = this.configService.get();
         const baseDir = path.resolve(config.paths.artifactsDir, runId, 'steps');
@@ -231,11 +135,6 @@ export class FileSystemStorage implements IStorageService {
         const tracePath = path.join(baseDir, `${stepNumber}_trace.json`);
         if (await fs.pathExists(tracePath)) {
             artifacts.trace = (await fs.readJson(tracePath)) as Record<string, unknown> & Partial<StepTrace>;
-        }
-
-        const timelinePath = path.join(baseDir, `${stepNumber}_timeline.json`);
-        if (await fs.pathExists(timelinePath)) {
-            artifacts.temporalWindow = await fs.readJson(timelinePath);
         }
 
         return artifacts;

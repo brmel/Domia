@@ -5,7 +5,7 @@ import { ActionType } from '@domain/enums/ActionType';
 import type { LLMContext } from '@domain/ports';
 
 describe('ActionPromptBuilder contract', () => {
-    it('includes deterministic core sections and temporal context when present', () => {
+    it('includes deterministic core sections when present', () => {
         const context: LLMContext = {
             goal: 'verify CTA is visible',
             currentUrl: 'https://example.com',
@@ -46,17 +46,6 @@ describe('ActionPromptBuilder contract', () => {
                     safety: 'safe'
                 }
             ],
-            temporalWindow: {
-                runId: 'run-1',
-                fromTimestamp: 1000,
-                toTimestamp: 1300,
-                summary: 'Temporal adaptive window with 2 frame(s)',
-                mode: 'adaptive',
-                frames: [
-                    { timestamp: 1000, intervalMs: 120, domHash: 'abc', note: 'start' },
-                    { timestamp: 1300, intervalMs: 300, domHash: 'def', note: 'delta' }
-                ]
-            }
         };
 
         const prompt = buildActionUserPrompt(context);
@@ -64,8 +53,6 @@ describe('ActionPromptBuilder contract', () => {
         expect(prompt).toContain('GOAL: verify CTA is visible');
         expect(prompt).toContain('VIEWPORT: 1280x800 pixels');
         expect(prompt).toContain('AVAILABLE TOOLS:');
-        expect(prompt).toContain('TEMPORAL TIMELINE:');
-        expect(prompt).toContain('Modeled window: 1000 -> 1300');
         expect(prompt).toContain('Analyze the elements and their positions, then respond by calling exactly one tool:');
     });
 });

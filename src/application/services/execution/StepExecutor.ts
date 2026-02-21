@@ -6,16 +6,9 @@ import { LoopDetectorService } from './LoopDetectorService';
 import type { ToolContext } from '@domain/tools/Tool';
 import type { ToolExecutor } from '../tooling/ToolExecutor';
 import type { ILogger } from '@domain/ports';
-import { TemporalObservationPolicyService } from '../perception/TemporalObservationPolicyService';
-import { TimelineContextAssembler } from '../perception/TimelineContextAssembler';
-import type { TemporalObservationMode } from '../perception/TemporalObservationPolicyService';
-import { TemporalContextSelectorService } from '../perception/TemporalContextSelectorService';
-import { TemporalPrivacyFilterService } from '../perception/TemporalPrivacyFilterService';
-import { TemporalPromptAssemblerService } from '../perception/TemporalPromptAssemblerService';
 import { VerificationPolicyService } from './VerificationPolicyService';
 import { EvidenceBlackboardService } from './EvidenceBlackboardService';
 import { StepActionExecutionService } from './StepActionExecutionService';
-import { TemporalWindowCaptureService } from './TemporalWindowCaptureService';
 import { ExecutionHeuristicsService } from './ExecutionHeuristicsService';
 import type { VerificationPolicyProfile } from './coordinators/StepExecutionCoordinator';
 import type { IToolCapabilityRegistry } from '../tooling/IToolCapabilityRegistry';
@@ -64,24 +57,10 @@ export class StepExecutor {
         @inject('ITraceService') private trace: ITraceService,
         @inject('IToolCapabilityRegistry') private readonly toolCapabilityRegistry: IToolCapabilityRegistry,
         @inject('IToolExecutor') toolExecutor: ToolExecutor,
-        @inject(TemporalObservationPolicyService) temporalPolicy: TemporalObservationPolicyService,
-        @inject(TimelineContextAssembler) timelineAssembler: TimelineContextAssembler,
-        @inject(TemporalContextSelectorService) temporalSelector: TemporalContextSelectorService,
-        @inject(TemporalPrivacyFilterService) temporalPrivacyFilter: TemporalPrivacyFilterService,
-        @inject(TemporalPromptAssemblerService) temporalPromptAssembler: TemporalPromptAssemblerService,
         @inject('ILogger') private readonly logger: ILogger,
         @inject(EvidenceBlackboardService) private readonly evidenceBlackboard: EvidenceBlackboardService = new EvidenceBlackboardService(),
         @inject(StepActionExecutionService) private readonly actionExecution: StepActionExecutionService = new StepActionExecutionService(toolExecutor),
         @inject(ExecutionHeuristicsService) private readonly executionHeuristics: ExecutionHeuristicsService = new ExecutionHeuristicsService(),
-        @inject(TemporalWindowCaptureService) private readonly temporalWindowCapture: TemporalWindowCaptureService = new TemporalWindowCaptureService(
-            temporalPolicy,
-            perception,
-            timelineAssembler,
-            temporalSelector,
-            temporalPrivacyFilter,
-            temporalPromptAssembler,
-            logger
-        )
     ) { }
 
     async *executeStep(
@@ -96,16 +75,7 @@ export class StepExecutor {
             maxActions: number;
             supervisedTerminalPass?: boolean;
             verificationPolicyProfile?: VerificationPolicyProfile;
-            temporalObservation?: boolean;
-            temporalMode?: TemporalObservationMode;
-            temporalBurstFrames?: number;
-            temporalBaselineIntervalMs?: number;
-            temporalBurstIntervalMs?: number;
-            temporalMaxFramesPerWindow?: number;
-            temporalPromptTokenBudget?: number;
-            temporalRedactSensitive?: boolean;
-            temporalPersistWindow?: boolean;
-        } = { vision: true, debugScreenshots: false, maxActions: 20, temporalObservation: false, temporalBurstFrames: 3 },
+        } = { vision: true, debugScreenshots: false, maxActions: 20 },
         executionContext?: {
             toolContext?: ToolContext;
             onEvaluation?: (telemetry: StepEvaluationTelemetry) => void | Promise<void>;
@@ -125,7 +95,6 @@ export class StepExecutor {
         let previousSnapshotSignature: string | null = null;
         let adviceForNextAttempt: string | undefined;
         let consecutiveEvaluatorRetries = 0;
-        let previousDomElementCount = 0;
         const blockedActionSignatures = new Map<string, number>();
         let currentState: { history: AgentAction[], stepNumber: number } = { history: [], stepNumber: initialStepNumber };
         const maxActions = options.maxActions;
@@ -146,36 +115,12 @@ export class StepExecutor {
             const frame = frameResult.value;
             const runtimeUrl = frame.metadata.url || url;
 
-            const domElementCount = frame.semantic.dom?.elements?.length ?? 0;
-            const domVelocity = previousDomElementCount > 0
-                ? Math.min(1, Math.abs(domElementCount - previousDomElementCount) / previousDomElementCount)
-                : 0;
-            previousDomElementCount = domElementCount;
-
-            const temporalWindow = await this.temporalWindowCapture.capture(runId, browser, frame, options, {
-                domVelocity,
-                interactionInFlight: this.executionHeuristics.isInteractionLikelyInFlight(currentState.history),
-                recentAssertionMismatch: consecutiveEvaluatorRetries > 0,
-                recentExecutionError: adviceForNextAttempt ? /error|failed|timeout|blocked/i.test(adviceForNextAttempt) : false,
-                stagnantCycles: stagnantSnapshotCount
-            });
-
             let assets: Record<string, string> = {};
             try {
                 assets = await this.storage.savePerceptionAssets(runId, currentState.stepNumber + 1, frame);
             } catch (error) {
                 const reason = error instanceof Error ? error.message : String(error);
                 this.logger.warn(`[StepExecutor] Non-fatal perception asset persistence error: ${reason}`);
-            }
-
-            if (temporalWindow && options.temporalPersistWindow !== false) {
-                try {
-                    const timelineAsset = await this.storage.saveTemporalWindow(runId, currentState.stepNumber + 1, temporalWindow);
-                    assets = { ...assets, ...timelineAsset };
-                } catch (error) {
-                    const reason = error instanceof Error ? error.message : String(error);
-                    this.logger.warn(`[StepExecutor] Non-fatal temporal window persistence error: ${reason}`);
-                }
             }
 
             await this.trace.tracePerception(runId, currentState.stepNumber + 1, {
@@ -185,18 +130,7 @@ export class StepExecutor {
                     ariaPresent: !!frame.semantic.accessibility,
                     visionPresent: frame.vision.count > 0,
                     metadata: frame.metadata
-                },
-                ...(temporalWindow ? {
-                    temporal: {
-                        ...(temporalWindow.mode ? { mode: temporalWindow.mode } : {}),
-                        frameCount: temporalWindow.frames.length,
-                        fromTimestamp: temporalWindow.fromTimestamp,
-                        toTimestamp: temporalWindow.toTimestamp,
-                        summary: temporalWindow.summary,
-                        ...(temporalWindow.tokenEstimate !== undefined ? { tokenEstimate: temporalWindow.tokenEstimate } : {}),
-                        ...(temporalWindow.redactionApplied !== undefined ? { redactionApplied: temporalWindow.redactionApplied } : {})
-                    }
-                } : {})
+                }
             });
 
             const viewport = await browser.getViewportSize();
@@ -233,7 +167,6 @@ export class StepExecutor {
                 availableTools: this.toolCapabilityRegistry.getToolDescriptors(executionContext?.toolContext?.platform),
                 ...(executionContext?.plan ? { plan: executionContext.plan } : {}),
                 ...(composedAdvice ? { advice: composedAdvice } : {}),
-                ...(temporalWindow ? { temporalWindow } : {})
             };
 
             await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
@@ -241,10 +174,6 @@ export class StepExecutor {
                     goal: stepGoal,
                     currentUrl: runtimeUrl,
                     promptPreview: JSON.stringify(context).substring(0, 500) + '...',
-                    ...(temporalWindow ? {
-                        timelineSummary: temporalWindow.summary,
-                        timelineFrameCount: temporalWindow.frames.length
-                    } : {})
                 }
             });
 

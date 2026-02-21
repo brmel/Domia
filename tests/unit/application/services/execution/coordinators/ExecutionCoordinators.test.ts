@@ -45,13 +45,9 @@ describe('Execution coordinators', () => {
         const coordinator = new StepExecutionCoordinator();
         const options = coordinator.buildExecutionOptions({
             maxSteps: 5,
-            temporalObservation: true,
-            temporalMode: 'forensic'
         });
 
         expect(options.maxActions).toBe(5);
-        expect(options.temporalObservation).toBe(true);
-        expect(options.temporalMode).toBe('forensic');
         expect(options.supervisedTerminalPass).toBe(true);
         expect(options.verificationPolicyProfile.terminalPassMinConfidence).toBe(0.9);
         expect(options.verificationPolicyProfile.terminalPassMinEvidenceItems).toBe(2);

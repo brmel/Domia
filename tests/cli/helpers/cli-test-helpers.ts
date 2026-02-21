@@ -35,14 +35,6 @@ export interface CLITestConfig {
     screenshots?: boolean;
     verbose?: boolean;
     debug?: boolean;
-    temporalObservation?: boolean;
-    temporalMode?: 'off' | 'baseline' | 'adaptive' | 'forensic';
-    temporalBaselineIntervalMs?: number;
-    temporalBurstIntervalMs?: number;
-    temporalMaxFramesPerWindow?: number;
-    temporalPromptTokenBudget?: number;
-    temporalRedactSensitive?: boolean;
-    temporalPersistWindow?: boolean;
 }
 
 export interface CLITestResult {
@@ -131,38 +123,6 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
 
         if (config.debug) {
             args.push('--debug');
-        }
-
-        if (config.temporalObservation) {
-            args.push('--temporal-observation');
-        }
-
-        if (config.temporalMode) {
-            args.push('--temporal-mode', config.temporalMode);
-        }
-
-        if (config.temporalBaselineIntervalMs !== undefined) {
-            args.push('--temporal-baseline-interval-ms', String(config.temporalBaselineIntervalMs));
-        }
-
-        if (config.temporalBurstIntervalMs !== undefined) {
-            args.push('--temporal-burst-interval-ms', String(config.temporalBurstIntervalMs));
-        }
-
-        if (config.temporalMaxFramesPerWindow !== undefined) {
-            args.push('--temporal-max-frames-per-window', String(config.temporalMaxFramesPerWindow));
-        }
-
-        if (config.temporalPromptTokenBudget !== undefined) {
-            args.push('--temporal-prompt-token-budget', String(config.temporalPromptTokenBudget));
-        }
-
-        if (config.temporalRedactSensitive === false) {
-            args.push('--no-temporal-redact-sensitive');
-        }
-
-        if (config.temporalPersistWindow === false) {
-            args.push('--no-temporal-persist-window');
         }
         
         const result = await spawnCLI(args, envUpdates);

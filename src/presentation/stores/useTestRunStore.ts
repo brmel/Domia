@@ -29,14 +29,6 @@ export interface TestRunStoreState {
     prompt: string;
     selectedPlatform: PlatformType;
     platformData: PlatformFieldValue;
-    temporalObservation: boolean;
-    temporalMode: 'off' | 'baseline' | 'adaptive' | 'forensic';
-    temporalBaselineIntervalMs: number;
-    temporalBurstIntervalMs: number;
-    temporalMaxFramesPerWindow: number;
-    temporalPromptTokenBudget: number;
-    temporalRedactSensitive: boolean;
-    temporalPersistWindow: boolean;
 
     recoveryReplay: RecoveryReplayTelemetry | null;
     replanningEvents: ReplanningTelemetry[];
@@ -49,14 +41,6 @@ interface TestRunActions {
     setPrompt: (prompt: string) => void;
     setSelectedPlatform: (platform: PlatformType) => void;
     setPlatformData: (data: PlatformFieldValue) => void;
-    setTemporalObservation: (value: boolean) => void;
-    setTemporalMode: (value: 'off' | 'baseline' | 'adaptive' | 'forensic') => void;
-    setTemporalBaselineIntervalMs: (value: number) => void;
-    setTemporalBurstIntervalMs: (value: number) => void;
-    setTemporalMaxFramesPerWindow: (value: number) => void;
-    setTemporalPromptTokenBudget: (value: number) => void;
-    setTemporalRedactSensitive: (value: boolean) => void;
-    setTemporalPersistWindow: (value: boolean) => void;
     setStatus: (status: AgentStatus) => void;
 
     handleEvent: (event: TestRunEvent) => void;
@@ -78,14 +62,6 @@ const initialState: TestRunStoreState = {
     prompt: 'verify that brahim is smiling',
     selectedPlatform: 'web',
     platformData: { url: 'https://ibraverse.ca' },
-    temporalObservation: false,
-    temporalMode: 'adaptive',
-    temporalBaselineIntervalMs: 1000,
-    temporalBurstIntervalMs: 120,
-    temporalMaxFramesPerWindow: 12,
-    temporalPromptTokenBudget: 400,
-    temporalRedactSensitive: true,
-    temporalPersistWindow: true,
     recoveryReplay: null,
     replanningEvents: [],
 };
@@ -109,15 +85,6 @@ export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
             ? { url: platformData.url }
             : {})
     }),
-    setTemporalObservation: (temporalObservation: boolean): void => set({ temporalObservation }),
-    setTemporalMode: (temporalMode: 'off' | 'baseline' | 'adaptive' | 'forensic'): void => set({ temporalMode }),
-    setTemporalBaselineIntervalMs: (temporalBaselineIntervalMs: number): void => set({ temporalBaselineIntervalMs }),
-    setTemporalBurstIntervalMs: (temporalBurstIntervalMs: number): void => set({ temporalBurstIntervalMs }),
-    setTemporalMaxFramesPerWindow: (temporalMaxFramesPerWindow: number): void => set({ temporalMaxFramesPerWindow }),
-    setTemporalPromptTokenBudget: (temporalPromptTokenBudget: number): void => set({ temporalPromptTokenBudget }),
-    setTemporalRedactSensitive: (temporalRedactSensitive: boolean): void => set({ temporalRedactSensitive }),
-    setTemporalPersistWindow: (temporalPersistWindow: boolean): void => set({ temporalPersistWindow }),
-
     setStatus: (status: AgentStatus): void => set({ status }),
 
     handleEvent: (event: TestRunEvent): void => {
@@ -176,13 +143,5 @@ export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
         prompt: state.prompt,
         selectedPlatform: state.selectedPlatform,
         platformData: state.platformData,
-        temporalObservation: state.temporalObservation,
-        temporalMode: state.temporalMode,
-        temporalBaselineIntervalMs: state.temporalBaselineIntervalMs,
-        temporalBurstIntervalMs: state.temporalBurstIntervalMs,
-        temporalMaxFramesPerWindow: state.temporalMaxFramesPerWindow,
-        temporalPromptTokenBudget: state.temporalPromptTokenBudget,
-        temporalRedactSensitive: state.temporalRedactSensitive,
-        temporalPersistWindow: state.temporalPersistWindow
     })
 }));

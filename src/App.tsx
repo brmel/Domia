@@ -105,7 +105,7 @@ function App(): JSX.Element {
                 description="Run reliability, performance, and policy telemetry with drill-down diagnostics."
                 nextSteps={[
                     'Add pass rate and duration trend panels.',
-                    'Add retry, token, and temporal overhead views.',
+                    'Add retry, token, and overhead views.',
                     'Add exportable audit trail filters.'
                 ]}
             />

@@ -7,7 +7,6 @@ import { cn } from '../../lib/utils';
 import { Button } from './ui/Button';
 import { SegmentedControl } from './ui/SegmentedControl';
 import type { StepArtifacts } from '@domain/ports/IStorageService';
-import type { StepTrace } from '@domain/ports/ITraceService';
 
 export function StepInspector(): JSX.Element | null {
     const { isOpen, runId, stepNumber, close } = useStepInspectorStore();
@@ -90,31 +89,8 @@ function InspectorContent({ artifacts }: { artifacts: StepArtifacts }): JSX.Elem
 
     const domTree = artifacts.dom;
     const accessibilityTree = artifacts.accessibility;
-    const buildTemporalTrace = (window: NonNullable<StepArtifacts['temporalWindow']>): NonNullable<StepTrace['temporal']> => ({
-        ...(window.mode !== undefined ? { mode: window.mode } : {}),
-        frameCount: window.frames?.length ?? 0,
-        fromTimestamp: window.fromTimestamp,
-        toTimestamp: window.toTimestamp,
-        summary: window.summary,
-        ...(window.tokenEstimate !== undefined ? { tokenEstimate: window.tokenEstimate } : {}),
-        ...(window.redactionApplied !== undefined ? { redactionApplied: window.redactionApplied } : {})
-    });
 
-    const traceData = artifacts.trace
-        ? {
-            ...artifacts.trace,
-            ...(artifacts.temporalWindow && !artifacts.trace.temporal
-                ? {
-                    temporal: buildTemporalTrace(artifacts.temporalWindow)
-                }
-                : {})
-        }
-        : (artifacts.temporalWindow
-            ? {
-                timestamp: artifacts.temporalWindow.toTimestamp,
-                temporal: buildTemporalTrace(artifacts.temporalWindow)
-            }
-            : undefined);
+    const traceData = artifacts.trace ?? undefined;
 
     const tabs = [
         { id: 'vision', label: 'Vision', icon: '👁️' },

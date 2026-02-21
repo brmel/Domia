@@ -51,23 +51,6 @@ export class ConfigService implements IConfigService {
             viewport: { ...this.config.viewport, ...updates.viewport },
             paths: { ...this.config.paths, ...updates.paths },
             limits: { ...this.config.limits, ...updates.limits },
-            verification: { ...this.config.verification, ...updates.verification },
-            rollout: {
-                ...this.config.rollout,
-                ...updates.rollout,
-                agenticRuntime: {
-                    ...this.config.rollout.agenticRuntime,
-                    ...updates.rollout?.agenticRuntime,
-                    sloGates: {
-                        ...this.config.rollout.agenticRuntime.sloGates,
-                        ...updates.rollout?.agenticRuntime?.sloGates,
-                        thresholds: {
-                            ...this.config.rollout.agenticRuntime.sloGates.thresholds,
-                            ...updates.rollout?.agenticRuntime?.sloGates?.thresholds,
-                        },
-                    },
-                },
-            },
         };
 
         this.save();

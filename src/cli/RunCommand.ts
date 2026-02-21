@@ -34,14 +34,6 @@ export class RunCommand {
             .option('--debug', 'Enable debug logging', false)
             .option('-V, --vision', 'Enable Vision LLM', false)
             .option('-S, --screenshots', 'Enable Debug Screenshots', false)
-            .option('--temporal-observation', 'Enable temporal observation')
-            .option('--temporal-mode <mode>', 'Temporal mode: off|baseline|adaptive|forensic')
-            .option('--temporal-baseline-interval-ms <ms>', 'Temporal baseline interval in ms')
-            .option('--temporal-burst-interval-ms <ms>', 'Temporal burst interval in ms')
-            .option('--temporal-max-frames-per-window <count>', 'Temporal max frames per window')
-            .option('--temporal-prompt-token-budget <tokens>', 'Temporal prompt token budget')
-            .option('--no-temporal-redact-sensitive', 'Disable temporal sensitive-data redaction')
-            .option('--no-temporal-persist-window', 'Disable temporal window persistence between steps')
             .action(async (options) => {
                 console.log(chalk.cyan(figlet.textSync('Domia Agent', { horizontalLayout: 'full' })));
 
@@ -60,14 +52,6 @@ export class RunCommand {
                     executablePath,
                     launchArgs,
                     windowTitle,
-                    temporalObservation,
-                    temporalMode,
-                    temporalBaselineIntervalMs,
-                    temporalBurstIntervalMs,
-                    temporalMaxFramesPerWindow,
-                    temporalPromptTokenBudget,
-                    temporalRedactSensitive,
-                    temporalPersistWindow,
                     provider,
                     model,
                     baseUrl,
@@ -264,14 +248,6 @@ export class RunCommand {
                             debug: !!debug,
                             vision: !!vision,
                             debugScreenshots: !!screenshots,
-                            ...(temporalObservation !== undefined ? { temporalObservation: !!temporalObservation } : {}),
-                            ...(temporalMode ? { temporalMode } : {}),
-                            ...(temporalBaselineIntervalMs !== undefined ? { temporalBaselineIntervalMs: parseInt(String(temporalBaselineIntervalMs), 10) } : {}),
-                            ...(temporalBurstIntervalMs !== undefined ? { temporalBurstIntervalMs: parseInt(String(temporalBurstIntervalMs), 10) } : {}),
-                            ...(temporalMaxFramesPerWindow !== undefined ? { temporalMaxFramesPerWindow: parseInt(String(temporalMaxFramesPerWindow), 10) } : {}),
-                            ...(temporalPromptTokenBudget !== undefined ? { temporalPromptTokenBudget: parseInt(String(temporalPromptTokenBudget), 10) } : {}),
-                            ...(temporalRedactSensitive !== undefined ? { temporalRedactSensitive: !!temporalRedactSensitive } : {}),
-                            ...(temporalPersistWindow !== undefined ? { temporalPersistWindow: !!temporalPersistWindow } : {})
                         },
                     };
 

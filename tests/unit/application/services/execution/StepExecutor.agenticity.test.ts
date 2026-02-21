@@ -65,7 +65,7 @@ describe('StepExecutor agenticity contract', () => {
             })
         };
 
-        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}), saveTemporalWindow: vi.fn().mockResolvedValue({}) };
+        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}) };
         const trace = {
             startTrace: vi.fn().mockResolvedValue(undefined),
             endTrace: vi.fn().mockResolvedValue(undefined),
@@ -81,11 +81,6 @@ describe('StepExecutor agenticity contract', () => {
             })
         };
 
-        const temporalPolicy = { planCapture: vi.fn().mockReturnValue({ mode: 'off', enabled: false, maxFrames: 1, burstIntervalMs: 1, maxFramesPerWindow: 1 }) };
-        const timelineAssembler = { assemble: vi.fn() };
-        const temporalSelector = { select: vi.fn() };
-        const temporalPrivacyFilter = { redact: vi.fn() };
-        const temporalPromptAssembler = { assemble: vi.fn() };
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const executor = new StepExecutor(
@@ -96,11 +91,6 @@ describe('StepExecutor agenticity contract', () => {
             trace as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
-            temporalPolicy as unknown as never,
-            timelineAssembler as unknown as never,
-            temporalSelector as unknown as never,
-            temporalPrivacyFilter as unknown as never,
-            temporalPromptAssembler as unknown as never,
             logger as unknown as never
         );
 

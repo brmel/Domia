@@ -30,87 +30,10 @@ export const DomiaConfigSchema = z.object({
         maxSteps: z.number().default(20),
         delayBetweenSteps: z.number().default(1000),
         maxReplansPerRun: z.number().int().nonnegative().default(2),
-        temporalWindowRetentionCount: z.number().int().positive().default(30),
-        temporalWindowMaxBytesPerRun: z.number().int().positive().default(2_000_000),
     }).default({
         maxSteps: 20,
         delayBetweenSteps: 1000,
         maxReplansPerRun: 2,
-        temporalWindowRetentionCount: 30,
-        temporalWindowMaxBytesPerRun: 2_000_000
-    }),
-
-    verification: z.object({
-        enforceSupervisedTerminalPass: z.boolean().default(true),
-        terminalPassMinConfidence: z.number().min(0).max(1).default(0.9),
-        terminalPassMinEvidenceItems: z.number().int().positive().default(2),
-    }).default({
-        enforceSupervisedTerminalPass: true,
-        terminalPassMinConfidence: 0.9,
-        terminalPassMinEvidenceItems: 2
-    }),
-
-    rollout: z.object({
-        agenticRuntime: z.object({
-            enabled: z.boolean().default(true),
-            shadowMode: z.boolean().default(false),
-            sloGates: z.object({
-                enabled: z.boolean().default(false),
-                minimumSamples: z.number().int().positive().default(20),
-                minimumMultilingualSamples: z.number().int().nonnegative().default(5),
-                thresholds: z.object({
-                    toolCallValidityRate: z.number().min(0).max(1).default(0.95),
-                    maxRetryRate: z.number().min(0).max(1).default(0.35),
-                    maxTerminalFailureRate: z.number().min(0).max(1).default(0.15),
-                    multilingualVerificationPassRate: z.number().min(0).max(1).default(0.8),
-                }).default({
-                    toolCallValidityRate: 0.95,
-                    maxRetryRate: 0.35,
-                    maxTerminalFailureRate: 0.15,
-                    multilingualVerificationPassRate: 0.8,
-                }),
-            }).default({
-                enabled: false,
-                minimumSamples: 20,
-                minimumMultilingualSamples: 5,
-                thresholds: {
-                    toolCallValidityRate: 0.95,
-                    maxRetryRate: 0.35,
-                    maxTerminalFailureRate: 0.15,
-                    multilingualVerificationPassRate: 0.8,
-                },
-            }),
-        }).default({
-            enabled: true,
-            shadowMode: false,
-            sloGates: {
-                enabled: false,
-                minimumSamples: 20,
-                minimumMultilingualSamples: 5,
-                thresholds: {
-                    toolCallValidityRate: 0.95,
-                    maxRetryRate: 0.35,
-                    maxTerminalFailureRate: 0.15,
-                    multilingualVerificationPassRate: 0.8,
-                },
-            },
-        }),
-    }).default({
-        agenticRuntime: {
-            enabled: true,
-            shadowMode: false,
-            sloGates: {
-                enabled: false,
-                minimumSamples: 20,
-                minimumMultilingualSamples: 5,
-                thresholds: {
-                    toolCallValidityRate: 0.95,
-                    maxRetryRate: 0.35,
-                    maxTerminalFailureRate: 0.15,
-                    multilingualVerificationPassRate: 0.8,
-                },
-            },
-        },
     }),
 });
 

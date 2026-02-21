@@ -4,7 +4,7 @@ import { StepExecutor } from '@application/services/execution/StepExecutor';
 import { ActionType } from '@domain/enums/ActionType';
 
 describe('StepExecutor hardening', () => {
-    it('continues when perception/temporal persistence fails', async () => {
+    it('continues when perception persistence fails', async () => {
         const llmProvider = {
             generateAction: vi.fn().mockResolvedValue({
                 isErr: () => false,
@@ -60,7 +60,6 @@ describe('StepExecutor hardening', () => {
 
         const storage = {
             savePerceptionAssets: vi.fn().mockRejectedValue(new Error('disk-full')),
-            saveTemporalWindow: vi.fn().mockRejectedValue(new Error('timeline-write-failed'))
         };
 
         const trace = {
@@ -70,44 +69,11 @@ describe('StepExecutor hardening', () => {
             traceReasoning: vi.fn().mockResolvedValue(undefined)
         };
 
-
         const toolContractService = { getToolDescriptors: vi.fn().mockReturnValue([]) };
         const toolExecutor = {
             execute: vi.fn().mockResolvedValue({
                 isErr: () => false,
                 value: undefined
-            })
-        };
-        const temporalPolicy = {
-            planCapture: vi.fn().mockReturnValue({
-                mode: 'adaptive',
-                enabled: true,
-                maxFrames: 1,
-                burstIntervalMs: 1,
-                maxFramesPerWindow: 3
-            })
-        };
-        const timelineAssembler = {
-            assemble: vi.fn().mockReturnValue({
-                runId: 'run-1',
-                fromTimestamp: Date.now(),
-                toTimestamp: Date.now(),
-                summary: 'timeline',
-                frames: [{ timestamp: Date.now(), intervalMs: 100, domHash: 'abc' }]
-            })
-        };
-        const temporalSelector = { select: vi.fn().mockReturnValue({ frames: [{ timestamp: Date.now(), intervalMs: 100, domHash: 'abc' }], droppedFrameCount: 0 }) };
-        const temporalPrivacyFilter = { redact: vi.fn().mockReturnValue({ frames: [{ timestamp: Date.now(), intervalMs: 100, domHash: 'abc…' }], redactionApplied: true }) };
-        const temporalPromptAssembler = {
-            assemble: vi.fn().mockReturnValue({
-                runId: 'run-1',
-                fromTimestamp: Date.now(),
-                toTimestamp: Date.now(),
-                summary: 'temporal',
-                mode: 'adaptive',
-                frames: [{ timestamp: Date.now(), intervalMs: 100, domHash: 'abc…' }],
-                redactionApplied: true,
-                tokenEstimate: 22
             })
         };
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
@@ -120,11 +86,6 @@ describe('StepExecutor hardening', () => {
             trace as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
-            temporalPolicy as unknown as never,
-            timelineAssembler as unknown as never,
-            temporalSelector as unknown as never,
-            temporalPrivacyFilter as unknown as never,
-            temporalPromptAssembler as unknown as never,
             logger as unknown as never
         );
 
@@ -146,8 +107,6 @@ describe('StepExecutor hardening', () => {
                 vision: false,
                 debugScreenshots: false,
                 maxActions: 5,
-                temporalObservation: true,
-                temporalPersistWindow: true
             }
         );
 
@@ -215,7 +174,7 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}), saveTemporalWindow: vi.fn().mockResolvedValue({}) };
+        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}) };
         const trace = {
             startTrace: vi.fn().mockResolvedValue(undefined),
             endTrace: vi.fn().mockResolvedValue(undefined),
@@ -231,19 +190,6 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const temporalPolicy = {
-            planCapture: vi.fn().mockReturnValue({
-                mode: 'off',
-                enabled: false,
-                maxFrames: 1,
-                burstIntervalMs: 1,
-                maxFramesPerWindow: 1
-            })
-        };
-        const timelineAssembler = { assemble: vi.fn() };
-        const temporalSelector = { select: vi.fn() };
-        const temporalPrivacyFilter = { redact: vi.fn() };
-        const temporalPromptAssembler = { assemble: vi.fn() };
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const executor = new StepExecutor(
@@ -254,11 +200,6 @@ describe('StepExecutor hardening', () => {
             trace as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
-            temporalPolicy as unknown as never,
-            timelineAssembler as unknown as never,
-            temporalSelector as unknown as never,
-            temporalPrivacyFilter as unknown as never,
-            temporalPromptAssembler as unknown as never,
             logger as unknown as never
         );
 
@@ -384,7 +325,7 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}), saveTemporalWindow: vi.fn().mockResolvedValue({}) };
+        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}) };
         const trace = {
             startTrace: vi.fn().mockResolvedValue(undefined),
             endTrace: vi.fn().mockResolvedValue(undefined),
@@ -399,19 +340,6 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const temporalPolicy = {
-            planCapture: vi.fn().mockReturnValue({
-                mode: 'off',
-                enabled: false,
-                maxFrames: 1,
-                burstIntervalMs: 1,
-                maxFramesPerWindow: 1
-            })
-        };
-        const timelineAssembler = { assemble: vi.fn() };
-        const temporalSelector = { select: vi.fn() };
-        const temporalPrivacyFilter = { redact: vi.fn() };
-        const temporalPromptAssembler = { assemble: vi.fn() };
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const executor = new StepExecutor(
@@ -422,11 +350,6 @@ describe('StepExecutor hardening', () => {
             trace as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
-            temporalPolicy as unknown as never,
-            timelineAssembler as unknown as never,
-            temporalSelector as unknown as never,
-            temporalPrivacyFilter as unknown as never,
-            temporalPromptAssembler as unknown as never,
             logger as unknown as never
         );
 
@@ -565,7 +488,7 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}), saveTemporalWindow: vi.fn().mockResolvedValue({}) };
+        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}) };
         const trace = {
             startTrace: vi.fn().mockResolvedValue(undefined),
             endTrace: vi.fn().mockResolvedValue(undefined),
@@ -580,19 +503,6 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const temporalPolicy = {
-            planCapture: vi.fn().mockReturnValue({
-                mode: 'off',
-                enabled: false,
-                maxFrames: 1,
-                burstIntervalMs: 1,
-                maxFramesPerWindow: 1
-            })
-        };
-        const timelineAssembler = { assemble: vi.fn() };
-        const temporalSelector = { select: vi.fn() };
-        const temporalPrivacyFilter = { redact: vi.fn() };
-        const temporalPromptAssembler = { assemble: vi.fn() };
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const executor = new StepExecutor(
@@ -603,11 +513,6 @@ describe('StepExecutor hardening', () => {
             trace as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
-            temporalPolicy as unknown as never,
-            timelineAssembler as unknown as never,
-            temporalSelector as unknown as never,
-            temporalPrivacyFilter as unknown as never,
-            temporalPromptAssembler as unknown as never,
             logger as unknown as never
         );
 
@@ -718,7 +623,7 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}), saveTemporalWindow: vi.fn().mockResolvedValue({}) };
+        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}) };
         const trace = {
             startTrace: vi.fn().mockResolvedValue(undefined),
             endTrace: vi.fn().mockResolvedValue(undefined),
@@ -734,19 +639,6 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const temporalPolicy = {
-            planCapture: vi.fn().mockReturnValue({
-                mode: 'off',
-                enabled: false,
-                maxFrames: 1,
-                burstIntervalMs: 1,
-                maxFramesPerWindow: 1
-            })
-        };
-        const timelineAssembler = { assemble: vi.fn() };
-        const temporalSelector = { select: vi.fn() };
-        const temporalPrivacyFilter = { redact: vi.fn() };
-        const temporalPromptAssembler = { assemble: vi.fn() };
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const executor = new StepExecutor(
@@ -757,11 +649,6 @@ describe('StepExecutor hardening', () => {
             trace as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
-            temporalPolicy as unknown as never,
-            timelineAssembler as unknown as never,
-            temporalSelector as unknown as never,
-            temporalPrivacyFilter as unknown as never,
-            temporalPromptAssembler as unknown as never,
             logger as unknown as never
         );
 
@@ -880,7 +767,7 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}), saveTemporalWindow: vi.fn().mockResolvedValue({}) };
+        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}) };
         const trace = {
             startTrace: vi.fn().mockResolvedValue(undefined),
             endTrace: vi.fn().mockResolvedValue(undefined),
@@ -895,19 +782,6 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const temporalPolicy = {
-            planCapture: vi.fn().mockReturnValue({
-                mode: 'off',
-                enabled: false,
-                maxFrames: 1,
-                burstIntervalMs: 1,
-                maxFramesPerWindow: 1
-            })
-        };
-        const timelineAssembler = { assemble: vi.fn() };
-        const temporalSelector = { select: vi.fn() };
-        const temporalPrivacyFilter = { redact: vi.fn() };
-        const temporalPromptAssembler = { assemble: vi.fn() };
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const executor = new StepExecutor(
@@ -918,11 +792,6 @@ describe('StepExecutor hardening', () => {
             trace as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
-            temporalPolicy as unknown as never,
-            timelineAssembler as unknown as never,
-            temporalSelector as unknown as never,
-            temporalPrivacyFilter as unknown as never,
-            temporalPromptAssembler as unknown as never,
             logger as unknown as never
         );
 
@@ -1017,7 +886,7 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}), saveTemporalWindow: vi.fn().mockResolvedValue({}) };
+        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}) };
         const trace = {
             startTrace: vi.fn().mockResolvedValue(undefined),
             endTrace: vi.fn().mockResolvedValue(undefined),
@@ -1032,19 +901,6 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const temporalPolicy = {
-            planCapture: vi.fn().mockReturnValue({
-                mode: 'off',
-                enabled: false,
-                maxFrames: 1,
-                burstIntervalMs: 1,
-                maxFramesPerWindow: 1
-            })
-        };
-        const timelineAssembler = { assemble: vi.fn() };
-        const temporalSelector = { select: vi.fn() };
-        const temporalPrivacyFilter = { redact: vi.fn() };
-        const temporalPromptAssembler = { assemble: vi.fn() };
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const executor = new StepExecutor(
@@ -1055,11 +911,6 @@ describe('StepExecutor hardening', () => {
             trace as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
-            temporalPolicy as unknown as never,
-            timelineAssembler as unknown as never,
-            temporalSelector as unknown as never,
-            temporalPrivacyFilter as unknown as never,
-            temporalPromptAssembler as unknown as never,
             logger as unknown as never
         );
 
@@ -1158,7 +1009,7 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}), saveTemporalWindow: vi.fn().mockResolvedValue({}) };
+        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}) };
         const trace = {
             startTrace: vi.fn().mockResolvedValue(undefined),
             endTrace: vi.fn().mockResolvedValue(undefined),
@@ -1173,19 +1024,6 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const temporalPolicy = {
-            planCapture: vi.fn().mockReturnValue({
-                mode: 'off',
-                enabled: false,
-                maxFrames: 1,
-                burstIntervalMs: 1,
-                maxFramesPerWindow: 1
-            })
-        };
-        const timelineAssembler = { assemble: vi.fn() };
-        const temporalSelector = { select: vi.fn() };
-        const temporalPrivacyFilter = { redact: vi.fn() };
-        const temporalPromptAssembler = { assemble: vi.fn() };
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const executor = new StepExecutor(
@@ -1196,11 +1034,6 @@ describe('StepExecutor hardening', () => {
             trace as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
-            temporalPolicy as unknown as never,
-            timelineAssembler as unknown as never,
-            temporalSelector as unknown as never,
-            temporalPrivacyFilter as unknown as never,
-            temporalPromptAssembler as unknown as never,
             logger as unknown as never
         );
 
@@ -1283,7 +1116,7 @@ describe('StepExecutor hardening', () => {
             })
         };
 
-        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}), saveTemporalWindow: vi.fn().mockResolvedValue({}) };
+        const storage = { savePerceptionAssets: vi.fn().mockResolvedValue({}) };
         const trace = {
             startTrace: vi.fn().mockResolvedValue(undefined),
             endTrace: vi.fn().mockResolvedValue(undefined),
@@ -1297,19 +1130,6 @@ describe('StepExecutor hardening', () => {
                 value: undefined
             })
         };
-        const temporalPolicy = {
-            planCapture: vi.fn().mockReturnValue({
-                mode: 'off',
-                enabled: false,
-                maxFrames: 1,
-                burstIntervalMs: 1,
-                maxFramesPerWindow: 1
-            })
-        };
-        const timelineAssembler = { assemble: vi.fn() };
-        const temporalSelector = { select: vi.fn() };
-        const temporalPrivacyFilter = { redact: vi.fn() };
-        const temporalPromptAssembler = { assemble: vi.fn() };
         const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
         const onEvaluation = vi.fn();
@@ -1322,11 +1142,6 @@ describe('StepExecutor hardening', () => {
             trace as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
-            temporalPolicy as unknown as never,
-            timelineAssembler as unknown as never,
-            temporalSelector as unknown as never,
-            temporalPrivacyFilter as unknown as never,
-            temporalPromptAssembler as unknown as never,
             logger as unknown as never
         );
 

@@ -72,11 +72,6 @@ describe('StepExecutor operator override', () => {
             trace as unknown as never,
             { getToolDescriptors: vi.fn().mockReturnValue([]) } as unknown as never,
             toolExecutor as unknown as never,
-            { planCapture: vi.fn().mockReturnValue({ enabled: false }) } as unknown as never,
-            { assemble: vi.fn() } as unknown as never,
-            { select: vi.fn() } as unknown as never,
-            { redact: vi.fn() } as unknown as never,
-            { assemble: vi.fn() } as unknown as never,
             { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as unknown as never
         );
 
@@ -98,7 +93,6 @@ describe('StepExecutor operator override', () => {
                 debugScreenshots: false,
                 maxActions: 3,
                 supervisedTerminalPass: false,
-                temporalObservation: false
             },
             {
                 overrideProvider: {

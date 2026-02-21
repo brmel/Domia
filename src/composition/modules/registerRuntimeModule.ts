@@ -17,11 +17,6 @@ import { RunBootstrapCoordinator } from '@application/services/execution/coordin
 import { StepExecutionCoordinator } from '@application/services/execution/coordinators/StepExecutionCoordinator';
 import { ReplanningCoordinator } from '@application/services/execution/coordinators/ReplanningCoordinator';
 import { TerminalizationCoordinator } from '@application/services/execution/coordinators/TerminalizationCoordinator';
-import { TemporalObservationPolicyService } from '@application/services/perception/TemporalObservationPolicyService';
-import { TimelineContextAssembler } from '@application/services/perception/TimelineContextAssembler';
-import { TemporalContextSelectorService } from '@application/services/perception/TemporalContextSelectorService';
-import { TemporalPrivacyFilterService } from '@application/services/perception/TemporalPrivacyFilterService';
-import { TemporalPromptAssemblerService } from '@application/services/perception/TemporalPromptAssemblerService';
 import { SkillRegistryService } from '@application/services/skills/SkillRegistryService';
 import { SkillGovernanceService } from '@application/services/skills/SkillGovernanceService';
 import { PluginCapabilityPolicyService } from '@application/services/plugins/PluginCapabilityPolicyService';
@@ -35,7 +30,6 @@ import { TrajectoryExportService } from '@infrastructure/services/exporters/Traj
 import { RegistryBackedToolExecutor } from '@application/services/tooling/RegistryBackedToolExecutor';
 import { DefaultToolPolicyService } from '@application/services/tooling/ToolPolicyService';
 import { StepActionExecutionService } from '@application/services/execution/StepActionExecutionService';
-import { TemporalWindowCaptureService } from '@application/services/execution/TemporalWindowCaptureService';
 import { ToolContractService } from '@application/services/tooling/ToolContractService';
 
 export function registerRuntimeModule(): void {
@@ -60,12 +54,6 @@ export function registerRuntimeModule(): void {
     container.registerSingleton(ReplanningCoordinator);
     container.registerSingleton(TerminalizationCoordinator);
 
-    container.registerSingleton(TemporalObservationPolicyService);
-    container.registerSingleton(TimelineContextAssembler);
-    container.registerSingleton(TemporalContextSelectorService);
-    container.registerSingleton(TemporalPrivacyFilterService);
-    container.registerSingleton(TemporalPromptAssemblerService);
-
     container.registerSingleton(SkillRegistryService);
     container.registerSingleton(SkillGovernanceService);
 
@@ -83,7 +71,6 @@ export function registerRuntimeModule(): void {
     container.registerSingleton(ToolContractService);
     container.registerSingleton(DefaultToolPolicyService);
     container.registerSingleton(StepActionExecutionService);
-    container.registerSingleton(TemporalWindowCaptureService);
     container.register('IToolPolicyService', { useToken: DefaultToolPolicyService });
     container.register('IToolCapabilityRegistry', { useToken: ToolContractService });
     container.register('IToolExecutor', { useToken: RegistryBackedToolExecutor });

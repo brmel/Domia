@@ -25,22 +25,6 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
         setSelectedPlatform,
         platformData,
         setPlatformData,
-        temporalObservation,
-        setTemporalObservation,
-        temporalMode,
-        setTemporalMode,
-        temporalBaselineIntervalMs,
-        setTemporalBaselineIntervalMs,
-        temporalBurstIntervalMs,
-        setTemporalBurstIntervalMs,
-        temporalMaxFramesPerWindow,
-        setTemporalMaxFramesPerWindow,
-        temporalPromptTokenBudget,
-        setTemporalPromptTokenBudget,
-        temporalRedactSensitive,
-        setTemporalRedactSensitive,
-        temporalPersistWindow,
-        setTemporalPersistWindow
     } = useTestRunStore();
     const isRunning = isAgentRunning(status);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -205,14 +189,6 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
                 debug: false,
                 vision: config?.ai?.visionEnabled ?? true,
                 debugScreenshots: config?.ai?.debugScreenshots ?? false,
-                temporalObservation,
-                temporalMode,
-                temporalBaselineIntervalMs,
-                temporalBurstIntervalMs,
-                temporalMaxFramesPerWindow,
-                temporalPromptTokenBudget,
-                temporalRedactSensitive,
-                temporalPersistWindow
             }
         };
         
@@ -377,109 +353,6 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
                     {visionEnabled && (
                         <p className="text-xs text-gray-500">Disable Visual LLM first to turn off screenshots.</p>
                     )}
-                </section>
-
-                <section className="rounded-lg border border-gray-200 bg-white p-4">
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">Advanced Runtime Controls</h3>
-
-                    <div className="space-y-3">
-                        <label className="flex items-center justify-between text-sm text-gray-700">
-                            <span>Temporal Observation</span>
-                            <input
-                                type="checkbox"
-                                checked={temporalObservation}
-                                onChange={(event) => setTemporalObservation(event.target.checked)}
-                                disabled={isRunning}
-                            />
-                        </label>
-
-                        <label className="flex flex-col gap-1 text-sm text-gray-700">
-                            <span>Temporal Mode</span>
-                            <select
-                                value={temporalMode}
-                                onChange={(event) => setTemporalMode(event.target.value as 'off' | 'baseline' | 'adaptive' | 'forensic')}
-                                disabled={isRunning}
-                                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                            >
-                                <option value="off">Off</option>
-                                <option value="baseline">Baseline</option>
-                                <option value="adaptive">Adaptive</option>
-                                <option value="forensic">Forensic</option>
-                            </select>
-                        </label>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <label className="flex flex-col gap-1 text-sm text-gray-700">
-                                <span>Baseline Interval (ms)</span>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    value={temporalBaselineIntervalMs}
-                                    onChange={(event) => setTemporalBaselineIntervalMs(Math.max(1, Number(event.target.value || 1)))}
-                                    disabled={isRunning}
-                                    className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                                />
-                            </label>
-
-                            <label className="flex flex-col gap-1 text-sm text-gray-700">
-                                <span>Burst Interval (ms)</span>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    value={temporalBurstIntervalMs}
-                                    onChange={(event) => setTemporalBurstIntervalMs(Math.max(1, Number(event.target.value || 1)))}
-                                    disabled={isRunning}
-                                    className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                                />
-                            </label>
-
-                            <label className="flex flex-col gap-1 text-sm text-gray-700">
-                                <span>Frames / Window</span>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    value={temporalMaxFramesPerWindow}
-                                    onChange={(event) => setTemporalMaxFramesPerWindow(Math.max(1, Number(event.target.value || 1)))}
-                                    disabled={isRunning}
-                                    className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                                />
-                            </label>
-
-                            <label className="flex flex-col gap-1 text-sm text-gray-700">
-                                <span>Prompt Budget (tokens)</span>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    value={temporalPromptTokenBudget}
-                                    onChange={(event) => setTemporalPromptTokenBudget(Math.max(1, Number(event.target.value || 1)))}
-                                    disabled={isRunning}
-                                    className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                                />
-                            </label>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <label className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-700">
-                                <span>Redact Sensitive</span>
-                                <input
-                                    type="checkbox"
-                                    checked={temporalRedactSensitive}
-                                    onChange={(event) => setTemporalRedactSensitive(event.target.checked)}
-                                    disabled={isRunning}
-                                />
-                            </label>
-
-                            <label className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-700">
-                                <span>Persist Window</span>
-                                <input
-                                    type="checkbox"
-                                    checked={temporalPersistWindow}
-                                    onChange={(event) => setTemporalPersistWindow(event.target.checked)}
-                                    disabled={isRunning}
-                                />
-                            </label>
-                        </div>
-                    </div>
                 </section>
             </aside>
         </form>
