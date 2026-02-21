@@ -187,11 +187,28 @@ export class LangChainAdapter implements ILLMProvider {
     }
 
     private async doGenerateEvaluation(context: LLMEvaluationContext): Promise<LLMEvaluationDecision> {
-        const outcome = await this.toolCallingProvider.generateToolCallOutcome(
-            this.buildEvaluationRequest(context)
-        );
+        const maxAttempts = 2;
+        let correctionContext: { error: string } | undefined;
 
-        if (!outcome.ok) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            const request = this.buildEvaluationRequest(context, correctionContext);
+            const outcome = await this.toolCallingProvider.generateToolCallOutcome(request);
+
+            if (outcome.ok) {
+                return this.actionToolMapper.mapModelToolCallToEvaluationDecision(outcome.result.name, outcome.result.args);
+            }
+
+            if (attempt < maxAttempts && outcome.failure.retryable) {
+                this.logger.warn('[LangChainAdapter] Evaluator tool-calling failed; retrying with correction', {
+                    code: outcome.failure.code,
+                    attempt,
+                    message: outcome.failure.message
+                });
+                correctionContext = { error: outcome.failure.message };
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                continue;
+            }
+
             this.logger.warn('[LangChainAdapter] Evaluator tool-calling decision failed; using deterministic fallback', {
                 code: outcome.failure.code,
                 recoverable: outcome.failure.recoverable,
@@ -202,14 +219,18 @@ export class LangChainAdapter implements ILLMProvider {
             return this.buildFallbackEvaluationDecision(context, outcome.failure.message);
         }
 
-        return this.actionToolMapper.mapModelToolCallToEvaluationDecision(outcome.result.name, outcome.result.args);
+        return this.buildFallbackEvaluationDecision(context, 'Evaluator exhausted retry attempts');
     }
 
-    private buildEvaluationRequest(context: LLMEvaluationContext): import('@domain/ports').ToolCallingRequest {
+    private buildEvaluationRequest(
+        context: LLMEvaluationContext,
+        correction?: { error: string }
+    ): import('@domain/ports').ToolCallingRequest {
         return {
             systemPrompt: EVALUATION_SYSTEM_PROMPT,
             userPrompt: buildEvaluationUserPrompt(context),
-            tools: this.actionToolMapper.getEvaluationToolDefinitions()
+            tools: this.actionToolMapper.getEvaluationToolDefinitions(),
+            ...(correction ? { correctionError: correction.error } : {})
         };
     }
 
