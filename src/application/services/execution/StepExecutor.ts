@@ -62,7 +62,6 @@ export class StepExecutor {
         @inject('IPerceptionPipeline') private perception: IPerceptionPipeline,
         @inject('IStorageService') private storage: IStorageService,
         @inject('ITraceService') private trace: ITraceService,
-        @inject('AssertionGoalService') _assertionGoalService: unknown,
         @inject('IToolCapabilityRegistry') private readonly toolCapabilityRegistry: IToolCapabilityRegistry,
         @inject('IToolExecutor') toolExecutor: ToolExecutor,
         @inject(TemporalObservationPolicyService) temporalPolicy: TemporalObservationPolicyService,

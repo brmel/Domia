@@ -58,7 +58,6 @@ describe('StepExecutor performance hardening', () => {
                 tracePerception: vi.fn().mockResolvedValue(undefined),
                 traceReasoning: vi.fn().mockResolvedValue(undefined)
             } as unknown as never,
-            { evaluate: vi.fn().mockReturnValue(null) } as unknown as never,
             { getToolDescriptors: vi.fn().mockReturnValue([]) } as unknown as never,
             { execute: vi.fn() } as unknown as never,
             {

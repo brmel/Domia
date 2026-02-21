@@ -129,7 +129,6 @@ export function createStepExecutorHarness(): StepExecutorHarness {
         traceReasoning: vi.fn().mockResolvedValue(undefined)
     };
 
-    const assertionGoalService = { evaluate: vi.fn().mockReturnValue(null) };
     const toolCapabilityRegistry = { getToolDescriptors: vi.fn().mockReturnValue([]) };
     const toolExecutor = {
         execute: vi.fn().mockResolvedValue({
@@ -151,7 +150,6 @@ export function createStepExecutorHarness(): StepExecutorHarness {
         perception as unknown as never,
         storage as unknown as never,
         trace as unknown as never,
-        assertionGoalService as unknown as never,
         toolCapabilityRegistry as unknown as never,
         toolExecutor as unknown as never,
         temporalPolicy as unknown as never,

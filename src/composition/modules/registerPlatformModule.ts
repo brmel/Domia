@@ -11,6 +11,4 @@ export function registerPlatformModule(): void {
     container.registerSingleton(AppDriverFactory);
     container.register('IAppDriverFactory', { useToken: AppDriverFactory });
     container.registerSingleton(ToolRegistry);
-
-    container.register('IAppDriver', { useToken: WebDriver });
 }

@@ -70,7 +70,6 @@ describe('StepExecutor hardening', () => {
             traceReasoning: vi.fn().mockResolvedValue(undefined)
         };
 
-        const assertionGoalService = {};
 
         const toolContractService = { getToolDescriptors: vi.fn().mockReturnValue([]) };
         const toolExecutor = {
@@ -119,7 +118,6 @@ describe('StepExecutor hardening', () => {
             perception as unknown as never,
             storage as unknown as never,
             trace as unknown as never,
-            assertionGoalService as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
             temporalPolicy as unknown as never,
@@ -225,7 +223,6 @@ describe('StepExecutor hardening', () => {
             traceReasoning: vi.fn().mockResolvedValue(undefined)
         };
 
-        const assertionGoalService = { evaluate: vi.fn().mockReturnValue(null) };
         const toolContractService = { getToolDescriptors: vi.fn().mockReturnValue([]) };
         const toolExecutor = {
             execute: vi.fn().mockResolvedValue({
@@ -255,7 +252,6 @@ describe('StepExecutor hardening', () => {
             perception as unknown as never,
             storage as unknown as never,
             trace as unknown as never,
-            assertionGoalService as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
             temporalPolicy as unknown as never,
@@ -395,7 +391,6 @@ describe('StepExecutor hardening', () => {
             tracePerception: vi.fn().mockResolvedValue(undefined),
             traceReasoning: vi.fn().mockResolvedValue(undefined)
         };
-        const assertionGoalService = { evaluate: vi.fn().mockReturnValue(null) };
         const toolContractService = { getToolDescriptors: vi.fn().mockReturnValue([]) };
         const toolExecutor = {
             execute: vi.fn().mockResolvedValue({
@@ -425,7 +420,6 @@ describe('StepExecutor hardening', () => {
             perception as unknown as never,
             storage as unknown as never,
             trace as unknown as never,
-            assertionGoalService as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
             temporalPolicy as unknown as never,
@@ -578,7 +572,6 @@ describe('StepExecutor hardening', () => {
             tracePerception: vi.fn().mockResolvedValue(undefined),
             traceReasoning: vi.fn().mockResolvedValue(undefined)
         };
-        const assertionGoalService = { evaluate: vi.fn().mockReturnValue(null) };
         const toolContractService = { getToolDescriptors: vi.fn().mockReturnValue([]) };
         const toolExecutor = {
             execute: vi.fn().mockResolvedValue({
@@ -608,7 +601,6 @@ describe('StepExecutor hardening', () => {
             perception as unknown as never,
             storage as unknown as never,
             trace as unknown as never,
-            assertionGoalService as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
             temporalPolicy as unknown as never,
@@ -734,7 +726,6 @@ describe('StepExecutor hardening', () => {
             traceReasoning: vi.fn().mockResolvedValue(undefined)
         };
 
-        const assertionGoalService = { evaluate: vi.fn().mockReturnValue(null) };
         const toolContractService = { getToolDescriptors: vi.fn().mockReturnValue([]) };
         const toolExecutor = {
             execute: vi.fn().mockResolvedValue({
@@ -764,7 +755,6 @@ describe('StepExecutor hardening', () => {
             perception as unknown as never,
             storage as unknown as never,
             trace as unknown as never,
-            assertionGoalService as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
             temporalPolicy as unknown as never,
@@ -897,7 +887,6 @@ describe('StepExecutor hardening', () => {
             tracePerception: vi.fn().mockResolvedValue(undefined),
             traceReasoning: vi.fn().mockResolvedValue(undefined)
         };
-        const assertionGoalService = { evaluate: vi.fn().mockReturnValue(null) };
         const toolContractService = { getToolDescriptors: vi.fn().mockReturnValue([]) };
         const toolExecutor = {
             execute: vi.fn().mockResolvedValue({
@@ -927,7 +916,6 @@ describe('StepExecutor hardening', () => {
             perception as unknown as never,
             storage as unknown as never,
             trace as unknown as never,
-            assertionGoalService as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
             temporalPolicy as unknown as never,
@@ -1036,7 +1024,6 @@ describe('StepExecutor hardening', () => {
             tracePerception: vi.fn().mockResolvedValue(undefined),
             traceReasoning: vi.fn().mockResolvedValue(undefined)
         };
-        const assertionGoalService = { evaluate: vi.fn().mockReturnValue(null) };
         const toolContractService = { getToolDescriptors: vi.fn().mockReturnValue([]) };
         const toolExecutor = {
             execute: vi.fn().mockResolvedValue({
@@ -1066,7 +1053,6 @@ describe('StepExecutor hardening', () => {
             perception as unknown as never,
             storage as unknown as never,
             trace as unknown as never,
-            assertionGoalService as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
             temporalPolicy as unknown as never,
@@ -1179,7 +1165,6 @@ describe('StepExecutor hardening', () => {
             tracePerception: vi.fn().mockResolvedValue(undefined),
             traceReasoning: vi.fn().mockResolvedValue(undefined)
         };
-        const assertionGoalService = { evaluate: vi.fn().mockReturnValue(null) };
         const toolContractService = { getToolDescriptors: vi.fn().mockReturnValue([]) };
         const toolExecutor = {
             execute: vi.fn().mockResolvedValue({
@@ -1209,7 +1194,6 @@ describe('StepExecutor hardening', () => {
             perception as unknown as never,
             storage as unknown as never,
             trace as unknown as never,
-            assertionGoalService as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
             temporalPolicy as unknown as never,
@@ -1306,7 +1290,6 @@ describe('StepExecutor hardening', () => {
             tracePerception: vi.fn().mockResolvedValue(undefined),
             traceReasoning: vi.fn().mockResolvedValue(undefined)
         };
-        const assertionGoalService = { evaluate: vi.fn().mockReturnValue(null) };
         const toolContractService = { getToolDescriptors: vi.fn().mockReturnValue([]) };
         const toolExecutor = {
             execute: vi.fn().mockResolvedValue({
@@ -1337,7 +1320,6 @@ describe('StepExecutor hardening', () => {
             perception as unknown as never,
             storage as unknown as never,
             trace as unknown as never,
-            assertionGoalService as unknown as never,
             toolContractService as unknown as never,
             toolExecutor as unknown as never,
             temporalPolicy as unknown as never,

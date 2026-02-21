@@ -70,7 +70,6 @@ describe('StepExecutor operator override', () => {
             perception as unknown as never,
             { savePerceptionAssets: vi.fn().mockResolvedValue({}) } as unknown as never,
             trace as unknown as never,
-            { evaluate: vi.fn().mockReturnValue(null) } as unknown as never,
             { getToolDescriptors: vi.fn().mockReturnValue([]) } as unknown as never,
             toolExecutor as unknown as never,
             { planCapture: vi.fn().mockReturnValue({ enabled: false }) } as unknown as never,

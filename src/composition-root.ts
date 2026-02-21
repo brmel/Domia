@@ -21,7 +21,6 @@ export function registerCoreServices(): void {
     registerPlatformModule();
 
     container.registerSingleton('ILogger', ConsoleLogger);
-    container.register('AssertionGoalService', { useValue: {} });
 
     registerRuntimeModule();
     registerWorkflowModule();

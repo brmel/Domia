@@ -26,11 +26,3 @@ export class SnapshotError extends DomainError {
         super(message);
     }
 }
-
-export class CaptureError extends DomainError {
-    readonly code = 'CAPTURE_ERROR';
-
-    constructor(message: string) {
-        super(message);
-    }
-}
