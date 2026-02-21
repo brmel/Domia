@@ -50,7 +50,6 @@ src/infrastructure/adapters/llm/
 ├── zodToGeminiSchema.ts          # Converts zod schemas → Gemini function declarations
 ├── LlmRuntimeConfigResolver.ts   # Resolves LLMConfig from config + env
 ├── ToolCallingFailurePolicy.ts    # Decides retry/fail on tool call failures
-├── RuntimeRolloutGateService.ts   # SLO-based rollout gate
 └── LLMPlanningUtils.ts           # Plan parsing utilities
 ```
 

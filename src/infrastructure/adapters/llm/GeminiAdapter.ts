@@ -22,7 +22,6 @@ import {
 import { GeminiModelFactory } from './GeminiModelFactory';
 import { LlmRuntimeConfigResolver } from './LlmRuntimeConfigResolver';
 import { ToolCallingFailurePolicy } from './ToolCallingFailurePolicy';
-import { RuntimeRolloutGateService } from './RuntimeRolloutGateService';
 
 @injectable()
 export class GeminiAdapter implements ILLMProvider {
@@ -38,7 +37,6 @@ export class GeminiAdapter implements ILLMProvider {
         @inject(LlmRuntimeConfigResolver) private readonly runtimeConfig: LlmRuntimeConfigResolver,
         @inject(GeminiModelFactory) private readonly modelFactory: GeminiModelFactory,
         @inject(ToolCallingFailurePolicy) private readonly toolCallingFailurePolicy: ToolCallingFailurePolicy,
-        @inject(RuntimeRolloutGateService) private readonly rolloutGate: RuntimeRolloutGateService,
     ) {}
 
     generateAction(context: LLMContext): ResultAsync<AgentAction, LLMError> {
@@ -56,39 +54,19 @@ export class GeminiAdapter implements ILLMProvider {
     }
 
     private async generateWithRetry(context: LLMContext, retries = 3): Promise<AgentAction> {
-        const rolloutMode = this.rolloutGate.resolveMode();
-        if (!rolloutMode.agenticEnabled) {
-            this.logger.info('[GeminiAdapter] Agentic runtime path disabled for action generation', {
-                reason: rolloutMode.reason
-            });
-            return this.generateBaselineAction(context);
-        }
-
         let lastError: LLMError | undefined;
         let correctionContext: { error: string } | undefined;
-        let usedRetry = false;
 
         for (let attempt = 1; attempt <= retries; attempt++) {
             const outcome = await this.doGenerateAction(context, correctionContext);
 
             if (outcome.ok) {
-                this.rolloutGate.recordDecision({
-                    validToolCall: true,
-                    usedRetry,
-                    terminalFailure: false
-                });
-
-                if (rolloutMode.shadowMode) {
-                    await this.compareWithBaselineAction(context, outcome.action);
-                }
                 return outcome.action;
             }
 
             const failureAction = this.toolCallingFailurePolicy.resolve(outcome.failure, attempt, retries);
-            this.logger.warn('[GeminiAdapter] Tool-calling decision failed during action generation', {
+            this.logger.warn('[GeminiAdapter] Tool-calling failed during action generation', {
                 code: outcome.failure.code,
-                recoverable: outcome.failure.recoverable,
-                retryable: outcome.failure.retryable,
                 attempt,
                 maxAttempts: retries,
                 decision: failureAction.type,
@@ -105,42 +83,11 @@ export class GeminiAdapter implements ILLMProvider {
             }
 
             if (attempt < retries) {
-                usedRetry = true;
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
         }
 
-        this.rolloutGate.recordDecision({
-            validToolCall: false,
-            usedRetry,
-            terminalFailure: true
-        });
-
         throw lastError || new LLMError("Failed to generate valid action after retries");
-    }
-
-    private async generateBaselineAction(context: LLMContext): Promise<AgentAction> {
-        const request = this.buildActionRequest(context);
-        const result = await this.toolCallingProvider.generateToolCall(request);
-        return this.actionToolMapper.mapModelToolCallToAction(result.name, result.args);
-    }
-
-    private async compareWithBaselineAction(context: LLMContext, primaryAction: AgentAction): Promise<void> {
-        try {
-            const baselineAction = await this.generateBaselineAction(context);
-            const primarySerialized = JSON.stringify(primaryAction);
-            const baselineSerialized = JSON.stringify(baselineAction);
-
-            if (primarySerialized !== baselineSerialized) {
-                this.logger.warn('[GeminiAdapter] Shadow mode action mismatch detected', {
-                    primary: primaryAction,
-                    baseline: baselineAction
-                });
-            }
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            this.logger.warn('[GeminiAdapter] Shadow mode baseline action generation failed', { message });
-        }
     }
 
     private async doGenerateAction(
@@ -151,8 +98,6 @@ export class GeminiAdapter implements ILLMProvider {
         this.logger.debug(`[GeminiAdapter] Runtime provider=${runtime.provider} model=${runtime.model}${runtime.baseUrl ? ` baseUrl=${runtime.baseUrl}` : ''}`);
 
         const request = this.buildActionRequest(context, correction);
-        this.logger.debug(`[GeminiAdapter] Invoking tool-calling provider. Correction active: ${!!correction}`);
-
         const outcome = await this.toolCallingProvider.generateToolCallOutcome(request);
 
         if (!outcome.ok) {
@@ -205,10 +150,8 @@ export class GeminiAdapter implements ILLMProvider {
                 continue;
             }
 
-            this.logger.warn('[GeminiAdapter] Evaluator tool-calling decision failed; using deterministic fallback', {
+            this.logger.warn('[GeminiAdapter] Evaluator failed; using deterministic fallback', {
                 code: outcome.failure.code,
-                recoverable: outcome.failure.recoverable,
-                retryable: outcome.failure.retryable,
                 message: outcome.failure.message
             });
 

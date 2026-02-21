@@ -5,14 +5,12 @@ import { GeminiToolCallingProvider } from '@infrastructure/adapters/llm/GeminiTo
 import { ToolCallingFailurePolicy } from '@infrastructure/adapters/llm/ToolCallingFailurePolicy';
 import { LlmRuntimeConfigResolver } from '@infrastructure/adapters/llm/LlmRuntimeConfigResolver';
 import { GeminiModelFactory } from '@infrastructure/adapters/llm/GeminiModelFactory';
-import { RuntimeRolloutGateService } from '@infrastructure/adapters/llm/RuntimeRolloutGateService';
 
 export function registerLlmModule(): void {
     container.registerSingleton(ActionToolMapper);
     container.registerSingleton(LlmRuntimeConfigResolver);
     container.registerSingleton(GeminiModelFactory);
     container.registerSingleton(ToolCallingFailurePolicy);
-    container.registerSingleton(RuntimeRolloutGateService);
     container.register('IToolCallingProvider', { useClass: GeminiToolCallingProvider });
     container.register('ILLMProvider', { useClass: GeminiAdapter });
 }
