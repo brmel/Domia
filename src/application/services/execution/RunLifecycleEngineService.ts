@@ -1,27 +1,10 @@
 import { injectable } from 'tsyringe';
-import type { AgentAction, LLMEvaluationDecision } from '@domain/value-objects';
+import type { AgentAction } from '@domain/value-objects';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { IRunLifecycleEngine } from './IRunLifecycleEngine';
 
 @injectable()
 export class RunLifecycleEngineService implements IRunLifecycleEngine {
-    applyEvaluation(state: WorkflowState, evaluation: LLMEvaluationDecision): WorkflowState {
-        return {
-            ...state,
-            status: 'validating',
-            evaluatorAdvice: evaluation.advice ?? evaluation.summary,
-            evaluatorAdviceDelta: {
-                decision: evaluation.decision,
-                summary: evaluation.summary,
-                ...(evaluation.advice ? { advice: evaluation.advice } : {}),
-                evidence: evaluation.evidence,
-                confidence: evaluation.confidence,
-                timestamp: new Date().toISOString()
-            },
-            lastEvaluation: evaluation
-        };
-    }
-
     applyAction(state: WorkflowState, action: AgentAction): WorkflowState {
         return {
             ...state,

@@ -244,8 +244,6 @@ function spawnCLI(args: string[], extraEnv: Record<string, string> = {}): Promis
         
         cli.stdout?.on('data', (data) => {
             const str = data.toString();
-            // Filter noise
-            if (str.includes('[WARN] [GeminiAdapter] validation failed')) return;
             stdout += str;
             process.stdout.write(data);
         });
@@ -254,7 +252,6 @@ function spawnCLI(args: string[], extraEnv: Record<string, string> = {}): Promis
             const str = data.toString();
             // Filter noise
             if (str.includes('[DEP0190]') || str.includes('DeprecationWarning')) return;
-            if (str.includes('[WARN] [GeminiAdapter] validation failed')) return;
             stderr += str;
             process.stderr.write(data);
         });

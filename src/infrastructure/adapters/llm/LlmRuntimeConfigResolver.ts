@@ -1,5 +1,12 @@
 import { inject, injectable } from 'tsyringe';
-import type { IConfigService, LLMConfig } from '@domain/ports';
+import type { IConfigService } from '@domain/ports';
+
+export interface LLMConfig {
+    readonly provider: 'google';
+    readonly model: string;
+    readonly apiKey?: string;
+    readonly baseUrl?: string;
+}
 
 @injectable()
 export class LlmRuntimeConfigResolver {

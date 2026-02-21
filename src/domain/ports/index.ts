@@ -1,6 +1,6 @@
 export * from './IBrowserAutomation';
 export * from './IAppDriverFactory';
-export * from './ILLMProvider';
+
 export * from './ILogger';
 export type { IViewHost, ViewOptions } from './IViewHost';
 export * from './IPersistenceAdapter';
@@ -10,4 +10,4 @@ export * from './IPerceptionPipeline';
 export * from './ISensor';
 export * from './IStorageService';
 export * from './ITraceService';
-export * from './IToolCallingProvider';
+

@@ -1,6 +1,4 @@
 import { injectable } from 'tsyringe';
-import type { Plan } from '@domain/entities/Plan';
-import type { LLMEvaluationDecision, WorkflowExecutionGraph, EvaluatorAdviceDelta } from '@domain/value-objects';
 import type { ReplanningTrigger } from '@application/services/execution/ReplanningPolicyService';
 
 type StepFailureCode =
@@ -33,101 +31,5 @@ export class ReplanningCoordinator {
                 return exhaustiveCheck;
             }
         }
-    }
-
-    buildReplanPrompt(
-        originalPrompt: string,
-        currentPlan: Plan,
-        failedStepDescription: string,
-        failureReason: string,
-        lastEvaluation?: LLMEvaluationDecision,
-        evaluatorAdvice?: string,
-        evaluatorAdviceDelta?: EvaluatorAdviceDelta,
-        executionGraph?: WorkflowExecutionGraph,
-        failedNodeId?: string
-    ): string {
-        const planOutline = currentPlan.items
-            .map((item, index) => `${index + 1}. ${this.sanitizePlanText(item.contract?.objective ?? item.description)}`)
-            .join('\n');
-        const selectiveScope = this.buildSelectiveScope(executionGraph, failedNodeId);
-
-        const evaluationContext = lastEvaluation
-            ? [
-                `Evaluator decision: ${lastEvaluation.decision}`,
-                `Evaluator summary: ${lastEvaluation.summary}`,
-                `Evaluator confidence: ${lastEvaluation.confidence}`,
-                `Evaluator evidence: ${lastEvaluation.evidence.join(' | ')}`,
-                ...(lastEvaluation.advice ? [`Evaluator advice: ${lastEvaluation.advice}`] : [])
-            ].join('\n')
-            : 'No explicit evaluator decision captured for this failure.';
-
-        const adviceDeltaContext = evaluatorAdviceDelta
-            ? [
-                `Decision: ${evaluatorAdviceDelta.decision}`,
-                `Summary: ${evaluatorAdviceDelta.summary}`,
-                ...(evaluatorAdviceDelta.advice ? [`Advice: ${evaluatorAdviceDelta.advice}`] : []),
-                `Confidence: ${evaluatorAdviceDelta.confidence}`,
-                `Evidence: ${evaluatorAdviceDelta.evidence.join(' | ') || 'none'}`,
-                `Timestamp: ${evaluatorAdviceDelta.timestamp}`
-            ].join('\n')
-            : 'No structured evaluator advice delta available.';
-
-        return [
-            `Original request: ${originalPrompt}`,
-            'Current plan execution failed and must be replanned.',
-            `Failed step: ${this.sanitizePlanText(failedStepDescription)}`,
-            `Failure reason: ${failureReason}`,
-            'Evaluator context:',
-            evaluationContext,
-            'Selective replanning scope:',
-            selectiveScope,
-            ...(evaluatorAdvice ? ['Latest evaluator advice in workflow state:', evaluatorAdvice] : []),
-            'Evaluator advice delta:',
-            adviceDeltaContext,
-            'Previous plan:',
-            planOutline,
-            'Produce a revised plan that prioritizes patching only the affected scope while keeping stable nodes unchanged and preserving the same overall objective.',
-            'Do not include meta-process directives (for example implementing retry mechanisms); focus on observable user-facing objectives and evidence collection.'
-        ].join('\n\n');
-    }
-
-    private sanitizePlanText(value: string): string {
-        return value
-            .replace(/\[(?:running|pending|active|failed|completed)\]\s*/gi, '')
-            .trim();
-    }
-
-    private buildSelectiveScope(executionGraph?: WorkflowExecutionGraph, failedNodeId?: string): string {
-        if (!executionGraph || !failedNodeId) {
-            return 'Graph context unavailable; planner may patch globally.';
-        }
-
-        const incoming = executionGraph.edges
-            .filter((edge) => edge.toNodeId === failedNodeId)
-            .map((edge) => edge.fromNodeId);
-        const outgoing = executionGraph.edges
-            .filter((edge) => edge.fromNodeId === failedNodeId)
-            .map((edge) => edge.toNodeId);
-
-        const scopeNodeIds = [failedNodeId, ...incoming, ...outgoing];
-        const uniqueScope = [...new Set(scopeNodeIds)];
-        const scopeDetails = uniqueScope
-            .map((id) => {
-                const node = executionGraph.nodes.find((candidate) => candidate.id === id);
-                if (!node) {
-                    return `- [unknown] ${id}`;
-                }
-
-                return `- [${node.state}] ${node.id}: ${node.description}`;
-            })
-            .join('\n');
-
-        return [
-            `Failed node: ${failedNodeId}`,
-            `Incoming dependencies: ${incoming.length > 0 ? incoming.join(', ') : 'none'}`,
-            `Outgoing dependents: ${outgoing.length > 0 ? outgoing.join(', ') : 'none'}`,
-            'Scope nodes:',
-            scopeDetails
-        ].join('\n');
     }
 }

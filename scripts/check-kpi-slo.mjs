@@ -9,8 +9,6 @@ const checks = [
         file: 'src/application/use-cases/RunTestUseCase.ts',
         required: [
             "type: 'replanning'",
-            'confidence:',
-            'evidence:',
             "type: 'recovery_replay'"
         ]
     },
@@ -19,13 +17,6 @@ const checks = [
         required: [
             'maxReplansPerRun',
             'Active replanning approved'
-        ]
-    },
-    {
-        file: 'src/application/services/execution/VerificationPolicyService.ts',
-        required: [
-            'minConfidenceByDecision',
-            'Low-confidence success downgraded to retry'
         ]
     }
 ];

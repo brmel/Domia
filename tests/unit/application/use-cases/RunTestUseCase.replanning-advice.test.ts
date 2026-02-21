@@ -47,28 +47,10 @@ describe('RunTestUseCase no-plan behavior', () => {
                 _url: string,
                 _stepNumber: number,
                 _options: unknown,
-                executionContext?: { onEvaluation?: (telemetry: unknown) => void | Promise<void> }
             ) {
                 executionCount += 1;
 
                 if (executionCount === 1) {
-                    await executionContext?.onEvaluation?.({
-                        evaluation: {
-                            decision: 'need_retry',
-                            summary: 'Confirmation was weak',
-                            advice: 'Validate using explicit visible confirmation text.',
-                            confidence: 0.64,
-                            evidence: ['Failure reason indicates weak verification confidence.']
-                        },
-                        attemptedAction: {
-                            type: ActionType.FAIL,
-                            reason: 'could not verify',
-                            thought: 'failing this attempt'
-                        },
-                        executionOutcome: 'not_executed',
-                        executionError: 'could not verify'
-                    });
-
                     yield {
                         type: 'action' as const,
                         action: {

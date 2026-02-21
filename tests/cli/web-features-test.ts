@@ -186,8 +186,7 @@ async function runFeatureCases(baseUrl: string): Promise<FeatureCaseResult[]> {
     });
     logTestResult('Web Feature: Adaptive Planning Signal', adaptivePlanningResult);
 
-    const hasAdaptiveSignal = adaptivePlanningResult.output.includes('[Replanning]')
-        || adaptivePlanningResult.output.includes('[Evaluating]');
+    const hasAdaptiveSignal = adaptivePlanningResult.output.includes('[Replanning]');
     const adaptivePlanningOk = hasAdaptiveSignal && Boolean(adaptivePlanningResult.runId);
 
     results.push({

@@ -21,7 +21,7 @@ export default defineConfig({
         vite: {
           build: {
             rollupOptions: {
-              external: ['playwright', 'better-sqlite3', 'keytar'],
+              external: ['playwright', 'better-sqlite3', 'keytar', 'bufferutil', 'utf-8-validate'],
             },
           },
           resolve: {

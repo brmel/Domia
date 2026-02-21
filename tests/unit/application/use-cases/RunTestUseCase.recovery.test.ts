@@ -319,7 +319,6 @@ describe('RunTestUseCase recovery flow', () => {
             expect.anything(),
             'https://example.com',
             3,
-            expect.any(Object),
             expect.any(Object)
         );
         expect(ctx.executor.executeStep).toHaveBeenNthCalledWith(
@@ -329,7 +328,6 @@ describe('RunTestUseCase recovery flow', () => {
             expect.anything(),
             'https://example.com',
             3,
-            expect.any(Object),
             expect.any(Object)
         );
         expect(events.some(e => e.type === 'completed' && e.success === true)).toBe(true);

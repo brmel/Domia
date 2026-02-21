@@ -262,14 +262,6 @@ export class RunCommand {
                         switch (event.type) {
                             case 'started':
                                 break;
-                            case 'evaluating': {
-                                console.log(
-                                    chalk.gray(
-                                        `[Evaluating] action=${event.actionType} decision=${event.decision} confidence=${event.confidence.toFixed(2)} outcome=${event.executionOutcome}`
-                                    )
-                                );
-                                break;
-                            }
                             case 'replanning': {
                                 const status = event.telemetry.status;
                                 const reason = event.telemetry.reason;

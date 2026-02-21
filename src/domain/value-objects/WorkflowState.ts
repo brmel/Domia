@@ -1,7 +1,6 @@
 import { Plan } from '../entities/Plan';
 import { AgentAction } from './AgentAction';
 import { WorkflowExecutionGraph } from './ExecutionGraph';
-import { LLMEvaluationDecision } from './LLMEvaluationDecision';
 
 export type WorkflowStatus =
     | 'idle'
@@ -12,15 +11,6 @@ export type WorkflowStatus =
     | 'validating'
     | 'completed'
     | 'failed';
-
-export interface EvaluatorAdviceDelta {
-    readonly decision: LLMEvaluationDecision['decision'];
-    readonly summary: string;
-    readonly advice?: string;
-    readonly evidence: readonly string[];
-    readonly confidence: number;
-    readonly timestamp: string;
-}
 
 export interface WorkflowState {
     readonly status: WorkflowStatus;
@@ -34,9 +24,6 @@ export interface WorkflowState {
     readonly activeItemId?: string;
     readonly activeNodeId?: string;
     readonly history: readonly AgentAction[];
-    readonly evaluatorAdvice?: string;
-    readonly evaluatorAdviceDelta?: EvaluatorAdviceDelta;
-    readonly lastEvaluation?: LLMEvaluationDecision;
 }
 
 export const WorkflowState = {

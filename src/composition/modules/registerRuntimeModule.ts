@@ -27,10 +27,7 @@ import { PluginApprovalService } from '@application/services/plugins/PluginAppro
 import { ReadinessGateService } from '@application/services/hardening/ReadinessGateService';
 import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
 import { TrajectoryExportService } from '@infrastructure/services/exporters/TrajectoryExportService';
-import { RegistryBackedToolExecutor } from '@application/services/tooling/RegistryBackedToolExecutor';
-import { DefaultToolPolicyService } from '@application/services/tooling/ToolPolicyService';
-import { StepActionExecutionService } from '@application/services/execution/StepActionExecutionService';
-import { ToolContractService } from '@application/services/tooling/ToolContractService';
+
 
 export function registerRuntimeModule(): void {
     container.registerSingleton(TestRunLifecycleManager);
@@ -67,11 +64,4 @@ export function registerRuntimeModule(): void {
     container.registerSingleton(RuntimeReadinessPolicyService);
     container.registerSingleton(TrajectoryExportService);
 
-    container.registerSingleton(RegistryBackedToolExecutor);
-    container.registerSingleton(ToolContractService);
-    container.registerSingleton(DefaultToolPolicyService);
-    container.registerSingleton(StepActionExecutionService);
-    container.register('IToolPolicyService', { useToken: DefaultToolPolicyService });
-    container.register('IToolCapabilityRegistry', { useToken: ToolContractService });
-    container.register('IToolExecutor', { useToken: RegistryBackedToolExecutor });
 }

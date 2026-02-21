@@ -48,55 +48,28 @@ describe('Execution coordinators', () => {
         });
 
         expect(options.maxActions).toBe(5);
-        expect(options.supervisedTerminalPass).toBe(true);
-        expect(options.verificationPolicyProfile.terminalPassMinConfidence).toBe(0.9);
-        expect(options.verificationPolicyProfile.terminalPassMinEvidenceItems).toBe(2);
+        expect(options.vision).toBe(true);
     });
 
-    it('honors run-level verification profile overrides', () => {
+    it('honors run-level option overrides', () => {
         const coordinator = new StepExecutionCoordinator();
         const options = coordinator.buildExecutionOptions({
-            verification: {
-                enforceSupervisedTerminalPass: false,
-                terminalPassMinConfidence: 0.97,
-                terminalPassMinEvidenceItems: 4
-            }
+            vision: false,
+            maxSteps: 10,
         });
 
-        expect(options.supervisedTerminalPass).toBe(false);
-        expect(options.verificationPolicyProfile.enforceSupervisedTerminalPass).toBe(false);
-        expect(options.verificationPolicyProfile.terminalPassMinConfidence).toBe(0.97);
-        expect(options.verificationPolicyProfile.terminalPassMinEvidenceItems).toBe(4);
+        expect(options.vision).toBe(false);
+        expect(options.maxActions).toBe(10);
     });
 
-    it('maps replanning triggers and prompt context', () => {
+    it('maps replanning triggers', () => {
         const coordinator = new ReplanningCoordinator();
         expect(coordinator.mapResultCodeToTrigger('loop_detected')).toBe('loop_detected');
-
-        const prompt = coordinator.buildReplanPrompt(
-            'goal',
-            {
-                id: 'p1',
-                goal: 'goal',
-                status: 'executing',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                items: [{ id: 'i1', description: 'step', status: 'failed', type: 'general' }]
-            },
-            'step',
-            'error',
-            {
-                decision: 'need_retry',
-                summary: 'retry',
-                advice: 'adjust',
-                confidence: 0.72,
-                evidence: ['Observed mismatch after action execution']
-            },
-            'adjust'
-        );
-
-        expect(prompt).toContain('Evaluator decision: need_retry');
-        expect(prompt).toContain('Latest evaluator advice in workflow state:');
+        expect(coordinator.mapResultCodeToTrigger('assertion_fail')).toBe('assertion_fail');
+        expect(coordinator.mapResultCodeToTrigger('agent_fail')).toBe('assertion_fail');
+        expect(coordinator.mapResultCodeToTrigger('max_actions_reached')).toBe('max_actions_reached');
+        expect(coordinator.mapResultCodeToTrigger('perception_error')).toBeUndefined();
+        expect(coordinator.mapResultCodeToTrigger('llm_error')).toBeUndefined();
     });
 
     it('applies terminal state transitions', () => {

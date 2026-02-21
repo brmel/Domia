@@ -1,18 +1,8 @@
 import { injectable, inject } from 'tsyringe';
-import type { ILLMProvider, IBrowserAutomation, LLMContext, IPerceptionPipeline, IStorageService, ITraceService } from '@domain/ports';
-import { AgentAction, LLMEvaluationDecision } from '@domain/value-objects';
-import { ActionType } from '@domain/enums/ActionType';
-import { LoopDetectorService } from './LoopDetectorService';
-import type { ToolContext } from '@domain/tools/Tool';
-import type { ToolExecutor } from '../tooling/ToolExecutor';
-import type { ILogger } from '@domain/ports';
-import { VerificationPolicyService } from './VerificationPolicyService';
-import { EvidenceBlackboardService } from './EvidenceBlackboardService';
-import { StepActionExecutionService } from './StepActionExecutionService';
-import { ExecutionHeuristicsService } from './ExecutionHeuristicsService';
-import type { VerificationPolicyProfile } from './coordinators/StepExecutionCoordinator';
-import type { IToolCapabilityRegistry } from '../tooling/IToolCapabilityRegistry';
-import type { Plan } from '@domain/entities/Plan';
+import type { IBrowserAutomation, IPerceptionPipeline, IStorageService, ITraceService, ILogger } from '@domain/ports';
+import type { AgentAction } from '@domain/value-objects';
+import { LlmRuntimeConfigResolver } from '@infrastructure/adapters/llm/LlmRuntimeConfigResolver';
+import { AdkStepRunner } from '@infrastructure/adapters/adk/AdkStepRunner';
 
 export type StepExecutionResult =
     | { readonly success: true; readonly terminal: 'pass' }
@@ -30,430 +20,60 @@ export type StepExecutionResult =
         readonly reason: string;
     };
 
-export interface StepEvaluationTelemetry {
-    readonly evaluation: LLMEvaluationDecision;
-    readonly attemptedAction: AgentAction;
-    readonly executionOutcome: 'executed' | 'execution_error' | 'not_executed';
-    readonly executionError?: string;
-    readonly executionObservation?: string;
-}
-
-export interface ActionOverrideProvider {
-    consumeActionOverride(): AgentAction | undefined;
-}
-
-const MAX_HISTORY_CONTEXT_ACTIONS = 25;
-const MAX_ADVICE_CONTEXT_CHARS = 600;
-
 @injectable()
 export class StepExecutor {
-    private readonly verificationPolicy = new VerificationPolicyService();
-
     constructor(
-        @inject('ILLMProvider') private llmProvider: ILLMProvider,
-        @inject(LoopDetectorService) private loopDetector: LoopDetectorService,
-        @inject('IPerceptionPipeline') private perception: IPerceptionPipeline,
-        @inject('IStorageService') private storage: IStorageService,
-        @inject('ITraceService') private trace: ITraceService,
-        @inject('IToolCapabilityRegistry') private readonly toolCapabilityRegistry: IToolCapabilityRegistry,
-        @inject('IToolExecutor') toolExecutor: ToolExecutor,
+        @inject('IPerceptionPipeline') private readonly perception: IPerceptionPipeline,
+        @inject('IStorageService') private readonly storage: IStorageService,
+        @inject('ITraceService') private readonly trace: ITraceService,
         @inject('ILogger') private readonly logger: ILogger,
-        @inject(EvidenceBlackboardService) private readonly evidenceBlackboard: EvidenceBlackboardService = new EvidenceBlackboardService(),
-        @inject(StepActionExecutionService) private readonly actionExecution: StepActionExecutionService = new StepActionExecutionService(toolExecutor),
-        @inject(ExecutionHeuristicsService) private readonly executionHeuristics: ExecutionHeuristicsService = new ExecutionHeuristicsService(),
-    ) { }
+        @inject(LlmRuntimeConfigResolver) private readonly llmConfigResolver: LlmRuntimeConfigResolver,
+    ) {}
 
     async *executeStep(
         runId: string,
         stepGoal: string,
         browser: IBrowserAutomation,
         url: string,
-        initialStepNumber: number = 0,
+        _initialStepNumber: number = 0,
         options: {
             vision: boolean;
-            debugScreenshots: boolean;
             maxActions: number;
-            supervisedTerminalPass?: boolean;
-            verificationPolicyProfile?: VerificationPolicyProfile;
-        } = { vision: true, debugScreenshots: false, maxActions: 20 },
-        executionContext?: {
-            toolContext?: ToolContext;
-            onEvaluation?: (telemetry: StepEvaluationTelemetry) => void | Promise<void>;
-            overrideProvider?: ActionOverrideProvider;
-            plan?: Plan;
+            [key: string]: unknown;
+        } = { vision: true, maxActions: 20 },
+    ): AsyncGenerator<{ type: 'action'; action: AgentAction; assets?: Record<string, string> }, StepExecutionResult, unknown> {
+        const llmConfig = this.llmConfigResolver.resolve();
+        const apiKey = llmConfig.apiKey;
+
+        if (!apiKey) {
+            return {
+                success: false,
+                terminal: 'error',
+                code: 'llm_error',
+                reason: 'No API key configured. Set GOOGLE_API_KEY, GEMINI_API_KEY, or DOMIA_LLM_API_KEY.',
+            };
         }
-    ): AsyncGenerator<AgentAction | { type: 'action', action: AgentAction, assets?: Record<string, string> }, StepExecutionResult, unknown> {
-        const verificationPolicyProfile = options.verificationPolicyProfile;
-        const supervisedTerminalPass = verificationPolicyProfile?.enforceSupervisedTerminalPass ?? options.supervisedTerminalPass ?? true;
-        const effectiveVerificationPolicyProfile = {
-            ...(verificationPolicyProfile ?? {}),
-            enforceSupervisedTerminalPass: supervisedTerminalPass
-        };
-        let loopCount = 0;
-        let consecutiveScrollActions = 0;
-        let stagnantSnapshotCount = 0;
-        let previousSnapshotSignature: string | null = null;
-        let adviceForNextAttempt: string | undefined;
-        let consecutiveEvaluatorRetries = 0;
-        const blockedActionSignatures = new Map<string, number>();
-        let currentState: { history: AgentAction[], stepNumber: number } = { history: [], stepNumber: initialStepNumber };
-        const maxActions = options.maxActions;
+
+        const model = llmConfig.model || 'gemini-2.0-flash';
+        const storage = this.storage;
+
+        const adkRunner = new AdkStepRunner({
+            runId,
+            stepGoal,
+            browser,
+            perception: this.perception,
+            url,
+            apiKey,
+            model,
+            maxActions: options.maxActions,
+            vision: options.vision as boolean,
+            logger: this.logger,
+            saveAssets: async (stepNumber, frame) => {
+                return storage.savePerceptionAssets(runId, stepNumber, frame);
+            },
+        });
 
         await this.trace.startTrace(runId);
-
-        while (loopCount < maxActions) {
-            const shouldCaptureVision = options.vision || options.debugScreenshots;
-            const frameResult = await this.perception.capture(browser, { vision: shouldCaptureVision, aria: true, dom: true });
-            if (frameResult.isErr()) {
-                return {
-                    success: false,
-                    terminal: 'error',
-                    code: 'perception_error',
-                    reason: `Perception failed: ${frameResult.error.message}`
-                };
-            }
-            const frame = frameResult.value;
-            const runtimeUrl = frame.metadata.url || url;
-
-            let assets: Record<string, string> = {};
-            try {
-                assets = await this.storage.savePerceptionAssets(runId, currentState.stepNumber + 1, frame);
-            } catch (error) {
-                const reason = error instanceof Error ? error.message : String(error);
-                this.logger.warn(`[StepExecutor] Non-fatal perception asset persistence error: ${reason}`);
-            }
-
-            await this.trace.tracePerception(runId, currentState.stepNumber + 1, {
-                timestamp: Date.now(),
-                sensorData: {
-                    domCount: frame.semantic.dom ? 1 : 0,
-                    ariaPresent: !!frame.semantic.accessibility,
-                    visionPresent: frame.vision.count > 0,
-                    metadata: frame.metadata
-                }
-            });
-
-            const viewport = await browser.getViewportSize();
-
-            const snapshot: import('@domain/value-objects').DOMSnapshot = {
-                ...frame.semantic.dom,
-                screenshot: options.vision && frame.vision.primaryScreenshot ? frame.vision.primaryScreenshot.toString('base64') : undefined,
-                screenshots: options.vision ? frame.vision.screenshots.map(b => b.toString('base64')) : [],
-                accessibilityTree: frame.semantic.accessibility
-            };
-
-            const snapshotSignature = this.executionHeuristics.buildSnapshotSignature(snapshot, runtimeUrl);
-            if (previousSnapshotSignature && snapshotSignature === previousSnapshotSignature) {
-                stagnantSnapshotCount += 1;
-            } else {
-                stagnantSnapshotCount = 0;
-            }
-            previousSnapshotSignature = snapshotSignature;
-
-            const composedAdvice = this.evidenceBlackboard.composeAdvice(
-                runId,
-                adviceForNextAttempt,
-                MAX_ADVICE_CONTEXT_CHARS
-            );
-
-            const context: LLMContext = {
-                goal: stepGoal,
-                snapshot,
-                previousActions: currentState.history.slice(-MAX_HISTORY_CONTEXT_ACTIONS),
-                currentUrl: runtimeUrl,
-                pageTitle: frame.metadata.title,
-                viewport,
-                stepsRemaining: maxActions - loopCount,
-                availableTools: this.toolCapabilityRegistry.getToolDescriptors(executionContext?.toolContext?.platform),
-                ...(executionContext?.plan ? { plan: executionContext.plan } : {}),
-                ...(composedAdvice ? { advice: composedAdvice } : {}),
-            };
-
-            await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
-                agentInput: {
-                    goal: stepGoal,
-                    currentUrl: runtimeUrl,
-                    promptPreview: JSON.stringify(context).substring(0, 500) + '...',
-                }
-            });
-
-            const overrideAction = executionContext?.overrideProvider?.consumeActionOverride();
-            let action: AgentAction;
-
-            if (overrideAction) {
-                action = overrideAction;
-                await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
-                    agentOutput: {
-                        thought: action.thought || '',
-                        action,
-                        rawResponse: 'operator-action-override'
-                    }
-                });
-            } else {
-                const actionResult = await this.llmProvider.generateAction(context);
-                if (actionResult.isErr()) {
-                    await this.trace.traceReasoning(runId, currentState.stepNumber, {
-                        agentOutput: { thought: 'LLM Failed', action: null, rawResponse: actionResult.error.message }
-                    });
-                    return {
-                        success: false,
-                        terminal: 'error',
-                        code: 'llm_error',
-                        reason: `LLM failed: ${actionResult.error.message}`
-                    };
-                }
-                action = actionResult.value;
-
-                await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
-                    agentOutput: {
-                        thought: action.thought || '',
-                        action: action,
-                        rawResponse: JSON.stringify(action)
-                    }
-                });
-            }
-
-            const passEligibility = this.verificationPolicy.evaluatePassEligibility(
-                action,
-                currentState.history,
-                effectiveVerificationPolicyProfile
-            );
-
-            if (!passEligibility.allowed) {
-                if (this.isLoopTerminationThresholdReached(consecutiveEvaluatorRetries, loopCount, maxActions)) {
-                    return this.buildLoopDetectedResult("Loop detected. Repeated PASS attempts without additional verification evidence.");
-                }
-
-                adviceForNextAttempt = passEligibility.advice ?? 'Perform a non-pass verification action before attempting PASS again.';
-                consecutiveEvaluatorRetries += 1;
-                loopCount += 1;
-
-                this.logger.warn('[StepExecutor] Pass attempt deferred by verification policy', {
-                    stepNumber: currentState.stepNumber + 1,
-                    reason: passEligibility.reason,
-                    loopCount
-                });
-
-                continue;
-            }
-
-            const actionSignature = this.executionHeuristics.resolveActionSignature(action, this.loopDetector);
-            if (action.type !== ActionType.FAIL && blockedActionSignatures.has(actionSignature)) {
-                const blockedAdvice = this.executionHeuristics.buildLoopAdvice(action, true);
-
-                if (this.isLoopTerminationThresholdReached(consecutiveEvaluatorRetries, loopCount, maxActions)) {
-                    return this.buildLoopDetectedResult(`Loop detected. Action '${action.type}' repeated too many times.`);
-                }
-
-                adviceForNextAttempt = blockedAdvice;
-                consecutiveEvaluatorRetries += 1;
-                this.logger.warn('[StepExecutor] Blocked repeated ineffective action and requested alternative model action', {
-                    actionType: action.type,
-                    signature: actionSignature,
-                    stepNumber: currentState.stepNumber + 1,
-                    loopCount
-                });
-
-                ({ currentState, loopCount } = this.advanceStateAfterRetry(currentState, action, loopCount));
-                continue;
-            }
-
-            if (action.type !== ActionType.FAIL && this.loopDetector.isLoop(currentState.history, action)) {
-                const loopAdvice = this.executionHeuristics.buildLoopAdvice(action, false);
-                blockedActionSignatures.set(actionSignature, (blockedActionSignatures.get(actionSignature) ?? 0) + 1);
-
-                if (this.isLoopTerminationThresholdReached(consecutiveEvaluatorRetries, loopCount, maxActions)) {
-                    return this.buildLoopDetectedResult(`Loop detected. Action '${action.type}' repeated too many times.`);
-                }
-
-                adviceForNextAttempt = loopAdvice;
-                consecutiveEvaluatorRetries += 1;
-                this.logger.warn('[StepExecutor] Loop detected; skipping deterministic rewrite and requesting alternative model action', {
-                    actionType: action.type,
-                    stepNumber: currentState.stepNumber + 1,
-                    loopCount
-                });
-
-                ({ currentState, loopCount } = this.advanceStateAfterRetry(currentState, action, loopCount));
-                continue;
-            }
-
-            if (action.type === ActionType.SCROLL) {
-                consecutiveScrollActions += 1;
-
-                const noProgressScrollLoop = stagnantSnapshotCount >= 3 && consecutiveScrollActions >= 3;
-                if (noProgressScrollLoop) {
-                    return this.buildLoopDetectedResult('No observable page change after repeated scroll actions.');
-                }
-            } else {
-                consecutiveScrollActions = 0;
-            }
-
-            yield { type: 'action', action, assets };
-
-            if (action.type === ActionType.PASS) {
-                return { success: true, terminal: 'pass' };
-            }
-
-            const actionExecution = await this.actionExecution.execute({
-                action,
-                browser,
-                currentUrl: runtimeUrl,
-                viewport,
-                ...(executionContext?.toolContext ? { toolContext: executionContext.toolContext } : {})
-            });
-
-            const executionOutcome = actionExecution.outcome;
-            const executionError = actionExecution.error;
-            const executionObservation = actionExecution.observation;
-
-            this.evidenceBlackboard.recordAction(runId, action, executionOutcome);
-            if (executionObservation) {
-                this.evidenceBlackboard.recordObservation(runId, executionObservation);
-            }
-
-            const evaluationResult = await this.llmProvider.generateEvaluation({
-                ...context,
-                attemptedAction: action,
-                executionOutcome,
-                ...(executionError ? { executionError } : {}),
-                ...(executionObservation ? { executionObservation } : {})
-            });
-
-            if (evaluationResult.isErr()) {
-                return {
-                    success: false,
-                    terminal: 'error',
-                    code: 'llm_error',
-                    reason: `Evaluator failed: ${evaluationResult.error.message}`
-                };
-            }
-
-            const evaluation = evaluationResult.value;
-            let governedEvaluation: LLMEvaluationDecision;
-
-            try {
-                const policyDecision = this.verificationPolicy.enforce(evaluation, {
-                    attemptedAction: action,
-                    executionOutcome,
-                    stepsRemaining: maxActions - loopCount,
-                    priorActionCount: currentState.history.length
-                }, effectiveVerificationPolicyProfile);
-                governedEvaluation = policyDecision.evaluation;
-
-                if (policyDecision.adjusted) {
-                    this.logger.info(`[StepExecutor] Verification policy adjusted evaluator decision: ${policyDecision.reason}`);
-                }
-            } catch (error) {
-                const reason = error instanceof Error ? error.message : String(error);
-                return {
-                    success: false,
-                    terminal: 'error',
-                    code: 'agent_fail',
-                    reason: `Verification policy rejected evaluator output: ${reason}`
-                };
-            }
-
-            this.evidenceBlackboard.recordEvaluation(runId, governedEvaluation);
-
-            if (executionContext?.onEvaluation) {
-                await executionContext.onEvaluation({
-                    evaluation: governedEvaluation,
-                    attemptedAction: action,
-                    executionOutcome,
-                    ...(executionError ? { executionError } : {}),
-                    ...(executionObservation ? { executionObservation } : {})
-                });
-            }
-
-            await this.trace.traceReasoning(runId, currentState.stepNumber + 1, {
-                agentOutput: {
-                    thought: `Evaluator decision: ${governedEvaluation.decision}`,
-                    action: null,
-                    rawResponse: JSON.stringify(governedEvaluation)
-                }
-            });
-
-            if (governedEvaluation.decision === 'sub_task_success') {
-                return { success: true, terminal: 'pass' };
-            }
-
-            if (governedEvaluation.decision === 'need_reformulate') {
-                return {
-                    success: false,
-                    terminal: 'fail',
-                    code: 'agent_fail',
-                    reason: governedEvaluation.summary
-                };
-            }
-
-            adviceForNextAttempt = governedEvaluation.advice ?? governedEvaluation.summary;
-            consecutiveEvaluatorRetries += 1;
-
-            if (consecutiveEvaluatorRetries >= 3 && loopCount >= maxActions - 1) {
-                return {
-                    success: false,
-                    terminal: 'max_actions',
-                    code: 'max_actions_reached',
-                    reason: `Evaluator requested repeated retries but action budget is exhausted for step: ${stepGoal}`
-                };
-            }
-
-            if (executionOutcome === 'execution_error' && !executionError) {
-                return {
-                    success: false,
-                    terminal: 'error',
-                    code: 'action_execution_error',
-                    reason: 'Action execution failed with unknown error'
-                };
-            }
-
-            currentState = {
-                ...currentState,
-                history: [...currentState.history, action],
-                stepNumber: currentState.stepNumber + 1
-            };
-            loopCount++;
-        }
-
-        return {
-            success: false,
-            terminal: 'max_actions',
-            code: 'max_actions_reached',
-            reason: `Max actions (${maxActions}) reached for step: ${stepGoal}`
-        };
+        return yield* adkRunner.run();
     }
-
-    private isLoopTerminationThresholdReached(
-        consecutiveEvaluatorRetries: number,
-        loopCount: number,
-        maxActions: number
-    ): boolean {
-        return consecutiveEvaluatorRetries >= 2 || loopCount >= maxActions - 1;
-    }
-
-    private advanceStateAfterRetry(
-        currentState: { history: AgentAction[]; stepNumber: number },
-        action: AgentAction,
-        loopCount: number
-    ): { currentState: { history: AgentAction[]; stepNumber: number }; loopCount: number } {
-        return {
-            currentState: {
-                ...currentState,
-                history: [...currentState.history, action],
-                stepNumber: currentState.stepNumber + 1
-            },
-            loopCount: loopCount + 1
-        };
-    }
-
-    private buildLoopDetectedResult(reason: string): StepExecutionResult {
-        return {
-            success: false,
-            terminal: 'error',
-            code: 'loop_detected',
-            reason
-        };
-    }
-
 }

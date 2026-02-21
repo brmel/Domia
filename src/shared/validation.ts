@@ -20,12 +20,6 @@ export const RunOptionsSchema = z.object({
   debugScreenshots: z.boolean().optional(),
   recoveryMode: z.enum(['observe', 'manual-only', 'auto-safe']).optional(),
   recoveryRunId: z.string().trim().min(1).optional(),
-  supervisedExecution: z.boolean().optional(),
-  verification: z.object({
-    enforceSupervisedTerminalPass: z.boolean().optional(),
-    terminalPassMinConfidence: z.number().min(0).max(1).optional(),
-    terminalPassMinEvidenceItems: z.number().int().positive().optional(),
-  }).optional(),
   preferredSkillId: z.string().trim().min(1).optional(),
   allowedSkillTrustLevels: z.array(z.enum(['draft', 'verified', 'restricted'])).optional(),
   pluginPreflight: z.object({

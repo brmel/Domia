@@ -8,7 +8,6 @@ import { TestRunLifecycleManager } from '../services/TestRunLifecycleManager';
 import { RunTestInput, RunTestOutput } from '../dtos';
 import { TestRunState } from '../../domain/enums/TestRunState';
 import { StepExecutor, type StepExecutionResult } from '../services/execution/StepExecutor';
-import type { StepEvaluationTelemetry } from '../services/execution/StepExecutor';
 import type { RunExecutionLaneService } from '../services/execution/RunExecutionLaneService';
 import { RunDurabilityService } from '../services/execution/RunDurabilityService';
 import { RunBudgetPolicyService, type RunBudgetLimits } from '../services/execution/RunBudgetPolicyService';
@@ -20,7 +19,7 @@ import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplay
 import { RecoveryReplayIdempotencyService } from '../services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
 import { ObjectiveCompletionPolicyService } from '../services/execution/ObjectiveCompletionPolicyService';
-import { EvidenceBlackboardService } from '../services/execution/EvidenceBlackboardService';
+
 import { BranchRollbackService } from '../services/execution/BranchRollbackService';
 import { RunLifecycleEngineService } from '../services/execution/RunLifecycleEngineService';
 import type { IRunLifecycleEngine } from '../services/execution/IRunLifecycleEngine';
@@ -93,8 +92,7 @@ export class RunTestUseCase {
         @inject(TerminalizationCoordinator) private readonly terminalizationCoordinator: TerminalizationCoordinator = new TerminalizationCoordinator(),
         @inject('IRunLifecycleEngine') private readonly runLifecycleEngine: IRunLifecycleEngine = new RunLifecycleEngineService(),
         @inject(BranchRollbackService) private readonly branchRollback: BranchRollbackService = new BranchRollbackService(),
-        @inject(ObjectiveCompletionPolicyService) private readonly objectiveCompletionPolicy: ObjectiveCompletionPolicyService = new ObjectiveCompletionPolicyService(),
-        @inject(EvidenceBlackboardService) private readonly evidenceBlackboard: EvidenceBlackboardService = new EvidenceBlackboardService()
+        @inject(ObjectiveCompletionPolicyService) private readonly objectiveCompletionPolicy: ObjectiveCompletionPolicyService = new ObjectiveCompletionPolicyService()
     ) {
         this.skillRoutingCoordinator = new SkillRoutingCoordinator(skillRegistry, skillGovernance, logger);
         this.pluginPreflightCoordinator = new PluginPreflightCoordinator(pluginRegistry, pluginGateway, logger);
@@ -529,14 +527,14 @@ export class RunTestUseCase {
             }
 
             await this.logCheckpointCompactionSummary(testRunId);
-            this.evidenceBlackboard.clearRun(testRunId);
+
         }
     }
 
     private async *executePlanItemKernel(
         testRunId: string,
         executionGoal: string,
-        plan: Plan,
+        _plan: Plan,
         browser: IBrowserAutomation,
         url: string,
         currentState: WorkflowState,
@@ -553,7 +551,6 @@ export class RunTestUseCase {
         result: StepExecutionResult;
         estimatedTokensUsed: number;
     }, unknown> {
-        let pendingEvaluation: StepEvaluationTelemetry | undefined;
         let estimatedTokensUsed = runtime.estimatedTokensUsed;
 
         const stepGen = this.executor.executeStep(
@@ -562,15 +559,10 @@ export class RunTestUseCase {
             browser,
             url,
             currentState.stepNumber,
-            executionOptions,
             {
-                ...(runtime.stepToolContext ? { toolContext: runtime.stepToolContext } : {}),
-                overrideProvider: runtime.controller,
-                plan,
-                onEvaluation: (evaluationTelemetry: StepEvaluationTelemetry) => {
-                    pendingEvaluation = evaluationTelemetry;
-                }
-            }
+                vision: executionOptions.vision,
+                maxActions: executionOptions.maxActions,
+            },
         );
 
         try {
@@ -579,42 +571,10 @@ export class RunTestUseCase {
                 return { type: 'state_updated', state: currentState };
             };
 
-            const consumePendingEvaluation = async (): Promise<RunTestOutput[]> => {
-                if (!pendingEvaluation) {
-                    return [];
-                }
-
-                const evaluation = pendingEvaluation.evaluation;
-                const events: RunTestOutput[] = [
-                    {
-                        type: 'evaluating',
-                        actionType: pendingEvaluation.attemptedAction.type,
-                        decision: evaluation.decision,
-                        summary: evaluation.summary,
-                        confidence: evaluation.confidence,
-                        evidence: evaluation.evidence,
-                        ...(evaluation.advice ? { advice: evaluation.advice } : {}),
-                        executionOutcome: pendingEvaluation.executionOutcome,
-                        ...(pendingEvaluation.executionError ? { executionError: pendingEvaluation.executionError } : {}),
-                        ...(pendingEvaluation.executionObservation ? { executionObservation: pendingEvaluation.executionObservation } : {})
-                    }
-                ];
-
-                currentState = this.runLifecycleEngine.applyEvaluation(currentState, evaluation);
-                pendingEvaluation = undefined;
-                events.push(await emitStateUpdate());
-
-                return events;
-            };
-
             const iterator = stepGen[Symbol.asyncIterator]();
             let next = await iterator.next();
 
             while (!next.done) {
-                for (const event of await consumePendingEvaluation()) {
-                    yield event;
-                }
-
                 if (next.value.type === 'action') {
                     const action = next.value.action;
                     const assets = next.value.assets;
@@ -648,10 +608,6 @@ export class RunTestUseCase {
                 }
 
                 next = await iterator.next();
-            }
-
-            for (const event of await consumePendingEvaluation()) {
-                yield event;
             }
 
             const result = next.value;
