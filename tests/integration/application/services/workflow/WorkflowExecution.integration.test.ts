@@ -2,7 +2,6 @@ import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { okAsync } from 'neverthrow';
 import { WorkflowRunOrchestratorService } from '@application/services/workflow/WorkflowRunOrchestratorService';
-import { WorkflowExecutionService } from '@application/services/workflow/WorkflowExecutionService';
 import { WorkflowStepPolicyService } from '@application/services/workflow/WorkflowStepPolicyService';
 import { WorkflowStepRunnerService } from '@application/services/workflow/WorkflowStepRunnerService';
 import { WorkflowStepGovernanceService } from '@application/services/workflow/WorkflowStepGovernanceService';
@@ -71,13 +70,11 @@ describe('Workflow execution integration', () => {
             stepRunner,
             new PlatformCapabilityNegotiationService()
         );
-        const executionService = new WorkflowExecutionService(orchestrator);
-
         const controller = new ExecutionController();
         controller.start();
 
         const eventTypes: string[] = [];
-        for await (const event of executionService.executeWorkflow('wf-1', controller)) {
+        for await (const event of orchestrator.executeWorkflow('wf-1', controller)) {
             eventTypes.push(event.type);
         }
 

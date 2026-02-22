@@ -23,9 +23,11 @@ import {
     StartWorkflowRunInputSchema,
     UpdateWorkflowInputSchema
 } from '../src/shared/validation/workflow';
-import { WorkflowExecutionService } from '../src/application/services/workflow/WorkflowExecutionService';
+import { WorkflowRunOrchestratorService } from '../src/application/services/workflow/WorkflowRunOrchestratorService';
 import { WorkflowDefinitionService } from '../src/application/services/workflow/WorkflowDefinitionService';
 import type { PlatformConfig } from '../src/domain/types/PlatformConfig';
+import type { RunTestOutput } from '../src/application/dtos';
+import type { WorkflowEvent } from '../src/domain/events/WorkflowEvent';
 import debug from 'debug';
 
 const t = initTRPC.create({ isServer: true });
@@ -114,8 +116,8 @@ export const appRouter = t.router({
             }),
 
         onUpdate: t.procedure.subscription(() => {
-            return observable<{ type: string;[key: string]: any }>((emit) => {
-                const onUpdate = (data: any) => {
+            return observable<RunTestOutput>((emit) => {
+                const onUpdate = (data: RunTestOutput) => {
                     emit.next(data);
                 };
                 eventEmitter.on('test:update', onUpdate);
@@ -173,7 +175,7 @@ export const appRouter = t.router({
         getSources: t.procedure.query(async () => {
             const { desktopCapturer } = require('electron');
             const sources = await desktopCapturer.getSources({ types: ['window', 'screen'] });
-            return sources.map((source: any) => ({
+            return sources.map((source: Electron.DesktopCapturerSource) => ({
                 id: source.id,
                 name: source.name,
                 thumbnail: source.thumbnail.toDataURL()
@@ -377,10 +379,10 @@ export const appRouter = t.router({
                 currentWorkflowExecutionToken += 1;
                 const executionToken = currentWorkflowExecutionToken;
 
-                const workflowExecutionService = container.resolve(WorkflowExecutionService);
+                const workflowOrchestrator = container.resolve(WorkflowRunOrchestratorService);
 
                 (async () => {
-                    const generator = workflowExecutionService.executeWorkflow(input.workflowDefinitionId, currentWorkflowController as ExecutionController);
+                    const generator = workflowOrchestrator.executeWorkflow(input.workflowDefinitionId, currentWorkflowController as ExecutionController);
                     for await (const event of generator) {
                         if (executionToken !== currentWorkflowExecutionToken) {
                             break;
@@ -417,8 +419,8 @@ export const appRouter = t.router({
         }),
 
         onUpdate: t.procedure.subscription(() => {
-            return observable<{ type: string; [key: string]: any }>((emit) => {
-                const onUpdate = (data: any) => {
+            return observable<WorkflowEvent>((emit) => {
+                const onUpdate = (data: WorkflowEvent) => {
                     emit.next(data);
                 };
                 eventEmitter.on('workflow:update', onUpdate);

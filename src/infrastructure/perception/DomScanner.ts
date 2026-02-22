@@ -57,7 +57,7 @@ export class DomScanner {
                     }
                     text = text.trim();
                     if (text.length > 0) return text.slice(0, 100);
-                    // Fallback to full textContent
+                    // Use full textContent as default
                     return (el.textContent?.trim() || '').slice(0, 100);
                 }
 

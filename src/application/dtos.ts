@@ -4,8 +4,7 @@ import { WorkflowError } from '../domain/errors';
 import type { PlatformConfig } from '../domain/types/PlatformConfig';
 import type {
     RecoveryReplayTelemetry,
-    ReplanningTelemetry,
-    SkillInvocationTelemetry
+    ReplanningTelemetry
 } from '../domain/types/RunTelemetry';
 import type { RunOptions } from '../shared/validation';
 
@@ -17,18 +16,15 @@ export interface RunTestInput {
 
 export type {
     RecoveryReplayTelemetry,
-    ReplanningTelemetry,
-    SkillInvocationTelemetry
+    ReplanningTelemetry
 };
 
 export type RunTestOutput =
     | { type: 'started'; testRunId: TestRunId }
-    | { type: 'observing' }
     | { type: 'thinking' }
     | { type: 'acting'; action: AgentAction }
     | { type: 'state_updated'; state: import('../domain/value-objects').WorkflowState }
     | { type: 'recovery_replay'; telemetry: RecoveryReplayTelemetry }
     | { type: 'replanning'; telemetry: ReplanningTelemetry }
-    | { type: 'skill_invocation'; telemetry: SkillInvocationTelemetry }
     | { type: 'completed'; success: boolean; summary?: string }
     | { type: 'error'; error: WorkflowError | Error };

@@ -5,8 +5,6 @@ import type { AgentAction } from '../../domain/value-objects';
 export class ExecutionController extends EventEmitter {
     private _state: TestRunState = TestRunState.IDLE;
     private _resumeResolver: (() => void) | null = null;
-    private _inputResolver: ((input: string) => void) | null = null;
-    private _currentPrompt: string | undefined;
     private _pendingActionOverride: AgentAction | null = null;
 
     get state(): TestRunState {
@@ -15,10 +13,6 @@ export class ExecutionController extends EventEmitter {
 
     isStopped(): boolean {
         return this._state === TestRunState.CANCELLED || this._state === TestRunState.COMPLETED || this._state === TestRunState.FAILED;
-    }
-
-    get currentPrompt(): string | undefined {
-        return this._currentPrompt;
     }
 
     start(): void {
@@ -69,33 +63,10 @@ export class ExecutionController extends EventEmitter {
         return next;
     }
 
-    requestInput(prompt?: string): void {
-        this._state = TestRunState.AWAITING_INPUT;
-        this._currentPrompt = prompt;
-        this.emit('stateChanged', this._state, prompt);
-    }
-
-    provideInput(input: string): void {
-        if (this._state === TestRunState.AWAITING_INPUT) {
-            this._state = TestRunState.RUNNING;
-            if (this._inputResolver) {
-                this._inputResolver(input);
-                this._inputResolver = null;
-            }
-            this.emit('stateChanged', this._state);
-        }
-    }
-
     async waitForResume(): Promise<void> {
         if (this._state === TestRunState.RUNNING) return;
         return new Promise<void>((resolve) => {
             this._resumeResolver = resolve;
-        });
-    }
-
-    async waitForInput(): Promise<string> {
-        return new Promise<string>((resolve) => {
-            this._inputResolver = resolve;
         });
     }
 }

@@ -15,12 +15,3 @@ export interface ReplanningTelemetry {
     replanCount: number;
     maxReplansPerRun: number;
 }
-
-export interface SkillInvocationTelemetry {
-    runId: string;
-    skillId: string;
-    source: 'preferred' | 'auto';
-    status: 'started' | 'completed' | 'failed';
-    summary: string;
-    injectedPlanItems?: number;
-}

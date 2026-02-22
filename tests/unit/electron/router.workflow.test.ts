@@ -4,7 +4,7 @@ import { okAsync } from 'neverthrow';
 import { container } from '../../../src/composition-root';
 import { appRouter } from '../../../electron/router';
 import { WorkflowDefinitionService } from '@application/services/workflow/WorkflowDefinitionService';
-import { WorkflowExecutionService } from '@application/services/workflow/WorkflowExecutionService';
+import { WorkflowRunOrchestratorService } from '@application/services/workflow/WorkflowRunOrchestratorService';
 
 describe('workflow router', () => {
     beforeEach(() => {
@@ -92,7 +92,7 @@ describe('workflow router', () => {
             getWorkflowDefinition: vi.fn(() => okAsync(null))
         } as unknown as never);
 
-        container.registerInstance(WorkflowExecutionService, {
+        container.registerInstance(WorkflowRunOrchestratorService, {
             executeWorkflow: vi.fn(async function* () {
                 yield { type: 'workflow_started', workflowRunId: 'wr-1', workflowDefinitionId: 'wf-1' };
                 await new Promise((resolve) => setTimeout(resolve, 50));
@@ -136,7 +136,7 @@ describe('workflow router', () => {
                 yield { type: 'workflow_completed', workflowRunId: 'wr-2', success: true };
             });
 
-        container.registerInstance(WorkflowExecutionService, {
+        container.registerInstance(WorkflowRunOrchestratorService, {
             executeWorkflow
         } as unknown as never);
 
