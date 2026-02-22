@@ -1,23 +1,14 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
 import { spawn, ChildProcess } from 'child_process';
-import { chromium, Browser, Page } from 'playwright';
-import { z } from 'zod';
+import { chromium, Browser } from 'playwright';
 import { IAppDriver, AppCapabilities } from '../../../domain/ports/IAppDriver';
-import { AppSnapshot } from '../../../domain/value-objects/AppSnapshot';
-import { DOMElement } from '../../../domain/value-objects/DOMSnapshot';
-import { ToolDefinition, ActionResult } from '../../../domain/tools';
 import type { ILogger } from '../../../domain/ports';
-import { DomScanner } from '../../perception/DomScanner';
-import { SmartScrollCapture } from '../../perception/SmartScrollCapture';
-import { ElementIdFactory } from '../../../domain/value-objects/Brand';
 import { NavigationError } from '../../../domain/errors';
 import { Platform, CDP_CONSTANTS } from '../../../domain/constants/PlatformConstants';
 import { CDPValidator } from '../../../domain/validators/CDPValidator';
 import { ElectronWindowManager } from './ElectronWindowManager';
-import { CommonWebToolsFactory } from './CommonWebToolsFactory';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
-import { PlatformType, ToolScope } from '@domain/tools/ToolMetadata';
 import { PlaywrightAdapter } from '../browser/PlaywrightAdapter';
 import { IBrowserAutomation } from '../../../domain/ports';
 import { retryAsync } from '@shared/reliability/retry';
@@ -39,8 +30,6 @@ export class ElectronDriver implements IAppDriver {
     private readonly windowManager: ElectronWindowManager;
 
     constructor(
-        @inject(DomScanner) private readonly domScanner: DomScanner,
-        @inject(SmartScrollCapture) private readonly screenCapture: SmartScrollCapture,
         @inject(ElectronWindowSelectionPolicy) private readonly windowSelectionPolicy: ElectronWindowSelectionPolicy,
         @inject('ILogger') private readonly logger: ILogger
     ) {
@@ -225,55 +214,6 @@ export class ElectronDriver implements IAppDriver {
         };
     }
 
-    async captureSnapshot(): Promise<AppSnapshot> {
-        const activeWindow = this.windowManager.getActiveWindow();
-        if (!activeWindow) {
-            throw new Error('[ElectronDriver] No active window available for snapshot');
-        }
-
-        const [rawElements, screenshots] = await Promise.all([
-            this.domScanner.scan(activeWindow.page),
-            this.screenCapture.capture(activeWindow.page, 1)
-        ]);
-
-        const elements: DOMElement[] = rawElements.map(el => ({
-            id: ElementIdFactory.unsafe(el.id),
-            tag: el.tag,
-            role: el.role,
-            text: el.text,
-            attributes: el.attributes,
-            isInteractive: el.isInteractive,
-            boundingBox: el.boundingBox ? { ...el.boundingBox } : null
-        }));
-
-        const url = activeWindow.page.url();
-        const title = await activeWindow.page.title();
-
-        const rootElements = {
-            html: {},
-            body: {}
-        };
-
-        return {
-            platform: Platform.ELECTRON,
-            windowId: activeWindow.id,
-            url,
-            title,
-            rootElements,
-            elements,
-            screenshot: screenshots.length > 0 ? screenshots[0]?.toString('base64') : undefined,
-            screenshots: screenshots.map(b => b.toString('base64')),
-            timestamp: new Date()
-        };
-    }
-
-    getTools(): ToolDefinition[] {
-        return [
-            ...this.getCommonTools(),
-            ...this.getElectronSpecificTools()
-        ];
-    }
-
     private async discoverWindows(): Promise<void> {
         if (!this.browser) {
             throw new Error('[ElectronDriver] Browser not connected');
@@ -310,285 +250,9 @@ export class ElectronDriver implements IAppDriver {
         }
     }
 
-    private getCommonTools(): ToolDefinition[] {
-        const tools = CommonWebToolsFactory.createAll(
-            (windowId: string | undefined, action: (page: Page) => Promise<ActionResult>) => 
-                this.executeInWindow(windowId, action)
-        );
-        return tools.map((tool: ToolDefinition) => ({
-            ...tool,
-            metadata: {
-                ...tool.metadata,
-                platforms: ['electron' as PlatformType],
-            }
-        }));
-    }
-
-    private getElectronSpecificTools(): ToolDefinition[] {
-        return [
-            {
-                name: 'electron_menu_click',
-                description: 'Click an Electron application menu item by label path (e.g., "File > Save")',
-                schema: z.object({
-                    menuPath: z.string()
-                }),
-                metadata: {
-                    name: 'electron_menu_click',
-                    platforms: ['electron' as PlatformType],
-                    scope: ToolScope.PLATFORM_SPECIFIC,
-                    terminal: false
-                },
-                execute: (params: { menuPath: string }): ResultAsync<ActionResult, Error> => {
-                    const validation = CDPValidator.validateMenuPath(params.menuPath);
-                    if (validation.isErr()) {
-                        return ResultAsync.fromSafePromise<ActionResult>(Promise.resolve({
-                            success: false,
-                            error: validation.error.message
-                        }));
-                    }
-
-                    return ResultAsync.fromPromise(
-                        (async (): Promise<ActionResult> => {
-                            const activeWindow = this.windowManager.getActiveWindow();
-                            if (!activeWindow) {
-                                return { success: false, error: 'No active window' };
-                            }
-
-                            try {
-                                await activeWindow.page.evaluate((path) => {
-                                    const bridgeWindow = window as unknown as {
-                                        electron?: {
-                                            clickMenu?: (menuPath: string) => Promise<unknown> | unknown;
-                                        };
-                                    };
-                                    const electron = bridgeWindow.electron;
-                                    if (electron && electron.clickMenu) {
-                                        return electron.clickMenu(path);
-                                    }
-                                    throw new Error('Menu interaction not available');
-                                }, params.menuPath);
-
-                                return { success: true, message: `Clicked menu: ${params.menuPath}` };
-                            } catch (error) {
-                                const message = error instanceof Error ? error.message : String(error);
-                                return { success: false, error: `Menu click failed: ${message}` };
-                            }
-                        })(),
-                        (e) => new Error(`Menu click failed: ${e}`)
-                    );
-                }
-            },
-            {
-                name: 'electron_switch_window',
-                description: 'Switch to a different Electron window by title or URL',
-                schema: z.object({
-                    windowId: z.string().optional(),
-                    title: z.string().optional(),
-                    url: z.string().optional()
-                }),
-                metadata: {
-                    name: 'electron_switch_window',
-                    platforms: ['electron' as PlatformType],
-                    scope: ToolScope.PLATFORM_SPECIFIC,
-                    terminal: false
-                },
-                execute: (params: { windowId?: string; title?: string; url?: string }): ResultAsync<ActionResult, Error> => {
-                    if (params.windowId) {
-                        const validation = CDPValidator.validateWindowId(params.windowId);
-                        if (validation.isErr()) {
-                            return ResultAsync.fromSafePromise<ActionResult>(Promise.resolve({
-                                success: false,
-                                error: validation.error.message
-                            }));
-                        }
-                    }
-
-                    return ResultAsync.fromPromise(
-                        (async (): Promise<ActionResult> => {
-                            await this.discoverWindows();
-
-                            let targetWindow;
-
-                            if (params.windowId) {
-                                const result = this.windowManager.getWindow(params.windowId);
-                                targetWindow = result.isOk() ? result.value : undefined;
-                            } else if (params.title) {
-                                const result = this.windowManager.findWindow({ title: params.title });
-                                if (result.isOk()) {
-                                    targetWindow = result.value;
-                                }
-                            } else if (params.url) {
-                                const result = this.windowManager.findWindow({ url: params.url });
-                                if (result.isOk()) {
-                                    targetWindow = result.value;
-                                }
-                            }
-
-                            if (!targetWindow) {
-                                const allWindows = this.windowManager.getAllWindows();
-                                return {
-                                    success: false,
-                                    error: 'Window not found',
-                                    data: { 
-                                        availableWindows: allWindows.map(w => ({ 
-                                            id: w.id, 
-                                            title: w.title, 
-                                            url: w.url 
-                                        })) 
-                                    }
-                                };
-                            }
-
-                            const setActiveResult = this.windowManager.setActiveWindow(targetWindow.id);
-                            if (setActiveResult.isErr()) {
-                                return { success: false, error: setActiveResult.error.message };
-                            }
-
-                            await targetWindow.page.bringToFront();
-
-                            return {
-                                success: true,
-                                message: `Switched to window: ${targetWindow.title}`,
-                                data: { windowId: targetWindow.id }
-                            };
-                        })(),
-                        (e) => new Error(`Switch window failed: ${e}`)
-                    );
-                }
-            },
-            {
-                name: 'electron_list_windows',
-                description: 'List all available Electron windows',
-                schema: z.object({}),
-                metadata: {
-                    name: 'electron_list_windows',
-                    platforms: ['electron' as PlatformType],
-                    scope: ToolScope.PLATFORM_SPECIFIC,
-                    terminal: false
-                },
-                execute: (): ResultAsync<ActionResult, Error> => {
-                    return ResultAsync.fromPromise(
-                        (async (): Promise<ActionResult> => {
-                            await this.discoverWindows();
-
-                            const allWindows = this.windowManager.getAllWindows();
-                            const activeWindow = this.windowManager.getActiveWindow();
-
-                            const windowList = allWindows.map(w => ({
-                                id: w.id,
-                                title: w.title,
-                                url: w.url,
-                                isActive: activeWindow?.id === w.id
-                            }));
-
-                            return {
-                                success: true,
-                                data: { windows: windowList },
-                                message: `Found ${windowList.length} window(s)`
-                            };
-                        })(),
-                        (e) => new Error(`List windows failed: ${e}`)
-                    );
-                }
-            },
-            {
-                name: 'electron_get_window_state',
-                description: 'Get the state of a window (position, size, visibility)',
-                schema: z.object({
-                    windowId: z.string().optional()
-                }),
-                metadata: {
-                    name: 'electron_get_window_state',
-                    platforms: ['electron' as PlatformType],
-                    scope: ToolScope.PLATFORM_SPECIFIC,
-                    terminal: false
-                },
-                execute: (params: { windowId?: string }): ResultAsync<ActionResult, Error> => {
-                    if (params.windowId) {
-                        const validation = CDPValidator.validateWindowId(params.windowId);
-                        if (validation.isErr()) {
-                            return ResultAsync.fromSafePromise<ActionResult>(Promise.resolve({
-                                success: false,
-                                error: validation.error.message
-                            }));
-                        }
-                    }
-
-                    return ResultAsync.fromPromise(
-                        (async (): Promise<ActionResult> => {
-                            const activeWindow = this.windowManager.getActiveWindow();
-                            const windowId = params.windowId || activeWindow?.id;
-                            
-                            if (!windowId) {
-                                return { success: false, error: 'No window ID specified or active' };
-                            }
-
-                            const result = this.windowManager.getWindow(windowId);
-                            if (result.isErr()) {
-                                return { success: false, error: result.error.message };
-                            }
-
-                            const window = result.value;
-
-                            try {
-                                const viewportSize = window.page.viewportSize();
-                                return {
-                                    success: true,
-                                    data: {
-                                        windowId: window.id,
-                                        title: window.title,
-                                        url: window.url,
-                                        viewport: viewportSize
-                                    }
-                                };
-                            } catch (error) {
-                                const message = error instanceof Error ? error.message : String(error);
-                                return { success: false, error: `Failed to get window state: ${message}` };
-                            }
-                        })(),
-                        (e) => new Error(`Get window state failed: ${e}`)
-                    );
-                }
-            }
-        ];
-    }
-
-    private async executeInWindow(
-        windowId: string | undefined,
-        action: (page: Page) => Promise<ActionResult>
-    ): Promise<ActionResult> {
-        try {
-            let window;
-            
-            if (windowId) {
-                const validation = CDPValidator.validateWindowId(windowId);
-                if (validation.isErr()) {
-                    return { success: false, error: validation.error.message };
-                }
-
-                const result = this.windowManager.getWindow(windowId);
-                if (result.isErr()) {
-                    return { success: false, error: result.error.message };
-                }
-                window = result.value;
-            } else {
-                window = this.windowManager.getActiveWindow();
-                if (!window) {
-                    return { success: false, error: 'No window specified or active' };
-                }
-            }
-
-            return await action(window.page);
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            return { success: false, error: message };
-        }
-    }
-
     /**
      * Get browser automation interface for execution services.
-     * Note: ElectronDriver doesn't use MonoBrowserAdapter like WebDriver,
-     * so this creates a minimal adapter around the active window.
+     * Creates a PlaywrightAdapter around the active Electron window.
      */
     getBrowserAutomation(): IBrowserAutomation {
         const win = this.windowManager.getActiveWindow();

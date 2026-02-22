@@ -46,7 +46,7 @@ import { TestStep } from '../../domain/ports';
 import { v4 as uuidv4 } from 'uuid';
 import type { ILogger } from '../../domain/ports';
 import { PlatformSessionFactory } from '../services/platform/PlatformSessionFactory';
-import type { ToolContext } from '../../domain/tools/Tool';
+
 import type { RunLifecycleState } from '@domain/value-objects/RunLifecycle';
 import type { PlatformSession } from '../services/platform/PlatformSession';
 
@@ -148,7 +148,6 @@ export class RunTestUseCase {
         let disposeSession: (() => Promise<void>) | undefined;
         let shouldNavigate = true;
         let ownsSession = false;
-        let stepToolContext: ToolContext | undefined;
         
         try {
             const session = runContext?.session ?? await this.sessionFactory.createSession(input);
@@ -158,14 +157,6 @@ export class RunTestUseCase {
             ownsSession = runContext?.session
                 ? (runContext.disposeSessionOnComplete ?? false)
                 : true;
-
-            if (session.driver) {
-                stepToolContext = {
-                    driver: session.driver,
-                    platform: session.driver.getCapabilities().platform,
-                    logger: this.logger
-                };
-            }
         } catch (error) {
             const err = error instanceof Error ? error : new Error(String(error));
             yield { type: 'error', error: new WorkflowError(`Error initializing session: ${err.message}`) };
@@ -368,7 +359,6 @@ export class RunTestUseCase {
                         runStartMs,
                         estimatedTokensUsed,
                         controller,
-                        ...(stepToolContext ? { stepToolContext } : {})
                     }
                 );
 
@@ -544,7 +534,6 @@ export class RunTestUseCase {
             runStartMs: number;
             estimatedTokensUsed: number;
             controller: ExecutionController;
-            stepToolContext?: ToolContext;
         }
     ): AsyncGenerator<RunTestOutput, {
         state: WorkflowState;

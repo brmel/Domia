@@ -4,7 +4,6 @@ import type { IAppDriverFactory, AppDriverCreateConfig } from '../../../domain/p
 import type { ILogger } from '../../../domain/ports';
 import { WebDriver } from './WebDriver';
 import { ElectronDriver, ElectronConnectionConfig } from './ElectronDriver';
-import { DriverToolRegistrar } from './DriverToolRegistrar';
 
 export type DriverConfig = AppDriverCreateConfig;
 
@@ -12,7 +11,6 @@ export type DriverConfig = AppDriverCreateConfig;
 export class AppDriverFactory implements IAppDriverFactory {
     constructor(
         @inject('ILogger') private readonly logger: ILogger,
-        @inject(DriverToolRegistrar) private readonly toolRegistrar: DriverToolRegistrar,
         @inject(WebDriver) private readonly webDriver: WebDriver,
         @inject(ElectronDriver) private readonly electronDriver: ElectronDriver
     ) { }
@@ -36,9 +34,7 @@ export class AppDriverFactory implements IAppDriverFactory {
                 throw new Error(`[AppDriverFactory] Unsupported platform: ${String(platform)}`);
         }
 
-        this.toolRegistrar.registerDriver(driver);
-
-        this.logger.debug(`[AppDriverFactory] Driver created, connected, and tools registered`);
+        this.logger.debug(`[AppDriverFactory] Driver created and connected`);
 
         return driver;
     }
