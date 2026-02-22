@@ -40,7 +40,9 @@ export class DomSensor implements ISensor<DOMSnapshot> {
                     if (retries > 0) {
                         try {
                             await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => { });
-                        } catch (waitError) { /* ignore wait error */ }
+                        } catch (waitError) {
+                            this.logger.debug(`[DomSensor] waitForLoadState also failed: ${String(waitError)}`);
+                        }
                         continue;
                     }
                 }

@@ -1,9 +1,8 @@
 import { EventEmitter } from 'events';
 import { TestRunState } from '../../domain/enums/TestRunState';
-import { IExecutionController } from '../../domain/ports/IExecutionController';
 import type { AgentAction } from '../../domain/value-objects';
 
-export class ExecutionController extends EventEmitter implements IExecutionController {
+export class ExecutionController extends EventEmitter {
     private _state: TestRunState = TestRunState.IDLE;
     private _resumeResolver: (() => void) | null = null;
     private _inputResolver: ((input: string) => void) | null = null;

@@ -30,10 +30,14 @@ export interface BrowserToolSpec {
     readonly description: string;
     /** The ActionType this tool maps to (used by runners to emit domain events). */
     readonly actionType: ActionType;
+    readonly parameters: z.ZodObject<z.ZodRawShape>;
+    /**
+     * Execute receives the Zod-validated args matching `parameters`.
+     * Typed as the Zod output shape — each tool implementation destructures
+     * the concrete fields guaranteed by its schema at runtime.
+     */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    readonly parameters: z.ZodObject<any>;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    readonly execute: (args: any) => Promise<Record<string, unknown>> | Record<string, unknown>;
+    readonly execute: (...args: any[]) => Promise<Record<string, unknown>> | Record<string, unknown>;
 }
 
 export interface BrowserToolDependencies {

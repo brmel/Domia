@@ -27,6 +27,7 @@ import { PluginApprovalService } from '@application/services/plugins/PluginAppro
 import { ReadinessGateService } from '@application/services/hardening/ReadinessGateService';
 import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
 import { TrajectoryExportService } from '@infrastructure/services/exporters/TrajectoryExportService';
+import { ObjectiveCompletionPolicyService } from '@application/services/execution/ObjectiveCompletionPolicyService';
 
 
 export function registerRuntimeModule(): void {
@@ -63,5 +64,6 @@ export function registerRuntimeModule(): void {
     container.registerSingleton(ReadinessGateService);
     container.registerSingleton(RuntimeReadinessPolicyService);
     container.registerSingleton(TrajectoryExportService);
+    container.registerSingleton(ObjectiveCompletionPolicyService);
 
 }

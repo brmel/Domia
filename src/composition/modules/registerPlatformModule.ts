@@ -7,6 +7,7 @@ import {
     ElectronDriverProvider,
     AppDriverFactory,
 } from '@infrastructure/adapters/drivers';
+import { PlatformSessionFactory } from '@application/services/platform/PlatformSessionFactory';
 
 export function registerPlatformModule(): void {
     container.registerSingleton(PlaywrightAdapter);
@@ -14,6 +15,7 @@ export function registerPlatformModule(): void {
     // Drivers (injected into providers)
     container.registerSingleton(WebDriver);
     container.registerSingleton(ElectronDriver);
+    container.registerSingleton(PlatformSessionFactory);
 
     // Providers (each knows how to create a driver for its platform)
     container.registerSingleton(WebDriverProvider);

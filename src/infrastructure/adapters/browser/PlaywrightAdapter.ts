@@ -4,7 +4,7 @@ import { chromium, Browser, Page, ElementHandle } from 'playwright';
 import type { IBrowserAutomation, LaunchOptions, ILogger, IViewHost } from '@domain/ports';
 import type { Url, ElementId } from '@domain/value-objects';
 import { NavigationError, InteractionError } from '@domain/errors';
-import { AGENT_VIEW_CONFIG } from '../../../shared/config';
+import { TOOL_TIMEOUTS, SCROLL_CONSTANTS, AGENT_VIEW_CONFIG } from '@domain/constants/PlatformConstants';
 
 @injectable()
 export class PlaywrightAdapter implements IBrowserAutomation {
@@ -49,7 +49,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
                     this.browser = await chromium.connectOverCDP({
                         endpointURL: wsEndpoint,
                         headers: { 'Upgrade': 'websocket' },
-                        timeout: 5000
+                        timeout: TOOL_TIMEOUTS.CLICK_MS
                     });
                     break;
                 } catch (e) {
@@ -133,7 +133,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         }
         this.logger.debug(`[PlaywrightAdapter] Navigating to: ${url}`);
         return ResultAsync.fromPromise(
-            this.page.goto(url, { waitUntil: 'load', timeout: 30000 }),
+            this.page.goto(url, { waitUntil: 'load', timeout: TOOL_TIMEOUTS.NAVIGATION_MS }),
             (e) => new NavigationError(`Navigation failed: ${String(e)}`)
         ).andThen(() => ResultAsync.fromPromise(this.waitForDOMStable(), e => new NavigationError(String(e))));
     }
@@ -144,7 +144,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
         return this.findElement(elementId).andThen((el) => {
             const clickOptions = {
                 force: options?.force ?? false,
-                timeout: options?.timeout ?? 10000 // 10s default instead of 30s
+                timeout: options?.timeout ?? TOOL_TIMEOUTS.ELEMENT_WAIT_MS
             };
 
             const attempt = (): ResultAsync<void, InteractionError> => ResultAsync.fromPromise(
@@ -240,7 +240,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
             return errAsync(new InteractionError('Browser not launched'));
         }
         this.logger.debug(`[PlaywrightAdapter] Scrolling: ${direction}`);
-        const delta = direction === 'down' ? 500 : -500;
+        const delta = direction === 'down' ? SCROLL_CONSTANTS.AMOUNT_PX : -SCROLL_CONSTANTS.AMOUNT_PX;
         return ResultAsync.fromPromise(
             this.page.mouse.wheel(0, delta),
             (e) => new InteractionError(`Scroll failed: ${String(e)}`)
