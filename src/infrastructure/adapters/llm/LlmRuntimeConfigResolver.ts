@@ -2,7 +2,7 @@ import { inject, injectable } from 'tsyringe';
 import type { IConfigService } from '@domain/ports';
 
 export interface LLMConfig {
-    readonly provider: 'google';
+    readonly provider: 'google' | 'openai' | 'anthropic' | (string & {});
     readonly model: string;
     readonly apiKey?: string;
     readonly baseUrl?: string;

@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe';
-import type { PlatformType } from '@domain/types/PlatformConfig';
+import type { BuiltInPlatformType } from '@domain/types/PlatformConfig';
 import type { WorkflowStepDefinition } from '@domain/entities/Workflow';
 
 export type CapabilityFamily =
@@ -12,7 +12,7 @@ export type CapabilityFamily =
     | 'system-control';
 
 export type CapabilitySupport = 'supported' | 'degraded' | 'unsupported';
-export type CapabilityPlatform = PlatformType;
+export type CapabilityPlatform = BuiltInPlatformType;
 
 export interface CapabilityDecision {
     readonly capability: CapabilityFamily;

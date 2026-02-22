@@ -1,5 +1,5 @@
 import type { IAppDriver } from './IAppDriver';
-import type { PlatformConfig } from '../types/PlatformConfig';
+import type { PlatformConfig, PlatformType } from '../types/PlatformConfig';
 
 export interface AppDriverCreateOptions {
     headless?: boolean;
@@ -13,6 +13,16 @@ export interface AppDriverCreateConfig {
     readonly options?: AppDriverCreateOptions;
 }
 
+/**
+ * A provider that knows how to create a driver for a specific platform.
+ * Register providers via IAppDriverFactory.registerProvider().
+ */
+export interface IAppDriverProvider {
+    readonly platform: PlatformType;
+    createDriver(config: AppDriverCreateConfig): Promise<IAppDriver>;
+}
+
 export interface IAppDriverFactory {
     createDriver(config: AppDriverCreateConfig): Promise<IAppDriver>;
+    registerProvider(provider: IAppDriverProvider): void;
 }

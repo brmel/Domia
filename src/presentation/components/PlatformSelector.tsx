@@ -1,11 +1,11 @@
 import { cn } from '../../lib/utils';
 import { getAvailablePlatforms } from '../config/platformRegistry';
-import type { PlatformType } from '../../domain/types/PlatformConfig';
+import type { BuiltInPlatformType } from '../../domain/types/PlatformConfig';
 import { Button } from './ui/Button';
 
 interface PlatformSelectorProps {
-  value: PlatformType;
-  onChange: (platform: PlatformType) => void;
+  value: BuiltInPlatformType;
+  onChange: (platform: BuiltInPlatformType) => void;
   disabled: boolean;
 }
 
@@ -22,7 +22,7 @@ export function PlatformSelector({ value, onChange, disabled }: PlatformSelector
           <Button
             key={platform.type}
             type="button"
-            onClick={() => onChange(platform.type)}
+            onClick={() => onChange(platform.type as BuiltInPlatformType)}
             disabled={disabled}
             variant={value === platform.type ? 'primary' : 'secondary'}
             size="md"

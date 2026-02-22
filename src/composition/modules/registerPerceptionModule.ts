@@ -9,9 +9,5 @@ export function registerPerceptionModule(): void {
     container.registerSingleton(DomSensor);
     container.registerSingleton(AriaSensor);
 
-    container.register('ISensor', { useToken: VisionSensor });
-    container.register('ISensor', { useToken: DomSensor });
-    container.register('ISensor', { useToken: AriaSensor });
-
     container.register('IPerceptionPipeline', { useClass: PerceptionPipeline });
 }

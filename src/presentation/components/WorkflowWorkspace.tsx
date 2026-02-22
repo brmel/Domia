@@ -5,7 +5,7 @@ import { SegmentedControl } from './ui/SegmentedControl';
 import type { WorkflowEvent } from '@domain/events';
 import { PlatformSelector } from './PlatformSelector';
 import { platformRegistry, type PlatformFieldValue } from '../config/platformRegistry';
-import type { PlatformType, PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../domain/types/PlatformConfig';
+import type { BuiltInPlatformType, PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../domain/types/PlatformConfig';
 import {
     appendStepToList,
     type EditableWorkflowStep,
@@ -25,7 +25,7 @@ export function WorkflowWorkspace(): React.ReactElement {
     const [selectedRunId, setSelectedRunId] = useState<string>('');
     const [workflowName, setWorkflowName] = useState('Smoke Workflow');
     const [workflowDescription, setWorkflowDescription] = useState('');
-    const [selectedPlatform, setSelectedPlatform] = useState<PlatformType>('web');
+    const [selectedPlatform, setSelectedPlatform] = useState<BuiltInPlatformType>('web');
     const [platformData, setPlatformData] = useState<PlatformFieldValue>(platformRegistry.web.defaultValues);
     const [steps, setSteps] = useState<Array<EditableWorkflowStep>>([
         {
@@ -117,7 +117,7 @@ export function WorkflowWorkspace(): React.ReactElement {
     const removeStep = (stepId: string): void => setSteps((current) => removeStepById(current, stepId));
 
     const buildPlatformConfig = (
-        platform: PlatformType,
+        platform: BuiltInPlatformType,
         fieldValue: PlatformFieldValue
     ): PlatformConfig => {
         switch (platform) {
@@ -149,7 +149,7 @@ export function WorkflowWorkspace(): React.ReactElement {
 
         setWorkflowName(selectedDefinition.name);
         setWorkflowDescription(selectedDefinition.description ?? '');
-        setSelectedPlatform(selectedDefinition.platformConfig.platform);
+        setSelectedPlatform(selectedDefinition.platformConfig.platform as BuiltInPlatformType);
         if (selectedDefinition.platformConfig.platform === 'web') {
             setPlatformData({ url: selectedDefinition.platformConfig.url });
         } else {

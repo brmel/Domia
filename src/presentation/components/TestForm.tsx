@@ -7,7 +7,7 @@ import { AgentStatus } from '../../domain/types/AgentStatus';
 import { canStart, canPause, canResume, canStop, isAgentRunning } from '../utils/agentStateUtils';
 import { PlatformSelector } from './PlatformSelector';
 import { platformRegistry, type PlatformFieldValue } from '../config/platformRegistry';
-import type { PlatformType, PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../domain/types/PlatformConfig';
+import type { BuiltInPlatformType, PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../domain/types/PlatformConfig';
 
 interface TestFormProps {
     onOpenHistory: () => void;
@@ -69,7 +69,7 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
         });
     };
 
-    const handlePlatformChange = (newPlatform: PlatformType): void => {
+    const handlePlatformChange = (newPlatform: BuiltInPlatformType): void => {
         setSelectedPlatform(newPlatform);
         const definition = platformRegistry[newPlatform];
         setPlatformData(definition.defaultValues);
@@ -83,7 +83,7 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
         }
     };
 
-    const validatePlatformData = (platform: PlatformType, data: PlatformFieldValue): Record<string, string> => {
+    const validatePlatformData = (platform: BuiltInPlatformType, data: PlatformFieldValue): Record<string, string> => {
         const nextErrors: Record<string, string> = {};
 
         if (platform === 'web') {
@@ -135,7 +135,7 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
     };
 
     const buildPlatformConfig = (
-        platform: PlatformType,
+        platform: BuiltInPlatformType,
         fieldValue: PlatformFieldValue
     ): PlatformConfig => {
         switch (platform) {

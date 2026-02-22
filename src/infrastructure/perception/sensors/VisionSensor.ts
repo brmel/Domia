@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import { Page } from 'playwright';
-import { ISensor } from '@domain/ports/ISensor';
+import { ISensor } from '../ISensor';
 import { SmartScrollCapture } from '../SmartScrollCapture';
 
 
