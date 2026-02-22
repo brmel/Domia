@@ -15,7 +15,7 @@ function tool(opts: { name: string; description: string; parameters: any; execut
 /**
  * Formats a DOMElement list into a concise text representation for the LLM.
  */
-function formatElements(elements: readonly DOMElement[], limit = 50): string {
+export function formatElements(elements: readonly DOMElement[], limit = 50): string {
     return elements
         .slice(0, limit)
         .map((el) => {
@@ -31,14 +31,16 @@ function formatElements(elements: readonly DOMElement[], limit = 50): string {
 }
 
 /**
- * Captures DOM after a browser action and returns a structured summary for the LLM.
+ * Captures page state after a browser action.
+ * When vision is enabled, also captures a screenshot for multimodal reasoning.
  */
 async function capturePostActionState(
     browser: IBrowserAutomation,
-    perception: IPerceptionPipeline
+    perception: IPerceptionPipeline,
+    vision: boolean,
 ): Promise<Record<string, unknown>> {
     await browser.waitForDOMStable();
-    const frameResult = await perception.capture(browser, { dom: true, aria: true, vision: false });
+    const frameResult = await perception.capture(browser, { dom: true, aria: true, vision });
 
     if (frameResult.isErr()) {
         return { status: 'error', error: `Perception capture failed: ${frameResult.error.message}` };
@@ -47,7 +49,7 @@ async function capturePostActionState(
     const frame = frameResult.value;
     const viewport = await browser.getViewportSize();
 
-    return {
+    const result: Record<string, unknown> = {
         status: 'success',
         currentUrl: frame.metadata.url,
         pageTitle: frame.metadata.title,
@@ -55,11 +57,23 @@ async function capturePostActionState(
         elementCount: frame.semantic.dom.elements.length,
         elements: formatElements(frame.semantic.dom.elements),
     };
+
+    // When vision is enabled, include the screenshot as base64 for the LLM
+    if (vision && frame.vision.primaryScreenshot) {
+        result['screenshot'] = {
+            base64: frame.vision.primaryScreenshot.toString('base64'),
+            mimeType: frame.vision.mimeType,
+        };
+    }
+
+    return result;
 }
 
 export interface AdkToolDependencies {
     readonly browser: IBrowserAutomation;
     readonly perception: IPerceptionPipeline;
+    /** Whether to capture screenshots in tool responses for multimodal reasoning. */
+    readonly vision: boolean;
 }
 
 /**
@@ -68,7 +82,9 @@ export interface AdkToolDependencies {
  * and returns it to the LLM agent for multi-turn reasoning.
  */
 export function createAdkBrowserTools(deps: AdkToolDependencies): FunctionTool[] {
-    const { browser, perception } = deps;
+    const { browser, perception, vision } = deps;
+
+    const capture = () => capturePostActionState(browser, perception, vision);
 
     const click = tool({
         name: 'click',
@@ -79,7 +95,7 @@ export function createAdkBrowserTools(deps: AdkToolDependencies): FunctionTool[]
             if (result.isErr()) {
                 return { status: 'error', error: result.error.message };
             }
-            return capturePostActionState(browser, perception);
+            return capture();
         },
     });
 
@@ -102,7 +118,7 @@ export function createAdkBrowserTools(deps: AdkToolDependencies): FunctionTool[]
                     return { status: 'error', error: enterResult.error.message };
                 }
             }
-            return capturePostActionState(browser, perception);
+            return capture();
         },
     });
 
@@ -115,7 +131,7 @@ export function createAdkBrowserTools(deps: AdkToolDependencies): FunctionTool[]
             if (result.isErr()) {
                 return { status: 'error', error: result.error.message };
             }
-            return capturePostActionState(browser, perception);
+            return capture();
         },
     });
 
@@ -128,7 +144,7 @@ export function createAdkBrowserTools(deps: AdkToolDependencies): FunctionTool[]
             if (result.isErr()) {
                 return { status: 'error', error: result.error.message };
             }
-            return capturePostActionState(browser, perception);
+            return capture();
         },
     });
 
@@ -141,7 +157,7 @@ export function createAdkBrowserTools(deps: AdkToolDependencies): FunctionTool[]
             if (result.isErr()) {
                 return { status: 'error', error: result.error.message };
             }
-            return capturePostActionState(browser, perception);
+            return capture();
         },
     });
 
@@ -154,7 +170,7 @@ export function createAdkBrowserTools(deps: AdkToolDependencies): FunctionTool[]
             if (result.isErr()) {
                 return { status: 'error', error: result.error.message };
             }
-            return capturePostActionState(browser, perception);
+            return capture();
         },
     });
 
@@ -167,7 +183,7 @@ export function createAdkBrowserTools(deps: AdkToolDependencies): FunctionTool[]
             if (result.isErr()) {
                 return { status: 'error', error: result.error.message };
             }
-            return capturePostActionState(browser, perception);
+            return capture();
         },
     });
 
@@ -180,7 +196,7 @@ export function createAdkBrowserTools(deps: AdkToolDependencies): FunctionTool[]
             if (result.isErr()) {
                 return { status: 'error', error: result.error.message };
             }
-            return capturePostActionState(browser, perception);
+            return capture();
         },
     });
 
@@ -199,7 +215,7 @@ export function createAdkBrowserTools(deps: AdkToolDependencies): FunctionTool[]
             if (result.isErr()) {
                 return { status: 'error', error: result.error.message };
             }
-            return capturePostActionState(browser, perception);
+            return capture();
         },
     });
 
@@ -212,7 +228,7 @@ export function createAdkBrowserTools(deps: AdkToolDependencies): FunctionTool[]
             if (result.isErr()) {
                 return { status: 'error', error: result.error.message };
             }
-            return capturePostActionState(browser, perception);
+            return capture();
         },
     });
 
@@ -226,7 +242,7 @@ export function createAdkBrowserTools(deps: AdkToolDependencies): FunctionTool[]
             if (result.isErr()) {
                 return { status: 'error', error: result.error.message };
             }
-            return capturePostActionState(browser, perception);
+            return capture();
         },
     });
 
@@ -260,7 +276,7 @@ export function createAdkBrowserTools(deps: AdkToolDependencies): FunctionTool[]
             if (result.isErr()) {
                 return { status: 'error', error: result.error.message };
             }
-            return capturePostActionState(browser, perception);
+            return capture();
         },
     });
 

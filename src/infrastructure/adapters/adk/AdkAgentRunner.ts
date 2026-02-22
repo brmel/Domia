@@ -1,15 +1,16 @@
+import { injectable, inject } from 'tsyringe';
 import { LlmAgent, Gemini, Runner, InMemorySessionService, getFunctionCalls, isFinalResponse, stringifyContent } from '@google/adk';
-import type { Content } from '@google/genai';
-import type { IBrowserAutomation, IPerceptionPipeline, ILogger } from '@domain/ports';
+import type { Content, Part } from '@google/genai';
+import type { IBrowserAutomation, IPerceptionPipeline, IStorageService, ILogger } from '@domain/ports';
+import type { IAgentRunner, AgentActionEvent, StepExecutionResult, StepRunnerConfig } from '@domain/ports/IAgentRunner';
 import type { AgentAction } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
-import type { StepExecutionResult } from '@application/services/execution/StepExecutor';
-import { createAdkBrowserTools } from './AdkBrowserToolFactory';
-import type { DOMElement } from '@domain/value-objects/DOMSnapshot';
+import { LlmRuntimeConfigResolver } from '@infrastructure/adapters/llm/LlmRuntimeConfigResolver';
+import { createAdkBrowserTools, formatElements } from './AdkBrowserToolFactory';
 
 const APP_NAME = 'domia';
 
-const ADK_AGENT_INSTRUCTION = `You are an autonomous web testing agent. You interact with web pages to verify conditions and achieve goals.
+const AGENT_INSTRUCTION = `You are an autonomous web testing agent. You interact with web pages to verify conditions and achieve goals.
 
 CAPABILITIES:
 - You can click, type, pressKey, scroll, wait, extract data, and use coordinate mouse controls.
@@ -36,35 +37,6 @@ RULES:
 
 Think step by step. Choose exactly one tool call per turn. After each tool call you will see the updated page state.
 When the goal is confirmed, call 'pass'. When blocked after multiple attempts, call 'fail' with a concrete reason.`;
-
-export interface AdkStepRunnerConfig {
-    readonly runId: string;
-    readonly stepGoal: string;
-    readonly browser: IBrowserAutomation;
-    readonly perception: IPerceptionPipeline;
-    readonly url: string;
-    readonly apiKey: string;
-    readonly model: string;
-    readonly maxActions: number;
-    readonly vision: boolean;
-    readonly logger: ILogger;
-    readonly saveAssets: (stepNumber: number, frame: import('@domain/value-objects/PerceptionFrame').PerceptionFrame) => Promise<Record<string, string>>;
-}
-
-function formatElements(elements: readonly DOMElement[], limit = 50): string {
-    return elements
-        .slice(0, limit)
-        .map((el) => {
-            const attrs = Object.entries(el.attributes)
-                .map(([k, v]) => `${k}="${v}"`)
-                .join(' ');
-            const bbox = el.boundingBox
-                ? `[x:${Math.round(el.boundingBox.x)},y:${Math.round(el.boundingBox.y)},w:${Math.round(el.boundingBox.width)},h:${Math.round(el.boundingBox.height)}]`
-                : '';
-            return `[${el.id}] <${el.tag} ${attrs}>${el.text.slice(0, 50)}</${el.tag}> ${bbox}`;
-        })
-        .join('\n');
-}
 
 function mapFunctionCallToAction(name: string, args: Record<string, unknown>): AgentAction {
     switch (name) {
@@ -103,22 +75,41 @@ function mapFunctionCallToAction(name: string, args: Record<string, unknown>): A
     }
 }
 
-export class AdkStepRunner {
-    private readonly config: AdkStepRunnerConfig;
+/**
+ * Google ADK implementation of the IAgentRunner port.
+ *
+ * Encapsulates all @google/adk and @google/genai coupling.
+ * Can be swapped for any other agent framework by implementing IAgentRunner.
+ */
+@injectable()
+export class AdkAgentRunner implements IAgentRunner {
+    constructor(
+        @inject('IPerceptionPipeline') private readonly perception: IPerceptionPipeline,
+        @inject('IStorageService') private readonly storage: IStorageService,
+        @inject('ILogger') private readonly logger: ILogger,
+        @inject(LlmRuntimeConfigResolver) private readonly llmConfigResolver: LlmRuntimeConfigResolver,
+    ) {}
 
-    constructor(config: AdkStepRunnerConfig) {
-        this.config = config;
-    }
+    async *executeStep(
+        config: StepRunnerConfig,
+        browser: IBrowserAutomation,
+    ): AsyncGenerator<AgentActionEvent, StepExecutionResult, unknown> {
+        const { runId, stepGoal, url, maxActions, vision } = config;
 
-    async *run(): AsyncGenerator<
-        { type: 'action'; action: AgentAction; assets?: Record<string, string> },
-        StepExecutionResult,
-        unknown
-    > {
-        const { runId, stepGoal, browser, perception, url, apiKey, model, maxActions, vision, logger, saveAssets } = this.config;
+        // Resolve LLM configuration
+        const llmConfig = this.llmConfigResolver.resolve();
+        if (!llmConfig.apiKey) {
+            return {
+                success: false,
+                terminal: 'error',
+                code: 'llm_error',
+                reason: 'No API key configured. Set GOOGLE_API_KEY, GEMINI_API_KEY, or DOMIA_LLM_API_KEY.',
+            };
+        }
+        const model = llmConfig.model || 'gemini-2.0-flash';
 
-        // 1. Capture initial DOM state
-        const initialFrame = await perception.capture(browser, { vision, aria: true, dom: true });
+        // 1. Capture initial page state
+        const initialFrame = await this.perception.capture(browser, { vision, aria: true, dom: true });
         if (initialFrame.isErr()) {
             return {
                 success: false,
@@ -134,17 +125,15 @@ export class AdkStepRunner {
         // Save initial perception assets
         let initialAssets: Record<string, string> = {};
         try {
-            initialAssets = await saveAssets(1, frame);
+            initialAssets = await this.storage.savePerceptionAssets(runId, 1, frame);
         } catch {
-            logger.warn('[AdkStepRunner] Failed to save initial perception assets');
+            this.logger.warn('[AdkAgentRunner] Failed to save initial perception assets');
         }
 
+        // 2. Build initial user message (text + optional screenshot)
         const elementsStr = formatElements(frame.semantic.dom.elements);
-
-        const initialMessage: Content = {
-            role: 'user',
-            parts: [{
-                text: `GOAL: ${stepGoal}
+        const textPart: Part = {
+            text: `GOAL: ${stepGoal}
 
 VIEWPORT: ${viewport.width}x${viewport.height} pixels
 
@@ -158,31 +147,45 @@ ${elementsStr}
 MAX ACTIONS REMAINING: ${maxActions}
 
 Analyze the current page state and begin working toward the goal. Call exactly one tool per turn.`,
-            }],
         };
 
-        // 2. Create ADK tools from browser automation
-        const tools = createAdkBrowserTools({ browser, perception });
+        const parts: Part[] = [textPart];
 
-        // 3. Create the ADK agent
-        const geminiModel = new Gemini({ model, apiKey });
+        // Vision: send screenshot as inlineData per ADK/Gemini multimodal spec
+        if (vision && frame.vision.primaryScreenshot) {
+            parts.push({
+                inlineData: {
+                    data: frame.vision.primaryScreenshot.toString('base64'),
+                    mimeType: frame.vision.mimeType,
+                },
+            });
+        }
 
+        const initialMessage: Content = { role: 'user', parts };
+
+        // 3. Create ADK tools from browser automation
+        const tools = createAdkBrowserTools({ browser, perception: this.perception, vision });
+
+        // 4. Create the ADK agent with best-practice configuration
         const actionHistory: string[] = [];
+
         const agent = new LlmAgent({
             name: 'browser_agent',
-            model: geminiModel,
-            instruction: ADK_AGENT_INSTRUCTION,
+            model: new Gemini({ model, apiKey: llmConfig.apiKey }),
+            instruction: AGENT_INSTRUCTION,
             tools,
+            generateContentConfig: {
+                temperature: 0,
+            },
             beforeToolCallback: ({ tool, args }) => {
                 // Loop detection: track action signatures
                 const sig = `${tool.name}:${JSON.stringify(args)}`;
                 actionHistory.push(sig);
 
-                // Check for 3+ identical consecutive actions
                 if (actionHistory.length >= 3) {
                     const last3 = actionHistory.slice(-3);
-                    if (last3.every(s => s === sig)) {
-                        logger.warn(`[AdkStepRunner] Loop detected: ${sig} repeated 3 times`);
+                    if (last3.every((s) => s === sig)) {
+                        this.logger.warn(`[AdkAgentRunner] Loop detected: ${sig} repeated 3 times`);
                         return {
                             status: 'error',
                             error: `LOOP DETECTED: You have called ${tool.name} with the same arguments 3 times. The page state has not changed. Choose a DIFFERENT action or call 'fail' if the goal cannot be achieved.`,
@@ -193,7 +196,7 @@ Analyze the current page state and begin working toward the goal. Call exactly o
             },
         });
 
-        // 4. Create runner with session management
+        // 5. Create runner with session management and budget control
         const sessionService = new InMemorySessionService();
         const runner = new Runner({
             appName: APP_NAME,
@@ -207,7 +210,7 @@ Analyze the current page state and begin working toward the goal. Call exactly o
             sessionId: runId,
         });
 
-        // 5. Run the agent and yield actions
+        // 6. Run the agent — yield actions, handle terminal conditions
         let actionCount = 0;
 
         try {
@@ -215,6 +218,10 @@ Analyze the current page state and begin working toward the goal. Call exactly o
                 userId: session.userId,
                 sessionId: session.id,
                 newMessage: initialMessage,
+                runConfig: {
+                    // ADK-native budget control: limit total LLM calls
+                    maxLlmCalls: maxActions + 2,
+                },
             })) {
                 const functionCalls = getFunctionCalls(event);
 
@@ -223,11 +230,11 @@ Analyze the current page state and begin working toward the goal. Call exactly o
                         const action = mapFunctionCallToAction(fc.name!, fc.args as Record<string, unknown>);
                         actionCount++;
 
-                        logger.info(`[AdkStepRunner] Action ${actionCount}/${maxActions}: ${fc.name}`, fc.args);
+                        this.logger.info(`[AdkAgentRunner] Action ${actionCount}/${maxActions}: ${fc.name}`, fc.args);
 
                         yield { type: 'action', action, assets: actionCount === 1 ? initialAssets : {} };
 
-                        // Terminal actions: pass or fail
+                        // Terminal actions
                         if (action.type === ActionType.PASS) {
                             return { success: true, terminal: 'pass' };
                         }
@@ -252,12 +259,11 @@ Analyze the current page state and begin working toward the goal. Call exactly o
                     }
                 }
 
-                // If the model generates a final text response without a tool call
+                // Final text response without a tool call
                 if (isFinalResponse(event)) {
                     const text = stringifyContent(event);
-                    logger.info(`[AdkStepRunner] Final response from agent: ${text.slice(0, 200)}`);
+                    this.logger.info(`[AdkAgentRunner] Final response: ${text.slice(0, 200)}`);
 
-                    // If the model just gave text without calling pass/fail, treat as incomplete
                     if (actionCount === 0) {
                         return {
                             success: false,
@@ -266,13 +272,12 @@ Analyze the current page state and begin working toward the goal. Call exactly o
                             reason: 'Agent generated text without calling any tools',
                         };
                     }
-                    // Model finished naturally after executing actions
                     break;
                 }
             }
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            logger.error(`[AdkStepRunner] Agent error: ${message}`);
+            this.logger.error(`[AdkAgentRunner] Agent error: ${message}`);
             return {
                 success: false,
                 terminal: 'error',
@@ -281,7 +286,6 @@ Analyze the current page state and begin working toward the goal. Call exactly o
             };
         }
 
-        // If we get here, the loop ended without a terminal action
         return {
             success: false,
             terminal: 'max_actions',
