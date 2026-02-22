@@ -1,21 +1,14 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
-import { ok, okAsync } from 'neverthrow';
-import type { IBrowserAutomation, ILogger, TestStep } from '@domain/ports';
+import { okAsync } from 'neverthrow';
+import type { TestStep } from '@domain/ports';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 import type { Plan } from '@domain/entities/Plan';
 import type { RunTestOutput } from '@application/dtos';
 import { ElementIdFactory, WorkflowState } from '@domain/value-objects';
-import { RunTestUseCase } from '@application/use-cases/RunTestUseCase';
 import { ExecutionController } from '@application/controllers/ExecutionController';
-import { RecoveryReadModelService } from '@application/services/execution/RecoveryReadModelService';
-import { RunRecoveryPolicyService } from '@application/services/execution/RunRecoveryPolicyService';
-import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
-import { ManualRecoveryBootstrapService } from '@application/services/execution/ManualRecoveryBootstrapService';
-import { RecoveryReplayGuardService } from '@application/services/execution/RecoveryReplayGuardService';
-import { RecoveryReplayIdempotencyService } from '@application/services/execution/RecoveryReplayIdempotencyService';
-import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 import { ActionType } from '@domain/enums/ActionType';
+import { createRunTestUseCaseContext } from '../../../helpers/createRunTestUseCaseContext';
 
 function createPlan(items: Plan['items']): Plan {
     const now = new Date('2026-01-01T00:00:00.000Z');
@@ -50,141 +43,15 @@ function createCheckpoint(
 function createUseCaseContext(
     checkpoints: readonly CheckpointRecord[] = [],
     sourceSteps: readonly TestStep[] = []
-): {
-    useCase: RunTestUseCase;
-    planner: { plan: ReturnType<typeof vi.fn> };
-    lifecycleManager: { initializeTestRun: ReturnType<typeof vi.fn>; finalizeTestRun: ReturnType<typeof vi.fn>; failTestRun: ReturnType<typeof vi.fn> };
-    executor: { executeStep: ReturnType<typeof vi.fn> };
-    durability: { transition: ReturnType<typeof vi.fn>; checkpoint: ReturnType<typeof vi.fn>; getCheckpointRecords: ReturnType<typeof vi.fn> };
-    readinessPolicy: { assess: ReturnType<typeof vi.fn> };
-    releaseLane: ReturnType<typeof vi.fn>;
-    persistence: { saveTestStep: ReturnType<typeof vi.fn>; getTestSteps: ReturnType<typeof vi.fn> };
-    browser: IBrowserAutomation;
-    replayIdempotency: RecoveryReplayIdempotencyService;
-} {
-    const releaseLane = vi.fn();
-    const planner = {
-        plan: vi.fn().mockResolvedValue(ok(createPlan([])))
-    };
-
-    const lifecycleManager = {
-        initializeTestRun: vi.fn().mockResolvedValue(ok('new-run')),
-        finalizeTestRun: vi.fn().mockResolvedValue(undefined),
-        failTestRun: vi.fn().mockResolvedValue(undefined)
-    };
-
-    const executor = {
-        executeStep: vi.fn(async function* () {
-            yield* [];
-            return { success: true as const, terminal: 'pass' as const };
-        })
-    };
-
-    const persistence = {
-        saveTestStep: vi.fn(() => okAsync(undefined)),
-        getTestSteps: vi.fn(() => okAsync([...sourceSteps]))
-    };
-
-    const trace = {
-        endTrace: vi.fn().mockResolvedValue(undefined)
-    };
-
-    const browser = {
-        waitForDOMStable: vi.fn().mockResolvedValue(undefined),
-        navigateTo: vi.fn(() => okAsync(undefined)),
-        wait: vi.fn(() => okAsync(undefined)),
-        scroll: vi.fn(() => okAsync(undefined)),
-        extractText: vi.fn(() => okAsync('text'))
-    } as unknown as IBrowserAutomation;
-
-    const sessionFactory = {
-        createSession: vi.fn().mockResolvedValue({
-            browser,
-            shouldNavigate: false,
-            dispose: vi.fn().mockResolvedValue(undefined)
-        })
-    };
-
-    const laneService = {
-        acquire: vi.fn().mockResolvedValue(releaseLane)
-    };
-
-    const durability = {
-        transition: vi.fn((_: string, __: string, next: string) => next),
-        checkpoint: vi.fn().mockResolvedValue(undefined),
-        getCheckpointRecords: vi.fn().mockResolvedValue(checkpoints)
-    };
-
-    const budgetPolicy = {
-        resolveLimits: vi.fn().mockReturnValue({}),
-        assess: vi.fn().mockReturnValue({ status: 'ok', exceeded: [] }),
-        evaluate: vi.fn().mockReturnValue({ status: 'ok', exceeded: [] }),
-        formatExceededMessage: vi.fn().mockReturnValue('Run budget exceeded')
-    };
-
-    const logger: ILogger = {
-        info: vi.fn(),
-        warn: vi.fn(),
-        debug: vi.fn(),
-        error: vi.fn()
-    };
-
-    const recoveryReadModel = new RecoveryReadModelService();
-    const checkpointCompaction = new CheckpointCompactionService();
-    const recoveryPolicy = new RunRecoveryPolicyService();
-    const recoveryBootstrap = new ManualRecoveryBootstrapService();
-    const recoveryReplayGuard = new RecoveryReplayGuardService();
-    const replanningPolicy = new ReplanningPolicyService(logger);
-    const replayIdempotency = {
-        buildNodeReplayKey: vi.fn(({ runId, branchId, nodeId, actionSignature }) => `${runId}:${branchId}:${nodeId}:${actionSignature}`),
-        shouldExecute: vi.fn().mockResolvedValue(true),
-        markExecuted: vi.fn().mockResolvedValue(undefined)
-    } as unknown as RecoveryReplayIdempotencyService;
-
-    const skillRegistry = { get: vi.fn().mockReturnValue(null) };
-    const skillGovernance = { isAllowed: vi.fn().mockReturnValue(false) };
-    const pluginRegistry = { get: vi.fn().mockReturnValue(null) };
-    const pluginGateway = { authorize: vi.fn().mockReturnValue({ success: false, message: 'not-called', decision: 'deny' }) };
-    const readinessPolicy = {
-        assess: vi.fn().mockReturnValue({ blocked: false, mode: 'observe' })
-    };
-
-    const useCase = new RunTestUseCase(
-        lifecycleManager as unknown as never,
-        executor as unknown as never,
-        persistence as unknown as never,
-        trace as unknown as never,
-        sessionFactory as unknown as never,
-        laneService as unknown as never,
-        durability as unknown as never,
-        budgetPolicy as unknown as never,
-        checkpointCompaction as unknown as never,
-        recoveryReadModel as unknown as never,
-        recoveryBootstrap as unknown as never,
-        recoveryPolicy as unknown as never,
-        recoveryReplayGuard as unknown as never,
-        replayIdempotency as unknown as never,
-        replanningPolicy as unknown as never,
-        skillRegistry as unknown as never,
-        skillGovernance as unknown as never,
-        pluginRegistry as unknown as never,
-        pluginGateway as unknown as never,
-        readinessPolicy as unknown as never,
-        logger as unknown as never
-    );
-
-    return {
-        useCase,
-        planner,
-        lifecycleManager,
-        executor,
-        durability,
-        readinessPolicy,
-        releaseLane,
-        persistence,
-        browser,
-        replayIdempotency
-    };
+) {
+    return createRunTestUseCaseContext({
+        runId: 'new-run',
+        checkpointRecords: checkpoints,
+        persistence: {
+            saveTestStep: vi.fn(() => okAsync(undefined)),
+            getTestSteps: vi.fn(() => okAsync([...sourceSteps])),
+        },
+    });
 }
 
 describe('RunTestUseCase recovery flow', () => {
@@ -214,7 +81,6 @@ describe('RunTestUseCase recovery flow', () => {
             events.push(event);
         }
 
-        expect(ctx.planner.plan).not.toHaveBeenCalled();
         expect(events.some(e => e.type === 'started')).toBe(true);
         expect(events.some(e => e.type === 'completed' && e.success === true)).toBe(true);
     });
@@ -235,7 +101,6 @@ describe('RunTestUseCase recovery flow', () => {
             events.push(event);
         }
 
-        expect(ctx.planner.plan).not.toHaveBeenCalled();
         expect(events.some(e => e.type === 'completed' && e.success === true)).toBe(true);
     });
 
@@ -253,7 +118,6 @@ describe('RunTestUseCase recovery flow', () => {
 
         expect(ctx.durability.getCheckpointRecords).toHaveBeenCalledTimes(1);
         expect(ctx.durability.getCheckpointRecords).toHaveBeenCalledWith('new-run');
-        expect(ctx.planner.plan).not.toHaveBeenCalled();
         expect(events.some(e => e.type === 'completed' && e.success === true)).toBe(true);
     });
 
@@ -310,7 +174,6 @@ describe('RunTestUseCase recovery flow', () => {
             events.push(event);
         }
 
-        expect(ctx.planner.plan).not.toHaveBeenCalled();
         expect(ctx.executor.executeStep).toHaveBeenCalledTimes(2);
         expect(ctx.executor.executeStep).toHaveBeenNthCalledWith(
             1,
@@ -605,7 +468,6 @@ describe('RunTestUseCase recovery flow', () => {
         }
 
         expect(ctx.executor.executeStep).not.toHaveBeenCalled();
-        expect(ctx.planner.plan).not.toHaveBeenCalled();
         expect(events.some((event) => event.type === 'replanning')).toBe(false);
         expect(events.some((event) => event.type === 'error')).toBe(true);
     });
@@ -631,9 +493,6 @@ describe('RunTestUseCase recovery flow', () => {
         ];
 
         const ctx = createUseCaseContext([createCheckpoint(checkpointState)], sourceSteps);
-        ctx.planner.plan.mockResolvedValueOnce(ok(createPlan([
-            { id: 'r1', description: 'retry pending', status: 'pending', type: 'general' }
-        ])));
 
         let executionCount = 0;
         (ctx.executor.executeStep as ReturnType<typeof vi.fn>).mockImplementation(async function* () {
@@ -670,7 +529,6 @@ describe('RunTestUseCase recovery flow', () => {
         }
 
         expect(ctx.browser.wait).toHaveBeenCalledTimes(1);
-        expect(ctx.planner.plan).not.toHaveBeenCalled();
         expect(ctx.executor.executeStep).toHaveBeenCalledTimes(1);
         expect(events.some((event) => event.type === 'replanning')).toBe(true);
         expect(events.some((event) => event.type === 'completed' && event.success === false)).toBe(true);

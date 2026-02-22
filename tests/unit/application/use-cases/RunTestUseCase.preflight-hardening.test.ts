@@ -1,137 +1,44 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
-import { ok, okAsync } from 'neverthrow';
-import { RunTestUseCase } from '@application/use-cases/RunTestUseCase';
 import { ExecutionController } from '@application/controllers/ExecutionController';
-import { RecoveryReadModelService } from '@application/services/execution/RecoveryReadModelService';
-import { RunRecoveryPolicyService } from '@application/services/execution/RunRecoveryPolicyService';
-import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
-import { ManualRecoveryBootstrapService } from '@application/services/execution/ManualRecoveryBootstrapService';
-import { RecoveryReplayGuardService } from '@application/services/execution/RecoveryReplayGuardService';
-import { RecoveryReplayIdempotencyService } from '@application/services/execution/RecoveryReplayIdempotencyService';
-import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
+import { createRunTestUseCaseContext } from '../../../helpers/createRunTestUseCaseContext';
 
 describe('RunTestUseCase preflight hardening', () => {
     it('does not fail run when skill/plugin preflight throws', async () => {
-        const lifecycleManager = {
-            initializeTestRun: vi.fn().mockResolvedValue(ok('run-preflight')),
-            finalizeTestRun: vi.fn().mockResolvedValue(undefined),
-            failTestRun: vi.fn().mockResolvedValue(undefined)
-        };
-
-        const executor = {
-            executeStep: vi.fn(async function* () {
-                yield* [];
-                return { success: true as const, terminal: 'pass' as const };
-            })
-        };
-
-        const persistence = {
-            saveTestStep: vi.fn(() => okAsync(undefined)),
-            getTestSteps: vi.fn(() => okAsync([]))
-        };
-
-        const trace = {
-            endTrace: vi.fn().mockResolvedValue(undefined)
-        };
-
-        const sessionFactory = {
-            createSession: vi.fn().mockResolvedValue({
-                browser: {
-                    waitForDOMStable: vi.fn().mockResolvedValue(undefined),
-                    navigateTo: vi.fn(() => okAsync(undefined))
-                },
-                shouldNavigate: false,
-                dispose: vi.fn().mockResolvedValue(undefined)
-            })
-        };
-
-        const laneService = {
-            acquire: vi.fn().mockResolvedValue(vi.fn())
-        };
-
-        const durability = {
-            transition: vi.fn((_: string, __: string, next: string) => next),
-            checkpoint: vi.fn().mockResolvedValue(undefined),
-            getCheckpointRecords: vi.fn().mockResolvedValue([])
-        };
-
-        const budgetPolicy = {
-            resolveLimits: vi.fn().mockReturnValue({}),
-            assess: vi.fn().mockReturnValue({ status: 'ok', exceeded: [] }),
-            evaluate: vi.fn().mockReturnValue({ status: 'ok', exceeded: [] }),
-            formatExceededMessage: vi.fn().mockReturnValue('Run budget exceeded')
-        };
-
-        const logger = {
-            info: vi.fn(),
-            warn: vi.fn(),
-            debug: vi.fn()
-        };
-
-        const useCase = new RunTestUseCase(
-            lifecycleManager as unknown as never,
-            executor as unknown as never,
-            persistence as unknown as never,
-            trace as unknown as never,
-            sessionFactory as unknown as never,
-            laneService as unknown as never,
-            durability as unknown as never,
-            budgetPolicy as unknown as never,
-            new CheckpointCompactionService() as unknown as never,
-            new RecoveryReadModelService() as unknown as never,
-            new ManualRecoveryBootstrapService() as unknown as never,
-            new RunRecoveryPolicyService() as unknown as never,
-            new RecoveryReplayGuardService() as unknown as never,
-            {
-                shouldExecute: vi.fn().mockResolvedValue(true),
-                markExecuted: vi.fn().mockResolvedValue(undefined)
-            } as unknown as RecoveryReplayIdempotencyService,
-            new ReplanningPolicyService(logger as unknown as never) as unknown as never,
-            {
-                get: vi.fn(() => {
-                    throw new Error('skill-registry-boom');
-                })
-            } as unknown as never,
-            {
-                isAllowed: vi.fn(() => {
-                    throw new Error('skill-governance-boom');
-                })
-            } as unknown as never,
-            {
-                get: vi.fn(() => {
-                    throw new Error('plugin-registry-boom');
-                })
-            } as unknown as never,
-            {
-                authorize: vi.fn(() => {
-                    throw new Error('plugin-gateway-boom');
-                })
-            } as unknown as never,
-            {
-                assess: vi.fn().mockReturnValue({ blocked: false, mode: 'observe' })
-            } as unknown as never,
-            logger as unknown as never
-        );
+        const ctx = createRunTestUseCaseContext({
+            runId: 'run-preflight',
+            skillRegistry: {
+                get: vi.fn(() => { throw new Error('skill-registry-boom'); }),
+            },
+            skillGovernance: {
+                isAllowed: vi.fn(() => { throw new Error('skill-governance-boom'); }),
+            },
+            pluginRegistry: {
+                get: vi.fn(() => { throw new Error('plugin-registry-boom'); }),
+            },
+            pluginGateway: {
+                authorize: vi.fn(() => { throw new Error('plugin-gateway-boom'); }),
+            },
+        });
 
         const controller = new ExecutionController();
 
         const events: Array<{ type: string; success?: boolean }> = [];
-        for await (const event of useCase.execute({
+        for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'run with preflight errors isolated',
             options: {
                 preferredSkillId: 'skill-a',
                 pluginPreflight: {
                     pluginId: 'plugin-a',
-                    capability: 'fs.read'
-                }
-            }
+                    capability: 'fs.read',
+                },
+            },
         }, controller)) {
             events.push(event as unknown as never);
         }
 
         expect(events.some(event => event.type === 'completed' && event.success === true)).toBe(true);
-        expect(logger.warn).toHaveBeenCalled();
+        expect(ctx.logger.warn).toHaveBeenCalled();
     });
 });
