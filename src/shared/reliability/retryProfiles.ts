@@ -7,23 +7,6 @@ function createMessageMatcher(patterns: readonly string[]) {
     };
 }
 
-const TRANSIENT_LLM_TOOL_CALL_PATTERNS = [
-    'timeout',
-    'timed out',
-    'temporar',
-    'unavailable',
-    'overloaded',
-    'rate limit',
-    '429',
-    '503',
-    '502',
-    '504',
-    'connection',
-    'econnreset',
-    'network',
-    'model did not return any tool call'
-] as const;
-
 const TRANSIENT_ELECTRON_CONNECT_PATTERNS = [
     'timeout',
     'timed out',
@@ -37,7 +20,6 @@ const TRANSIENT_ELECTRON_CONNECT_PATTERNS = [
     'cdp'
 ] as const;
 
-export const isTransientLlmToolCallingError = createMessageMatcher(TRANSIENT_LLM_TOOL_CALL_PATTERNS);
 export const isTransientElectronConnectError = createMessageMatcher(TRANSIENT_ELECTRON_CONNECT_PATTERNS);
 
 export const RETRY_PROFILES = {

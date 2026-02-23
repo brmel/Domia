@@ -6,9 +6,12 @@ import path from 'node:path';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'node:url';
 import { createIPCHandler } from 'trpc-electron/main';
+import createDebug from 'debug';
 import { appRouter } from './router';
 import { AgentViewService } from '../src/infrastructure/electron/AgentViewService';
 import { ElectronViewHost } from '../src/infrastructure/adapters/view/ElectronViewHost';
+
+const log = createDebug('domia:electron:main');
 
 registerCoreServices();
 container.register(AgentViewService, { useClass: AgentViewService });
@@ -54,13 +57,13 @@ function createWindow(): void {
 
   ipcMain.on('agent-view:resize', (event, bounds: Electron.Rectangle) => {
     const senderUrl = event.senderFrame?.url || event.sender.getURL();
-    console.log('[agent-view:resize]', { bounds, senderUrl });
+    log('[agent-view:resize] %o', { bounds, senderUrl });
     agentViewService.updateBounds(bounds);
   });
 
   ipcMain.on('agent-view:show', (event, bounds: Electron.Rectangle) => {
     const senderUrl = event.senderFrame?.url || event.sender.getURL();
-    console.log('[agent-view:show]', { bounds, senderUrl });
+    log('[agent-view:show] %o', { bounds, senderUrl });
     agentViewService.show(bounds);
   });
 

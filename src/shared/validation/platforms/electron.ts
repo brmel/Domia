@@ -33,4 +33,4 @@ export const ElectronConfigSchema = z.object({
   connection: ElectronConnectionSchema,
 });
 
-export type ElectronConfig = z.infer<typeof ElectronConfigSchema>;
+

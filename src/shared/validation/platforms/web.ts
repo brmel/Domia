@@ -13,4 +13,4 @@ export const WebConfigSchema = z.object({
     }),
 });
 
-export type WebConfig = z.infer<typeof WebConfigSchema>;
+

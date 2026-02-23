@@ -122,6 +122,4 @@ export interface FailAction {
     readonly thought?: string;
 }
 
-export function isTerminalAction(action: AgentAction): action is PassAction | FailAction {
-    return action.type === ActionType.PASS || action.type === ActionType.FAIL;
-}
+

@@ -15,14 +15,4 @@ export interface SkillDefinition {
     readonly postconditions: readonly string[];
 }
 
-export interface SkillExecutionRequest {
-    readonly runId: string;
-    readonly skillId: string;
-    readonly payload: Record<string, unknown>;
-}
 
-export interface SkillExecutionResult {
-    readonly success: boolean;
-    readonly summary: string;
-    readonly data?: Record<string, unknown>;
-}

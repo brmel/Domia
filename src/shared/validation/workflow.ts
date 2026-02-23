@@ -52,7 +52,4 @@ export const GetWorkflowRunDetailsInputSchema = z.object({
     workflowRunId: z.string().trim().min(1)
 });
 
-export type WorkflowStepInput = z.infer<typeof WorkflowStepSchema>;
-export type WorkflowDefinitionInput = z.infer<typeof WorkflowDefinitionSchema>;
-export type CreateWorkflowInput = z.infer<typeof CreateWorkflowInputSchema>;
-export type UpdateWorkflowInput = z.infer<typeof UpdateWorkflowInputSchema>;
+

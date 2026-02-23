@@ -56,7 +56,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
                     retries--;
                     this.logger.warn(`[PlaywrightAdapter] Connection attempt failed: ${e}. Retries left: ${retries}`);
                     if (retries === 0) throw e;
-                    await new Promise(r => setTimeout(r, 1000));
+                    await new Promise(r => setTimeout(r, TOOL_TIMEOUTS.CDP_RETRY_DELAY_MS));
                 }
             }
 
@@ -274,7 +274,7 @@ export class PlaywrightAdapter implements IBrowserAutomation {
                 (async (): Promise<void> => {
                     await el.scrollIntoViewIfNeeded();
 
-                    await el.evaluate((node) => {
+                    await el.evaluate((node, highlightMs) => {
                         const element = node as HTMLElement;
                         const originalOutline = element.style.outline;
                         const originalTransition = element.style.transition;
@@ -286,8 +286,8 @@ export class PlaywrightAdapter implements IBrowserAutomation {
                         setTimeout(() => {
                             element.style.outline = originalOutline;
                             element.style.transition = originalTransition;
-                        }, 1000);
-                    });
+                        }, highlightMs);
+                    }, TOOL_TIMEOUTS.HIGHLIGHT_DURATION_MS);
 
                     if (this.page) {
                         await this.page.waitForTimeout(500);
