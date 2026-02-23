@@ -24,8 +24,13 @@ export function registerPlatformModule(): void {
     // Factory (registry pattern — providers self-register)
     container.registerSingleton(AppDriverFactory);
     container.register('IAppDriverFactory', { useToken: AppDriverFactory });
+}
 
-    // Register built-in providers with the factory
+/**
+ * Eagerly resolves the platform factory and wires built-in providers.
+ * Must be called AFTER all dependency tokens (ILogger, IViewHost, etc.) are registered.
+ */
+export function initializePlatformProviders(): void {
     const factory = container.resolve(AppDriverFactory);
     factory.registerProvider(container.resolve(WebDriverProvider));
     factory.registerProvider(container.resolve(ElectronDriverProvider));

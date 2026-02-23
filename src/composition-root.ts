@@ -18,9 +18,9 @@ export function registerCoreServices(): void {
     container.register('IConfigService', { useToken: ConfigService });
     container.registerSingleton('IPersistenceAdapter', SQLiteAdapter);
 
-    registerPlatformModule();
-
     container.registerSingleton('ILogger', ConsoleLogger);
+
+    registerPlatformModule();
 
     registerRuntimeModule();
     registerWorkflowModule();
