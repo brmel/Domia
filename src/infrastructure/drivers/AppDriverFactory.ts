@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
-import type { IAppDriverFactory, IAppDriverProvider, AppDriverCreateConfig } from '../../../domain/ports/IAppDriverFactory';
-import type { IAppDriver } from '../../../domain/ports/IAppDriver';
-import type { ILogger } from '../../../domain/ports';
+import type { IAppDriverFactory, IAppDriverProvider, AppDriverCreateConfig } from '../../domain/ports/IAppDriverFactory';
+import type { IAppDriver } from '../../domain/ports/IAppDriver';
+import type { ILogger } from '../../domain/ports';
 
 /**
  * Registry-based driver factory.

@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { SQLITE_MIGRATION_IDS } from '@infrastructure/adapters/persistence/SQLiteAdapter';
+import { SQLITE_MIGRATION_IDS } from '@infrastructure/persistence/SQLiteAdapter';
 
 describe('SQLiteAdapter migration plan', () => {
     it('keeps deterministic migration ordering', () => {

@@ -10,7 +10,7 @@ import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } fro
 import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
 import { TestRunId, Url } from '@domain/value-objects';
 import { PersistenceError } from '@domain/errors';
-import { ConfigService } from '../../config/ConfigService';
+import { ConfigService } from '../config/ConfigService';
 
 interface TestRunTable {
     id: string;

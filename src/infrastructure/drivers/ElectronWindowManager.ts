@@ -1,8 +1,8 @@
 import { Page } from 'playwright';
 import { Result, ok, err } from 'neverthrow';
-import type { ILogger } from '../../../domain/ports';
-import { CDPValidator, ValidationError } from '../../../domain/validators/CDPValidator';
-import { WINDOW_ID_CONSTANTS } from '../../../domain/constants/PlatformConstants';
+import type { ILogger } from '../../domain/ports';
+import { CDPValidator, ValidationError } from '../../domain/validators/CDPValidator';
+import { WINDOW_ID_CONSTANTS } from '../../domain/constants/PlatformConstants';
 
 export interface ElectronWindow {
     readonly id: string;

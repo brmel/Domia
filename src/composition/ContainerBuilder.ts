@@ -2,19 +2,19 @@ import { container } from 'tsyringe';
 
 // ── Core ──
 import { ConfigService } from '@infrastructure/config/ConfigService';
-import { SQLiteAdapter } from '@infrastructure/adapters/persistence/SQLiteAdapter';
-import { ConsoleLogger } from '@infrastructure/adapters/logger/ConsoleLogger';
+import { SQLiteAdapter } from '@infrastructure/persistence/SQLiteAdapter';
+import { ConsoleLogger } from '@infrastructure/logger/ConsoleLogger';
 import { RunTestUseCase } from '@application/use-cases';
 
 // ── Platform ──
-import { PlaywrightAdapter } from '@infrastructure/adapters/browser';
+import { PlaywrightAdapter } from '@infrastructure/browser';
 import {
     WebDriver,
     ElectronDriver,
     WebDriverProvider,
     ElectronDriverProvider,
     AppDriverFactory,
-} from '@infrastructure/adapters/drivers';
+} from '@infrastructure/drivers';
 import { PlatformSessionFactory } from '@application/services/platform/PlatformSessionFactory';
 
 // ── Runtime / Execution ──
@@ -48,8 +48,8 @@ import { WorkflowStepPolicyService } from '@application/services/workflow/Workfl
 import { PlatformCapabilityNegotiationService } from '@application/services/platform/PlatformCapabilityNegotiationService';
 
 // ── LLM ──
-import { LlmRuntimeConfigResolver } from '@infrastructure/adapters/llm/LlmRuntimeConfigResolver';
-import { AdkAgentRunner } from '@infrastructure/adapters/adk/AdkAgentRunner';
+import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
+import { AdkAgentRunner } from '@infrastructure/adk/AdkAgentRunner';
 
 // ── Perception ──
 import { PerceptionPipeline } from '@infrastructure/perception/PerceptionPipeline';
@@ -66,7 +66,7 @@ import { TrajectoryExportService } from '@infrastructure/services/exporters/Traj
 import type { IStorageService } from '@domain/ports/IStorageService';
 
 // ── CLI ──
-import { ConsoleViewHost } from '@infrastructure/adapters/view/ConsoleViewHost';
+import { ConsoleViewHost } from '@infrastructure/view/ConsoleViewHost';
 
 /**
  * Single-entry builder that wires every DI registration in deterministic order.

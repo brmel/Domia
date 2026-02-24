@@ -13,7 +13,7 @@ import {
     formatElements,
     type BrowserToolDependencies,
     type BrowserToolSpec,
-} from '../../tools/BrowserToolCatalog';
+} from '../tools/BrowserToolCatalog';
 
 // Re-export for consumers that imported from this module before the refactor.
 export { formatElements };

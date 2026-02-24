@@ -5,7 +5,7 @@ import type { IBrowserAutomation, IPerceptionPipeline, IStorageService, ILogger 
 import type { IAgentRunner, AgentActionEvent, StepExecutionResult, StepRunnerConfig } from '@domain/ports/IAgentRunner';
 import type { AgentAction } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
-import { LlmRuntimeConfigResolver } from '@infrastructure/adapters/llm/LlmRuntimeConfigResolver';
+import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
 import { createAdkBrowserTools, formatElements } from './AdkBrowserToolFactory';
 
 const APP_NAME = 'domia';

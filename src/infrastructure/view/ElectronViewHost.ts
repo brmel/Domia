@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import { IViewHost, ViewOptions } from '@domain/ports';
-import { AgentViewService } from '../../electron/AgentViewService';
+import { AgentViewService } from '../electron/AgentViewService';
 
 @injectable()
 export class ElectronViewHost implements IViewHost {

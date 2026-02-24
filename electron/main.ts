@@ -9,7 +9,7 @@ import { createIPCHandler } from 'trpc-electron/main';
 import createDebug from 'debug';
 import { appRouter } from './router';
 import { AgentViewService } from '../src/infrastructure/electron/AgentViewService';
-import { ElectronViewHost } from '../src/infrastructure/adapters/view/ElectronViewHost';
+import { ElectronViewHost } from '../src/infrastructure/view/ElectronViewHost';
 import { ContainerBuilder } from '../src/composition/ContainerBuilder';
 
 const log = createDebug('domia:electron:main');

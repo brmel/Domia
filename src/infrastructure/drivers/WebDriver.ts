@@ -1,9 +1,9 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
-import { IAppDriver, AppCapabilities } from '../../../domain/ports/IAppDriver';
+import { IAppDriver, AppCapabilities } from '../../domain/ports/IAppDriver';
 import { PlaywrightAdapter } from '../browser/PlaywrightAdapter';
-import type { ILogger } from '../../../domain/ports';
-import { Platform } from '../../../domain/constants/PlatformConstants';
+import type { ILogger } from '../../domain/ports';
+import { Platform } from '../../domain/constants/PlatformConstants';
 
 @injectable()
 export class WebDriver implements IAppDriver {
@@ -33,7 +33,7 @@ export class WebDriver implements IAppDriver {
         };
     }
 
-    getBrowserAutomation(): import('../../../domain/ports').IBrowserAutomation {
+    getBrowserAutomation(): import('../../domain/ports').IBrowserAutomation {
         return this.playwright;
     }
 }
