@@ -148,6 +148,9 @@ export class AdkAgentRunner implements IAgentRunner {
             this.logger.warn('[AdkAgentRunner] Failed to save initial perception assets');
         }
 
+        // Track the latest saved assets per action so the yield can include them.
+        let latestActionAssets: Record<string, string> = {};
+
         // 2. Build initial user message (text + optional screenshot)
         const elementsStr = formatElements(frame.semantic.dom.elements);
         const textPart: Part = {
@@ -181,8 +184,27 @@ Analyze the current page state and begin working toward the goal. Call exactly o
 
         const initialMessage: Content = { role: 'user', parts };
 
-        // 3. Create ADK tools from browser automation
-        const tools = createAdkBrowserTools({ browser, perception: this.perception, vision });
+        // 3. Create ADK tools from browser automation.
+        //    The onCapture hook saves each tool's perception frame to disk
+        //    so the Step Inspector can display it later.
+        let captureStepCounter = 1; // initial capture already saved as step 1
+        const tools = createAdkBrowserTools({
+            browser,
+            perception: this.perception,
+            vision,
+            onCapture: async (capturedFrame) => {
+                captureStepCounter++;
+                try {
+                    latestActionAssets = await this.storage.savePerceptionAssets(
+                        runId,
+                        captureStepCounter,
+                        capturedFrame,
+                    );
+                } catch {
+                    this.logger.warn(`[AdkAgentRunner] Failed to save perception assets for step ${captureStepCounter}`);
+                }
+            },
+        });
 
         // 4. Create the ADK agent with best-practice configuration
         const actionHistory: string[] = [];
@@ -250,7 +272,14 @@ Analyze the current page state and begin working toward the goal. Call exactly o
 
                         this.logger.info(`[AdkAgentRunner] Action ${actionCount}/${maxActions}: ${fc.name}`, fc.args);
 
-                        yield { type: 'action', action, assets: actionCount === 1 ? initialAssets : {} };
+                        // For the first action, use the initial perception assets.
+                        // For subsequent actions, use whatever onCapture saved (may be empty
+                        // if the tool did not trigger a capture).
+                        const actionAssets = actionCount === 1
+                            ? initialAssets
+                            : latestActionAssets;
+                        latestActionAssets = {}; // reset for next action
+                        yield { type: 'action', action, assets: actionAssets };
 
                         // Terminal actions
                         if (action.type === ActionType.PASS) {

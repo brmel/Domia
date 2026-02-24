@@ -13,6 +13,7 @@ import { z } from 'zod';
 import type { IBrowserAutomation, IPerceptionPipeline } from '@domain/ports';
 import { ElementIdFactory } from '@domain/value-objects';
 import type { DOMElement } from '@domain/value-objects/DOMSnapshot';
+import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import { ActionType } from '@domain/enums/ActionType';
 
 // ---------------------------------------------------------------------------
@@ -45,6 +46,8 @@ export interface BrowserToolDependencies {
     readonly perception: IPerceptionPipeline;
     /** Whether to capture screenshots in tool responses for multimodal reasoning. */
     readonly vision: boolean;
+    /** Optional callback invoked after every perception capture, enabling the runner to persist the frame. */
+    readonly onCapture?: (frame: PerceptionFrame) => void | Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -82,6 +85,7 @@ async function capturePostActionState(
     vision: boolean,
     delayMs = 0,
     visionOverride?: boolean,
+    onCapture?: (frame: PerceptionFrame) => void | Promise<void>,
 ): Promise<Record<string, unknown>> {
     if (delayMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -96,6 +100,12 @@ async function capturePostActionState(
     }
 
     const frame = frameResult.value;
+
+    // Notify the runner so it can persist the frame to disk for the inspector.
+    if (onCapture) {
+        try { await onCapture(frame); } catch { /* persistence failure must not break the agent loop */ }
+    }
+
     const viewport = await browser.getViewportSize();
 
     const result: Record<string, unknown> = {
@@ -134,13 +144,13 @@ const CAPTURE_SKIPPED: Record<string, unknown> = { status: 'success', capture: '
  * A standalone `observe` tool lets the agent capture page state without performing any action.
  */
 export function createBrowserToolCatalog(deps: BrowserToolDependencies): BrowserToolSpec[] {
-    const { browser, perception, vision } = deps;
+    const { browser, perception, vision, onCapture } = deps;
 
     /** Conditionally capture based on agent's choice. */
     const maybeCap = (opts: { capture?: boolean | undefined; captureDelayMs?: number | undefined }) =>
         opts.capture === false
             ? Promise.resolve(CAPTURE_SKIPPED)
-            : capturePostActionState(browser, perception, vision, opts.captureDelayMs ?? 0);
+            : capturePostActionState(browser, perception, vision, opts.captureDelayMs ?? 0, undefined, onCapture);
 
     /** Common optional params added to every action tool schema. */
     const captureParams = {
@@ -321,7 +331,7 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
                 vision: z.boolean().optional().describe('Override session-level vision. Set true to force a screenshot, false to skip it.'),
             }),
             execute: async ({ delayMs, vision: visionOverride }: { delayMs?: number; vision?: boolean }) => {
-                return capturePostActionState(browser, perception, vision, delayMs ?? 0, visionOverride);
+                return capturePostActionState(browser, perception, vision, delayMs ?? 0, visionOverride, onCapture);
             },
         },
         {

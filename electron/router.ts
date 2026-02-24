@@ -219,6 +219,15 @@ export const appRouter = t.router({
                 const artifacts = await storage.getStepArtifacts(input.runId, input.stepNumber);
                 return artifacts;
             }),
+        getStepDetail: t.procedure
+            .input(z.object({ runId: z.string(), stepNumber: z.number() }))
+            .query(async ({ input }) => {
+                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+                const stepsResult = await persistence.getTestSteps(input.runId);
+                if (stepsResult.isErr()) throw new Error(stepsResult.error.message);
+                const step = stepsResult.value.find(s => s.stepNumber === input.stepNumber);
+                return step ?? null;
+            }),
         exportTrajectories: t.procedure
             .input(z.object({
                 runIds: z.array(z.string().trim().min(1)).optional(),

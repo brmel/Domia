@@ -7,12 +7,18 @@ import { cn } from '../../lib/utils';
 import { Button } from './ui/Button';
 import { SegmentedControl } from './ui/SegmentedControl';
 import type { StepArtifacts } from '@domain/ports/IStorageService';
+import type { TestStep } from '@domain/ports/IPersistenceAdapter';
 
 export function StepInspector(): JSX.Element | null {
     const { isOpen, runId, stepNumber, close } = useStepInspectorStore();
     const modalRef = useRef<HTMLDivElement>(null);
 
     const { data: artifacts, isLoading, error } = trpc.history.getStepArtifacts.useQuery(
+        { runId: runId!, stepNumber: stepNumber! },
+        { enabled: isOpen && !!runId && stepNumber !== null, staleTime: Infinity }
+    );
+
+    const { data: stepDetail } = trpc.history.getStepDetail.useQuery(
         { runId: runId!, stepNumber: stepNumber! },
         { enabled: isOpen && !!runId && stepNumber !== null, staleTime: Infinity }
     );
@@ -77,15 +83,15 @@ export function StepInspector(): JSX.Element | null {
                         </div>
                     )}
 
-                    {!isLoading && !error && artifacts && <InspectorContent artifacts={artifacts} />}
+                    {!isLoading && !error && artifacts && <InspectorContent artifacts={artifacts} stepDetail={stepDetail ?? undefined} />}
                 </div>
             </div>
         </div>
     );
 }
 
-function InspectorContent({ artifacts }: { artifacts: StepArtifacts }): JSX.Element {
-    const [activeTab, setActiveTab] = useState<'vision' | 'semantic' | 'trace'>('vision');
+function InspectorContent({ artifacts, stepDetail }: { artifacts: StepArtifacts; stepDetail: TestStep | undefined }): JSX.Element {
+    const [activeTab, setActiveTab] = useState<'action' | 'vision' | 'semantic' | 'trace'>('action');
 
     const domTree = artifacts.dom;
     const accessibilityTree = artifacts.accessibility;
@@ -93,6 +99,7 @@ function InspectorContent({ artifacts }: { artifacts: StepArtifacts }): JSX.Elem
     const traceData = artifacts.trace ?? undefined;
 
     const tabs = [
+        { id: 'action', label: 'Action', icon: '⚡' },
         { id: 'vision', label: 'Vision', icon: '👁️' },
         { id: 'semantic', label: 'Semantic', icon: '🌳' },
         { id: 'trace', label: 'Trace', icon: '🧠' },
@@ -116,6 +123,12 @@ function InspectorContent({ artifacts }: { artifacts: StepArtifacts }): JSX.Elem
 
             {/* Tab Panels */}
             <div className="flex-1 overflow-hidden relative">
+
+                {/* Action Tab */}
+                <div className={cn("absolute inset-0 transition-opacity duration-300 overflow-auto",
+                    activeTab === 'action' ? "opacity-100 z-10" : "opacity-0 pointer-events-none")}>
+                    <ActionDetailView stepDetail={stepDetail} />
+                </div>
 
                 {/* Vision Tab */}
                 <div className={cn("absolute inset-0 p-6 flex items-center justify-center transition-opacity duration-300",
@@ -203,6 +216,98 @@ function InspectorContent({ artifacts }: { artifacts: StepArtifacts }): JSX.Elem
                 </div>
 
             </div>
+        </div>
+    );
+}
+
+function ActionDetailView({ stepDetail }: { stepDetail: TestStep | undefined }): JSX.Element {
+    if (!stepDetail) {
+        return <EmptyState icon="⚡" title="No action data" description="Action details are not available for this step." />;
+    }
+    const { actionType, actionPayload, assets, timestamp } = stepDetail;
+
+    // Extract thought if present
+    const thought = 'thought' in actionPayload ? (actionPayload as { thought?: string }).thought : undefined;
+
+    // Build a clean params object excluding 'type' and 'thought' (shown separately)
+    const params: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(actionPayload)) {
+        if (key !== 'type' && key !== 'thought') {
+            params[key] = value;
+        }
+    }
+
+    return (
+        <div className="p-6 space-y-6">
+            {/* Action Type Badge + Timestamp */}
+            <div className="flex items-center gap-4">
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-bold text-sm uppercase tracking-wider">
+                    ⚡ {actionType}
+                </span>
+                <span className="text-xs text-gray-400 font-mono">{new Date(timestamp).toLocaleString()}</span>
+            </div>
+
+            {/* Thought */}
+            {thought && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <div className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-2">Agent Thought</div>
+                    <p className="text-gray-800 text-sm leading-relaxed italic">"{thought}"</p>
+                </div>
+            )}
+
+            {/* Parameters */}
+            {Object.keys(params).length > 0 && (
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                    <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        Parameters
+                    </div>
+                    <div className="p-4">
+                        <div className="grid gap-3">
+                            {Object.entries(params).map(([key, value]) => (
+                                <div key={key} className="flex items-start gap-3">
+                                    <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-1 rounded shrink-0 min-w-[100px]">
+                                        {key}
+                                    </span>
+                                    <span className="text-sm text-gray-800 break-all">
+                                        {typeof value === 'string' ? value : JSON.stringify(value)}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Assets */}
+            {assets && Object.keys(assets).length > 0 && (
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                    <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                        Saved Assets
+                    </div>
+                    <div className="p-4">
+                        <div className="grid gap-2">
+                            {Object.entries(assets).map(([key, path]) => (
+                                <div key={key} className="flex items-center gap-3">
+                                    <span className="text-xs font-mono bg-green-50 text-green-700 px-2 py-1 rounded shrink-0">
+                                        {key}
+                                    </span>
+                                    <span className="text-xs text-gray-500 font-mono truncate">{path}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Full Payload (collapsible) */}
+            <details className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <summary className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors">
+                    Raw Action Payload
+                </summary>
+                <div className="p-4">
+                    <JsonTreeView data={actionPayload as unknown as Record<string, unknown>} name="Action" />
+                </div>
+            </details>
         </div>
     );
 }

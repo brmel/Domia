@@ -262,6 +262,12 @@ export class RunCommand {
                         switch (event.type) {
                             case 'started':
                                 break;
+                            case 'acting': {
+                                const a = event.action;
+                                const thought = 'thought' in a ? (a as { thought?: string }).thought : undefined;
+                                console.log(chalk.cyan(`  [Action] ${a.type}`) + (thought ? chalk.dim(` — ${thought}`) : ''));
+                                break;
+                            }
                             case 'replanning': {
                                 const status = event.telemetry.status;
                                 const reason = event.telemetry.reason;
