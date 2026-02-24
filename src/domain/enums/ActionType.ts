@@ -12,6 +12,7 @@ export enum ActionType {
     PRESS_KEY = 'pressKey',
     EXTRACT = 'extract',
     NAVIGATE = 'navigate',
+    OBSERVE = 'observe',
     PASS = 'pass',
     FAIL = 'fail'
 }

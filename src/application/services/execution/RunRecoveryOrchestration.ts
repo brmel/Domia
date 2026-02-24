@@ -305,6 +305,10 @@ async function executeReplayAction(browser: IBrowserAutomation, action: AgentAct
             return;
         }
 
+        case ActionType.OBSERVE:
+            // Observe is a perception-only action; during replay there is nothing to execute.
+            return;
+
         case ActionType.NAVIGATE: {
             const urlResult = UrlFactory.create(action.url);
             if (urlResult.isErr()) {

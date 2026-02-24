@@ -15,6 +15,7 @@ export type AgentAction =
     | PressKeyAction
     | ExtractAction
     | NavigateAction
+    | ObserveAction
     | PassAction
     | FailAction;
 
@@ -107,6 +108,13 @@ export interface ExtractAction {
 export interface NavigateAction {
     readonly type: ActionType.NAVIGATE;
     readonly url: string;
+    readonly thought: string;
+}
+
+export interface ObserveAction {
+    readonly type: ActionType.OBSERVE;
+    readonly delayMs?: number;
+    readonly vision?: boolean;
     readonly thought: string;
 }
 

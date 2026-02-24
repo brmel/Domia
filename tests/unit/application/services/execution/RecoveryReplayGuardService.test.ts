@@ -15,7 +15,8 @@ describe('RecoveryReplayGuardService', () => {
             { type: ActionType.MOUSE_MOVE, x: 10, y: 20, thought: 'move' },
             { type: ActionType.MOUSE_SCROLL, deltaX: 0, deltaY: 300, thought: 'wheel' },
             { type: ActionType.EXTRACT, elementId: ElementIdFactory.unsafe(1), thought: 'extract' },
-            { type: ActionType.NAVIGATE, url: 'https://example.com', thought: 'navigate' }
+            { type: ActionType.NAVIGATE, url: 'https://example.com', thought: 'navigate' },
+            { type: ActionType.OBSERVE, thought: 'observe' }
         ];
 
         for (const action of actions) {

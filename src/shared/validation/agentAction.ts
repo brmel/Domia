@@ -97,6 +97,13 @@ const navigateAction = z.object({
     ...baseWithThought
 });
 
+const observeAction = z.object({
+    type: z.literal(ActionType.OBSERVE),
+    delayMs: z.number().int().nonnegative().optional(),
+    vision: z.boolean().optional(),
+    ...baseWithThought
+});
+
 const passAction = z.object({
     type: z.literal(ActionType.PASS),
     summary: z.string().min(1),
@@ -123,6 +130,7 @@ export const AgentActionSchema = z.discriminatedUnion('type', [
     pressKeyAction,
     extractAction,
     navigateAction,
+    observeAction,
     passAction,
     failAction
 ]);

@@ -21,6 +21,8 @@ export class RecoveryReplayGuardService {
                 return { decision: 'replay', idempotencyKey: `mouse_scroll:${action.deltaX}:${action.deltaY}` };
             case ActionType.EXTRACT:
                 return { decision: 'replay', idempotencyKey: `extract:${String(action.elementId)}` };
+            case ActionType.OBSERVE:
+                return { decision: 'replay', idempotencyKey: `observe:${String(action.delayMs ?? 0)}` };
             case ActionType.NAVIGATE:
                 return { decision: 'replay', idempotencyKey: `navigate:${action.url}` };
             case ActionType.PASS:
