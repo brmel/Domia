@@ -14,10 +14,8 @@ import { ReplanningPolicyService } from '@application/services/execution/Replann
 import { BranchRollbackService } from '@application/services/execution/BranchRollbackService';
 import { StepExecutionKernelService } from '@application/services/execution/StepExecutionKernelService';
 import { PlanningCoordinator } from '@application/services/execution/coordinators/PlanningCoordinator';
-import { RunBootstrapCoordinator } from '@application/services/execution/coordinators/RunBootstrapCoordinator';
-import { StepExecutionCoordinator } from '@application/services/execution/coordinators/StepExecutionCoordinator';
+import { RunCoordinator } from '@application/services/execution/coordinators/RunCoordinator';
 import { ReplanningCoordinator } from '@application/services/execution/coordinators/ReplanningCoordinator';
-import { TerminalizationCoordinator } from '@application/services/execution/coordinators/TerminalizationCoordinator';
 import { ReadinessGateService } from '@application/services/hardening/ReadinessGateService';
 import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
 import { TrajectoryExportService } from '@infrastructure/services/exporters/TrajectoryExportService';
@@ -42,10 +40,8 @@ export function registerRuntimeModule(): void {
     container.registerSingleton(BranchRollbackService);
     container.registerSingleton(StepExecutionKernelService);
     container.registerSingleton(PlanningCoordinator);
-    container.registerSingleton(RunBootstrapCoordinator);
-    container.registerSingleton(StepExecutionCoordinator);
+    container.registerSingleton(RunCoordinator);
     container.registerSingleton(ReplanningCoordinator);
-    container.registerSingleton(TerminalizationCoordinator);
 
     container.registerSingleton(ReadinessGateService);
     container.registerSingleton(RuntimeReadinessPolicyService);

@@ -8,7 +8,7 @@ import { RunBudgetPolicyService, type RunBudgetLimits } from './RunBudgetPolicyS
 import type { IRunLifecycleEngine } from './IRunLifecycleEngine';
 import { RunLifecycleEngineService } from './RunLifecycleEngineService';
 import { StepExecutor, type StepExecutionResult } from './StepExecutor';
-import type { StepExecutionOptions } from './coordinators/StepExecutionCoordinator';
+import type { StepExecutionOptions } from './coordinators/RunCoordinator';
 import type { RunTestOutput } from '../../dtos';
 import type { IPersistenceAdapter } from '@domain/ports/IPersistenceAdapter';
 import { v4 as uuidv4 } from 'uuid';

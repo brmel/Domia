@@ -2,10 +2,8 @@ import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
 import { ActionType } from '@domain/enums/ActionType';
 import { PlanningCoordinator } from '@application/services/execution/coordinators/PlanningCoordinator';
-import { RunBootstrapCoordinator } from '@application/services/execution/coordinators/RunBootstrapCoordinator';
-import { StepExecutionCoordinator } from '@application/services/execution/coordinators/StepExecutionCoordinator';
+import { RunCoordinator } from '@application/services/execution/coordinators/RunCoordinator';
 import { ReplanningCoordinator } from '@application/services/execution/coordinators/ReplanningCoordinator';
-import { TerminalizationCoordinator } from '@application/services/execution/coordinators/TerminalizationCoordinator';
 
 describe('Execution coordinators', () => {
     it('builds a single-step plan from a prompt', () => {
@@ -19,7 +17,7 @@ describe('Execution coordinators', () => {
     });
 
     it('resolves bootstrap URL and lane key deterministically', () => {
-        const coordinator = new RunBootstrapCoordinator();
+        const coordinator = new RunCoordinator();
         const input = {
             platformConfig: {
                 platform: 'web',
@@ -32,7 +30,7 @@ describe('Execution coordinators', () => {
     });
 
     it('builds normalized step execution options', () => {
-        const coordinator = new StepExecutionCoordinator();
+        const coordinator = new RunCoordinator();
         const options = coordinator.buildExecutionOptions({
             maxSteps: 5,
         });
@@ -42,7 +40,7 @@ describe('Execution coordinators', () => {
     });
 
     it('honors run-level option overrides', () => {
-        const coordinator = new StepExecutionCoordinator();
+        const coordinator = new RunCoordinator();
         const options = coordinator.buildExecutionOptions({
             vision: false,
             maxSteps: 10,
@@ -63,7 +61,7 @@ describe('Execution coordinators', () => {
     });
 
     it('applies terminal state transitions', () => {
-        const coordinator = new TerminalizationCoordinator();
+        const coordinator = new RunCoordinator();
         const state = coordinator.applyTerminalState(
             {
                 stepNumber: 1,

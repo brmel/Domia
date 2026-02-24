@@ -24,10 +24,8 @@ import { BranchRollbackService } from '../services/execution/BranchRollbackServi
 import { RunLifecycleEngineService } from '../services/execution/RunLifecycleEngineService';
 import type { IRunLifecycleEngine } from '../services/execution/IRunLifecycleEngine';
 import { PlanningCoordinator } from '../services/execution/coordinators/PlanningCoordinator';
-import { RunBootstrapCoordinator } from '../services/execution/coordinators/RunBootstrapCoordinator';
-import { StepExecutionCoordinator } from '../services/execution/coordinators/StepExecutionCoordinator';
+import { RunCoordinator } from '../services/execution/coordinators/RunCoordinator';
 import { ReplanningCoordinator } from '../services/execution/coordinators/ReplanningCoordinator';
-import { TerminalizationCoordinator } from '../services/execution/coordinators/TerminalizationCoordinator';
 import {
     resolveRecoveryContext as resolveRecoveryContextForRun,
     replayRecoveryActions as replayRecoveryActionsForRun,
@@ -69,10 +67,8 @@ export class RunTestUseCase {
         @inject(StepExecutionKernelService) private readonly kernel: StepExecutionKernelService,
         @inject('IPersistenceAdapter') private persistence: import('../../domain/ports').IPersistenceAdapter,
         @inject(PlanningCoordinator) private readonly planningCoordinator: PlanningCoordinator = new PlanningCoordinator(),
-        @inject(RunBootstrapCoordinator) private readonly bootstrapCoordinator: RunBootstrapCoordinator = new RunBootstrapCoordinator(),
-        @inject(StepExecutionCoordinator) private readonly stepExecutionCoordinator: StepExecutionCoordinator = new StepExecutionCoordinator(),
+        @inject(RunCoordinator) private readonly runCoordinator: RunCoordinator = new RunCoordinator(),
         @inject(ReplanningCoordinator) private readonly replanningCoordinator: ReplanningCoordinator = new ReplanningCoordinator(),
-        @inject(TerminalizationCoordinator) private readonly terminalizationCoordinator: TerminalizationCoordinator = new TerminalizationCoordinator(),
         @inject('IRunLifecycleEngine') private readonly runLifecycleEngine: IRunLifecycleEngine = new RunLifecycleEngineService(),
         @inject(BranchRollbackService) private readonly branchRollback: BranchRollbackService = new BranchRollbackService(),
         @inject(ObjectiveCompletionPolicyService) private readonly objectiveCompletionPolicy: ObjectiveCompletionPolicyService = new ObjectiveCompletionPolicyService()
@@ -98,7 +94,7 @@ export class RunTestUseCase {
         controller: ExecutionController,
         runContext?: RunExecutionContext
     ): AsyncGenerator<RunTestOutput, void, unknown> {
-        const url = this.bootstrapCoordinator.resolveExecutionUrl(input, runContext);
+        const url = this.runCoordinator.resolveExecutionUrl(input, runContext);
 
         const readinessDecision = this.readinessPolicy.assess(input, url);
         if (readinessDecision.blocked) {
@@ -106,7 +102,7 @@ export class RunTestUseCase {
             return;
         }
 
-        const laneKey = this.bootstrapCoordinator.resolveLaneKey(input);
+        const laneKey = this.runCoordinator.resolveLaneKey(input);
         const releaseLane = await this.laneService.acquire(laneKey);
 
         const initResult = await this.lifecycleManager.initializeTestRun(url, input.prompt);
@@ -322,7 +318,7 @@ export class RunTestUseCase {
                 };
                 yield { type: 'state_updated', state: currentState };
 
-                const executionOptions = this.stepExecutionCoordinator.buildExecutionOptions(input.options);
+                const executionOptions = this.runCoordinator.buildExecutionOptions(input.options);
 
                 const stepKernel = this.kernel.execute(
                     testRunId,
@@ -469,18 +465,18 @@ export class RunTestUseCase {
             await this.trace.endTrace();
 
             if (terminalError) {
-                currentState = this.terminalizationCoordinator.applyTerminalState(currentState, 'failed', terminalError.message);
+                currentState = this.runCoordinator.applyTerminalState(currentState, 'failed', terminalError.message);
                 runLifecycle = this.durability.transition(testRunId, runLifecycle, 'failed');
                 await this.durability.checkpoint(testRunId, currentState, 'terminal_failure');
                 yield { type: 'error', error: terminalError };
             } else if (controller.state === TestRunState.CANCELLED) {
-                currentState = this.terminalizationCoordinator.applyTerminalState(currentState, 'idle', 'cancelled');
+                currentState = this.runCoordinator.applyTerminalState(currentState, 'idle', 'cancelled');
                 runLifecycle = this.durability.transition(testRunId, runLifecycle, 'cancelled');
                 await this.durability.checkpoint(testRunId, currentState, 'terminal_cancelled');
                 yield { type: 'completed', success: false, summary: "Test cancelled by user." };
                 await this.lifecycleManager.finalizeTestRun(testRunId, false, "Test cancelled by user.");
             } else if (completed) {
-                currentState = this.terminalizationCoordinator.applyTerminalState(
+                currentState = this.runCoordinator.applyTerminalState(
                     currentState,
                     hasUnresolvedVerificationFailure ? 'failed' : 'completed',
                     hasUnresolvedVerificationFailure ? finalSummary : undefined

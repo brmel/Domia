@@ -1,9 +1,20 @@
 import { injectable } from 'tsyringe';
 import type { RunTestInput } from '@application/dtos';
 import type { PlatformSession } from '@application/services/platform/PlatformSession';
+import type { WorkflowState } from '@domain/value-objects';
+import type { RunOptions } from '@shared/validation';
 
+export interface StepExecutionOptions {
+    vision: boolean;
+    maxActions: number;
+}
+
+/**
+ * Consolidated coordinator for run-level concerns:
+ * bootstrap (URL/lane resolution), step execution options, and terminal state.
+ */
 @injectable()
-export class RunBootstrapCoordinator {
+export class RunCoordinator {
     resolveExecutionUrl(input: RunTestInput, runContext?: { session?: PlatformSession }): string {
         const sessionUrl = runContext?.session?.executionUrl;
         if (sessionUrl) {
@@ -34,5 +45,24 @@ export class RunBootstrapCoordinator {
         }
 
         return `platform:electron:executable:${platformConfig.connection.executablePath}`;
+    }
+
+    buildExecutionOptions(options?: RunOptions): StepExecutionOptions {
+        return {
+            vision: options?.vision ?? true,
+            maxActions: options?.maxSteps ?? 20,
+        };
+    }
+
+    applyTerminalState(
+        state: WorkflowState,
+        terminal: 'failed' | 'completed' | 'idle',
+        error?: string
+    ): WorkflowState {
+        return {
+            ...state,
+            status: terminal,
+            ...(error ? { error } : {})
+        };
     }
 }
