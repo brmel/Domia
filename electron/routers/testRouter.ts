@@ -5,8 +5,7 @@ import { IPersistenceAdapter } from '../../src/domain/ports';
 import { ExecutionController } from '../../src/application/controllers/ExecutionController';
 import { observable } from '@trpc/server/observable';
 import { RunTestInput } from '../../src/application/dtos';
-import { FileTraceExporter } from '../../src/infrastructure/services/exporters/FileTraceExporter';
-import { TraceService } from '../../src/infrastructure/services/TraceService';
+import { configureVerboseTracing } from '../../src/composition/modules/registerObservabilityModule';
 import { RunInputSchema } from '../../src/shared/validation';
 import { AgentActionSchema } from '../../src/shared/validation/agentAction';
 import type { AgentAction } from '../../src/domain/value-objects';
@@ -30,9 +29,7 @@ export const testRouter = t.router({
             }
 
             if (input.options?.verbose) {
-                const traceService = container.resolve(TraceService);
-                const storage = container.resolve<import('../../src/domain/ports/IStorageService').IStorageService>('IStorageService');
-                traceService.addExporter(new FileTraceExporter(storage));
+                configureVerboseTracing();
             }
 
             try {

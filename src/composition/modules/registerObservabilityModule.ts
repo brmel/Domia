@@ -19,3 +19,13 @@ export function registerObservabilityModule(): void {
 
     traceService.addExporter(new DebugExporter());
 }
+
+/**
+ * Enable verbose file-based tracing at runtime (e.g. from CLI --verbose flag).
+ * Keeps infrastructure imports inside the composition layer.
+ */
+export function configureVerboseTracing(): void {
+    const traceService = container.resolve(TraceService);
+    const storage = container.resolve<IStorageService>('IStorageService');
+    traceService.addExporter(new FileTraceExporter(storage));
+}

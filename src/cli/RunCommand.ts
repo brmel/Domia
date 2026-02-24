@@ -8,10 +8,9 @@ import figlet from 'figlet';
 import readline from 'readline';
 import { RunTestUseCase } from '../application/use-cases';
 import { ExecutionController } from '../application/controllers/ExecutionController';
-import { ConsoleViewHost } from '../infrastructure/adapters/view/ConsoleViewHost';
-import { TraceService } from '../infrastructure/services/TraceService';
 import { TestRunState } from '../domain/enums/TestRunState';
 import type { PlatformConfig } from '../domain/types/PlatformConfig';
+import { configureVerboseTracing } from '../composition/modules/registerObservabilityModule';
 
 export class RunCommand {
     static register(program: Command): void {
@@ -90,16 +89,8 @@ export class RunCommand {
 
                 if (verbose) {
                     process.env['DOMIA_VERBOSE'] = 'true';
-                    const traceService = container.resolve(TraceService);
-                    const storage = container.resolve<import('../domain/ports/IStorageService').IStorageService>('IStorageService');
-                    const { FileTraceExporter } = await import('../infrastructure/services/exporters/FileTraceExporter');
-
-                    traceService.addExporter(new FileTraceExporter(storage));
+                    configureVerboseTracing();
                     console.log(chalk.gray('[Verbose Mode Enabled: Saving artifacts]'));
-                }
-
-                if (!container.isRegistered('IViewHost')) {
-                    container.register('IViewHost', { useClass: ConsoleViewHost });
                 }
 
                 if ((!url && !cdpUrl && !executablePath) || !prompt) {

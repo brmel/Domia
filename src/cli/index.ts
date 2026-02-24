@@ -5,15 +5,14 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import figlet from 'figlet';
 import { registerCoreServices } from '../composition-root';
-import { container } from '../composition-root';
-import { ConsoleViewHost } from '../infrastructure/adapters/view/ConsoleViewHost';
 import { initializePlatformProviders } from '../composition/modules/registerPlatformModule';
+import { registerCliViewHost } from '../composition/modules/registerCliModule';
 import { RunCommand } from './RunCommand';
 import { HistoryCommand } from './HistoryCommand';
 import { WorkflowCommand } from './WorkflowCommand';
 
 registerCoreServices();
-container.register('IViewHost', { useClass: ConsoleViewHost });
+registerCliViewHost();
 initializePlatformProviders();
 
 const program = new Command();
