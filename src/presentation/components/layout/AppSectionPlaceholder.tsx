@@ -1,5 +1,5 @@
 import React from 'react';
-import { SectionBlock } from './ui/SectionBlock';
+import { SectionBlock } from '../ui/SectionBlock';
 
 interface AppSectionPlaceholderProps {
     title: string;

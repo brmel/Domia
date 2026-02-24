@@ -1,6 +1,6 @@
-import { trpc } from '../trpc';
-import type { DomiaConfig } from '../../shared/config-types';
-import { Button } from './ui/Button';
+import { trpc } from '../../trpc';
+import type { DomiaConfig } from '../../../shared/config-types';
+import { Button } from '../ui/Button';
 
 interface SettingsSidebarProps {
     onClose: () => void;

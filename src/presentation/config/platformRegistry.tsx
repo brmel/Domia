@@ -3,8 +3,8 @@ import type {
   WebPlatformConfig,
   ElectronPlatformConfig,
 } from '../../domain/types/PlatformConfig';
-import { WebPlatformFields } from '../components/platform-fields/WebPlatformFields';
-import { ElectronPlatformFields } from '../components/platform-fields/ElectronPlatformFields';
+import { WebPlatformFields } from '../components/platform/WebPlatformFields';
+import { ElectronPlatformFields } from '../components/platform/ElectronPlatformFields';
 
 export type PlatformFieldValue =
   | Omit<WebPlatformConfig, 'platform'>

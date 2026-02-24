@@ -1,13 +1,13 @@
 
 import { useState } from 'react';
-import { useTestRunStore } from '../stores';
-import { trpc } from '../trpc';
-import { Button } from './ui/Button';
+import { useTestRunStore } from '../../stores';
+import { trpc } from '../../trpc';
+import { Button } from '../ui/Button';
 import { TestRunState } from '@domain/enums/TestRunState';
-import { canStart, canPause, canResume, canStop, isAgentRunning } from '../utils/agentStateUtils';
-import { PlatformSelector } from './PlatformSelector';
-import { platformRegistry, type PlatformFieldValue } from '../config/platformRegistry';
-import type { BuiltInPlatformType, PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../domain/types/PlatformConfig';
+import { canStart, canPause, canResume, canStop, isAgentRunning } from '../../utils/agentStateUtils';
+import { PlatformSelector } from '../platform/PlatformSelector';
+import { platformRegistry, type PlatformFieldValue } from '../../config/platformRegistry';
+import type { BuiltInPlatformType, PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../../domain/types/PlatformConfig';
 
 interface TestFormProps {
     onOpenHistory: () => void;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appendStepToList, moveItem, normalizeSteps, removeStepById, updateStepById } from '@presentation/components/WorkflowWorkspace.helpers';
+import { appendStepToList, moveItem, normalizeSteps, removeStepById, updateStepById } from '@presentation/components/workflow/WorkflowWorkspace.helpers';
 
 describe('WorkflowWorkspace helpers', () => {
     it('normalizes and filters incomplete steps', () => {

@@ -1,14 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { useTestRunStore, useStepInspectorStore } from '../stores';
+import { useTestRunStore, useStepInspectorStore } from '../../stores';
 import type { AgentAction } from '@domain/value-objects';
-import { cn } from '../utils';
-import { trpc } from '../trpc';
+import { cn } from '../../utils';
+import { trpc } from '../../trpc';
 import { TestRunState } from '@domain/enums/TestRunState';
-import { SegmentedControl } from './ui/SegmentedControl';
-import { InfoCard } from './ui/InfoCard';
-import { SectionBlock } from './ui/SectionBlock';
+import { SegmentedControl } from '../ui/SegmentedControl';
+import { InfoCard } from '../ui/InfoCard';
+import { SectionBlock } from '../ui/SectionBlock';
 import { RunTimelineView } from './RunTimelineView';
-import { Button } from './ui/Button';
+import { Button } from '../ui/Button';
 
 
 export function TestRunner(): React.ReactElement {

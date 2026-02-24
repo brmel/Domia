@@ -1,6 +1,6 @@
 import React from 'react';
-import { LiveView } from './LiveView';
-import { TestRunner } from './TestRunner';
+import { LiveView } from '../test/LiveView';
+import { TestRunner } from '../test/TestRunner';
 
 export function RunsWorkspace(): React.ReactElement {
     return (

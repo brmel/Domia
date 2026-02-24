@@ -1,6 +1,6 @@
 import React from 'react';
 import { ResizableSidebar } from './ResizableSidebar';
-import { TestForm } from './TestForm';
+import { TestForm } from '../test/TestForm';
 import { HistorySidebar } from './HistorySidebar';
 import { SettingsSidebar } from './SettingsSidebar';
 

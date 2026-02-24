@@ -2,12 +2,12 @@ import { useTestRunStore } from './presentation/stores';
 import { canInteract } from './presentation/utils/agentStateUtils';
 
 import { useEffect, useState } from 'react';
-import { AppSectionPlaceholder } from './presentation/components/AppSectionPlaceholder';
+import { AppSectionPlaceholder } from './presentation/components/layout/AppSectionPlaceholder';
 import { SegmentedControl } from './presentation/components/ui/SegmentedControl';
-import { RunsWorkspace } from './presentation/components/RunsWorkspace';
-import { ComposeWorkspace } from './presentation/components/ComposeWorkspace';
-import { WorkflowWorkspace } from './presentation/components/WorkflowWorkspace';
-import { StepInspector } from './presentation/components/StepInspector';
+import { RunsWorkspace } from './presentation/components/layout/RunsWorkspace';
+import { ComposeWorkspace } from './presentation/components/layout/ComposeWorkspace';
+import { WorkflowWorkspace } from './presentation/components/workflow/WorkflowWorkspace';
+import { StepInspector } from './presentation/components/test/StepInspector';
 import { TestRunState } from '@domain/enums/TestRunState';
 
 type AppSection = 'runs' | 'compose' | 'workflow' | 'skills' | 'plugins' | 'governance' | 'observability';

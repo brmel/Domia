@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react';
-import { useStepInspectorStore } from '../stores/useStepInspectorStore';
-import { trpc } from '../trpc';
+import { useStepInspectorStore } from '../../stores/useStepInspectorStore';
+import { trpc } from '../../trpc';
 import { JsonTreeView } from './JsonTreeView';
 import { CognitiveTraceView } from './CognitiveTraceView';
-import { cn } from '../utils';
-import { Button } from './ui/Button';
-import { SegmentedControl } from './ui/SegmentedControl';
+import { cn } from '../../utils';
+import { Button } from '../ui/Button';
+import { SegmentedControl } from '../ui/SegmentedControl';
 import type { StepArtifacts } from '@domain/ports/IStorageService';
 import type { TestStep } from '@domain/ports/IPersistenceAdapter';
 

@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { trpc } from '../trpc';
+import { trpc } from '../../trpc';
 import type { TestStep } from '@domain/ports';
-import { useStepInspectorStore } from '../stores/useStepInspectorStore';
-import { Button } from './ui/Button';
+import { useStepInspectorStore } from '../../stores/useStepInspectorStore';
+import { Button } from '../ui/Button';
 
 interface HistorySidebarProps {
     onClose: () => void;

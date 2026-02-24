@@ -1,2 +1,2 @@
-export { TestForm } from './TestForm';
-export { TestRunner } from './TestRunner';
+export { TestForm } from './test/TestForm';
+export { TestRunner } from './test/TestRunner';

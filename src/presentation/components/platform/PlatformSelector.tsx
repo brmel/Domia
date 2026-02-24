@@ -1,7 +1,7 @@
-import { cn } from '../utils';
-import { getAvailablePlatforms } from '../config/platformRegistry';
-import type { BuiltInPlatformType } from '../../domain/types/PlatformConfig';
-import { Button } from './ui/Button';
+import { cn } from '../../utils';
+import { getAvailablePlatforms } from '../../config/platformRegistry';
+import type { BuiltInPlatformType } from '../../../domain/types/PlatformConfig';
+import { Button } from '../ui/Button';
 
 interface PlatformSelectorProps {
   value: BuiltInPlatformType;

@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { trpc } from '../trpc';
-import { Button } from './ui/Button';
-import { SegmentedControl } from './ui/SegmentedControl';
+import { trpc } from '../../trpc';
+import { Button } from '../ui/Button';
+import { SegmentedControl } from '../ui/SegmentedControl';
 import type { WorkflowEvent } from '@domain/events';
-import { PlatformSelector } from './PlatformSelector';
-import { platformRegistry, type PlatformFieldValue } from '../config/platformRegistry';
-import type { BuiltInPlatformType, PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../domain/types/PlatformConfig';
+import { PlatformSelector } from '../platform/PlatformSelector';
+import { platformRegistry, type PlatformFieldValue } from '../../config/platformRegistry';
+import type { BuiltInPlatformType, PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../../domain/types/PlatformConfig';
 import {
     appendStepToList,
     type EditableWorkflowStep,

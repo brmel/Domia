@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTestRunStore } from '../stores';
+import { useTestRunStore } from '../../stores';
 import { LiveViewContainer } from './LiveViewContainer';
 
 export function LiveView(): React.ReactElement {

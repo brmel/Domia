@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { useTestRunStore } from '../stores';
+import { useTestRunStore } from '../../stores';
 
 export const LiveViewContainer: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);

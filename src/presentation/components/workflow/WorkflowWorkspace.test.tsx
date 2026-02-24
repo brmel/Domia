@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { WorkflowWorkspace } from './WorkflowWorkspace';
 
-vi.mock('../trpc', () => {
+vi.mock('../../trpc', () => {
 	const queryResult = (data: unknown): { data: unknown; isLoading: boolean; refetch: ReturnType<typeof vi.fn> } => ({
 		data,
 		isLoading: false,
