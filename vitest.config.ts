@@ -5,7 +5,7 @@ export default defineConfig({
     test: {
         globals: true,
         include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
-        exclude: ['tests/**/*.integration.test.ts', 'node_modules/**'],
+        exclude: ['tests/**/*.integration.test.ts', 'tests/_future/**', 'node_modules/**'],
         coverage: {
             provider: 'v8',
             reporter: ['text', 'html', 'lcov'],

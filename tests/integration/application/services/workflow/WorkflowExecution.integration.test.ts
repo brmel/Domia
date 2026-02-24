@@ -55,11 +55,7 @@ describe('Workflow execution integration', () => {
         const governance = new WorkflowStepGovernanceService(
             {
                 assess: vi.fn().mockReturnValue({ blocked: true, mode: 'soft-enforce' })
-            } as unknown as never,
-            { get: vi.fn().mockReturnValue(null) } as unknown as never,
-            { isAllowed: vi.fn().mockReturnValue(true) } as unknown as never,
-            { get: vi.fn().mockReturnValue(null) } as unknown as never,
-            { invoke: vi.fn().mockReturnValue({ success: true, message: 'ok' }) } as unknown as never
+            } as unknown as never
         );
 
         const orchestrator = new WorkflowRunOrchestratorService(

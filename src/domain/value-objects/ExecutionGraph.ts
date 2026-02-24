@@ -95,5 +95,42 @@ export const ExecutionGraph = {
                 return exhaustiveStatus;
             }
         }
+    },
+
+    /** Returns all nodes whose upstream dependencies are satisfied. */
+    getReadyNodes(graph: WorkflowExecutionGraph): readonly GraphNode[] {
+        const incoming = new Map<string, string[]>();
+        for (const edge of graph.edges) {
+            const current = incoming.get(edge.toNodeId) ?? [];
+            current.push(edge.fromNodeId);
+            incoming.set(edge.toNodeId, current);
+        }
+
+        return graph.nodes
+            .filter((node) => {
+                if (node.state !== 'pending' && node.state !== 'ready') return false;
+                const deps = incoming.get(node.id) ?? [];
+                if (deps.length === 0) return true;
+                return deps.every((upId) => {
+                    const up = graph.nodes.find((n) => n.id === upId);
+                    return up && (up.state === 'completed' || up.state === 'skipped');
+                });
+            })
+            .sort((a, b) => a.id.localeCompare(b.id));
+    },
+
+    /** Returns the first ready node, or undefined if none. */
+    selectNextReadyNode(graph: WorkflowExecutionGraph): GraphNode | undefined {
+        return this.getReadyNodes(graph)[0];
+    },
+
+    /** Returns a new graph with the given node's state updated. */
+    updateNodeState(graph: WorkflowExecutionGraph, nodeId: string, state: GraphNodeState): WorkflowExecutionGraph {
+        return {
+            ...graph,
+            nodes: graph.nodes.map((node) =>
+                node.id === nodeId ? { ...node, state } : node
+            )
+        };
     }
 };

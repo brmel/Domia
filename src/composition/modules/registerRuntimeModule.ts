@@ -17,13 +17,6 @@ import { RunBootstrapCoordinator } from '@application/services/execution/coordin
 import { StepExecutionCoordinator } from '@application/services/execution/coordinators/StepExecutionCoordinator';
 import { ReplanningCoordinator } from '@application/services/execution/coordinators/ReplanningCoordinator';
 import { TerminalizationCoordinator } from '@application/services/execution/coordinators/TerminalizationCoordinator';
-import { SkillRegistryService } from '@application/services/skills/SkillRegistryService';
-import { SkillGovernanceService } from '@application/services/skills/SkillGovernanceService';
-import { PluginCapabilityPolicyService } from '@application/services/plugins/PluginCapabilityPolicyService';
-import { PluginGatewayService } from '@application/services/plugins/PluginGatewayService';
-import { PluginRegistryService } from '@application/services/plugins/PluginRegistryService';
-import { PluginExecutionAdapterRegistryService } from '@application/services/plugins/PluginExecutionAdapterRegistryService';
-import { PluginApprovalService } from '@application/services/plugins/PluginApprovalService';
 import { ReadinessGateService } from '@application/services/hardening/ReadinessGateService';
 import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
 import { TrajectoryExportService } from '@infrastructure/services/exporters/TrajectoryExportService';
@@ -51,15 +44,6 @@ export function registerRuntimeModule(): void {
     container.registerSingleton(StepExecutionCoordinator);
     container.registerSingleton(ReplanningCoordinator);
     container.registerSingleton(TerminalizationCoordinator);
-
-    container.registerSingleton(SkillRegistryService);
-    container.registerSingleton(SkillGovernanceService);
-
-    container.registerSingleton(PluginRegistryService);
-    container.registerSingleton(PluginCapabilityPolicyService);
-    container.registerSingleton(PluginExecutionAdapterRegistryService);
-    container.registerSingleton(PluginApprovalService);
-    container.registerSingleton(PluginGatewayService);
 
     container.registerSingleton(ReadinessGateService);
     container.registerSingleton(RuntimeReadinessPolicyService);

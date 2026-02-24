@@ -97,22 +97,6 @@ function createReplayIdempotencyMock(): RecoveryReplayIdempotencyService {
     } as unknown as RecoveryReplayIdempotencyService;
 }
 
-function createSkillRegistryMock() {
-    return { get: vi.fn().mockReturnValue(null), list: vi.fn().mockReturnValue([]) };
-}
-
-function createSkillGovernanceMock() {
-    return { isAllowed: vi.fn().mockReturnValue(false) };
-}
-
-function createPluginRegistryMock() {
-    return { get: vi.fn().mockReturnValue(null) };
-}
-
-function createPluginGatewayMock() {
-    return { authorize: vi.fn().mockReturnValue({ success: false, message: 'noop', decision: 'deny' }) };
-}
-
 function createReadinessPolicyMock() {
     return { assess: vi.fn().mockReturnValue({ blocked: false, mode: 'observe' }) };
 }
@@ -138,10 +122,6 @@ export interface UseCaseContextOverrides {
     durability?: Record<string, unknown>;
     budgetPolicy?: Record<string, unknown>;
     replayIdempotency?: RecoveryReplayIdempotencyService;
-    skillRegistry?: Record<string, unknown>;
-    skillGovernance?: Record<string, unknown>;
-    pluginRegistry?: Record<string, unknown>;
-    pluginGateway?: Record<string, unknown>;
     readinessPolicy?: Record<string, unknown>;
     logger?: ILogger;
 }
@@ -158,10 +138,6 @@ export interface UseCaseContext {
     budgetPolicy: ReturnType<typeof createBudgetPolicyMock>;
     replayIdempotency: RecoveryReplayIdempotencyService;
     readinessPolicy: ReturnType<typeof createReadinessPolicyMock>;
-    skillRegistry: ReturnType<typeof createSkillRegistryMock>;
-    skillGovernance: ReturnType<typeof createSkillGovernanceMock>;
-    pluginRegistry: ReturnType<typeof createPluginRegistryMock>;
-    pluginGateway: ReturnType<typeof createPluginGatewayMock>;
     logger: ILogger;
 }
 
@@ -193,10 +169,6 @@ export function createRunTestUseCaseContext(overrides: UseCaseContextOverrides =
     const durability = { ...createDurabilityMock(overrides.checkpointRecords), ...overrides.durability };
     const budgetPolicy = { ...createBudgetPolicyMock(), ...overrides.budgetPolicy };
     const replayIdempotency = overrides.replayIdempotency ?? createReplayIdempotencyMock();
-    const skillRegistry = { ...createSkillRegistryMock(), ...overrides.skillRegistry };
-    const skillGovernance = { ...createSkillGovernanceMock(), ...overrides.skillGovernance };
-    const pluginRegistry = { ...createPluginRegistryMock(), ...overrides.pluginRegistry };
-    const pluginGateway = { ...createPluginGatewayMock(), ...overrides.pluginGateway };
     const readinessPolicy = { ...createReadinessPolicyMock(), ...overrides.readinessPolicy };
 
     // Real production services — stateless domain logic
@@ -223,10 +195,6 @@ export function createRunTestUseCaseContext(overrides: UseCaseContextOverrides =
         recoveryReplayGuard as unknown as never,
         replayIdempotency as unknown as never,
         replanningPolicy as unknown as never,
-        skillRegistry as unknown as never,
-        skillGovernance as unknown as never,
-        pluginRegistry as unknown as never,
-        pluginGateway as unknown as never,
         readinessPolicy as unknown as never,
         logger as unknown as never,
     );
@@ -243,10 +211,6 @@ export function createRunTestUseCaseContext(overrides: UseCaseContextOverrides =
         budgetPolicy,
         replayIdempotency,
         readinessPolicy,
-        skillRegistry,
-        skillGovernance,
-        pluginRegistry,
-        pluginGateway,
         logger,
     };
 }

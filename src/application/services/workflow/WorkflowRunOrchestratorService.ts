@@ -6,17 +6,15 @@ import type { ILogger } from '@domain/ports';
 import { TestRunState } from '@domain/enums/TestRunState';
 import type { WorkflowDefinition } from '@domain/entities/Workflow';
 import type { WorkflowExecutionGraph } from '@domain/value-objects';
+import { ExecutionGraph } from '@domain/value-objects';
 import { ExecutionController } from '@application/controllers/ExecutionController';
 import { WorkflowStepPolicyService } from './WorkflowStepPolicyService';
 import { WorkflowStepGovernanceService } from './WorkflowStepGovernanceService';
 import { WorkflowStepRunnerService } from './WorkflowStepRunnerService';
-import { GraphSchedulerService } from '../execution/GraphSchedulerService';
 import { PlatformCapabilityNegotiationService } from '../platform/PlatformCapabilityNegotiationService';
 
 @injectable()
 export class WorkflowRunOrchestratorService {
-    private readonly graphScheduler = new GraphSchedulerService();
-
     constructor(
         @inject('IPersistenceAdapter') private readonly persistence: IPersistenceAdapter,
         @inject('ILogger') private readonly logger: ILogger,
@@ -101,30 +99,30 @@ export class WorkflowRunOrchestratorService {
 
         try {
             while (true) {
-                const nextNode = this.graphScheduler.selectNextReadyNode(executionGraph);
+                const nextNode = ExecutionGraph.selectNextReadyNode(executionGraph);
                 if (!nextNode) {
                     break;
                 }
 
-                executionGraph = this.graphScheduler.updateNodeState(executionGraph, nextNode.id, 'running');
+                executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'running');
 
                 const step = stepById.get(nextNode.id);
                 if (!step) {
                     failedReason = `Workflow graph node '${nextNode.id}' has no matching step definition.`;
-                    executionGraph = this.graphScheduler.updateNodeState(executionGraph, nextNode.id, 'failed');
+                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
                     break;
                 }
 
                 const stepIndex = definition.steps.findIndex((candidate) => candidate.id === step.id);
                 if (stepIndex < 0) {
                     failedReason = `Workflow step index resolution failed for step '${step.id}'.`;
-                    executionGraph = this.graphScheduler.updateNodeState(executionGraph, nextNode.id, 'failed');
+                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
                     break;
                 }
 
                 if (controller.state === TestRunState.CANCELLED) {
                     failedReason = 'Workflow cancelled by operator.';
-                    executionGraph = this.graphScheduler.updateNodeState(executionGraph, nextNode.id, 'failed');
+                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
                     break;
                 }
 
@@ -141,7 +139,7 @@ export class WorkflowRunOrchestratorService {
 
                 if (saveStepRunResult.isErr()) {
                     failedReason = saveStepRunResult.error.message;
-                    executionGraph = this.graphScheduler.updateNodeState(executionGraph, nextNode.id, 'failed');
+                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
                     break;
                 }
 
@@ -156,7 +154,7 @@ export class WorkflowRunOrchestratorService {
                 if (!governanceDecision.allowed) {
                     const blockedReason = governanceDecision.reason;
                     const completedAt = new Date().toISOString();
-                    executionGraph = this.graphScheduler.updateNodeState(executionGraph, nextNode.id, 'failed');
+                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
 
                     const blockedTransition = await this.persistence.commitAtomicWorkflowTransition({
                         workflowRunId,
@@ -203,7 +201,7 @@ export class WorkflowRunOrchestratorService {
                 if (capabilityAssessment.blocked) {
                     const blockedReason = capabilityAssessment.reason ?? `Step '${step.name}' blocked by platform capability policy.`;
                     const completedAt = new Date().toISOString();
-                    executionGraph = this.graphScheduler.updateNodeState(executionGraph, nextNode.id, 'failed');
+                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
 
                     const blockedTransition = await this.persistence.commitAtomicWorkflowTransition({
                         workflowRunId,
@@ -304,11 +302,11 @@ export class WorkflowRunOrchestratorService {
 
                 if (!stepResult.success) {
                     if (step.continueOnFailure) {
-                        executionGraph = this.graphScheduler.updateNodeState(executionGraph, nextNode.id, 'skipped');
+                        executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'skipped');
                         continue;
                     }
 
-                    executionGraph = this.graphScheduler.updateNodeState(executionGraph, nextNode.id, 'failed');
+                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
                     const terminalReason = stepResult.summary ?? `Step failed: ${step.name}`;
                     const completedAt = new Date().toISOString();
                     const terminalResult = await this.persistence.commitAtomicWorkflowTransition({
@@ -344,7 +342,7 @@ export class WorkflowRunOrchestratorService {
                     return;
                 }
 
-                executionGraph = this.graphScheduler.updateNodeState(executionGraph, nextNode.id, 'completed');
+                executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'completed');
                 completedSteps += 1;
             }
 

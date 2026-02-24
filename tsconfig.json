@@ -43,6 +43,10 @@
     "scripts/**/*.ts",
     "tests/**/*.ts"
   ],
+  "exclude": [
+    "src/_future/**",
+    "tests/_future/**"
+  ],
   "references": [
     {
       "path": "./tsconfig.node.json"

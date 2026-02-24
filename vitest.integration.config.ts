@@ -5,7 +5,7 @@ export default defineConfig({
     test: {
         globals: true,
         include: ['tests/**/*.integration.test.ts'],
-        exclude: ['node_modules/**'],
+        exclude: ['tests/_future/**', 'node_modules/**'],
         testTimeout: 120000, // 2 minute timeout for integration tests
     },
     resolve: {

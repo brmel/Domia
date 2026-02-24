@@ -28,18 +28,11 @@ import { RunBootstrapCoordinator } from '../services/execution/coordinators/RunB
 import { StepExecutionCoordinator, type StepExecutionOptions } from '../services/execution/coordinators/StepExecutionCoordinator';
 import { ReplanningCoordinator } from '../services/execution/coordinators/ReplanningCoordinator';
 import { TerminalizationCoordinator } from '../services/execution/coordinators/TerminalizationCoordinator';
-import { GraphSchedulerService } from '../services/execution/GraphSchedulerService';
 import {
     resolveRecoveryContext as resolveRecoveryContextForRun,
     replayRecoveryActions as replayRecoveryActionsForRun,
     type RunRecoveryDependencies
 } from '../services/execution/RunRecoveryOrchestration';
-import { SkillRegistryService } from '../services/skills/SkillRegistryService';
-import { SkillGovernanceService } from '../services/skills/SkillGovernanceService';
-import { PluginRegistryService } from '../services/plugins/PluginRegistryService';
-import { PluginGatewayService } from '../services/plugins/PluginGatewayService';
-import { SkillRoutingCoordinator } from '../services/execution/coordinators/SkillRoutingCoordinator';
-import { PluginPreflightCoordinator } from '../services/execution/coordinators/PluginPreflightCoordinator';
 import { RuntimeReadinessPolicyService } from '../services/hardening/RuntimeReadinessPolicyService';
 import type { Plan, PlanItem, PlanItemStatus } from '@domain/entities/Plan';
 import { TestStep } from '../../domain/ports';
@@ -59,10 +52,6 @@ export interface RunExecutionContext {
 
 @injectable()
 export class RunTestUseCase {
-    private readonly graphScheduler = new GraphSchedulerService();
-    private readonly skillRoutingCoordinator: SkillRoutingCoordinator;
-    private readonly pluginPreflightCoordinator: PluginPreflightCoordinator;
-
     constructor(
         @inject(TestRunLifecycleManager) private lifecycleManager: TestRunLifecycleManager,
         @inject(StepExecutor) private executor: StepExecutor,
@@ -79,10 +68,6 @@ export class RunTestUseCase {
         @inject(RecoveryReplayGuardService) private readonly recoveryReplayGuard: RecoveryReplayGuardService,
         @inject(RecoveryReplayIdempotencyService) private readonly recoveryReplayIdempotency: RecoveryReplayIdempotencyService,
         @inject(ReplanningPolicyService) private readonly replanningPolicy: ReplanningPolicyService,
-        @inject(SkillRegistryService) skillRegistry: SkillRegistryService,
-        @inject(SkillGovernanceService) skillGovernance: SkillGovernanceService,
-        @inject(PluginRegistryService) pluginRegistry: PluginRegistryService,
-        @inject(PluginGatewayService) pluginGateway: PluginGatewayService,
         @inject(RuntimeReadinessPolicyService) private readonly readinessPolicy: RuntimeReadinessPolicyService,
         @inject('ILogger') private logger: ILogger,
         @inject(PlanningCoordinator) private readonly planningCoordinator: PlanningCoordinator = new PlanningCoordinator(),
@@ -93,10 +78,7 @@ export class RunTestUseCase {
         @inject('IRunLifecycleEngine') private readonly runLifecycleEngine: IRunLifecycleEngine = new RunLifecycleEngineService(),
         @inject(BranchRollbackService) private readonly branchRollback: BranchRollbackService = new BranchRollbackService(),
         @inject(ObjectiveCompletionPolicyService) private readonly objectiveCompletionPolicy: ObjectiveCompletionPolicyService = new ObjectiveCompletionPolicyService()
-    ) {
-        this.skillRoutingCoordinator = new SkillRoutingCoordinator(skillRegistry, skillGovernance, logger);
-        this.pluginPreflightCoordinator = new PluginPreflightCoordinator(pluginRegistry, pluginGateway, logger);
-    }
+    ) {}
 
     private get recoveryDeps(): RunRecoveryDependencies {
         return {
@@ -141,8 +123,6 @@ export class RunTestUseCase {
         const runStartMs = Date.now();
         let estimatedTokensUsed = 0;
         const recoveryContext = await resolveRecoveryContextForRun(this.recoveryDeps, input);
-        const skillRoutingContext = this.skillRoutingCoordinator.resolve(input, testRunId);
-        this.pluginPreflightCoordinator.evaluate(input, testRunId);
 
         let browser: IBrowserAutomation;
         let disposeSession: (() => Promise<void>) | undefined;
@@ -270,7 +250,7 @@ export class RunTestUseCase {
             runLifecycle = this.durability.transition(testRunId, runLifecycle, 'planning');
             const plan: Plan = resumedPlan
                 ?? this.planningCoordinator.buildSingleStepPlan(
-                    this.planningCoordinator.buildPlanningPrompt(input.prompt, skillRoutingContext)
+                    input.prompt
                 );
 
             if (resumedPlan) {
@@ -289,7 +269,7 @@ export class RunTestUseCase {
                     if (!completedItem) {
                         continue;
                     }
-                    executionGraph = this.graphScheduler.updateNodeState(executionGraph, completedItem.id, 'completed');
+                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, completedItem.id, 'completed');
                 }
             }
 
@@ -299,7 +279,7 @@ export class RunTestUseCase {
             runLifecycle = this.durability.transition(testRunId, runLifecycle, 'executing');
 
             while (true) {
-                const nextNode = this.graphScheduler.selectNextReadyNode(executionGraph);
+                const nextNode = ExecutionGraph.selectNextReadyNode(executionGraph);
                 if (!nextNode) {
                     break;
                 }
@@ -333,7 +313,7 @@ export class RunTestUseCase {
                 const runningItem: PlanItem = { ...item, status: 'active' as PlanItemStatus };
                 const updatedItems = [...plan.items];
                 updatedItems[i] = runningItem;
-                executionGraph = this.graphScheduler.updateNodeState(executionGraph, runningItem.id, 'running');
+                executionGraph = ExecutionGraph.updateNodeState(executionGraph, runningItem.id, 'running');
                 currentState = {
                     ...currentState,
                     status: 'observing',
@@ -386,7 +366,7 @@ export class RunTestUseCase {
                     const successItem: PlanItem = { ...item, status: 'completed' as PlanItemStatus };
                     const successItems = [...updatedItems];
                     successItems[i] = successItem;
-                    executionGraph = this.graphScheduler.updateNodeState(executionGraph, successItem.id, 'completed');
+                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, successItem.id, 'completed');
                     currentState = {
                         ...this.runLifecycleEngine.clearActiveItem(currentState),
                         status: 'idle',
@@ -432,7 +412,7 @@ export class RunTestUseCase {
                     const completedWithFailureItem: PlanItem = { ...item, status: 'failed' as PlanItemStatus };
                     const newItems = [...updatedItems];
                     newItems[i] = completedWithFailureItem;
-                    executionGraph = this.graphScheduler.updateNodeState(executionGraph, completedWithFailureItem.id, 'failed');
+                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, completedWithFailureItem.id, 'failed');
                     currentState = {
                         ...this.runLifecycleEngine.clearActiveItem(currentState),
                         status: 'failed',

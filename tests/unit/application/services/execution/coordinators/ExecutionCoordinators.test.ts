@@ -8,24 +8,14 @@ import { ReplanningCoordinator } from '@application/services/execution/coordinat
 import { TerminalizationCoordinator } from '@application/services/execution/coordinators/TerminalizationCoordinator';
 
 describe('Execution coordinators', () => {
-    it('builds planning prompt with skill routing context', () => {
+    it('builds a single-step plan from a prompt', () => {
         const coordinator = new PlanningCoordinator();
-        const prompt = coordinator.buildPlanningPrompt('base goal', {
-            source: 'preferred',
-            skill: {
-                id: 'checkout.skill',
-                version: '1.0.0',
-                description: 'Checkout',
-                trust: 'verified',
-                schema: { input: {}, output: {} },
-                preconditions: [],
-                postconditions: []
-            },
-            graphSteps: ['Validate precondition: auth', 'Execute skill objective: Checkout']
-        });
+        const plan = coordinator.buildSingleStepPlan('base goal');
 
-        expect(prompt).toContain('Skill routing context:');
-        expect(prompt).toContain('Selected skill: checkout.skill v1.0.0 (verified)');
+        expect(plan.goal).toBe('base goal');
+        expect(plan.items).toHaveLength(1);
+        expect(plan.items[0]?.description).toBe('base goal');
+        expect(plan.items[0]?.status).toBe('pending');
     });
 
     it('resolves bootstrap URL and lane key deterministically', () => {
