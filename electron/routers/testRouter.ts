@@ -5,7 +5,7 @@ import { IPersistenceAdapter } from '../../src/domain/ports';
 import { ExecutionController } from '../../src/application/controllers/ExecutionController';
 import { observable } from '@trpc/server/observable';
 import { RunTestInput } from '../../src/application/dtos';
-import { configureVerboseTracing } from '../../src/composition/modules/registerObservabilityModule';
+import { configureVerboseTracing } from '../../src/composition/ContainerBuilder';
 import { RunInputSchema } from '../../src/shared/validation';
 import { AgentActionSchema } from '../../src/shared/validation/agentAction';
 import type { AgentAction } from '../../src/domain/value-objects';

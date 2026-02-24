@@ -10,7 +10,7 @@ import { RunTestUseCase } from '../application/use-cases';
 import { ExecutionController } from '../application/controllers/ExecutionController';
 import { TestRunState } from '../domain/enums/TestRunState';
 import type { PlatformConfig } from '../domain/types/PlatformConfig';
-import { configureVerboseTracing } from '../composition/modules/registerObservabilityModule';
+import { configureVerboseTracing } from '../composition/ContainerBuilder';
 
 export class RunCommand {
     static register(program: Command): void {

@@ -5,15 +5,14 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import figlet from 'figlet';
 import { registerCoreServices } from '../composition-root';
-import { initializePlatformProviders } from '../composition/modules/registerPlatformModule';
-import { registerCliViewHost } from '../composition/modules/registerCliModule';
+import { ContainerBuilder } from '../composition/ContainerBuilder';
 import { RunCommand } from './RunCommand';
 import { HistoryCommand } from './HistoryCommand';
 import { WorkflowCommand } from './WorkflowCommand';
 
 registerCoreServices();
-registerCliViewHost();
-initializePlatformProviders();
+const cliBuilder = new ContainerBuilder();
+cliBuilder.registerCliViewHost().initializePlatformProviders();
 
 const program = new Command();
 

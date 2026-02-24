@@ -10,14 +10,14 @@ import createDebug from 'debug';
 import { appRouter } from './router';
 import { AgentViewService } from '../src/infrastructure/electron/AgentViewService';
 import { ElectronViewHost } from '../src/infrastructure/adapters/view/ElectronViewHost';
-import { initializePlatformProviders } from '../src/composition/modules/registerPlatformModule';
+import { ContainerBuilder } from '../src/composition/ContainerBuilder';
 
 const log = createDebug('domia:electron:main');
 
 registerCoreServices();
 container.register(AgentViewService, { useClass: AgentViewService });
 container.register('IViewHost', { useClass: ElectronViewHost });
-initializePlatformProviders();
+new ContainerBuilder().initializePlatformProviders();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
