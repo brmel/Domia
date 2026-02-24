@@ -12,6 +12,7 @@ import { RecoveryReplayGuardService } from '@application/services/execution/Reco
 import { RecoveryReplayIdempotencyService } from '@application/services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 import { BranchRollbackService } from '@application/services/execution/BranchRollbackService';
+import { StepExecutionKernelService } from '@application/services/execution/StepExecutionKernelService';
 import { PlanningCoordinator } from '@application/services/execution/coordinators/PlanningCoordinator';
 import { RunBootstrapCoordinator } from '@application/services/execution/coordinators/RunBootstrapCoordinator';
 import { StepExecutionCoordinator } from '@application/services/execution/coordinators/StepExecutionCoordinator';
@@ -39,6 +40,7 @@ export function registerRuntimeModule(): void {
     container.registerSingleton(RecoveryReplayIdempotencyService);
     container.registerSingleton(ReplanningPolicyService);
     container.registerSingleton(BranchRollbackService);
+    container.registerSingleton(StepExecutionKernelService);
     container.registerSingleton(PlanningCoordinator);
     container.registerSingleton(RunBootstrapCoordinator);
     container.registerSingleton(StepExecutionCoordinator);

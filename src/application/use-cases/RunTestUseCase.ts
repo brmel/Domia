@@ -1,16 +1,15 @@
 
 import { injectable, inject } from 'tsyringe';
-import { IBrowserAutomation } from '../../domain/ports';
+import type { IBrowserAutomation } from '../../domain/ports';
 import { ExecutionGraph, UrlFactory, WorkflowState } from '../../domain/value-objects';
 import { ExecutionController } from '../controllers/ExecutionController';
 import { WorkflowError } from '../../domain/errors';
 import { TestRunLifecycleManager } from '../services/TestRunLifecycleManager';
 import { RunTestInput, RunTestOutput } from '../dtos';
 import { TestRunState } from '../../domain/enums/TestRunState';
-import { StepExecutor, type StepExecutionResult } from '../services/execution/StepExecutor';
 import type { RunExecutionLaneService } from '../services/execution/RunExecutionLaneService';
 import { RunDurabilityService } from '../services/execution/RunDurabilityService';
-import { RunBudgetPolicyService, type RunBudgetLimits } from '../services/execution/RunBudgetPolicyService';
+import { RunBudgetPolicyService } from '../services/execution/RunBudgetPolicyService';
 import { CheckpointCompactionService } from '../services/execution/CheckpointCompactionService';
 import { RecoveryReadModelService } from '../services/execution/RecoveryReadModelService';
 import { ManualRecoveryBootstrapService } from '../services/execution/ManualRecoveryBootstrapService';
@@ -19,13 +18,14 @@ import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplay
 import { RecoveryReplayIdempotencyService } from '../services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
 import { ObjectiveCompletionPolicyService } from '../services/execution/ObjectiveCompletionPolicyService';
+import { StepExecutionKernelService } from '../services/execution/StepExecutionKernelService';
 
 import { BranchRollbackService } from '../services/execution/BranchRollbackService';
 import { RunLifecycleEngineService } from '../services/execution/RunLifecycleEngineService';
 import type { IRunLifecycleEngine } from '../services/execution/IRunLifecycleEngine';
 import { PlanningCoordinator } from '../services/execution/coordinators/PlanningCoordinator';
 import { RunBootstrapCoordinator } from '../services/execution/coordinators/RunBootstrapCoordinator';
-import { StepExecutionCoordinator, type StepExecutionOptions } from '../services/execution/coordinators/StepExecutionCoordinator';
+import { StepExecutionCoordinator } from '../services/execution/coordinators/StepExecutionCoordinator';
 import { ReplanningCoordinator } from '../services/execution/coordinators/ReplanningCoordinator';
 import { TerminalizationCoordinator } from '../services/execution/coordinators/TerminalizationCoordinator';
 import {
@@ -35,8 +35,6 @@ import {
 } from '../services/execution/RunRecoveryOrchestration';
 import { RuntimeReadinessPolicyService } from '../services/hardening/RuntimeReadinessPolicyService';
 import type { Plan, PlanItem, PlanItemStatus } from '@domain/entities/Plan';
-import { TestStep } from '../../domain/ports';
-import { v4 as uuidv4 } from 'uuid';
 import type { ILogger } from '../../domain/ports';
 import { PlatformSessionFactory } from '../services/platform/PlatformSessionFactory';
 
@@ -54,8 +52,6 @@ export interface RunExecutionContext {
 export class RunTestUseCase {
     constructor(
         @inject(TestRunLifecycleManager) private lifecycleManager: TestRunLifecycleManager,
-        @inject(StepExecutor) private executor: StepExecutor,
-        @inject('IPersistenceAdapter') private persistence: import('../../domain/ports').IPersistenceAdapter,
         @inject('ITraceService') private trace: import('../../domain/ports/ITraceService').ITraceService,
         @inject(PlatformSessionFactory) private readonly sessionFactory: PlatformSessionFactory,
         @inject('IRunExecutionLaneService') private readonly laneService: RunExecutionLaneService,
@@ -70,6 +66,8 @@ export class RunTestUseCase {
         @inject(ReplanningPolicyService) private readonly replanningPolicy: ReplanningPolicyService,
         @inject(RuntimeReadinessPolicyService) private readonly readinessPolicy: RuntimeReadinessPolicyService,
         @inject('ILogger') private logger: ILogger,
+        @inject(StepExecutionKernelService) private readonly kernel: StepExecutionKernelService,
+        @inject('IPersistenceAdapter') private persistence: import('../../domain/ports').IPersistenceAdapter,
         @inject(PlanningCoordinator) private readonly planningCoordinator: PlanningCoordinator = new PlanningCoordinator(),
         @inject(RunBootstrapCoordinator) private readonly bootstrapCoordinator: RunBootstrapCoordinator = new RunBootstrapCoordinator(),
         @inject(StepExecutionCoordinator) private readonly stepExecutionCoordinator: StepExecutionCoordinator = new StepExecutionCoordinator(),
@@ -304,7 +302,7 @@ export class RunTestUseCase {
                     break;
                 }
 
-                this.throwIfBudgetExceeded(testRunId, budgetLimits, this.buildBudgetSnapshot({
+                this.kernel.throwIfBudgetExceeded(testRunId, budgetLimits, this.kernel.buildBudgetSnapshot({
                     actionsTaken: currentState.stepNumber,
                     runStartMs,
                     estimatedTokensUsed
@@ -326,10 +324,9 @@ export class RunTestUseCase {
 
                 const executionOptions = this.stepExecutionCoordinator.buildExecutionOptions(input.options);
 
-                const stepKernel = this.executePlanItemKernel(
+                const stepKernel = this.kernel.execute(
                     testRunId,
                     executionGoal,
-                    plan,
                     browser,
                     url,
                     currentState,
@@ -338,7 +335,6 @@ export class RunTestUseCase {
                         budgetLimits,
                         runStartMs,
                         estimatedTokensUsed,
-                        controller,
                     }
                 );
 
@@ -501,147 +497,7 @@ export class RunTestUseCase {
         }
     }
 
-    private async *executePlanItemKernel(
-        testRunId: string,
-        executionGoal: string,
-        _plan: Plan,
-        browser: IBrowserAutomation,
-        url: string,
-        currentState: WorkflowState,
-        executionOptions: StepExecutionOptions,
-        runtime: {
-            budgetLimits: RunBudgetLimits;
-            runStartMs: number;
-            estimatedTokensUsed: number;
-            controller: ExecutionController;
-        }
-    ): AsyncGenerator<RunTestOutput, {
-        state: WorkflowState;
-        result: StepExecutionResult;
-        estimatedTokensUsed: number;
-    }, unknown> {
-        let estimatedTokensUsed = runtime.estimatedTokensUsed;
-
-        const stepGen = this.executor.executeStep(
-            testRunId,
-            executionGoal,
-            browser,
-            url,
-            currentState.stepNumber,
-            {
-                vision: executionOptions.vision,
-                maxActions: executionOptions.maxActions,
-            },
-        );
-
-        try {
-            const emitStateUpdate = async (): Promise<RunTestOutput> => {
-                await this.durability.checkpoint(testRunId, currentState, 'action_applied');
-                return { type: 'state_updated', state: currentState };
-            };
-
-            const iterator = stepGen[Symbol.asyncIterator]();
-            let next = await iterator.next();
-
-            while (!next.done) {
-                if (next.value.type === 'action') {
-                    const action = next.value.action;
-                    const assets = next.value.assets;
-
-                    const step: TestStep = {
-                        id: uuidv4(),
-                        testRunId,
-                        stepNumber: currentState.stepNumber + 1,
-                        actionType: action.type,
-                        actionPayload: action,
-                        ...(assets ? { assets } : {}),
-                        timestamp: new Date().toISOString()
-                    };
-
-                    const saveStepResult = await this.persistence.saveTestStep(step);
-                    if (saveStepResult.isErr()) {
-                        throw new WorkflowError(`Failed to persist test step: ${saveStepResult.error.message}`);
-                    }
-
-                    currentState = this.runLifecycleEngine.applyAction(currentState, action);
-                    estimatedTokensUsed += Math.ceil(JSON.stringify(action).length / 4);
-                    yield await emitStateUpdate();
-
-                    this.throwIfBudgetExceeded(testRunId, runtime.budgetLimits, this.buildBudgetSnapshot({
-                        actionsTaken: currentState.stepNumber,
-                        runStartMs: runtime.runStartMs,
-                        estimatedTokensUsed
-                    }));
-
-                    yield { type: 'acting', action };
-                }
-
-                next = await iterator.next();
-            }
-
-            const result = next.value;
-            currentState = {
-                ...currentState,
-                status: 'validating'
-            };
-            yield { type: 'state_updated', state: currentState };
-
-            return {
-                state: currentState,
-                result,
-                estimatedTokensUsed
-            };
-        } catch (error) {
-            const iteratorError = error instanceof Error ? error : new Error(String(error));
-            if (iteratorError instanceof WorkflowError && iteratorError.message.startsWith('Run budget exceeded')) {
-                throw iteratorError;
-            }
-
-            return {
-                state: currentState,
-                result: {
-                    success: false,
-                    terminal: 'error',
-                    code: 'action_execution_error',
-                    reason: `Step iterator failed: ${iteratorError.message}`
-                },
-                estimatedTokensUsed
-            };
-        }
-    }
-
-    private buildBudgetSnapshot(params: {
-        actionsTaken: number;
-        runStartMs: number;
-        estimatedTokensUsed: number;
-    }): {
-        actionsTaken: number;
-        elapsedMs: number;
-        estimatedTokensUsed: number;
-    } {
-        return {
-            actionsTaken: params.actionsTaken,
-            elapsedMs: Date.now() - params.runStartMs,
-            estimatedTokensUsed: params.estimatedTokensUsed
-        };
-    }
-
-    private throwIfBudgetExceeded(testRunId: string, limits: RunBudgetLimits, snapshot: {
-        actionsTaken: number;
-        elapsedMs: number;
-        estimatedTokensUsed: number;
-    }): void {
-        const assessment = this.budgetPolicy.evaluate(testRunId, limits, snapshot);
-        if (assessment.status !== 'exceeded') {
-            return;
-        }
-
-        throw new WorkflowError(
-            this.budgetPolicy.formatExceededMessage(limits, snapshot, assessment)
-        );
-    }
-
-    private buildRecoveryReplayEvent(params: {
+private buildRecoveryReplayEvent(params: {
         sourceRunId: string;
         targetStepNumber: number;
         replayedCount: number;

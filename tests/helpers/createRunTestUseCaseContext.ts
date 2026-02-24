@@ -9,6 +9,7 @@ import { ManualRecoveryBootstrapService } from '@application/services/execution/
 import { RecoveryReplayGuardService } from '@application/services/execution/RecoveryReplayGuardService';
 import { RecoveryReplayIdempotencyService } from '@application/services/execution/RecoveryReplayIdempotencyService';
 import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
+import { StepExecutionKernelService } from '@application/services/execution/StepExecutionKernelService';
 
 // ---------------------------------------------------------------------------
 // Mock shapes — each creates the minimal mock surface used by RunTestUseCase.
@@ -179,10 +180,16 @@ export function createRunTestUseCaseContext(overrides: UseCaseContextOverrides =
     const recoveryReplayGuard = new RecoveryReplayGuardService();
     const replanningPolicy = new ReplanningPolicyService(logger);
 
-    const useCase = new RunTestUseCase(
-        lifecycleManager as unknown as never,
+    // Build the step execution kernel with its own dependencies
+    const kernel = new StepExecutionKernelService(
         executor as unknown as never,
         persistence as unknown as never,
+        durability as unknown as never,
+        budgetPolicy as unknown as never,
+    );
+
+    const useCase = new RunTestUseCase(
+        lifecycleManager as unknown as never,
         trace as unknown as never,
         sessionFactory as unknown as never,
         laneService as unknown as never,
@@ -197,6 +204,8 @@ export function createRunTestUseCaseContext(overrides: UseCaseContextOverrides =
         replanningPolicy as unknown as never,
         readinessPolicy as unknown as never,
         logger as unknown as never,
+        kernel as unknown as never,
+        persistence as unknown as never,
     );
 
     return {
