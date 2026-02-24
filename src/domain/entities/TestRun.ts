@@ -36,6 +36,9 @@ export const TestRun = {
     },
 
     start(run: TestRun): TestRun {
+        if (run.status.type !== 'pending') {
+            throw new Error(`Cannot start a test run in '${run.status.type}' state`);
+        }
         return {
             ...run,
             status: { type: 'running' },
@@ -53,6 +56,9 @@ export const TestRun = {
     },
 
     pass(run: TestRun, summary: string): TestRun {
+        if (run.status.type !== 'running') {
+            throw new Error(`Cannot pass a test run in '${run.status.type}' state`);
+        }
         const duration = Date.now() - run.createdAt.getTime();
         return {
             ...run,
@@ -62,6 +68,9 @@ export const TestRun = {
     },
 
     fail(run: TestRun, error: string): TestRun {
+        if (run.status.type !== 'running' && run.status.type !== 'pending') {
+            throw new Error(`Cannot fail a test run in '${run.status.type}' state`);
+        }
         const duration = Date.now() - run.createdAt.getTime();
         return {
             ...run,
@@ -71,6 +80,9 @@ export const TestRun = {
     },
 
     cancel(run: TestRun, reason: string): TestRun {
+        if (run.status.type !== 'running' && run.status.type !== 'pending') {
+            throw new Error(`Cannot cancel a test run in '${run.status.type}' state`);
+        }
         return {
             ...run,
             status: { type: 'cancelled', reason },

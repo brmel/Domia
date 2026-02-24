@@ -2,7 +2,6 @@ import { injectable, inject } from 'tsyringe';
 import { Result, ok, err } from 'neverthrow';
 import { TestRunIdFactory, TestRunId, UrlFactory } from '@domain/value-objects';
 import { TestRun } from '@domain/entities/TestRun';
-import type { TestRunStatus } from '@domain/entities/TestRun';
 import type { IPersistenceAdapter, ILogger } from '@domain/ports';
 
 @injectable()
@@ -41,31 +40,46 @@ export class TestRunLifecycleManager {
     async finalizeTestRun(id: TestRunId, success: boolean, summary?: string): Promise<void> {
         this.logger.info(`Test run complete. Success: ${success}`);
 
-        const status: TestRunStatus = success
-            ? { type: 'passed', summary: summary || 'Test completed successfully', duration: 0 }
-            : { type: 'failed', error: summary || 'Unknown error', duration: 0 };
+        const existingResult = await this.persistence.getTestRun(id);
+        if (existingResult.isErr()) {
+            this.logger.warn(`Cannot finalize test run ${id}: ${existingResult.error.message}`);
+            return;
+        }
+        const existing = existingResult.value;
+        if (!existing) {
+            this.logger.warn(`Cannot finalize test run ${id}: not found`);
+            return;
+        }
 
-        const updates: Partial<TestRun> = {
-            status,
-            updatedAt: new Date()
-        };
+        const finalized = success
+            ? TestRun.pass(existing, summary || 'Test completed successfully')
+            : TestRun.fail(existing, summary || 'Unknown error');
 
-        await this.persistence.updateTestRun(id, updates);
+        await this.persistence.updateTestRun(id, {
+            status: finalized.status,
+            updatedAt: finalized.updatedAt
+        });
     }
 
     async failTestRun(id: TestRunId, message: string): Promise<void> {
         this.logger.warn(`Test run failed: ${message}`);
-        const status: TestRunStatus = {
-            type: 'failed',
-            error: message,
-            duration: 0
-        };
 
-        const updates: Partial<TestRun> = {
-            status,
-            updatedAt: new Date()
-        };
+        const existingResult = await this.persistence.getTestRun(id);
+        if (existingResult.isErr()) {
+            this.logger.warn(`Cannot fail test run ${id}: ${existingResult.error.message}`);
+            return;
+        }
+        const existing = existingResult.value;
+        if (!existing) {
+            this.logger.warn(`Cannot fail test run ${id}: not found`);
+            return;
+        }
 
-        await this.persistence.updateTestRun(id, updates);
+        const failed = TestRun.fail(existing, message);
+
+        await this.persistence.updateTestRun(id, {
+            status: failed.status,
+            updatedAt: failed.updatedAt
+        });
     }
 }

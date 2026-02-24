@@ -22,6 +22,40 @@ export interface PlanItem {
     error?: string;
 }
 
+const PLAN_ITEM_TRANSITIONS: Readonly<Record<PlanItemStatus, readonly PlanItemStatus[]>> = {
+    pending: ['active'],
+    active: ['completed', 'failed'],
+    completed: [],
+    failed: []
+};
+
+export const PlanItem = {
+    activate(item: PlanItem): PlanItem {
+        if (item.status !== 'pending') {
+            throw new Error(`Cannot activate a plan item in '${item.status}' state`);
+        }
+        return { ...item, status: 'active' };
+    },
+
+    complete(item: PlanItem, result?: string): PlanItem {
+        if (item.status !== 'active') {
+            throw new Error(`Cannot complete a plan item in '${item.status}' state`);
+        }
+        return { ...item, status: 'completed', ...(result ? { result } : {}) };
+    },
+
+    fail(item: PlanItem, error?: string): PlanItem {
+        if (item.status !== 'active') {
+            throw new Error(`Cannot fail a plan item in '${item.status}' state`);
+        }
+        return { ...item, status: 'failed', ...(error ? { error } : {}) };
+    },
+
+    canTransition(from: PlanItemStatus, to: PlanItemStatus): boolean {
+        return PLAN_ITEM_TRANSITIONS[from].includes(to);
+    }
+};
+
 export interface Plan {
     id: string;
     goal: string;

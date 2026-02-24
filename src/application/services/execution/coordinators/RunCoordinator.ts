@@ -1,7 +1,6 @@
 import { injectable } from 'tsyringe';
 import type { RunTestInput } from '@application/dtos';
 import type { PlatformSession } from '@application/services/platform/PlatformSession';
-import type { WorkflowState } from '@domain/value-objects';
 import type { RunOptions } from '@shared/validation';
 
 export interface StepExecutionOptions {
@@ -11,7 +10,7 @@ export interface StepExecutionOptions {
 
 /**
  * Consolidated coordinator for run-level concerns:
- * bootstrap (URL/lane resolution), step execution options, and terminal state.
+ * bootstrap (URL/lane resolution) and step execution options.
  */
 @injectable()
 export class RunCoordinator {
@@ -51,18 +50,6 @@ export class RunCoordinator {
         return {
             vision: options?.vision ?? true,
             maxActions: options?.maxSteps ?? 20,
-        };
-    }
-
-    applyTerminalState(
-        state: WorkflowState,
-        terminal: 'failed' | 'completed' | 'idle',
-        error?: string
-    ): WorkflowState {
-        return {
-            ...state,
-            status: terminal,
-            ...(error ? { error } : {})
         };
     }
 }

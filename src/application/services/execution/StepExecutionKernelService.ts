@@ -2,11 +2,9 @@ import { injectable, inject } from 'tsyringe';
 import type { IBrowserAutomation } from '@domain/ports';
 import type { TestStep } from '@domain/ports';
 import { WorkflowError } from '@domain/errors';
-import type { WorkflowState } from '@domain/value-objects';
+import { WorkflowState } from '@domain/value-objects';
 import { RunDurabilityService } from './RunDurabilityService';
 import { RunBudgetPolicyService, type RunBudgetLimits } from './RunBudgetPolicyService';
-import type { IRunLifecycleEngine } from './IRunLifecycleEngine';
-import { RunLifecycleEngineService } from './RunLifecycleEngineService';
 import { StepExecutor, type StepExecutionResult } from './StepExecutor';
 import type { StepExecutionOptions } from './coordinators/RunCoordinator';
 import type { RunTestOutput } from '../../dtos';
@@ -31,8 +29,7 @@ export class StepExecutionKernelService {
         @inject(StepExecutor) private readonly executor: StepExecutor,
         @inject('IPersistenceAdapter') private readonly persistence: IPersistenceAdapter,
         @inject(RunDurabilityService) private readonly durability: RunDurabilityService,
-        @inject(RunBudgetPolicyService) private readonly budgetPolicy: RunBudgetPolicyService,
-        @inject('IRunLifecycleEngine') private readonly runLifecycleEngine: IRunLifecycleEngine = new RunLifecycleEngineService()
+        @inject(RunBudgetPolicyService) private readonly budgetPolicy: RunBudgetPolicyService
     ) {}
 
     async *execute(
@@ -87,7 +84,7 @@ export class StepExecutionKernelService {
                         throw new WorkflowError(`Failed to persist test step: ${saveStepResult.error.message}`);
                     }
 
-                    currentState = this.runLifecycleEngine.applyAction(currentState, action);
+                    currentState = WorkflowState.applyAction(currentState, action);
                     estimatedTokensUsed += Math.ceil(JSON.stringify(action).length / 4);
                     yield await emitStateUpdate();
 
@@ -104,10 +101,7 @@ export class StepExecutionKernelService {
             }
 
             const result = next.value;
-            currentState = {
-                ...currentState,
-                status: 'validating'
-            };
+            currentState = WorkflowState.transitionTo(currentState, 'validating');
             yield { type: 'state_updated', state: currentState };
 
             return {

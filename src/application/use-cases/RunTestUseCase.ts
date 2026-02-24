@@ -21,8 +21,6 @@ import { ObjectiveCompletionPolicyService } from '../services/execution/Objectiv
 import { StepExecutionKernelService } from '../services/execution/StepExecutionKernelService';
 
 import { BranchRollbackService } from '../services/execution/BranchRollbackService';
-import { RunLifecycleEngineService } from '../services/execution/RunLifecycleEngineService';
-import type { IRunLifecycleEngine } from '../services/execution/IRunLifecycleEngine';
 import { PlanningCoordinator } from '../services/execution/coordinators/PlanningCoordinator';
 import { RunCoordinator } from '../services/execution/coordinators/RunCoordinator';
 import { ReplanningCoordinator } from '../services/execution/coordinators/ReplanningCoordinator';
@@ -32,7 +30,7 @@ import {
     type RunRecoveryDependencies
 } from '../services/execution/RunRecoveryOrchestration';
 import { RuntimeReadinessPolicyService } from '../services/hardening/RuntimeReadinessPolicyService';
-import type { Plan, PlanItem, PlanItemStatus } from '@domain/entities/Plan';
+import { Plan, PlanItem } from '@domain/entities/Plan';
 import type { ILogger } from '../../domain/ports';
 import { PlatformSessionFactory } from '../services/platform/PlatformSessionFactory';
 
@@ -69,7 +67,6 @@ export class RunTestUseCase {
         @inject(PlanningCoordinator) private readonly planningCoordinator: PlanningCoordinator = new PlanningCoordinator(),
         @inject(RunCoordinator) private readonly runCoordinator: RunCoordinator = new RunCoordinator(),
         @inject(ReplanningCoordinator) private readonly replanningCoordinator: ReplanningCoordinator = new ReplanningCoordinator(),
-        @inject('IRunLifecycleEngine') private readonly runLifecycleEngine: IRunLifecycleEngine = new RunLifecycleEngineService(),
         @inject(BranchRollbackService) private readonly branchRollback: BranchRollbackService = new BranchRollbackService(),
         @inject(ObjectiveCompletionPolicyService) private readonly objectiveCompletionPolicy: ObjectiveCompletionPolicyService = new ObjectiveCompletionPolicyService()
     ) {}
@@ -235,10 +232,7 @@ export class RunTestUseCase {
                 }
             }
 
-            currentState = {
-                ...currentState,
-                status: 'planning'
-            };
+            currentState = WorkflowState.transitionTo(currentState, 'planning');
             yield { type: 'state_updated', state: currentState };
             yield { type: 'thinking' };
             runLifecycle = this.durability.transition(testRunId, runLifecycle, 'planning');
@@ -267,7 +261,7 @@ export class RunTestUseCase {
                 }
             }
 
-            currentState = { ...currentState, plan, executionGraph, status: 'thinking' };
+            currentState = WorkflowState.transitionTo(currentState, 'thinking', { plan, executionGraph });
             yield { type: 'state_updated', state: currentState };
             await this.durability.checkpoint(testRunId, currentState, 'plan_ready');
             runLifecycle = this.durability.transition(testRunId, runLifecycle, 'executing');
@@ -304,18 +298,16 @@ export class RunTestUseCase {
                     estimatedTokensUsed
                 }));
 
-                const runningItem: PlanItem = { ...item, status: 'active' as PlanItemStatus };
+                const runningItem = PlanItem.activate(item);
                 const updatedItems = [...plan.items];
                 updatedItems[i] = runningItem;
                 executionGraph = ExecutionGraph.updateNodeState(executionGraph, runningItem.id, 'running');
-                currentState = {
-                    ...currentState,
-                    status: 'observing',
+                currentState = WorkflowState.transitionTo(currentState, 'observing', {
                     activeItemId: runningItem.id,
                     activeNodeId: runningItem.id,
                     executionGraph,
                     plan: { ...plan, items: updatedItems }
-                };
+                });
                 yield { type: 'state_updated', state: currentState };
 
                 const executionOptions = this.runCoordinator.buildExecutionOptions(input.options);
@@ -355,16 +347,15 @@ export class RunTestUseCase {
                 estimatedTokensUsed = nextEstimatedTokensUsed;
 
                 if (result && result.success) {
-                    const successItem: PlanItem = { ...item, status: 'completed' as PlanItemStatus };
+                    const successItem = PlanItem.complete(runningItem);
                     const successItems = [...updatedItems];
                     successItems[i] = successItem;
                     executionGraph = ExecutionGraph.updateNodeState(executionGraph, successItem.id, 'completed');
-                    currentState = {
-                        ...this.runLifecycleEngine.clearActiveItem(currentState),
-                        status: 'idle',
-                        executionGraph,
-                        plan: { ...plan, items: successItems }
-                    };
+                    currentState = WorkflowState.transitionTo(
+                        WorkflowState.clearActiveItem(currentState),
+                        'idle',
+                        { executionGraph, plan: { ...plan, items: successItems } }
+                    );
                     yield { type: 'state_updated', state: currentState };
                     consecutiveStepFailures = 0;
                     hasUnresolvedVerificationFailure = false;
@@ -401,17 +392,15 @@ export class RunTestUseCase {
                         }
                     };
 
-                    const completedWithFailureItem: PlanItem = { ...item, status: 'failed' as PlanItemStatus };
+                    const failedItem = PlanItem.fail(runningItem);
                     const newItems = [...updatedItems];
-                    newItems[i] = completedWithFailureItem;
-                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, completedWithFailureItem.id, 'failed');
-                    currentState = {
-                        ...this.runLifecycleEngine.clearActiveItem(currentState),
-                        status: 'failed',
-                        error: errorMsg,
-                        executionGraph,
-                        plan: { ...plan, items: newItems }
-                    };
+                    newItems[i] = failedItem;
+                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, failedItem.id, 'failed');
+                    currentState = WorkflowState.transitionTo(
+                        WorkflowState.clearActiveItem(currentState),
+                        'failed',
+                        { error: errorMsg, executionGraph, plan: { ...plan, items: newItems } }
+                    );
                     yield { type: 'state_updated', state: currentState };
 
                     replanCount += 1;
@@ -465,18 +454,18 @@ export class RunTestUseCase {
             await this.trace.endTrace();
 
             if (terminalError) {
-                currentState = this.runCoordinator.applyTerminalState(currentState, 'failed', terminalError.message);
+                currentState = WorkflowState.applyTerminal(currentState, 'failed', terminalError.message);
                 runLifecycle = this.durability.transition(testRunId, runLifecycle, 'failed');
                 await this.durability.checkpoint(testRunId, currentState, 'terminal_failure');
                 yield { type: 'error', error: terminalError };
             } else if (controller.state === TestRunState.CANCELLED) {
-                currentState = this.runCoordinator.applyTerminalState(currentState, 'idle', 'cancelled');
+                currentState = WorkflowState.applyTerminal(currentState, 'idle', 'cancelled');
                 runLifecycle = this.durability.transition(testRunId, runLifecycle, 'cancelled');
                 await this.durability.checkpoint(testRunId, currentState, 'terminal_cancelled');
                 yield { type: 'completed', success: false, summary: "Test cancelled by user." };
                 await this.lifecycleManager.finalizeTestRun(testRunId, false, "Test cancelled by user.");
             } else if (completed) {
-                currentState = this.runCoordinator.applyTerminalState(
+                currentState = WorkflowState.applyTerminal(
                     currentState,
                     hasUnresolvedVerificationFailure ? 'failed' : 'completed',
                     hasUnresolvedVerificationFailure ? finalSummary : undefined

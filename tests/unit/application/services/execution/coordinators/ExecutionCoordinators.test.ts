@@ -4,6 +4,7 @@ import { ActionType } from '@domain/enums/ActionType';
 import { PlanningCoordinator } from '@application/services/execution/coordinators/PlanningCoordinator';
 import { RunCoordinator } from '@application/services/execution/coordinators/RunCoordinator';
 import { ReplanningCoordinator } from '@application/services/execution/coordinators/ReplanningCoordinator';
+import { WorkflowState } from '@domain/value-objects/WorkflowState';
 
 describe('Execution coordinators', () => {
     it('builds a single-step plan from a prompt', () => {
@@ -60,12 +61,12 @@ describe('Execution coordinators', () => {
         expect(coordinator.mapResultCodeToTrigger('llm_error')).toBeUndefined();
     });
 
-    it('applies terminal state transitions', () => {
-        const coordinator = new RunCoordinator();
-        const state = coordinator.applyTerminalState(
+    it('applies terminal state transitions via WorkflowState', () => {
+        const state = WorkflowState.applyTerminal(
             {
                 stepNumber: 1,
                 status: 'thinking',
+                variables: {},
                 history: [{ type: ActionType.WAIT, durationMs: 10, thought: 'wait' }],
                 plan: {
                     id: 'plan-1',
