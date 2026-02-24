@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useTestRunStore } from '../stores';
 import { trpc } from '../../lib/trpc';
 import { Button } from './ui/Button';
-import { AgentStatus } from '../../domain/types/AgentStatus';
+import { TestRunState } from '@domain/enums/TestRunState';
 import { canStart, canPause, canResume, canStop, isAgentRunning } from '../utils/agentStateUtils';
 import { PlatformSelector } from './PlatformSelector';
 import { platformRegistry, type PlatformFieldValue } from '../config/platformRegistry';
@@ -31,7 +31,7 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
 
     const runMutation = trpc.test.run.useMutation({
         onError: () => {
-            setStatus(AgentStatus.FAILED);
+            setStatus(TestRunState.FAILED);
         },
         onSuccess: () => {
         }
@@ -176,7 +176,7 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
 
         const platformConfig = buildPlatformConfig(selectedPlatform, platformData);
 
-        setStatus(AgentStatus.RUNNING);
+        setStatus(TestRunState.RUNNING);
         
         const finalData = {
             platformConfig,
@@ -202,17 +202,17 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
 
     const handleStop = (): void => {
         stopMutation.mutate();
-        setStatus(AgentStatus.CANCELLED);
+        setStatus(TestRunState.CANCELLED);
     };
 
     const handlePause = (): void => {
         pauseMutation.mutate();
-        setStatus(AgentStatus.PAUSED);
+        setStatus(TestRunState.PAUSED);
     };
 
     const handleResume = (): void => {
         resumeMutation.mutate();
-        setStatus(AgentStatus.RUNNING);
+        setStatus(TestRunState.RUNNING);
     };
 
     const canSubmit = prompt.trim().length > 0 && !isRunning;

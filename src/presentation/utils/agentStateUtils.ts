@@ -1,25 +1,25 @@
-import { AgentStatus } from '../../domain/types/AgentStatus';
+import { TestRunState } from '@domain/enums/TestRunState';
 
-export const canInteract = (status: AgentStatus): boolean => {
-    return status === AgentStatus.IDLE || status === AgentStatus.COMPLETED || status === AgentStatus.FAILED || status === AgentStatus.CANCELLED;
+export const canInteract = (status: TestRunState): boolean => {
+    return status === TestRunState.IDLE || status === TestRunState.COMPLETED || status === TestRunState.FAILED || status === TestRunState.CANCELLED;
 };
 
-export const isAgentRunning = (status: AgentStatus): boolean => {
-    return status === AgentStatus.RUNNING || status === AgentStatus.PAUSED;
+export const isAgentRunning = (status: TestRunState): boolean => {
+    return status === TestRunState.RUNNING || status === TestRunState.PAUSED;
 };
 
-export const canStart = (status: AgentStatus): boolean => {
-    return status === AgentStatus.IDLE || status === AgentStatus.COMPLETED || status === AgentStatus.FAILED || status === AgentStatus.CANCELLED;
+export const canStart = (status: TestRunState): boolean => {
+    return status === TestRunState.IDLE || status === TestRunState.COMPLETED || status === TestRunState.FAILED || status === TestRunState.CANCELLED;
 };
 
-export const canPause = (status: AgentStatus): boolean => {
-    return status === AgentStatus.RUNNING;
+export const canPause = (status: TestRunState): boolean => {
+    return status === TestRunState.RUNNING;
 };
 
-export const canResume = (status: AgentStatus): boolean => {
-    return status === AgentStatus.PAUSED;
+export const canResume = (status: TestRunState): boolean => {
+    return status === TestRunState.PAUSED;
 };
 
-export const canStop = (status: AgentStatus): boolean => {
-    return status === AgentStatus.RUNNING || status === AgentStatus.PAUSED;
+export const canStop = (status: TestRunState): boolean => {
+    return status === TestRunState.RUNNING || status === TestRunState.PAUSED;
 };

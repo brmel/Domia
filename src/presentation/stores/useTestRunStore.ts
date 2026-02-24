@@ -4,12 +4,12 @@ import type { TestRunEvent } from '@domain/events';
 import type { AgentAction, TestRunId } from '@domain/value-objects';
 import type { Plan } from '@domain/entities/Plan';
 import type { RecoveryReplayTelemetry, ReplanningTelemetry } from '@application/dtos';
-import { AgentStatus } from '../../domain/types/AgentStatus';
+import { TestRunState } from '@domain/enums/TestRunState';
 import type { BuiltInPlatformType } from '../../domain/types/PlatformConfig';
 import type { PlatformFieldValue } from '../config/platformRegistry';
 
 export interface TestRunStoreState {
-    status: AgentStatus;
+    status: TestRunState;
     testRunId: TestRunId | null;
 
     currentPhase: 'planning' | 'executing' | 'verifying' | null;
@@ -38,7 +38,7 @@ interface TestRunActions {
     setPrompt: (prompt: string) => void;
     setSelectedPlatform: (platform: BuiltInPlatformType) => void;
     setPlatformData: (data: PlatformFieldValue) => void;
-    setStatus: (status: AgentStatus) => void;
+    setStatus: (status: TestRunState) => void;
 
     handleEvent: (event: TestRunEvent) => void;
 }
@@ -46,7 +46,7 @@ interface TestRunActions {
 type TestRunStore = TestRunStoreState & TestRunActions;
 
 const initialState: TestRunStoreState = {
-    status: AgentStatus.IDLE,
+    status: TestRunState.IDLE,
     testRunId: null,
     currentPhase: null,
     currentAction: null,
@@ -82,12 +82,12 @@ export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
             ? { url: platformData.url }
             : {})
     }),
-    setStatus: (status: AgentStatus): void => set({ status }),
+    setStatus: (status: TestRunState): void => set({ status }),
 
     handleEvent: (event: TestRunEvent): void => {
         switch (event.type) {
             case 'started':
-                set({ testRunId: event.testRunId, status: AgentStatus.RUNNING });
+                set({ testRunId: event.testRunId, status: TestRunState.RUNNING });
                 break;
 
             case 'thinking':
@@ -116,7 +116,7 @@ export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
 
             case 'completed':
                 set({
-                    status: AgentStatus.COMPLETED,
+                    status: TestRunState.COMPLETED,
                     success: event.success,
                     summary: event.summary,
                     currentPhase: null,
@@ -126,7 +126,7 @@ export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
 
             case 'error':
                 set({
-                    status: AgentStatus.FAILED,
+                    status: TestRunState.FAILED,
                     errorMessage: event.error.message,
                     currentPhase: null,
                 });

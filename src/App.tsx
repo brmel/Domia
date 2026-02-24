@@ -8,7 +8,7 @@ import { RunsWorkspace } from './presentation/components/RunsWorkspace';
 import { ComposeWorkspace } from './presentation/components/ComposeWorkspace';
 import { WorkflowWorkspace } from './presentation/components/WorkflowWorkspace';
 import { StepInspector } from './presentation/components/StepInspector';
-import { AgentStatus } from './domain/types/AgentStatus';
+import { TestRunState } from '@domain/enums/TestRunState';
 
 type AppSection = 'runs' | 'compose' | 'workflow' | 'skills' | 'plugins' | 'governance' | 'observability';
 
@@ -32,7 +32,7 @@ function App(): JSX.Element {
     useEffect(() => {
         if (
             activeSection === 'compose'
-            && (status === AgentStatus.RUNNING || status === AgentStatus.PAUSED)
+            && (status === TestRunState.RUNNING || status === TestRunState.PAUSED)
         ) {
             setActiveSection('runs');
         }

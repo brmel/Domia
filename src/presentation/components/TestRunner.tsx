@@ -3,7 +3,7 @@ import { useTestRunStore, useStepInspectorStore } from '../stores';
 import type { AgentAction } from '@domain/value-objects';
 import { cn } from '../../lib/utils';
 import { trpc } from '../../lib/trpc';
-import { AgentStatus } from '../../domain/types/AgentStatus';
+import { TestRunState } from '@domain/enums/TestRunState';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { InfoCard } from './ui/InfoCard';
 import { SectionBlock } from './ui/SectionBlock';
@@ -73,7 +73,7 @@ export function TestRunner(): React.ReactElement {
             });
         });
 
-        if (status === AgentStatus.COMPLETED) {
+        if (status === TestRunState.COMPLETED) {
             records.push({
                 id: success ? 'terminal-success' : 'terminal-failure',
                 reason: success ? 'terminal_success' : 'terminal_failure',
@@ -81,7 +81,7 @@ export function TestRunner(): React.ReactElement {
             });
         }
 
-        if (status === AgentStatus.CANCELLED) {
+        if (status === TestRunState.CANCELLED) {
             records.push({ id: 'terminal-cancelled', reason: 'terminal_cancelled', detail: 'Run cancelled by operator' });
         }
 
@@ -120,7 +120,7 @@ export function TestRunner(): React.ReactElement {
     };
 
     const handleQueueActionOverride = (): void => {
-        if (status !== AgentStatus.RUNNING) {
+        if (status !== TestRunState.RUNNING) {
             setActionOverrideError('Action override is only available while a run is active.');
             return;
         }
@@ -241,7 +241,7 @@ export function TestRunner(): React.ReactElement {
                                             }}
                                             placeholder='{"type":"mouse_click_left","x":120,"y":240,"thought":"Operator override"}'
                                             className="w-full min-h-24 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-mono"
-                                            disabled={status !== AgentStatus.RUNNING || overrideActionMutation.isPending}
+                                            disabled={status !== TestRunState.RUNNING || overrideActionMutation.isPending}
                                         />
                                         {actionOverrideError ? (
                                             <p className="text-[11px] text-red-600">{actionOverrideError}</p>
@@ -253,7 +253,7 @@ export function TestRunner(): React.ReactElement {
                                             variant="outline"
                                             size="sm"
                                             onClick={handleQueueActionOverride}
-                                            disabled={status !== AgentStatus.RUNNING || overrideActionMutation.isPending || actionOverrideJson.trim().length === 0}
+                                            disabled={status !== TestRunState.RUNNING || overrideActionMutation.isPending || actionOverrideJson.trim().length === 0}
                                         >
                                             {overrideActionMutation.isPending ? 'Queueing…' : 'Queue Override Action'}
                                         </Button>
@@ -357,10 +357,10 @@ export function TestRunner(): React.ReactElement {
                             <h3 className="font-semibold text-gray-700 text-sm flex items-center gap-2">
                                 <span className={cn(
                                     "w-2 h-2 rounded-full transition-all duration-300",
-                                    status === AgentStatus.RUNNING && "bg-blue-500 animate-pulse ring-2 ring-blue-500/30",
-                                    status === AgentStatus.COMPLETED && "bg-green-500 ring-2 ring-green-500/30",
-                                    status === AgentStatus.CANCELLED && "bg-yellow-500",
-                                    status === AgentStatus.FAILED && "bg-red-500"
+                                    status === TestRunState.RUNNING && "bg-blue-500 animate-pulse ring-2 ring-blue-500/30",
+                                    status === TestRunState.COMPLETED && "bg-green-500 ring-2 ring-green-500/30",
+                                    status === TestRunState.CANCELLED && "bg-yellow-500",
+                                    status === TestRunState.FAILED && "bg-red-500"
                                 )}></span>
                                 Activity Log
                             </h3>
@@ -369,7 +369,7 @@ export function TestRunner(): React.ReactElement {
                             </div>
                         </div>
 
-                        {status === AgentStatus.RUNNING && (
+                        {status === TestRunState.RUNNING && (
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -386,14 +386,14 @@ export function TestRunner(): React.ReactElement {
                     {/* Log Content */}
                     <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 font-mono text-sm relative">
                         {/* Welcome Message */}
-                        {history.length === 0 && !currentAction && status === AgentStatus.IDLE && (
+                        {history.length === 0 && !currentAction && status === TestRunState.IDLE && (
                             <div className="text-gray-400 text-center mt-10 italic">
                                 Agent is ready. Waiting for instructions...
                             </div>
                         )}
 
                         {/* Pending Action (Currently executing) - Show at Top if running */}
-                        {currentAction && status === AgentStatus.RUNNING && (
+                        {currentAction && status === TestRunState.RUNNING && (
                             <div className="border-l-4 border-blue-500 pl-4 py-3 bg-blue-50/10 animate-pulse rounded-r-lg">
                                 <div className="flex justify-between items-center mb-1">
                                     <span className="text-xs font-bold text-blue-500 uppercase tracking-wider">Processing</span>
@@ -407,7 +407,7 @@ export function TestRunner(): React.ReactElement {
                         )}
 
                         {/* Result Card (Inlined if completed) */}
-                        {(status === AgentStatus.COMPLETED || status === AgentStatus.FAILED) && (
+                        {(status === TestRunState.COMPLETED || status === TestRunState.FAILED) && (
                             <div className={cn(
                                 "p-4 rounded-xl border-l-4 shadow-sm mb-4 bg-white",
                                 success ? "bg-green-50/50 border-green-500 text-green-900" : "bg-red-50/50 border-red-500 text-red-900"
@@ -421,7 +421,7 @@ export function TestRunner(): React.ReactElement {
                                             {success ? 'Goal Achieved' : 'Goal Failed'}
                                         </h4>
                                         <p className="text-sm leading-relaxed opacity-90 whitespace-pre-wrap">
-                                            {status === AgentStatus.FAILED ? errorMessage : summary}
+                                            {status === TestRunState.FAILED ? errorMessage : summary}
                                         </p>
                                     </div>
                                 </div>
