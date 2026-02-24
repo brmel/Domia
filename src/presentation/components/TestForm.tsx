@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { useTestRunStore } from '../stores';
-import { trpc } from '../../lib/trpc';
+import { trpc } from '../trpc';
 import { Button } from './ui/Button';
 import { TestRunState } from '@domain/enums/TestRunState';
 import { canStart, canPause, canResume, canStop, isAgentRunning } from '../utils/agentStateUtils';

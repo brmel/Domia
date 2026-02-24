@@ -1,4 +1,4 @@
-import { cn } from '../../lib/utils';
+import { cn } from '../utils';
 import { getAvailablePlatforms } from '../config/platformRegistry';
 import type { BuiltInPlatformType } from '../../domain/types/PlatformConfig';
 import { Button } from './ui/Button';

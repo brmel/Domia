@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { trpc } from '../../lib/trpc';
+import { trpc } from '../trpc';
 import type { TestStep } from '@domain/ports';
 import { useStepInspectorStore } from '../stores/useStepInspectorStore';
 import { Button } from './ui/Button';

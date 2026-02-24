@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { trpc } from '../../lib/trpc';
+import { trpc } from '../trpc';
 import { Button } from './ui/Button';
 import { SegmentedControl } from './ui/SegmentedControl';
 import type { WorkflowEvent } from '@domain/events';

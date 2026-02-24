@@ -1,6 +1,6 @@
 import { injectable } from 'tsyringe';
 import { Page } from 'playwright';
-import { ISensor } from '../ISensor';
+import { ISensor } from '@domain/ports/ISensor';
 import type { AriaNode } from '@domain/value-objects/AriaNode';
 
 @injectable()

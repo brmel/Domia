@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import { Page } from 'playwright';
-import { ISensor } from '../ISensor';
+import { ISensor } from '@domain/ports/ISensor';
 import type { ILogger } from '@domain/ports';
 import { DOMParser } from '../../parsers/DOMParser';
 import { MetadataParser } from '../../parsers/MetadataParser';

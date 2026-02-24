@@ -1,4 +1,4 @@
-import { cn } from '../../../lib/utils';
+import { cn } from '../../utils';
 import type { FieldRenderProps } from '../../config/platformRegistry';
 import type { WebPlatformConfig } from '../../../domain/types/PlatformConfig';
 

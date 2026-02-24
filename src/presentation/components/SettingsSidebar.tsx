@@ -1,4 +1,4 @@
-import { trpc } from '../../lib/trpc';
+import { trpc } from '../trpc';
 import type { DomiaConfig } from '../../shared/config-types';
 import { Button } from './ui/Button';
 

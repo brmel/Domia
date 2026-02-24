@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '../../lib/utils';
+import { cn } from '../utils';
 import type { RecoveryReplayTelemetry, ReplanningTelemetry } from '@application/dtos';
 
 interface RunTimelineViewProps {
