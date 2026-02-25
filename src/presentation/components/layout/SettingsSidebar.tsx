@@ -38,23 +38,11 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
         });
     };
 
-    const updateStrategies = (newOrder: ('fast' | 'semantic' | 'visual' | 'heuristic')[], e: React.ChangeEvent): void => {
-        e.stopPropagation();
-        if (!config) return;
-        handleUpdate({
-            ...config,
-            selectorEngine: { ...(config.selectorEngine || {}), strategyOrder: newOrder }
-        });
-    };
-
     if (isLoading && !config) {
         return <div className="p-6 text-gray-500">Loading settings...</div>;
     }
 
     const effectiveConfig = config || ({} as DomiaConfig);
-
-    const allStrategies = ['fast', 'semantic', 'visual', 'heuristic'] as const;
-    const activeStrategies = effectiveConfig.selectorEngine?.strategyOrder || [];
 
     return (
         <div className={`flex flex-col h-full bg-white border-r border-gray-200 shadow-xl animate-slide-in-right ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -75,13 +63,13 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
 
             <div className="flex-1 overflow-y-auto p-6 space-y-8">
                 <section>
-                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">Browser Control</h3>
+                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">Automation Control</h3>
                     <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                         <div className="flex items-center justify-between">
                             <div>
                                 <h4 className="font-medium text-gray-900">Headless Mode</h4>
                                 <p className="text-xs text-gray-500 mt-1">
-                                    Run without visual browser window.
+                                    Run without visual window.
                                 </p>
                             </div>
                             <label className="relative inline-flex items-center cursor-pointer">
@@ -114,35 +102,7 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
                     </div>
                 </section>
 
-                <section>
-                    <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">Selector Engine</h3>
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-3">
-                        <p className="text-xs text-gray-500 mb-2">
-                            Strategy Priority Order
-                        </p>
-                        {allStrategies.map(strategy => {
-                            const isEnabled = activeStrategies.includes(strategy);
-                            return (
-                                <div key={strategy} className="flex items-center space-x-3 p-2 bg-white border border-gray-200 rounded shadow-sm">
-                                    <input
-                                        type="checkbox"
-                                        checked={isEnabled}
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                updateStrategies([...activeStrategies, strategy], e);
-                                            } else {
-                                                updateStrategies(activeStrategies.filter(s => s !== strategy), e);
-                                            }
-                                        }}
-                                        disabled={disabled}
-                                        className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                                    />
-                                    <span className="text-sm font-medium text-gray-700 capitalize">{strategy} Path</span>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </section>
+
             </div>
 
             {updateMutation.isPending && (

@@ -18,7 +18,7 @@ const program = new Command();
 
 program
     .version('1.0.0')
-    .description('Domia CLI - Autonomous Web E2E Testing Agent');
+    .description('Domia CLI - Autonomous Application Agent');
 
 console.log(chalk.cyan(figlet.textSync('Domia', { horizontalLayout: 'full' })));
 

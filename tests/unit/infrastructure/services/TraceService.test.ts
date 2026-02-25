@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { TraceService } from '@infrastructure/services/TraceService';
-import type { ITraceExporter } from '@infrastructure/services/ITraceExporter';
+import type { ITraceExporter } from '@domain/ports/ITraceExporter';
 
 describe('TraceService hardening', () => {
     it('deduplicates exporters by name', async () => {

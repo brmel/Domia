@@ -24,7 +24,7 @@ export class RunCommand {
             .option('--window-title <title>', 'Target window title (Electron)')
             .option('-p, --prompt <prompt>', 'Testing instruction')
             .option('-s, --steps <steps>', 'Max steps', '10')
-            .option('-H, --no-headless', 'Run in headful mode (visible browser)', false)
+            .option('-H, --no-headless', 'Run in headful mode (visible window)', false)
             .option('--provider <provider>', 'LLM provider: google')
             .option('--model <model>', 'LLM model name (e.g., gemini-2.0-flash)')
             .option('--base-url <url>', 'LLM base URL override')

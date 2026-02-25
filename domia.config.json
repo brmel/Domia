@@ -10,14 +10,6 @@
     "visionEnabled": false,
     "debugScreenshots": false
   },
-  "selectorEngine": {
-    "strategyOrder": [
-      "fast",
-      "semantic",
-      "visual",
-      "heuristic"
-    ]
-  },
   "paths": {
     "artifactsDir": "./artifacts",
     "databasePath": "./domia.db"

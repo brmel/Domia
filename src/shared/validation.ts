@@ -20,20 +20,6 @@ export const RunOptionsSchema = z.object({
   debugScreenshots: z.boolean().optional(),
   recoveryMode: z.enum(['observe', 'manual-only', 'auto-safe']).optional(),
   recoveryRunId: z.string().trim().min(1).optional(),
-  preferredSkillId: z.string().trim().min(1).optional(),
-  allowedSkillTrustLevels: z.array(z.enum(['draft', 'verified', 'restricted'])).optional(),
-  pluginPreflight: z.object({
-    pluginId: z.string().trim().min(1),
-    capability: z.enum([
-      'ssh.read',
-      'ssh.exec',
-      'fs.read',
-      'fs.write',
-      'device.connect',
-      'device.read',
-      'device.control'
-    ])
-  }).optional(),
   readinessMode: z.enum(['observe', 'soft-enforce']).optional(),
   readinessProfile: z.enum(['dev', 'staging', 'production']).optional()
 });

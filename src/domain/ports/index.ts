@@ -9,4 +9,4 @@ export * from './IConfigService';
 export * from './IPerceptionPipeline';
 export * from './IStorageService';
 export * from './ITraceService';
-
+export * from './ITraceExporter';

@@ -1,6 +1,6 @@
 import { injectable } from 'tsyringe';
 import { ITraceService, StepTrace } from '@domain/ports/ITraceService';
-import { ITraceExporter } from './ITraceExporter';
+import { ITraceExporter } from '@domain/ports/ITraceExporter';
 
 @injectable()
 export class TraceService implements ITraceService {

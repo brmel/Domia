@@ -47,7 +47,6 @@ export class ConfigService implements IConfigService {
             ...this.config,
             ...updates,
             ai: { ...this.config.ai, ...updates.ai },
-            selectorEngine: { ...this.config.selectorEngine, ...updates.selectorEngine },
             viewport: { ...this.config.viewport, ...updates.viewport },
             paths: { ...this.config.paths, ...updates.paths },
             limits: { ...this.config.limits, ...updates.limits },

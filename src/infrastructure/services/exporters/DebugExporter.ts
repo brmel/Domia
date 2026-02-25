@@ -1,5 +1,5 @@
 import { StepTrace } from '@domain/ports/ITraceService';
-import { ITraceExporter } from '../ITraceExporter';
+import { ITraceExporter } from '@domain/ports/ITraceExporter';
 import debug from 'debug';
 
 export class DebugExporter implements ITraceExporter {

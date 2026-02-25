@@ -16,11 +16,6 @@ export const DomiaConfigSchema = z.object({
         debugScreenshots: z.boolean().default(false),
     }).default({ provider: 'google', model: 'gemini-2.0-flash', visionEnabled: false, debugScreenshots: false }),
 
-    selectorEngine: z.object({
-        strategyOrder: z.array(z.enum(['fast', 'semantic', 'visual', 'heuristic']))
-            .default(['fast', 'semantic', 'visual', 'heuristic']),
-    }).default({ strategyOrder: ['fast', 'semantic', 'visual', 'heuristic'] }),
-
     paths: z.object({
         artifactsDir: z.string().default('./artifacts'),
         databasePath: z.string().default('./domia.db'),

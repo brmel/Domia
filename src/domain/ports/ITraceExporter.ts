@@ -1,4 +1,4 @@
-import { StepTrace } from '@domain/ports/ITraceService';
+import { StepTrace } from './ITraceService';
 
 export interface ITraceExporter {
     name: string;

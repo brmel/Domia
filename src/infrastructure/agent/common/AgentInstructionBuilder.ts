@@ -4,7 +4,7 @@ export function buildAgentInstruction(tools: readonly ToolSpec[]): string {
     const toolNames = tools.map((t) => t.name).join(', ');
     const capturableTools = tools.filter((t) => t.capturable).map((t) => t.name).join(', ');
 
-    return `You are an autonomous web testing agent. You interact with web pages to verify conditions and achieve goals.
+    return `You are an autonomous agent. You interact with applications to verify conditions and achieve goals.
 
 CAPABILITIES:
 - Available tools: ${toolNames}

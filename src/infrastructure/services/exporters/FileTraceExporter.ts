@@ -1,5 +1,5 @@
 import { StepTrace } from '@domain/ports/ITraceService';
-import { ITraceExporter } from '../ITraceExporter';
+import { ITraceExporter } from '@domain/ports/ITraceExporter';
 import { IStorageService } from '@domain/ports/IStorageService';
 
 export class FileTraceExporter implements ITraceExporter {
