@@ -5,7 +5,7 @@ declare const brand: unique symbol;
 export type Brand<T, B> = T & { readonly [brand]: B };
 
 export type Url = Brand<string, 'Url'>;
-export type TestRunId = Brand<string, 'TestRunId'>;
+export type RunId = Brand<string, 'RunId'>;
 export type ElementId = Brand<number, 'ElementId'>;
 export type Selector = Brand<string, 'Selector'>;
 
@@ -28,12 +28,12 @@ export const UrlFactory = {
 
 import { nanoid } from 'nanoid';
 
-export const TestRunIdFactory = {
-    create(): TestRunId {
-        return nanoid() as TestRunId;
+export const RunIdFactory = {
+    create(): RunId {
+        return nanoid() as RunId;
     },
-    fromString(value: string): TestRunId {
-        return value as TestRunId;
+    fromString(value: string): RunId {
+        return value as RunId;
     },
 };
 

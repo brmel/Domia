@@ -1,20 +1,20 @@
 
 import { useState } from 'react';
-import { useTestRunStore } from '../../stores';
+import { useRunStore } from '../../stores';
 import { trpc } from '../../trpc';
 import { Button } from '../ui/Button';
-import { TestRunState } from '@domain/enums/TestRunState';
+import { RunState } from '@domain/enums/RunState';
 import { canStart, canPause, canResume, canStop, isAgentRunning } from '../../utils/agentStateUtils';
 import { PlatformSelector } from '../platform/PlatformSelector';
 import { platformRegistry, type PlatformFieldValue } from '../../config/platformRegistry';
 import type { BuiltInPlatformType, PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../../domain/types/PlatformConfig';
 
-interface TestFormProps {
+interface RunFormProps {
     onOpenHistory: () => void;
     onOpenDebugSettings: () => void;
 }
 
-export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps): React.ReactElement {
+export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): React.ReactElement {
     const utils = trpc.useUtils();
     const {
         status,
@@ -25,13 +25,13 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
         setSelectedPlatform,
         platformData,
         setPlatformData,
-    } = useTestRunStore();
+    } = useRunStore();
     const isRunning = isAgentRunning(status);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-    const runMutation = trpc.test.run.useMutation({
+    const runMutation = trpc.run.run.useMutation({
         onError: () => {
-            setStatus(TestRunState.FAILED);
+            setStatus(RunState.FAILED);
         },
         onSuccess: () => {
         }
@@ -176,7 +176,7 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
 
         const platformConfig = buildPlatformConfig(selectedPlatform, platformData);
 
-        setStatus(TestRunState.RUNNING);
+        setStatus(RunState.RUNNING);
         
         const finalData = {
             platformConfig,
@@ -194,25 +194,25 @@ export function TestForm({ onOpenHistory, onOpenDebugSettings }: TestFormProps):
         runMutation.mutate(finalData);
     };
 
-    const stopMutation = trpc.test.cancel.useMutation({});
+    const stopMutation = trpc.run.cancel.useMutation({});
 
-    const pauseMutation = trpc.test.pause.useMutation({});
+    const pauseMutation = trpc.run.pause.useMutation({});
 
-    const resumeMutation = trpc.test.resume.useMutation({});
+    const resumeMutation = trpc.run.resume.useMutation({});
 
     const handleStop = (): void => {
         stopMutation.mutate();
-        setStatus(TestRunState.CANCELLED);
+        setStatus(RunState.CANCELLED);
     };
 
     const handlePause = (): void => {
         pauseMutation.mutate();
-        setStatus(TestRunState.PAUSED);
+        setStatus(RunState.PAUSED);
     };
 
     const handleResume = (): void => {
         resumeMutation.mutate();
-        setStatus(TestRunState.RUNNING);
+        setStatus(RunState.RUNNING);
     };
 
     const canSubmit = prompt.trim().length > 0 && !isRunning;

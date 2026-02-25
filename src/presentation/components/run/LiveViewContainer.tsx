@@ -1,12 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { useTestRunStore } from '../../stores';
+import { useRunStore } from '../../stores';
 
 export const LiveViewContainer: React.FC = () => {
     const containerRef = useRef<HTMLDivElement>(null);
     const isRunningRef = useRef(false);
     const isVisibleRef = useRef(false);
     const performUpdateRef = useRef<(() => void) | null>(null);
-    const { status } = useTestRunStore();
+    const { status } = useRunStore();
     const isRunning = status === 'running';
 
     useEffect(() => {

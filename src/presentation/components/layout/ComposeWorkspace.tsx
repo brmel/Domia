@@ -1,6 +1,6 @@
 import React from 'react';
 import { ResizableSidebar } from './ResizableSidebar';
-import { TestForm } from '../test/TestForm';
+import { RunForm } from '../run/RunForm';
 import { HistorySidebar } from './HistorySidebar';
 import { SettingsSidebar } from './SettingsSidebar';
 
@@ -39,7 +39,7 @@ export function ComposeWorkspace({ activeSidebar, setActiveSidebar, isInteractio
 
             <main className="flex-1 min-w-0 p-4">
                 <div className="h-full rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                    <TestForm
+                    <RunForm
                         onOpenHistory={() => setActiveSidebar('history')}
                         onOpenDebugSettings={() => setActiveSidebar('settings_debug')}
                     />

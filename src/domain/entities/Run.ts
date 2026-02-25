@@ -1,18 +1,18 @@
-import { TestRunId, Url } from '../value-objects';
+import { RunId, Url } from '../value-objects';
 import { Plan } from './Plan';
 
 export interface TestRun {
-    readonly id: TestRunId;
+    readonly id: RunId;
     readonly url: Url;
     readonly prompt: string;
-    readonly status: TestRunStatus;
+    readonly status: RunStatus;
     readonly plan?: Plan;
     readonly createdAt: Date;
     readonly startedAt?: Date;
     readonly updatedAt: Date;
 }
 
-export type TestRunStatus =
+export type RunStatus =
     | { type: 'pending' }
     | { type: 'running' }
     | { type: 'passed'; summary: string; duration: number }
@@ -20,7 +20,7 @@ export type TestRunStatus =
     | { type: 'cancelled'; reason: string };
 
 export const TestRun = {
-    create(params: { id: TestRunId; url: Url; prompt: string }): TestRun {
+    create(params: { id: RunId; url: Url; prompt: string }): TestRun {
         return {
             id: params.id,
             url: params.url,
@@ -33,7 +33,7 @@ export const TestRun = {
 
     start(run: TestRun): TestRun {
         if (run.status.type !== 'pending') {
-            throw new Error(`Cannot start a test run in '${run.status.type}' state`);
+            throw new Error(`Cannot start a run in '${run.status.type}' state`);
         }
         return {
             ...run,
@@ -53,7 +53,7 @@ export const TestRun = {
 
     pass(run: TestRun, summary: string): TestRun {
         if (run.status.type !== 'running') {
-            throw new Error(`Cannot pass a test run in '${run.status.type}' state`);
+            throw new Error(`Cannot pass a run in '${run.status.type}' state`);
         }
         const duration = Date.now() - run.createdAt.getTime();
         return {
@@ -65,7 +65,7 @@ export const TestRun = {
 
     fail(run: TestRun, error: string): TestRun {
         if (run.status.type !== 'running' && run.status.type !== 'pending') {
-            throw new Error(`Cannot fail a test run in '${run.status.type}' state`);
+            throw new Error(`Cannot fail a run in '${run.status.type}' state`);
         }
         const duration = Date.now() - run.createdAt.getTime();
         return {
@@ -77,7 +77,7 @@ export const TestRun = {
 
     cancel(run: TestRun, reason: string): TestRun {
         if (run.status.type !== 'running' && run.status.type !== 'pending') {
-            throw new Error(`Cannot cancel a test run in '${run.status.type}' state`);
+            throw new Error(`Cannot cancel a run in '${run.status.type}' state`);
         }
         return {
             ...run,

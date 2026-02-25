@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe';
-import type { RunTestInput } from '@application/dtos';
+import type { RunInput } from '@application/dtos';
 import type { PlatformSession } from '@application/services/platform/PlatformSession';
 import type { RunOptions } from '@shared/validation';
 
@@ -10,7 +10,7 @@ export interface StepExecutionOptions {
 
 @injectable()
 export class RunCoordinator {
-    resolveExecutionUrl(input: RunTestInput, runContext?: { session?: PlatformSession }): string {
+    resolveExecutionUrl(input: RunInput, runContext?: { session?: PlatformSession }): string {
         const sessionUrl = runContext?.session?.executionUrl;
         if (sessionUrl) {
             return sessionUrl;
@@ -28,7 +28,7 @@ export class RunCoordinator {
         return 'electron://app';
     }
 
-    resolveLaneKey(input: RunTestInput): string {
+    resolveLaneKey(input: RunInput): string {
         const platformConfig = input.platformConfig;
 
         if (platformConfig.platform === 'web') {

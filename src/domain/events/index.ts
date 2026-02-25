@@ -1,2 +1,2 @@
-export type { TestRunEvent } from './TestRunEvent';
+export type { RunEvent } from './RunEvent';
 export type { WorkflowEvent } from './WorkflowEvent';

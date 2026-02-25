@@ -1,35 +1,35 @@
 import { EventEmitter } from 'events';
-import { TestRunState } from '../../domain/enums/TestRunState';
+import { RunState } from '../../domain/enums/RunState';
 import type { AgentAction } from '../../domain/value-objects';
 
 export class ExecutionController extends EventEmitter {
-    private _state: TestRunState = TestRunState.IDLE;
+    private _state: RunState = RunState.IDLE;
     private _resumeResolver: (() => void) | null = null;
     private _pendingActionOverride: AgentAction | null = null;
 
-    get state(): TestRunState {
+    get state(): RunState {
         return this._state;
     }
 
     isStopped(): boolean {
-        return this._state === TestRunState.CANCELLED || this._state === TestRunState.COMPLETED || this._state === TestRunState.FAILED;
+        return this._state === RunState.CANCELLED || this._state === RunState.COMPLETED || this._state === RunState.FAILED;
     }
 
     start(): void {
-        this._state = TestRunState.RUNNING;
+        this._state = RunState.RUNNING;
         this.emit('stateChanged', this._state);
     }
 
     pause(): void {
-        if (this._state === TestRunState.RUNNING) {
-            this._state = TestRunState.PAUSED;
+        if (this._state === RunState.RUNNING) {
+            this._state = RunState.PAUSED;
             this.emit('stateChanged', this._state);
         }
     }
 
     resume(): void {
-        if (this._state === TestRunState.PAUSED) {
-            this._state = TestRunState.RUNNING;
+        if (this._state === RunState.PAUSED) {
+            this._state = RunState.RUNNING;
             if (this._resumeResolver) {
                 this._resumeResolver();
                 this._resumeResolver = null;
@@ -39,7 +39,7 @@ export class ExecutionController extends EventEmitter {
     }
 
     stop(): void {
-        this._state = TestRunState.CANCELLED;
+        this._state = RunState.CANCELLED;
         this._pendingActionOverride = null;
         if (this._resumeResolver) {
             this._resumeResolver();
@@ -64,7 +64,7 @@ export class ExecutionController extends EventEmitter {
     }
 
     async waitForResume(): Promise<void> {
-        if (this._state === TestRunState.RUNNING) return;
+        if (this._state === RunState.RUNNING) return;
         return new Promise<void>((resolve) => {
             this._resumeResolver = resolve;
         });

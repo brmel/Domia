@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { WorkflowEvent } from '@domain/events/WorkflowEvent';
 import type { IPersistenceAdapter } from '@domain/ports/IPersistenceAdapter';
 import type { ILogger } from '@domain/ports';
-import { TestRunState } from '@domain/enums/TestRunState';
+import { RunState } from '@domain/enums/RunState';
 import type { WorkflowDefinition } from '@domain/entities/Workflow';
 import type { WorkflowExecutionGraph } from '@domain/value-objects';
 import { ExecutionGraph } from '@domain/value-objects';
@@ -120,7 +120,7 @@ export class WorkflowRunOrchestratorService {
                     break;
                 }
 
-                if (controller.state === TestRunState.CANCELLED) {
+                if (controller.state === RunState.CANCELLED) {
                     failedReason = 'Workflow cancelled by operator.';
                     executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
                     break;
@@ -258,13 +258,13 @@ export class WorkflowRunOrchestratorService {
 
                 shouldNavigateSharedSession = false;
 
-                if (stepResult.testRunId) {
+                if (stepResult.runId) {
                     yield {
                         type: 'workflow_step_bound',
                         workflowRunId,
                         stepId: step.id,
                         stepIndex,
-                        testRunId: stepResult.testRunId
+                        runId: stepResult.runId
                     };
                 }
 
@@ -275,7 +275,7 @@ export class WorkflowRunOrchestratorService {
                             summary: [stepResult.summary, degradationSummary].filter(Boolean).join(' | ')
                         }
                         : {}),
-                    ...(stepResult.testRunId ? { testRunId: stepResult.testRunId } : {}),
+                    ...(stepResult.runId ? { runId: stepResult.runId } : {}),
                     completedAt: new Date().toISOString()
                 });
 
@@ -320,7 +320,7 @@ export class WorkflowRunOrchestratorService {
                         workflowStepRunUpdates: {
                             status: 'failed',
                             ...(terminalReason ? { summary: terminalReason } : {}),
-                            ...(stepResult.testRunId ? { testRunId: stepResult.testRunId } : {}),
+                            ...(stepResult.runId ? { runId: stepResult.runId } : {}),
                             completedAt
                         }
                     });
@@ -363,14 +363,14 @@ export class WorkflowRunOrchestratorService {
                 return;
             }
 
-            const terminalStatus = controller.state === TestRunState.CANCELLED ? 'cancelled' : 'failed';
+            const terminalStatus = controller.state === RunState.CANCELLED ? 'cancelled' : 'failed';
             await this.persistence.updateWorkflowRun(workflowRunId, {
                 status: terminalStatus,
                 summary: failedReason,
                 completedAt: new Date().toISOString()
             });
 
-            if (controller.state === TestRunState.CANCELLED) {
+            if (controller.state === RunState.CANCELLED) {
                 yield {
                     type: 'workflow_completed',
                     workflowRunId,

@@ -40,7 +40,7 @@ describe('Workflow execution integration', () => {
 
         const stepRunner = new WorkflowStepRunnerService({
             execute: vi.fn(async function* () {
-                yield { type: 'started' as const, testRunId: 'run-1' };
+                yield { type: 'started' as const, runId: 'run-1' };
                 yield { type: 'completed' as const, success: true, summary: 'ok' };
             })
         } as unknown as never, {

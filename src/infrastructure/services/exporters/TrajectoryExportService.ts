@@ -38,12 +38,12 @@ export class TrajectoryExportService {
         const trajectories: TrajectoryStepRecord[] = [];
 
         for (const runId of runIds) {
-            const runResult = await this.persistence.getTestRun(runId);
+            const runResult = await this.persistence.getRun(runId);
             if (runResult.isErr() || !runResult.value) {
                 continue;
             }
 
-            const stepsResult = await this.persistence.getTestSteps(runId);
+            const stepsResult = await this.persistence.getSteps(runId);
             if (stepsResult.isErr()) {
                 continue;
             }
@@ -101,7 +101,7 @@ export class TrajectoryExportService {
     }
 
     private async resolveRunIds(filters: TrajectoryFilter): Promise<readonly string[]> {
-        const runsResult = await this.persistence.getTestRuns(2000);
+        const runsResult = await this.persistence.getRuns(2000);
         if (runsResult.isErr()) {
             return [];
         }
@@ -139,8 +139,8 @@ export class TrajectoryExportService {
             }
 
             for (const stepRun of stepRunsResult.value) {
-                if (stepRun.testRunId) {
-                    workflowBoundRunIds.add(stepRun.testRunId);
+                if (stepRun.runId) {
+                    workflowBoundRunIds.add(stepRun.runId);
                 }
             }
         }

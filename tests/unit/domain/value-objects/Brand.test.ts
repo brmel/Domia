@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { UrlFactory, TestRunIdFactory, ElementIdFactory } from '@domain/value-objects/Brand';
+import { UrlFactory, RunIdFactory, ElementIdFactory } from '@domain/value-objects/Brand';
 
 describe('Brand Factories', () => {
     describe('UrlFactory', () => {
@@ -27,15 +27,15 @@ describe('Brand Factories', () => {
         });
     });
 
-    describe('TestRunIdFactory', () => {
+    describe('RunIdFactory', () => {
         it('should create unique IDs', () => {
-            const id1 = TestRunIdFactory.create();
-            const id2 = TestRunIdFactory.create();
+            const id1 = RunIdFactory.create();
+            const id2 = RunIdFactory.create();
             expect(id1).not.toBe(id2);
         });
 
         it('should create from string', () => {
-            const id = TestRunIdFactory.fromString('test-id-123');
+            const id = RunIdFactory.fromString('test-id-123');
             expect(id).toBe('test-id-123');
         });
     });

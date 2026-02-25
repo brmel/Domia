@@ -4,7 +4,7 @@ import { okAsync } from 'neverthrow';
 import { WorkflowRunOrchestratorService } from '@application/services/workflow/WorkflowRunOrchestratorService';
 import { ExecutionController } from '@application/controllers/ExecutionController';
 import type { WorkflowDefinition } from '@domain/entities/Workflow';
-import { TestRunState } from '@domain/enums/TestRunState';
+import { RunState } from '@domain/enums/RunState';
 import { WorkflowStepPolicyService } from '@application/services/workflow/WorkflowStepPolicyService';
 import { PlatformCapabilityNegotiationService } from '@application/services/platform/PlatformCapabilityNegotiationService';
 
@@ -29,7 +29,7 @@ describe('WorkflowRunOrchestratorService', () => {
 
     const createService = (options?: {
         governanceAllowed?: boolean;
-        stepResult?: { success: boolean; summary?: string; testRunId?: string };
+        stepResult?: { success: boolean; summary?: string; runId?: string };
     }): {
         service: WorkflowRunOrchestratorService;
         persistence: {
@@ -68,7 +68,7 @@ describe('WorkflowRunOrchestratorService', () => {
                     automation: {},
                     dispose: vi.fn().mockResolvedValue(undefined)
                 }),
-                runStep: vi.fn().mockResolvedValue(options?.stepResult ?? { success: true, summary: 'step ok', testRunId: 'run-1' })
+                runStep: vi.fn().mockResolvedValue(options?.stepResult ?? { success: true, summary: 'step ok', runId: 'run-1' })
             } as unknown as never,
             new PlatformCapabilityNegotiationService()
         );
@@ -114,7 +114,7 @@ describe('WorkflowRunOrchestratorService', () => {
             events.push(event.type);
         }
 
-        expect(controller.state).toBe(TestRunState.CANCELLED);
+        expect(controller.state).toBe(RunState.CANCELLED);
         expect(events).toContain('workflow_completed');
         expect(persistence.updateWorkflowRun).toHaveBeenCalledWith(
             expect.any(String),
@@ -144,7 +144,7 @@ describe('WorkflowRunOrchestratorService', () => {
             commitAtomicWorkflowTransition: vi.fn(() => okAsync(undefined))
         };
 
-        const runStep = vi.fn().mockResolvedValue({ success: true, summary: 'step ok', testRunId: 'run-1' });
+        const runStep = vi.fn().mockResolvedValue({ success: true, summary: 'step ok', runId: 'run-1' });
 
         const service = new WorkflowRunOrchestratorService(
             persistence as unknown as never,

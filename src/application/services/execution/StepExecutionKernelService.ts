@@ -7,7 +7,7 @@ import { RunDurabilityService } from './RunDurabilityService';
 import { RunBudgetPolicyService, type RunBudgetLimits } from './RunBudgetPolicyService';
 import { StepExecutor, type StepExecutionResult } from './StepExecutor';
 import type { StepExecutionOptions } from './coordinators/RunCoordinator';
-import type { RunTestOutput } from '../../dtos';
+import type { RunOutput } from '../../dtos';
 import type { IPersistenceAdapter } from '@domain/ports/IPersistenceAdapter';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -33,18 +33,18 @@ export class StepExecutionKernelService {
     ) {}
 
     async *execute(
-        testRunId: string,
+        runId: string,
         executionGoal: string,
         automation: IAppAutomation,
         url: string,
         currentState: WorkflowState,
         executionOptions: StepExecutionOptions,
         runtime: KernelRuntime
-    ): AsyncGenerator<RunTestOutput, KernelResult, unknown> {
+    ): AsyncGenerator<RunOutput, KernelResult, unknown> {
         let estimatedTokensUsed = runtime.estimatedTokensUsed;
 
         const stepGen = this.executor.executeStep(
-            testRunId,
+            runId,
             executionGoal,
             automation,
             url,
@@ -55,8 +55,8 @@ export class StepExecutionKernelService {
         );
 
         try {
-            const emitStateUpdate = async (): Promise<RunTestOutput> => {
-                await this.durability.checkpoint(testRunId, currentState, 'action_applied');
+            const emitStateUpdate = async (): Promise<RunOutput> => {
+                await this.durability.checkpoint(runId, currentState, 'action_applied');
                 return { type: 'state_updated', state: currentState };
             };
 
@@ -70,7 +70,7 @@ export class StepExecutionKernelService {
 
                     const step: TestStep = {
                         id: uuidv4(),
-                        testRunId,
+                        runId,
                         stepNumber: currentState.stepNumber + 1,
                         actionType: action.type,
                         actionPayload: action,
@@ -78,7 +78,7 @@ export class StepExecutionKernelService {
                         timestamp: new Date().toISOString()
                     };
 
-                    const saveStepResult = await this.persistence.saveTestStep(step);
+                    const saveStepResult = await this.persistence.saveStep(step);
                     if (saveStepResult.isErr()) {
                         throw new WorkflowError(`Failed to persist test step: ${saveStepResult.error.message}`);
                     }
@@ -87,7 +87,7 @@ export class StepExecutionKernelService {
                     estimatedTokensUsed += Math.ceil(JSON.stringify(action).length / 4);
                     yield await emitStateUpdate();
 
-                    this.throwIfBudgetExceeded(testRunId, runtime.budgetLimits, this.buildBudgetSnapshot({
+                    this.throwIfBudgetExceeded(runId, runtime.budgetLimits, this.buildBudgetSnapshot({
                         actionsTaken: currentState.stepNumber,
                         runStartMs: runtime.runStartMs,
                         estimatedTokensUsed
@@ -143,12 +143,12 @@ export class StepExecutionKernelService {
         };
     }
 
-    throwIfBudgetExceeded(testRunId: string, limits: RunBudgetLimits, snapshot: {
+    throwIfBudgetExceeded(runId: string, limits: RunBudgetLimits, snapshot: {
         actionsTaken: number;
         elapsedMs: number;
         estimatedTokensUsed: number;
     }): void {
-        const assessment = this.budgetPolicy.evaluate(testRunId, limits, snapshot);
+        const assessment = this.budgetPolicy.evaluate(runId, limits, snapshot);
         if (assessment.status !== 'exceeded') {
             return;
         }

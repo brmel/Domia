@@ -1,16 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { TestRunEvent } from '@domain/events';
-import type { AgentAction, TestRunId } from '@domain/value-objects';
+import type { RunEvent } from '@domain/events';
+import type { AgentAction, RunId } from '@domain/value-objects';
 import type { Plan } from '@domain/entities/Plan';
 import type { RecoveryReplayTelemetry, ReplanningTelemetry } from '@application/dtos';
-import { TestRunState } from '@domain/enums/TestRunState';
+import { RunState } from '@domain/enums/RunState';
 import type { BuiltInPlatformType } from '../../domain/types/PlatformConfig';
 import type { PlatformFieldValue } from '../config/platformRegistry';
 
-export interface TestRunStoreState {
-    status: TestRunState;
-    testRunId: TestRunId | null;
+export interface RunStoreState {
+    status: RunState;
+    runId: RunId | null;
 
     currentPhase: 'planning' | 'executing' | 'verifying' | null;
     currentAction: AgentAction | null;
@@ -38,16 +38,16 @@ interface TestRunActions {
     setPrompt: (prompt: string) => void;
     setSelectedPlatform: (platform: BuiltInPlatformType) => void;
     setPlatformData: (data: PlatformFieldValue) => void;
-    setStatus: (status: TestRunState) => void;
+    setStatus: (status: RunState) => void;
 
-    handleEvent: (event: TestRunEvent) => void;
+    handleEvent: (event: RunEvent) => void;
 }
 
-type TestRunStore = TestRunStoreState & TestRunActions;
+type TestRunStore = RunStoreState & TestRunActions;
 
-const initialState: TestRunStoreState = {
-    status: TestRunState.IDLE,
-    testRunId: null,
+const initialState: RunStoreState = {
+    status: RunState.IDLE,
+    runId: null,
     currentPhase: null,
     currentAction: null,
     plan: null,
@@ -63,7 +63,7 @@ const initialState: TestRunStoreState = {
     replanningEvents: [],
 };
 
-export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
+export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
     ...initialState,
 
     reset: (): void => set(initialState),
@@ -82,12 +82,12 @@ export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
             ? { url: platformData.url }
             : {})
     }),
-    setStatus: (status: TestRunState): void => set({ status }),
+    setStatus: (status: RunState): void => set({ status }),
 
-    handleEvent: (event: TestRunEvent): void => {
+    handleEvent: (event: RunEvent): void => {
         switch (event.type) {
             case 'started':
-                set({ testRunId: event.testRunId, status: TestRunState.RUNNING });
+                set({ runId: event.runId, status: RunState.RUNNING });
                 break;
 
             case 'thinking':
@@ -116,7 +116,7 @@ export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
 
             case 'completed':
                 set({
-                    status: TestRunState.COMPLETED,
+                    status: RunState.COMPLETED,
                     success: event.success,
                     summary: event.summary,
                     currentPhase: null,
@@ -126,7 +126,7 @@ export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
 
             case 'error':
                 set({
-                    status: TestRunState.FAILED,
+                    status: RunState.FAILED,
                     errorMessage: event.error.message,
                     currentPhase: null,
                 });
@@ -135,7 +135,7 @@ export const useTestRunStore = create<TestRunStore>()(persist((set, get) => ({
     },
 }), {
     name: 'domia-compose-draft-v1',
-    partialize: (state): Partial<TestRunStoreState> => ({
+    partialize: (state): Partial<RunStoreState> => ({
         url: state.url,
         prompt: state.prompt,
         selectedPlatform: state.selectedPlatform,

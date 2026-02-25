@@ -4,9 +4,9 @@ import type { IAppAutomation } from '../../domain/ports';
 import { ExecutionGraph, UrlFactory, WorkflowState } from '../../domain/value-objects';
 import { ExecutionController } from '../controllers/ExecutionController';
 import { WorkflowError } from '../../domain/errors';
-import { TestRunLifecycleManager } from '../services/TestRunLifecycleManager';
-import { RunTestInput, RunTestOutput } from '../dtos';
-import { TestRunState } from '../../domain/enums/TestRunState';
+import { RunLifecycleManager } from '../services/RunLifecycleManager';
+import { RunInput, RunOutput } from '../dtos';
+import { RunState } from '../../domain/enums/RunState';
 import type { RunExecutionLaneService } from '../services/execution/RunExecutionLaneService';
 import { RunDurabilityService } from '../services/execution/RunDurabilityService';
 import { RunBudgetPolicyService } from '../services/execution/RunBudgetPolicyService';
@@ -45,9 +45,9 @@ export interface RunExecutionContext {
 
 
 @injectable()
-export class RunTestUseCase {
+export class RunUseCase {
     constructor(
-        @inject(TestRunLifecycleManager) private lifecycleManager: TestRunLifecycleManager,
+        @inject(RunLifecycleManager) private lifecycleManager: RunLifecycleManager,
         @inject('ITraceService') private trace: import('../../domain/ports/ITraceService').ITraceService,
         @inject(PlatformSessionFactory) private readonly sessionFactory: PlatformSessionFactory,
         @inject('IRunExecutionLaneService') private readonly laneService: RunExecutionLaneService,
@@ -87,10 +87,10 @@ export class RunTestUseCase {
     }
 
     async *execute(
-        input: RunTestInput,
+        input: RunInput,
         controller: ExecutionController,
         runContext?: RunExecutionContext
-    ): AsyncGenerator<RunTestOutput, void, unknown> {
+    ): AsyncGenerator<RunOutput, void, unknown> {
         const url = this.runCoordinator.resolveExecutionUrl(input, runContext);
 
         const readinessDecision = this.readinessPolicy.assess(input, url);
@@ -102,13 +102,13 @@ export class RunTestUseCase {
         const laneKey = this.runCoordinator.resolveLaneKey(input);
         const releaseLane = await this.laneService.acquire(laneKey);
 
-        const initResult = await this.lifecycleManager.initializeTestRun(url, input.prompt);
+        const initResult = await this.lifecycleManager.initializeRun(url, input.prompt);
         if (initResult.isErr()) {
             releaseLane();
             yield { type: 'error', error: initResult.error };
             return;
         }
-        const testRunId = initResult.value;
+        const runId = initResult.value;
         let runLifecycle: RunLifecycleState = 'initialized';
         const budgetLimits = this.budgetPolicy.resolveLimits(input.options);
         const runStartMs = Date.now();
@@ -152,8 +152,8 @@ export class RunTestUseCase {
         const resumedPlan = recoveryContext?.plan;
         const startPlanIndex = recoveryContext?.startPlanIndex ?? 0;
 
-        await this.durability.checkpoint(testRunId, currentState, 'run_initialized');
-        yield { type: 'started', testRunId };
+        await this.durability.checkpoint(runId, currentState, 'run_initialized');
+        yield { type: 'started', runId };
         let completed = false;
         let finalSummary: string | undefined;
         let hasUnresolvedVerificationFailure = false;
@@ -184,7 +184,7 @@ export class RunTestUseCase {
                 });
 
                 const replayOutcome = await replayRecoveryActionsForRun(this.recoveryDeps, {
-                    testRunId,
+                    runId,
                     sourceRunId: recoveryContext.sourceRunId,
                     sourceBranchId: recoveryContext.branchId,
                     automation,
@@ -221,8 +221,8 @@ export class RunTestUseCase {
                 currentState = replayOutcome.state;
                 yield { type: 'state_updated', state: currentState };
 
-                this.logger.info('[RunTestUseCase] Recovery replay completed', {
-                    testRunId,
+                this.logger.info('[RunUseCase] Recovery replay completed', {
+                    runId,
                     sourceRunId: recoveryContext.sourceRunId,
                     replayedCount: replayOutcome.replayedCount
                 });
@@ -235,15 +235,15 @@ export class RunTestUseCase {
             currentState = WorkflowState.transitionTo(currentState, 'planning');
             yield { type: 'state_updated', state: currentState };
             yield { type: 'thinking' };
-            runLifecycle = this.durability.transition(testRunId, runLifecycle, 'planning');
+            runLifecycle = this.durability.transition(runId, runLifecycle, 'planning');
             const plan: Plan = resumedPlan
                 ?? this.planningCoordinator.buildSingleStepPlan(
                     input.prompt
                 );
 
             if (resumedPlan) {
-                this.logger.info('[RunTestUseCase] Recovery bootstrap reusing checkpoint plan', {
-                    testRunId,
+                this.logger.info('[RunUseCase] Recovery bootstrap reusing checkpoint plan', {
+                    runId,
                     sourceRunId: recoveryContext?.sourceRunId,
                     startPlanIndex,
                     planItems: resumedPlan.items.length
@@ -263,8 +263,8 @@ export class RunTestUseCase {
 
             currentState = WorkflowState.transitionTo(currentState, 'thinking', { plan, executionGraph });
             yield { type: 'state_updated', state: currentState };
-            await this.durability.checkpoint(testRunId, currentState, 'plan_ready');
-            runLifecycle = this.durability.transition(testRunId, runLifecycle, 'executing');
+            await this.durability.checkpoint(runId, currentState, 'plan_ready');
+            runLifecycle = this.durability.transition(runId, runLifecycle, 'executing');
 
             while (true) {
                 const nextNode = ExecutionGraph.selectNextReadyNode(executionGraph);
@@ -283,7 +283,7 @@ export class RunTestUseCase {
 
                 const controlFlow = await this.applyControllerFlow({
                     controller,
-                    testRunId,
+                    runId,
                     runLifecycle,
                     currentState
                 });
@@ -292,7 +292,7 @@ export class RunTestUseCase {
                     break;
                 }
 
-                this.kernel.throwIfBudgetExceeded(testRunId, budgetLimits, this.kernel.buildBudgetSnapshot({
+                this.kernel.throwIfBudgetExceeded(runId, budgetLimits, this.kernel.buildBudgetSnapshot({
                     actionsTaken: currentState.stepNumber,
                     runStartMs,
                     estimatedTokensUsed
@@ -313,7 +313,7 @@ export class RunTestUseCase {
                 const executionOptions = this.runCoordinator.buildExecutionOptions(input.options);
 
                 const stepKernel = this.kernel.execute(
-                    testRunId,
+                    runId,
                     executionGoal,
                     automation,
                     url,
@@ -364,14 +364,14 @@ export class RunTestUseCase {
                     const errorMsg = result ? `${result.code}: ${result.reason}` : 'unknown_error: Unknown error';
                     const replanningTrigger = result ? this.replanningCoordinator.mapResultCodeToTrigger(result.code) : undefined;
                     const replanningAssessment = this.replanningPolicy.assess({
-                        runId: testRunId,
+                        runId: runId,
                         replanCount,
                         ...(replanningTrigger ? { trigger: replanningTrigger } : {})
                     });
 
                     if (replanningAssessment.shouldReplan) {
                         this.logger.warn('[ReplanningPolicyService] Replanning approved (active mode)', {
-                            runId: testRunId,
+                            runId: runId,
                             trigger: replanningTrigger,
                             replanCount,
                             reason: replanningAssessment.reason
@@ -382,7 +382,7 @@ export class RunTestUseCase {
                     yield {
                         type: 'replanning',
                         telemetry: {
-                            runId: testRunId,
+                            runId: runId,
                             ...(replanningTrigger ? { trigger: replanningTrigger } : {}),
                             status: replanningAssessment.shouldReplan ? 'executed' : 'suppressed',
                             reason: replanningAssessment.reason,
@@ -406,8 +406,8 @@ export class RunTestUseCase {
                     replanCount += 1;
                     consecutiveStepFailures += 1;
 
-                    this.logger.warn('[RunTestUseCase] Step failed verification', {
-                        runId: testRunId,
+                    this.logger.warn('[RunUseCase] Step failed verification', {
+                        runId: runId,
                         error: errorMsg,
                         planItemId: item.id,
                         planItemDescription: item.description
@@ -416,8 +416,8 @@ export class RunTestUseCase {
                     hasUnresolvedVerificationFailure = true;
 
                     if (consecutiveStepFailures >= maxConsecutiveStepFailures) {
-                        this.logger.warn('[RunTestUseCase] Halting run after consecutive failed steps', {
-                            runId: testRunId,
+                        this.logger.warn('[RunUseCase] Halting run after consecutive failed steps', {
+                            runId: runId,
                             consecutiveStepFailures,
                             maxConsecutiveStepFailures
                         });
@@ -440,12 +440,12 @@ export class RunTestUseCase {
 
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
-            await this.lifecycleManager.failTestRun(testRunId, msg);
+            await this.lifecycleManager.failRun(runId, msg);
             terminalError = error instanceof Error ? error : new Error(msg);
         } finally {
             if (disposeSession && ownsSession) {
                 await disposeSession().catch(err =>
-                    this.logger.warn(`[RunTestUseCase] Error during session cleanup: ${String(err)}`)
+                    this.logger.warn(`[RunUseCase] Error during session cleanup: ${String(err)}`)
                 );
             }
 
@@ -455,29 +455,29 @@ export class RunTestUseCase {
 
             if (terminalError) {
                 currentState = WorkflowState.applyTerminal(currentState, 'failed', terminalError.message);
-                runLifecycle = this.durability.transition(testRunId, runLifecycle, 'failed');
-                await this.durability.checkpoint(testRunId, currentState, 'terminal_failure');
+                runLifecycle = this.durability.transition(runId, runLifecycle, 'failed');
+                await this.durability.checkpoint(runId, currentState, 'terminal_failure');
                 yield { type: 'error', error: terminalError };
-            } else if (controller.state === TestRunState.CANCELLED) {
+            } else if (controller.state === RunState.CANCELLED) {
                 currentState = WorkflowState.applyTerminal(currentState, 'idle', 'cancelled');
-                runLifecycle = this.durability.transition(testRunId, runLifecycle, 'cancelled');
-                await this.durability.checkpoint(testRunId, currentState, 'terminal_cancelled');
+                runLifecycle = this.durability.transition(runId, runLifecycle, 'cancelled');
+                await this.durability.checkpoint(runId, currentState, 'terminal_cancelled');
                 yield { type: 'completed', success: false, summary: "Test cancelled by user." };
-                await this.lifecycleManager.finalizeTestRun(testRunId, false, "Test cancelled by user.");
+                await this.lifecycleManager.finalizeRun(runId, false, "Test cancelled by user.");
             } else if (completed) {
                 currentState = WorkflowState.applyTerminal(
                     currentState,
                     hasUnresolvedVerificationFailure ? 'failed' : 'completed',
                     hasUnresolvedVerificationFailure ? finalSummary : undefined
                 );
-                runLifecycle = this.durability.transition(testRunId, runLifecycle, hasUnresolvedVerificationFailure ? 'failed' : 'completed');
-                await this.durability.checkpoint(testRunId, currentState, hasUnresolvedVerificationFailure ? 'terminal_failure' : 'terminal_success');
+                runLifecycle = this.durability.transition(runId, runLifecycle, hasUnresolvedVerificationFailure ? 'failed' : 'completed');
+                await this.durability.checkpoint(runId, currentState, hasUnresolvedVerificationFailure ? 'terminal_failure' : 'terminal_success');
                 const isGlobalSuccess = !hasUnresolvedVerificationFailure;
                 yield { type: 'completed', success: isGlobalSuccess, ...(finalSummary ? { summary: finalSummary } : {}) };
-                await this.lifecycleManager.finalizeTestRun(testRunId, isGlobalSuccess, finalSummary);
+                await this.lifecycleManager.finalizeRun(runId, isGlobalSuccess, finalSummary);
             }
 
-            await this.logCheckpointCompactionSummary(testRunId);
+            await this.logCheckpointCompactionSummary(runId);
 
         }
     }
@@ -488,7 +488,7 @@ private buildRecoveryReplayEvent(params: {
         replayedCount: number;
         status: 'started' | 'completed' | 'cancelled' | 'failed' | 'blocked';
         reason?: string;
-    }): RunTestOutput {
+    }): RunOutput {
         return {
             type: 'recovery_replay',
             telemetry: {
@@ -503,23 +503,23 @@ private buildRecoveryReplayEvent(params: {
 
     private async applyControllerFlow(input: {
         controller: ExecutionController;
-        testRunId: string;
+        runId: string;
         runLifecycle: RunLifecycleState;
         currentState: WorkflowState;
     }): Promise<{ runLifecycle: RunLifecycleState; cancelled: boolean }> {
         let runLifecycle = input.runLifecycle;
 
-        if (input.controller.state === TestRunState.PAUSED) {
-            runLifecycle = this.durability.transition(input.testRunId, runLifecycle, 'paused');
-            await this.durability.checkpoint(input.testRunId, input.currentState, 'pause_requested');
+        if (input.controller.state === RunState.PAUSED) {
+            runLifecycle = this.durability.transition(input.runId, runLifecycle, 'paused');
+            await this.durability.checkpoint(input.runId, input.currentState, 'pause_requested');
             await input.controller.waitForResume();
-            runLifecycle = this.durability.transition(input.testRunId, runLifecycle, 'executing');
-            await this.durability.checkpoint(input.testRunId, input.currentState, 'resume_requested');
+            runLifecycle = this.durability.transition(input.runId, runLifecycle, 'executing');
+            await this.durability.checkpoint(input.runId, input.currentState, 'resume_requested');
         }
 
         return {
             runLifecycle,
-            cancelled: input.controller.state === TestRunState.CANCELLED
+            cancelled: input.controller.state === RunState.CANCELLED
         };
     }
 
@@ -527,7 +527,7 @@ private buildRecoveryReplayEvent(params: {
         const checkpoints = await this.durability.getCheckpointRecords(runId);
         const compactedView = this.checkpointCompaction.compact(runId, checkpoints);
 
-        this.logger.debug('[RunTestUseCase] Checkpoint compaction summary', {
+        this.logger.debug('[RunUseCase] Checkpoint compaction summary', {
             runId,
             totalCheckpoints: checkpoints.length,
             compactedCheckpoints: compactedView.compacted.length,

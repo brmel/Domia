@@ -1,4 +1,4 @@
-export enum TestRunState {
+export enum RunState {
     IDLE = 'idle',
     RUNNING = 'running',
     PAUSED = 'paused',

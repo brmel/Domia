@@ -7,7 +7,7 @@ import { t } from './shared';
 export const historyRouter = t.router({
     getRuns: t.procedure.query(async () => {
         const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-        const result = await persistence.getTestRuns();
+        const result = await persistence.getRuns();
         if (result.isErr()) throw new Error(result.error.message);
         return result.value;
     }),
@@ -15,11 +15,11 @@ export const historyRouter = t.router({
         .input(z.object({ id: z.string() }))
         .query(async ({ input }: { input: { id: string } }) => {
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-            const runResult = await persistence.getTestRun(input.id);
+            const runResult = await persistence.getRun(input.id);
             if (runResult.isErr()) throw new Error(runResult.error.message);
             if (!runResult.value) return null;
 
-            const stepsResult = await persistence.getTestSteps(input.id);
+            const stepsResult = await persistence.getSteps(input.id);
             if (stepsResult.isErr()) throw new Error(stepsResult.error.message);
 
             return {
@@ -44,7 +44,7 @@ export const historyRouter = t.router({
         .input(z.object({ runId: z.string(), stepNumber: z.number() }))
         .query(async ({ input }) => {
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-            const stepsResult = await persistence.getTestSteps(input.runId);
+            const stepsResult = await persistence.getSteps(input.runId);
             if (stepsResult.isErr()) throw new Error(stepsResult.error.message);
             const step = stepsResult.value.find(s => s.stepNumber === input.stepNumber);
             return step ?? null;

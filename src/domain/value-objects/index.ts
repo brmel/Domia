@@ -1,5 +1,5 @@
-export type { Url, TestRunId, ElementId } from './Brand';
-export { UrlFactory, TestRunIdFactory, ElementIdFactory } from './Brand';
+export type { Url, RunId, ElementId } from './Brand';
+export { UrlFactory, RunIdFactory, ElementIdFactory } from './Brand';
 export type { DOMSnapshot, DOMElement } from './DOMSnapshot';
 export type { AgentAction } from './AgentAction';
 export type {

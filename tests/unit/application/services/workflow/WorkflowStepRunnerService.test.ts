@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { WorkflowStepRunnerService } from '@application/services/workflow/WorkflowStepRunnerService';
 
 describe('WorkflowStepRunnerService', () => {
-    it('passes shared session context to RunTestUseCase when provided', async () => {
+    it('passes shared session context to RunUseCase when provided', async () => {
         const execute = vi.fn(async function* () {
-            yield { type: 'started', testRunId: 'run-1' as const };
+            yield { type: 'started', runId: 'run-1' as const };
             yield { type: 'completed', success: true, summary: 'ok' as const };
         });
 

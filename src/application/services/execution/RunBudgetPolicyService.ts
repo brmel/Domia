@@ -1,6 +1,6 @@
 import { inject, injectable } from 'tsyringe';
 import type { ILogger } from '@domain/ports';
-import type { RunTestInput } from '@application/dtos';
+import type { RunInput } from '@application/dtos';
 
 export type RunBudgetDimension = 'actions' | 'duration' | 'tokens';
 
@@ -31,7 +31,7 @@ const DEFAULT_LIMITS: RunBudgetLimits = {
 export class RunBudgetPolicyService {
     constructor(@inject('ILogger') private readonly logger: ILogger) {}
 
-    resolveLimits(options: RunTestInput['options'] | undefined): RunBudgetLimits {
+    resolveLimits(options: RunInput['options'] | undefined): RunBudgetLimits {
         return {
             maxActions: this.safePositiveInt(options?.maxSteps, DEFAULT_LIMITS.maxActions),
             maxDurationMs: this.safePositiveInt(options?.maxDurationMs, DEFAULT_LIMITS.maxDurationMs),

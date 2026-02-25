@@ -4,7 +4,7 @@ import { container } from 'tsyringe';
 import { ConfigService } from '@infrastructure/config/ConfigService';
 import { SQLiteAdapter } from '@infrastructure/persistence/SQLiteAdapter';
 import { ConsoleLogger } from '@infrastructure/logger/ConsoleLogger';
-import { RunTestUseCase } from '@application/use-cases';
+import { RunUseCase } from '@application/use-cases';
 
 // ── Platform ──
 import { PlaywrightAdapter } from '@infrastructure/playwright';
@@ -18,7 +18,7 @@ import {
 import { PlatformSessionFactory } from '@application/services/platform/PlatformSessionFactory';
 
 // ── Runtime / Execution ──
-import { TestRunLifecycleManager } from '@application/services/TestRunLifecycleManager';
+import { RunLifecycleManager } from '@application/services/RunLifecycleManager';
 import { InMemoryRunExecutionLaneService } from '@application/services/execution/RunExecutionLaneService';
 import { RunDurabilityService } from '@application/services/execution/RunDurabilityService';
 import { RunBudgetPolicyService } from '@application/services/execution/RunBudgetPolicyService';
@@ -89,7 +89,7 @@ export class ContainerBuilder {
     }
 
     registerRuntime(): this {
-        container.registerSingleton(TestRunLifecycleManager);
+        container.registerSingleton(RunLifecycleManager);
         container.registerSingleton(InMemoryRunExecutionLaneService);
         container.register('IRunExecutionLaneService', { useToken: InMemoryRunExecutionLaneService });
         container.registerSingleton(RunDurabilityService);
@@ -154,7 +154,7 @@ export class ContainerBuilder {
     }
 
     registerUseCases(): this {
-        container.register('RunTestUseCase', { useClass: RunTestUseCase });
+        container.register('RunUseCase', { useClass: RunUseCase });
         return this;
     }
 

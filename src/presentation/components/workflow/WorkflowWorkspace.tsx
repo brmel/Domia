@@ -97,7 +97,7 @@ export function WorkflowWorkspace(): React.ReactElement {
         { workflowRunId: selectedRunId },
         { enabled: Boolean(selectedRunId) }
     );
-    const childCheckpointsQuery = trpc.test.getCheckpoints.useQuery(
+    const childCheckpointsQuery = trpc.run.getCheckpoints.useQuery(
         { runId: selectedChildRunId },
         { enabled: Boolean(selectedChildRunId) }
     );
@@ -463,12 +463,12 @@ export function WorkflowWorkspace(): React.ReactElement {
                                     <div className="text-xs font-semibold text-gray-700">
                                         Step {stepRun.stepIndex + 1} • {stepRun.status}
                                     </div>
-                                    {stepRun.testRunId ? (
+                                    {stepRun.runId ? (
                                         <button
-                                            onClick={() => setSelectedChildRunId(stepRun.testRunId as string)}
+                                            onClick={() => setSelectedChildRunId(stepRun.runId as string)}
                                             className="text-[11px] text-blue-600 mt-0.5 hover:underline"
                                         >
-                                            Test Run: {stepRun.testRunId}
+                                            Run: {stepRun.runId}
                                         </button>
                                     ) : null}
                                     {stepRun.summary ? (
@@ -554,7 +554,7 @@ function renderEventLabel(event: WorkflowEvent): string {
         case 'workflow_step_started':
             return `workflow_step_started: #${event.stepIndex + 1} (${event.stepId})`;
         case 'workflow_step_bound':
-            return `workflow_step_bound: #${event.stepIndex + 1} -> ${event.testRunId}`;
+            return `workflow_step_bound: #${event.stepIndex + 1} -> ${event.runId}`;
         case 'workflow_step_completed':
             return `workflow_step_completed: #${event.stepIndex + 1} (${event.success ? 'success' : 'failed'})`;
         case 'workflow_completed':

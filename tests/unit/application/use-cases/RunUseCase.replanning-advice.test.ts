@@ -2,13 +2,13 @@ import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { ExecutionController } from '@application/controllers/ExecutionController';
 import { ActionType } from '@domain/enums/ActionType';
-import { createRunTestUseCaseContext } from '../../../helpers/createRunTestUseCaseContext';
+import { createRunUseCaseContext } from '../../../helpers/createRunUseCaseContext';
 
-describe('RunTestUseCase no-plan behavior', () => {
+describe('RunUseCase no-plan behavior', () => {
     it('does not invoke planner or replanning after failed step', async () => {
         let executionCount = 0;
 
-        const ctx = createRunTestUseCaseContext({
+        const ctx = createRunUseCaseContext({
             runId: 'run-replan-advice',
             executor: {
                 executeStep: vi.fn(async function* () {

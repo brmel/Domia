@@ -1,24 +1,24 @@
 import { z } from 'zod';
 import { container } from '../../src/composition-root';
-import { RunTestUseCase } from '../../src/application/use-cases';
+import { RunUseCase } from '../../src/application/use-cases';
 import { IPersistenceAdapter } from '../../src/domain/ports';
 import { ExecutionController } from '../../src/application/controllers/ExecutionController';
 import { observable } from '@trpc/server/observable';
-import { RunTestInput } from '../../src/application/dtos';
+import { RunInput } from '../../src/application/dtos';
 import { configureVerboseTracing } from '../../src/composition/ContainerBuilder';
 import { RunInputSchema } from '../../src/shared/validation';
 import { AgentActionSchema } from '../../src/shared/validation/agentAction';
 import type { AgentAction } from '../../src/domain/value-objects';
 import { RuntimeReadinessPolicyService } from '../../src/application/services/hardening/RuntimeReadinessPolicyService';
-import type { RunTestOutput } from '../../src/application/dtos';
+import type { RunOutput } from '../../src/application/dtos';
 import debug from 'debug';
 import { t, eventEmitter, testControllerState } from './shared';
 
-export const testRouter = t.router({
+export const runRouter = t.router({
     run: t.procedure
         .input(RunInputSchema)
         .mutation(async ({ input }: { input: z.infer<typeof RunInputSchema> }) => {
-            const useCase = container.resolve<RunTestUseCase>('RunTestUseCase');
+            const useCase = container.resolve<RunUseCase>('RunUseCase');
             if (testControllerState.current) {
                 testControllerState.current.stop();
             }
@@ -33,7 +33,7 @@ export const testRouter = t.router({
             }
 
             try {
-                const generator = useCase.execute(input as RunTestInput, testControllerState.current);
+                const generator = useCase.execute(input as RunInput, testControllerState.current);
 
                 (async () => {
                     for await (const event of generator) {
@@ -59,7 +59,7 @@ export const testRouter = t.router({
             testControllerState.current.stop();
             return { success: true };
         }
-        return { success: false, message: 'No test running' };
+        return { success: false, message: 'No running' };
     }),
 
     pause: t.procedure.mutation(() => {
@@ -67,7 +67,7 @@ export const testRouter = t.router({
             testControllerState.current.pause();
             return { success: true };
         }
-        return { success: false, message: 'No test running' };
+        return { success: false, message: 'No running' };
     }),
 
     resume: t.procedure.mutation(() => {
@@ -75,14 +75,14 @@ export const testRouter = t.router({
             testControllerState.current.resume();
             return { success: true };
         }
-        return { success: false, message: 'No test running' };
+        return { success: false, message: 'No running' };
     }),
 
     overrideAction: t.procedure
         .input(z.object({ action: AgentActionSchema }))
         .mutation(({ input }) => {
             if (!testControllerState.current) {
-                return { success: false, message: 'No test running' };
+                return { success: false, message: 'No running' };
             }
 
             testControllerState.current.queueActionOverride(input.action as unknown as AgentAction);
@@ -90,8 +90,8 @@ export const testRouter = t.router({
         }),
 
     onUpdate: t.procedure.subscription(() => {
-        return observable<RunTestOutput>((emit) => {
-            const onUpdate = (data: RunTestOutput) => {
+        return observable<RunOutput>((emit) => {
+            const onUpdate = (data: RunOutput) => {
                 emit.next(data);
             };
             eventEmitter.on('test:update', onUpdate);
@@ -118,7 +118,7 @@ export const testRouter = t.router({
         .input(z.object({ runId: z.string() }))
         .query(async ({ input }) => {
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-            const runResult = await persistence.getTestRun(input.runId);
+            const runResult = await persistence.getRun(input.runId);
 
             if (runResult.isErr()) {
                 throw new Error(runResult.error.message);

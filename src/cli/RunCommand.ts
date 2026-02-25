@@ -6,9 +6,9 @@ import ora from 'ora';
 import chalk from 'chalk';
 import figlet from 'figlet';
 import readline from 'readline';
-import { RunTestUseCase } from '../application/use-cases';
+import { RunUseCase } from '../application/use-cases';
 import { ExecutionController } from '../application/controllers/ExecutionController';
-import { TestRunState } from '../domain/enums/TestRunState';
+import { RunState } from '../domain/enums/RunState';
 import type { PlatformConfig } from '../domain/types/PlatformConfig';
 import { configureVerboseTracing } from '../composition/ContainerBuilder';
 
@@ -124,7 +124,7 @@ export class RunCommand {
                 const spinner = ora('Initializing Agent...').start();
 
                 try {
-                    const useCase = container.resolve(RunTestUseCase);
+                    const useCase = container.resolve(RunUseCase);
                     const controller = new ExecutionController();
                     let interactiveKeyHandler: ((str: string, key: readline.Key) => void) | null = null;
                     let rawModeEnabled = false;
@@ -167,7 +167,7 @@ export class RunCommand {
                             }
 
                             if (key.name === 'p') {
-                                if (controller.state === TestRunState.PAUSED) {
+                                if (controller.state === RunState.PAUSED) {
                                     controller.resume();
                                     console.log(chalk.cyan('\n⏯ Resumed'));
                                 } else {

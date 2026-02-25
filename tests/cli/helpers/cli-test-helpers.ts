@@ -176,7 +176,7 @@ export async function runCLICommand(args: string[], extraEnv: Record<string, str
     return spawnCLI(args, extraEnv);
 }
 
-export async function getLatestRunId(): Promise<string | null> {
+export async function getLarunId(): Promise<string | null> {
     const result = await runCLICommand(['history', 'list', '--limit', '1']);
     if (result.exitCode !== 0) {
         return null;

@@ -75,7 +75,7 @@ export interface WorkflowStepRunRecord {
     readonly workflowRunId: string;
     readonly stepId: string;
     readonly stepIndex: number;
-    readonly testRunId?: string;
+    readonly runId?: string;
     readonly status: WorkflowStepRunStatus;
     readonly summary?: string;
     readonly startedAt: string;

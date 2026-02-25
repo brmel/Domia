@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import { ok, okAsync } from 'neverthrow';
 import type { IAppAutomation, ILogger } from '@domain/ports';
-import { RunTestUseCase } from '@application/use-cases/RunTestUseCase';
+import { RunUseCase } from '@application/use-cases/RunUseCase';
 import { RecoveryReadModelService } from '@application/services/execution/RecoveryReadModelService';
 import { RunRecoveryPolicyService } from '@application/services/execution/RunRecoveryPolicyService';
 import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
@@ -15,9 +15,9 @@ import { StepExecutionKernelService } from '@application/services/execution/Step
 
 function createLifecycleManagerMock(runId = 'run-test') {
     return {
-        initializeTestRun: vi.fn().mockResolvedValue(ok(runId)),
-        finalizeTestRun: vi.fn().mockResolvedValue(undefined),
-        failTestRun: vi.fn().mockResolvedValue(undefined),
+        initializeRun: vi.fn().mockResolvedValue(ok(runId)),
+        finalizeRun: vi.fn().mockResolvedValue(undefined),
+        failRun: vi.fn().mockResolvedValue(undefined),
     };
 }
 
@@ -32,8 +32,8 @@ function createExecutorMock() {
 
 function createPersistenceMock() {
     return {
-        saveTestStep: vi.fn(() => okAsync(undefined)),
-        getTestSteps: vi.fn(() => okAsync([])),
+        saveStep: vi.fn(() => okAsync(undefined)),
+        getSteps: vi.fn(() => okAsync([])),
     };
 }
 
@@ -122,7 +122,7 @@ export interface UseCaseContextOverrides {
 }
 
 export interface UseCaseContext {
-    useCase: RunTestUseCase;
+    useCase: RunUseCase;
     lifecycleManager: ReturnType<typeof createLifecycleManagerMock>;
     executor: ReturnType<typeof createExecutorMock>;
     persistence: ReturnType<typeof createPersistenceMock>;
@@ -136,7 +136,7 @@ export interface UseCaseContext {
     logger: ILogger;
 }
 
-export function createRunTestUseCaseContext(overrides: UseCaseContextOverrides = {}): UseCaseContext {
+export function createRunUseCaseContext(overrides: UseCaseContextOverrides = {}): UseCaseContext {
     const logger = overrides.logger ?? createLoggerMock();
     const releaseLane = vi.fn();
     const browser = overrides.browser ?? createBrowserMock();
@@ -166,7 +166,7 @@ export function createRunTestUseCaseContext(overrides: UseCaseContextOverrides =
         budgetPolicy as unknown as never,
     );
 
-    const useCase = new RunTestUseCase(
+    const useCase = new RunUseCase(
         lifecycleManager as unknown as never,
         trace as unknown as never,
         sessionFactory as unknown as never,

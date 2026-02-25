@@ -1,6 +1,6 @@
 import React from 'react';
-import { LiveView } from '../test/LiveView';
-import { TestRunner } from '../test/TestRunner';
+import { LiveView } from '../run/LiveView';
+import { RunPanel } from '../run/RunPanel';
 
 export function RunsWorkspace(): React.ReactElement {
     return (
@@ -15,7 +15,7 @@ export function RunsWorkspace(): React.ReactElement {
                 <section
                     className="min-w-0 min-h-0 bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden"
                 >
-                    <TestRunner />
+                    <RunPanel />
                 </section>
             </main>
         </div>

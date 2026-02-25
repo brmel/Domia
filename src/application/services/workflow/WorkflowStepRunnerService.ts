@@ -1,6 +1,6 @@
 import { inject, injectable } from 'tsyringe';
 import type { WorkflowDefinition, WorkflowStepDefinition } from '@domain/entities/Workflow';
-import { RunTestUseCase } from '@application/use-cases';
+import { RunUseCase } from '@application/use-cases';
 import { ExecutionController } from '@application/controllers/ExecutionController';
 import type { PlatformSession } from '@application/services/platform/PlatformSession';
 import { PlatformSessionFactory } from '@application/services/platform/PlatformSessionFactory';
@@ -8,7 +8,7 @@ import { PlatformSessionFactory } from '@application/services/platform/PlatformS
 export interface WorkflowStepExecutionResult {
     readonly success: boolean;
     readonly summary?: string;
-    readonly testRunId?: string;
+    readonly runId?: string;
 }
 
 export interface WorkflowStepRuntimeContext {
@@ -19,7 +19,7 @@ export interface WorkflowStepRuntimeContext {
 @injectable()
 export class WorkflowStepRunnerService {
     constructor(
-        @inject(RunTestUseCase) private readonly runTestUseCase: RunTestUseCase,
+        @inject(RunUseCase) private readonly runTestUseCase: RunUseCase,
         @inject(PlatformSessionFactory) private readonly sessionFactory: PlatformSessionFactory
     ) {}
 
@@ -37,7 +37,7 @@ export class WorkflowStepRunnerService {
         controller: ExecutionController,
         runtimeContext?: WorkflowStepRuntimeContext
     ): Promise<WorkflowStepExecutionResult> {
-        let testRunId: string | undefined;
+        let runId: string | undefined;
         let completedSummary: string | undefined;
 
         const generator = this.runTestUseCase.execute(
@@ -58,7 +58,7 @@ export class WorkflowStepRunnerService {
 
         for await (const event of generator) {
             if (event.type === 'started') {
-                testRunId = event.testRunId;
+                runId = event.runId;
             }
 
             if (event.type === 'completed') {
@@ -67,7 +67,7 @@ export class WorkflowStepRunnerService {
                     return {
                         success: false,
                         ...(event.summary ? { summary: event.summary } : {}),
-                        ...(testRunId ? { testRunId } : {})
+                        ...(runId ? { runId } : {})
                     };
                 }
             }
@@ -77,22 +77,22 @@ export class WorkflowStepRunnerService {
                 return {
                     success: false,
                     summary: reason,
-                    ...(testRunId ? { testRunId } : {})
+                    ...(runId ? { runId } : {})
                 };
             }
         }
 
-        if (!testRunId) {
+        if (!runId) {
             return {
                 success: false,
-                summary: `Step ${stepIndex + 1} failed to produce a test run id.`
+                summary: `Step ${stepIndex + 1} failed to produce a run id.`
             };
         }
 
         return {
             success: true,
             ...(completedSummary ? { summary: completedSummary } : {}),
-            testRunId
+            runId
         };
     }
 }

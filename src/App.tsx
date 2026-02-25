@@ -1,4 +1,4 @@
-import { useTestRunStore } from './presentation/stores';
+import { useRunStore } from './presentation/stores';
 import { canInteract } from './presentation/utils/agentStateUtils';
 
 import { useEffect, useState } from 'react';
@@ -7,8 +7,8 @@ import { SegmentedControl } from './presentation/components/ui/SegmentedControl'
 import { RunsWorkspace } from './presentation/components/layout/RunsWorkspace';
 import { ComposeWorkspace } from './presentation/components/layout/ComposeWorkspace';
 import { WorkflowWorkspace } from './presentation/components/workflow/WorkflowWorkspace';
-import { StepInspector } from './presentation/components/test/StepInspector';
-import { TestRunState } from '@domain/enums/TestRunState';
+import { StepInspector } from './presentation/components/run/StepInspector';
+import { RunState } from '@domain/enums/RunState';
 
 type AppSection = 'runs' | 'compose' | 'workflow' | 'skills' | 'plugins' | 'governance' | 'observability';
 
@@ -26,13 +26,13 @@ const SECTION_TABS: ReadonlyArray<{ id: AppSection; label: string }> = [
 function App(): JSX.Element {
     const [activeSidebar, setActiveSidebar] = useState<'config' | 'history' | 'settings_debug'>('config');
     const [activeSection, setActiveSection] = useState<AppSection>('runs');
-    const { status } = useTestRunStore();
+    const { status } = useRunStore();
     const isInteractionDisabled = !canInteract(status);
 
     useEffect(() => {
         if (
             activeSection === 'compose'
-            && (status === TestRunState.RUNNING || status === TestRunState.PAUSED)
+            && (status === RunState.RUNNING || status === RunState.PAUSED)
         ) {
             setActiveSection('runs');
         }

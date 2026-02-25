@@ -8,14 +8,14 @@ import inquirer from 'inquirer';
 export class HistoryCommand {
     static register(program: Command): void {
         const history = program.command('history')
-            .description('Manage test run history');
+            .description('Manage run history');
 
         history.command('list')
-            .description('List recent test runs')
+            .description('List recent runs')
             .option('-l, --limit <limit>', 'Number of runs to show', '20')
             .action(async (options) => {
                 const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-                const result = await persistence.getTestRuns(parseInt(options.limit));
+                const result = await persistence.getRuns(parseInt(options.limit));
 
                 if (result.isErr()) {
                     console.error(chalk.red('Failed to fetch history:', result.error.message));
@@ -28,7 +28,7 @@ export class HistoryCommand {
                     return;
                 }
 
-                console.log(chalk.bold(`\nRecent Test Runs (${runs.length}):`));
+                console.log(chalk.bold(`\nRecent Runs (${runs.length}):`));
                 console.log('--------------------------------------------------');
                 runs.forEach(run => {
                     const statusColor = run.status.type === 'passed' ? chalk.green : (run.status.type === 'failed' ? chalk.red : chalk.yellow);
@@ -40,10 +40,10 @@ export class HistoryCommand {
             });
 
         history.command('show <id>')
-            .description('Show details of a specific test run')
+            .description('Show details of a specific run')
             .action(async (id) => {
                 const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-                const runResult = await persistence.getTestRun(id);
+                const runResult = await persistence.getRun(id);
 
                 if (runResult.isErr()) {
                     console.error(chalk.red('Error:', runResult.error.message));
@@ -52,11 +52,11 @@ export class HistoryCommand {
 
                 const run = runResult.value;
                 if (!run) {
-                    console.error(chalk.red('Test run not found.'));
+                    console.error(chalk.red('Run not found.'));
                     return;
                 }
 
-                const stepsResult = await persistence.getTestSteps(id);
+                const stepsResult = await persistence.getSteps(id);
                 const steps = stepsResult.isOk() ? stepsResult.value : [];
 
                 let summary = 'N/A';
@@ -64,7 +64,7 @@ export class HistoryCommand {
                 if (run.status.type === 'failed') summary = run.status.error;
                 if (run.status.type === 'cancelled') summary = run.status.reason;
 
-                console.log(chalk.bold(`\nTest Run Details: ${run.id}`));
+                console.log(chalk.bold(`\nRun Details: ${run.id}`));
                 console.log('--------------------------------------------------');
                 console.log(`URL: ${chalk.blue(run.url)}`);
                 console.log(`Status: ${run.status.type === 'passed' ? chalk.green('PASS') : chalk.red(run.status.type.toUpperCase())}`);

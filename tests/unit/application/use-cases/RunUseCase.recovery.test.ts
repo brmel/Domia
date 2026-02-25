@@ -4,11 +4,11 @@ import { okAsync } from 'neverthrow';
 import type { TestStep } from '@domain/ports';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 import type { Plan } from '@domain/entities/Plan';
-import type { RunTestOutput } from '@application/dtos';
+import type { RunOutput } from '@application/dtos';
 import { ElementIdFactory, WorkflowState } from '@domain/value-objects';
 import { ExecutionController } from '@application/controllers/ExecutionController';
 import { ActionType } from '@domain/enums/ActionType';
-import { createRunTestUseCaseContext } from '../../../helpers/createRunTestUseCaseContext';
+import { createRunUseCaseContext } from '../../../helpers/createRunUseCaseContext';
 
 function createPlan(items: Plan['items']): Plan {
     const now = new Date('2026-01-01T00:00:00.000Z');
@@ -44,17 +44,17 @@ function createUseCaseContext(
     checkpoints: readonly CheckpointRecord[] = [],
     sourceSteps: readonly TestStep[] = []
 ) {
-    return createRunTestUseCaseContext({
+    return createRunUseCaseContext({
         runId: 'new-run',
         checkpointRecords: checkpoints,
         persistence: {
-            saveTestStep: vi.fn(() => okAsync(undefined)),
-            getTestSteps: vi.fn(() => okAsync([...sourceSteps])),
+            saveStep: vi.fn(() => okAsync(undefined)),
+            getSteps: vi.fn(() => okAsync([...sourceSteps])),
         },
     });
 }
 
-describe('RunTestUseCase recovery flow', () => {
+describe('RunUseCase recovery flow', () => {
 
     it('reuses checkpoint plan in manual-only mode and skips planner', async () => {
         const checkpointState = {
@@ -69,7 +69,7 @@ describe('RunTestUseCase recovery flow', () => {
         const ctx = createUseCaseContext([createCheckpoint(checkpointState)]);
         const controller = new ExecutionController();
 
-        const events: RunTestOutput[] = [];
+        const events: RunOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'recover this run',
@@ -89,7 +89,7 @@ describe('RunTestUseCase recovery flow', () => {
         const ctx = createUseCaseContext([]);
         const controller = new ExecutionController();
 
-        const events: RunTestOutput[] = [];
+        const events: RunOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'replan from scratch',
@@ -108,7 +108,7 @@ describe('RunTestUseCase recovery flow', () => {
         const ctx = createUseCaseContext([]);
         const controller = new ExecutionController();
 
-        const events: RunTestOutput[] = [];
+        const events: RunOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'normal run without recovery'
@@ -135,7 +135,7 @@ describe('RunTestUseCase recovery flow', () => {
         const sourceSteps: TestStep[] = [
             {
                 id: 'step-1',
-                testRunId: 'recovery-run',
+                runId: 'recovery-run',
                 stepNumber: 1,
                 actionType: ActionType.WAIT,
                 actionPayload: { type: ActionType.WAIT, durationMs: 100, thought: 'wait' },
@@ -143,7 +143,7 @@ describe('RunTestUseCase recovery flow', () => {
             },
             {
                 id: 'step-2',
-                testRunId: 'recovery-run',
+                runId: 'recovery-run',
                 stepNumber: 2,
                 actionType: ActionType.SCROLL,
                 actionPayload: { type: ActionType.SCROLL, direction: 'down', thought: 'scroll' },
@@ -151,7 +151,7 @@ describe('RunTestUseCase recovery flow', () => {
             },
             {
                 id: 'step-3',
-                testRunId: 'recovery-run',
+                runId: 'recovery-run',
                 stepNumber: 3,
                 actionType: ActionType.WAIT,
                 actionPayload: { type: ActionType.WAIT, durationMs: 50, thought: 'wait again' },
@@ -162,7 +162,7 @@ describe('RunTestUseCase recovery flow', () => {
         const ctx = createUseCaseContext([createCheckpoint(checkpointState)], sourceSteps);
         const controller = new ExecutionController();
 
-        const events: RunTestOutput[] = [];
+        const events: RunOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'resume partial plan',
@@ -207,7 +207,7 @@ describe('RunTestUseCase recovery flow', () => {
         const sourceSteps: TestStep[] = [
             {
                 id: 'step-1',
-                testRunId: 'recovery-run',
+                runId: 'recovery-run',
                 stepNumber: 1,
                 actionType: ActionType.WAIT,
                 actionPayload: { type: ActionType.WAIT, durationMs: 100, thought: 'wait' },
@@ -215,7 +215,7 @@ describe('RunTestUseCase recovery flow', () => {
             },
             {
                 id: 'step-2',
-                testRunId: 'recovery-run',
+                runId: 'recovery-run',
                 stepNumber: 2,
                 actionType: ActionType.SCROLL,
                 actionPayload: { type: ActionType.SCROLL, direction: 'down', thought: 'scroll' },
@@ -237,7 +237,7 @@ describe('RunTestUseCase recovery flow', () => {
             void event;
         }
 
-        expect(ctx.persistence.getTestSteps).toHaveBeenCalledWith('recovery-run');
+        expect(ctx.persistence.getSteps).toHaveBeenCalledWith('recovery-run');
         expect(ctx.browser.wait).toHaveBeenCalledTimes(1);
         expect(ctx.browser.scroll).toHaveBeenCalledTimes(1);
         expect(ctx.executor.executeStep).toHaveBeenCalledTimes(1);
@@ -255,7 +255,7 @@ describe('RunTestUseCase recovery flow', () => {
         const sourceSteps: TestStep[] = [
             {
                 id: 'step-1',
-                testRunId: 'recovery-run',
+                runId: 'recovery-run',
                 stepNumber: 1,
                 actionType: ActionType.CLICK,
                 actionPayload: { type: ActionType.CLICK, elementId: ElementIdFactory.unsafe(1), thought: 'click' },
@@ -266,7 +266,7 @@ describe('RunTestUseCase recovery flow', () => {
         const ctx = createUseCaseContext([createCheckpoint(checkpointState)], sourceSteps);
         const controller = new ExecutionController();
 
-        const events: RunTestOutput[] = [];
+        const events: RunOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'should fail blocked replay',
@@ -294,7 +294,7 @@ describe('RunTestUseCase recovery flow', () => {
         const sourceSteps: TestStep[] = [
             {
                 id: 'step-1',
-                testRunId: 'recovery-run',
+                runId: 'recovery-run',
                 stepNumber: 1,
                 actionType: ActionType.WAIT,
                 actionPayload: { type: ActionType.WAIT, durationMs: 100, thought: 'wait' },
@@ -306,7 +306,7 @@ describe('RunTestUseCase recovery flow', () => {
         const controller = new ExecutionController();
         controller.stop();
 
-        const events: RunTestOutput[] = [];
+        const events: RunOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'cancel during replay',
@@ -334,7 +334,7 @@ describe('RunTestUseCase recovery flow', () => {
         const sourceSteps: TestStep[] = [
             {
                 id: 'step-1',
-                testRunId: 'recovery-run',
+                runId: 'recovery-run',
                 stepNumber: 1,
                 actionType: ActionType.WAIT,
                 actionPayload: { type: ActionType.WAIT, durationMs: 100, thought: 'wait' },
@@ -396,7 +396,7 @@ describe('RunTestUseCase recovery flow', () => {
         const sourceSteps: TestStep[] = [
             {
                 id: 'step-1',
-                testRunId: 'recovery-run',
+                runId: 'recovery-run',
                 stepNumber: 1,
                 actionType: ActionType.WAIT,
                 actionPayload: { type: ActionType.WAIT, durationMs: 50, thought: 'wait-1' },
@@ -404,7 +404,7 @@ describe('RunTestUseCase recovery flow', () => {
             },
             {
                 id: 'step-2',
-                testRunId: 'recovery-run',
+                runId: 'recovery-run',
                 stepNumber: 2,
                 actionType: ActionType.WAIT,
                 actionPayload: { type: ActionType.WAIT, durationMs: 50, thought: 'wait-2' },
@@ -442,7 +442,7 @@ describe('RunTestUseCase recovery flow', () => {
         const sourceSteps: TestStep[] = [
             {
                 id: 'step-1',
-                testRunId: 'recovery-run',
+                runId: 'recovery-run',
                 stepNumber: 1,
                 actionType: ActionType.CLICK,
                 actionPayload: { type: ActionType.CLICK, elementId: ElementIdFactory.unsafe(1), thought: 'click' },
@@ -453,7 +453,7 @@ describe('RunTestUseCase recovery flow', () => {
         const ctx = createUseCaseContext([createCheckpoint(checkpointState)], sourceSteps);
         const controller = new ExecutionController();
 
-        const events: RunTestOutput[] = [];
+        const events: RunOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'blocked replay should not replan',
@@ -482,7 +482,7 @@ describe('RunTestUseCase recovery flow', () => {
         const sourceSteps: TestStep[] = [
             {
                 id: 'step-1',
-                testRunId: 'recovery-run',
+                runId: 'recovery-run',
                 stepNumber: 1,
                 actionType: ActionType.WAIT,
                 actionPayload: { type: ActionType.WAIT, durationMs: 25, thought: 'wait' },
@@ -514,7 +514,7 @@ describe('RunTestUseCase recovery flow', () => {
 
         const controller = new ExecutionController();
 
-        const events: RunTestOutput[] = [];
+        const events: RunOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'replan after replay',

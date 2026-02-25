@@ -1,9 +1,9 @@
 import React from 'react';
-import { useTestRunStore } from '../../stores';
+import { useRunStore } from '../../stores';
 import { LiveViewContainer } from './LiveViewContainer';
 
 export function LiveView(): React.ReactElement {
-    const { status } = useTestRunStore();
+    const { status } = useRunStore();
 
     return (
         <div className="flex flex-col h-full bg-gray-900 overflow-hidden relative group rounded-xl shadow-2xl border border-gray-800 ring-1 ring-white/10">

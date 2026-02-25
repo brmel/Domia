@@ -9,7 +9,7 @@ export interface StepExecutionPolicy {
 export interface StepExecutionResult {
     readonly success: boolean;
     readonly summary?: string;
-    readonly testRunId?: string;
+    readonly runId?: string;
 }
 
 @injectable()

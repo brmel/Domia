@@ -1,5 +1,5 @@
 import { inject, injectable } from 'tsyringe';
-import type { RunTestInput } from '../../dtos';
+import type { RunInput } from '../../dtos';
 import type { ILogger, IAppAutomation } from '../../../domain/ports';
 import { WorkflowError } from '../../../domain/errors';
 import type { IAppDriverFactory, AppDriverCreateOptions } from '../../../domain/ports/IAppDriverFactory';
@@ -12,11 +12,11 @@ export class PlatformSessionFactory {
         @inject('ILogger') private readonly logger: ILogger
     ) {}
 
-    async createSession(input: RunTestInput): Promise<PlatformSession> {
+    async createSession(input: RunInput): Promise<PlatformSession> {
         return this.createPlatformSession(input);
     }
 
-    private async createPlatformSession(input: RunTestInput): Promise<PlatformSession> {
+    private async createPlatformSession(input: RunInput): Promise<PlatformSession> {
         const platformConfig = input.platformConfig;
 
         this.logger.info(`[PlatformSessionFactory] Creating session for platform: ${platformConfig.platform}`);
@@ -54,7 +54,7 @@ export class PlatformSessionFactory {
         };
     }
 
-    private getExecutionUrlFromInput(input: RunTestInput): string {
+    private getExecutionUrlFromInput(input: RunInput): string {
         if (input.platformConfig?.platform === 'web') {
             return input.platformConfig.url;
         }
@@ -68,7 +68,7 @@ export class PlatformSessionFactory {
         throw new WorkflowError('Unable to resolve execution URL from provided input');
     }
 
-    private toDriverOptions(options: RunTestInput['options']): AppDriverCreateOptions | undefined {
+    private toDriverOptions(options: RunInput['options']): AppDriverCreateOptions | undefined {
         if (!options) {
             return undefined;
         }

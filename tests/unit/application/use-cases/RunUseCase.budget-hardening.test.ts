@@ -1,13 +1,13 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
-import type { RunTestOutput } from '@application/dtos';
+import type { RunOutput } from '@application/dtos';
 import { ExecutionController } from '@application/controllers/ExecutionController';
 import { ActionType } from '@domain/enums/ActionType';
-import { createRunTestUseCaseContext } from '../../../helpers/createRunTestUseCaseContext';
+import { createRunUseCaseContext } from '../../../helpers/createRunUseCaseContext';
 
-describe('RunTestUseCase budget hardening', () => {
+describe('RunUseCase budget hardening', () => {
     it('terminates run with workflow error when budget is exceeded', async () => {
-        const ctx = createRunTestUseCaseContext({
+        const ctx = createRunUseCaseContext({
             runId: 'run-budget',
             executor: {
                 executeStep: vi.fn(async function* () {
@@ -33,7 +33,7 @@ describe('RunTestUseCase budget hardening', () => {
             },
         });
 
-        const events: RunTestOutput[] = [];
+        const events: RunOutput[] = [];
         for await (const event of ctx.useCase.execute({
             platformConfig: { platform: 'web', url: 'https://example.com' },
             prompt: 'budget enforce run',
@@ -43,6 +43,6 @@ describe('RunTestUseCase budget hardening', () => {
         }
 
         expect(events.some(event => event.type === 'error')).toBe(true);
-        expect(ctx.lifecycleManager.failTestRun).toHaveBeenCalled();
+        expect(ctx.lifecycleManager.failRun).toHaveBeenCalled();
     });
 });

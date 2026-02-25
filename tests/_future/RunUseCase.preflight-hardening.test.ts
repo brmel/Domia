@@ -1,11 +1,11 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { ExecutionController } from '@application/controllers/ExecutionController';
-import { createRunTestUseCaseContext } from '../../../helpers/createRunTestUseCaseContext';
+import { createRunUseCaseContext } from '../../../helpers/createRunUseCaseContext';
 
-describe('RunTestUseCase preflight hardening', () => {
+describe('RunUseCase preflight hardening', () => {
     it('does not fail run when skill/plugin preflight throws', async () => {
-        const ctx = createRunTestUseCaseContext({
+        const ctx = createRunUseCaseContext({
             runId: 'run-preflight',
             skillRegistry: {
                 get: vi.fn(() => { throw new Error('skill-registry-boom'); }),

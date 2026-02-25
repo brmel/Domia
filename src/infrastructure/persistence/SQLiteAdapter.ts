@@ -5,10 +5,10 @@ import { Kysely, SqliteDialect, Generated } from 'kysely';
 import fs from 'fs-extra';
 import path from 'path';
 import { IPersistenceAdapter, TestStep, LogEntry } from '@domain/ports';
-import { TestRun, TestRunStatus } from '@domain/entities/TestRun';
+import { TestRun, RunStatus } from '@domain/entities/Run';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
 import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
-import { TestRunId, Url } from '@domain/value-objects';
+import { RunId, Url } from '@domain/value-objects';
 import { PersistenceError } from '@domain/errors';
 import { ConfigService } from '../config/ConfigService';
 
@@ -348,7 +348,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         tx();
     }
 
-    saveTestRun(run: TestRun): ResultAsync<void, PersistenceError> {
+    saveRun(run: TestRun): ResultAsync<void, PersistenceError> {
         let summary: string | null = null;
         let durationMs: number | null = null;
 
@@ -377,11 +377,11 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                     summary: summary
                 })
                 .execute(),
-            (e) => new PersistenceError(`Failed to save test run: ${e}`)
+            (e) => new PersistenceError(`Failed to save run: ${e}`)
         ).map(() => undefined);
     }
 
-    updateTestRun(id: string, updates: Partial<TestRun>): ResultAsync<void, PersistenceError> {
+    updateRun(id: string, updates: Partial<TestRun>): ResultAsync<void, PersistenceError> {
         const values: Partial<TestRunTable> = {};
 
         if (updates.status) {
@@ -408,16 +408,16 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 .set(values)
                 .where('id', '=', id)
                 .execute(),
-            (e) => new PersistenceError(`Failed to update test run: ${e}`)
+            (e) => new PersistenceError(`Failed to update run: ${e}`)
         ).map(() => undefined);
     }
 
-    saveTestStep(step: TestStep): ResultAsync<void, PersistenceError> {
+    saveStep(step: TestStep): ResultAsync<void, PersistenceError> {
         return ResultAsync.fromPromise(
             this.db.insertInto('test_steps')
                 .values({
                     id: step.id,
-                    test_run_id: step.testRunId,
+                    test_run_id: step.runId,
                     step_number: step.stepNumber,
                     action_type: step.actionType,
                     action_payload: JSON.stringify(step.actionPayload),
@@ -433,7 +433,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         return ResultAsync.fromPromise(
             this.db.insertInto('logs')
                 .values({
-                    test_run_id: log.testRunId,
+                    test_run_id: log.runId,
                     level: log.level,
                     message: log.message,
                     metadata: log.metadata ? JSON.stringify(log.metadata) : null,
@@ -444,29 +444,29 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         ).map(() => undefined);
     }
 
-    getTestRuns(limit: number = 50): ResultAsync<TestRun[], PersistenceError> {
+    getRuns(limit: number = 50): ResultAsync<TestRun[], PersistenceError> {
         return ResultAsync.fromPromise(
             this.db.selectFrom('test_runs')
                 .selectAll()
                 .orderBy('started_at', 'desc')
                 .limit(limit)
                 .execute(),
-            (e) => new PersistenceError(`Failed to get test runs: ${e}`)
+            (e) => new PersistenceError(`Failed to get runs: ${e}`)
         ).map(rows => rows.map(row => this.mapToTestRun(row)));
     }
 
-    getTestRun(id: string): ResultAsync<TestRun | null, PersistenceError> {
+    getRun(id: string): ResultAsync<TestRun | null, PersistenceError> {
         return ResultAsync.fromPromise(
             this.db.selectFrom('test_runs')
                 .selectAll()
                 .where('id', '=', id)
                 .executeTakeFirst(),
-            (e) => new PersistenceError(`Failed to get test run: ${e}`)
+            (e) => new PersistenceError(`Failed to get run: ${e}`)
         ).map(row => row ? this.mapToTestRun(row) : null);
     }
 
     private mapToTestRun(row: TestRunTable): TestRun {
-        let status: TestRunStatus;
+        let status: RunStatus;
 
         if (row.status === 'passed') {
             status = { type: 'passed', summary: row.summary || '', duration: row.duration_ms || 0 };
@@ -481,7 +481,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         }
 
         return {
-            id: row.id as TestRunId,
+            id: row.id as RunId,
             url: row.url as Url,
             prompt: row.goal || '',
             status: status,
@@ -491,7 +491,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         };
     }
 
-    getTestSteps(runId: string): ResultAsync<TestStep[], PersistenceError> {
+    getSteps(runId: string): ResultAsync<TestStep[], PersistenceError> {
         return ResultAsync.fromPromise(
             this.db.selectFrom('test_steps')
                 .selectAll()
@@ -506,7 +506,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         const action = JSON.parse(row.action_payload);
         return {
             id: row.id,
-            testRunId: row.test_run_id,
+            runId: row.test_run_id,
             stepNumber: row.step_number,
             actionType: row.action_type as import('@domain/enums/ActionType').ActionType,
             actionPayload: action,
@@ -740,7 +740,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                     workflow_run_id: stepRun.workflowRunId,
                     step_id: stepRun.stepId,
                     step_index: stepRun.stepIndex,
-                    test_run_id: stepRun.testRunId ?? null,
+                    test_run_id: stepRun.runId ?? null,
                     status: stepRun.status,
                     summary: stepRun.summary ?? null,
                     started_at: stepRun.startedAt,
@@ -758,7 +758,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                     ...(updates.workflowRunId !== undefined ? { workflow_run_id: updates.workflowRunId } : {}),
                     ...(updates.stepId !== undefined ? { step_id: updates.stepId } : {}),
                     ...(updates.stepIndex !== undefined ? { step_index: updates.stepIndex } : {}),
-                    ...(updates.testRunId !== undefined ? { test_run_id: updates.testRunId } : {}),
+                    ...(updates.runId !== undefined ? { test_run_id: updates.runId } : {}),
                     ...(updates.status !== undefined ? { status: updates.status } : {}),
                     ...(updates.summary !== undefined ? { summary: updates.summary } : {}),
                     ...(updates.startedAt !== undefined ? { started_at: updates.startedAt } : {}),
@@ -794,7 +794,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                     if (payload.workflowStepRunUpdates.completedAt !== undefined) {
                         workflowStepSetClauses.push('completed_at = @step_completed_at');
                     }
-                    if (payload.workflowStepRunUpdates.testRunId !== undefined) {
+                    if (payload.workflowStepRunUpdates.runId !== undefined) {
                         workflowStepSetClauses.push('test_run_id = @step_test_run_id');
                     }
 
@@ -813,7 +813,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                         step_status: payload.workflowStepRunUpdates.status,
                         step_summary: payload.workflowStepRunUpdates.summary ?? null,
                         step_completed_at: payload.workflowStepRunUpdates.completedAt ?? null,
-                        step_test_run_id: payload.workflowStepRunUpdates.testRunId ?? null,
+                        step_test_run_id: payload.workflowStepRunUpdates.runId ?? null,
                         step_run_id: payload.workflowStepRunId
                     });
 
@@ -867,7 +867,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
             workflowRunId: row.workflow_run_id,
             stepId: row.step_id,
             stepIndex: row.step_index,
-            ...(row.test_run_id ? { testRunId: row.test_run_id } : {}),
+            ...(row.test_run_id ? { runId: row.test_run_id } : {}),
             status: row.status as WorkflowStepRunRecord['status'],
             ...(row.summary ? { summary: row.summary } : {}),
             startedAt: row.started_at,

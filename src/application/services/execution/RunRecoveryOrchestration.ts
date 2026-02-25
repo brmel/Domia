@@ -3,10 +3,10 @@ import { UrlFactory } from '@domain/value-objects';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { AgentAction } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
-import { TestRunState } from '@domain/enums/TestRunState';
+import { RunState } from '@domain/enums/RunState';
 import type { ILogger, IPersistenceAdapter, TestStep, IAppAutomation } from '@domain/ports';
 import { WorkflowError } from '@domain/errors';
-import type { RunTestInput } from '@application/dtos';
+import type { RunInput } from '@application/dtos';
 import type { ExecutionController } from '@application/controllers/ExecutionController';
 import type { RunDurabilityService } from './RunDurabilityService';
 import type { CheckpointCompactionService } from './CheckpointCompactionService';
@@ -47,7 +47,7 @@ export interface RunRecoveryDependencies {
 
 export async function resolveRecoveryContext(
     dependencies: RunRecoveryDependencies,
-    input: RunTestInput
+    input: RunInput
 ): Promise<RecoveryBootstrapContext | null> {
     const recoveryRunId = input.options?.recoveryRunId?.trim();
 
@@ -61,7 +61,7 @@ export async function resolveRecoveryContext(
     const recoveryMode: RecoveryMode = input.options?.recoveryMode ?? 'manual-only';
     const decision = dependencies.recoveryPolicy.decide(readModel, recoveryMode);
 
-    dependencies.logger.info('[RunTestUseCase] Recovery decision evaluated', {
+    dependencies.logger.info('[RunUseCase] Recovery decision evaluated', {
         recoveryRunId,
         recoveryMode,
         shouldRecover: decision.shouldRecover,
@@ -76,7 +76,7 @@ export async function resolveRecoveryContext(
 
     const latest = compactedView.latest;
     if (!latest) {
-        dependencies.logger.warn('[RunTestUseCase] Recovery bootstrap skipped: latest checkpoint unavailable', {
+        dependencies.logger.warn('[RunUseCase] Recovery bootstrap skipped: latest checkpoint unavailable', {
             recoveryRunId,
             recoveryMode
         });
@@ -93,7 +93,7 @@ export async function resolveRecoveryContext(
     const bootstrap = dependencies.recoveryBootstrap.bootstrapFromCheckpoint(recoveryCheckpoint.state);
 
     if (rollbackDecision.invalidatedCheckpointIds.length > 0) {
-        dependencies.logger.warn('[RunTestUseCase] Recovery rollback selected nearest commit boundary', {
+        dependencies.logger.warn('[RunUseCase] Recovery rollback selected nearest commit boundary', {
             recoveryRunId,
             branchId: rollbackDecision.branchId,
             rollbackCheckpointId: rollbackDecision.rollbackCheckpoint?.checkpointId,
@@ -101,7 +101,7 @@ export async function resolveRecoveryContext(
         });
     }
 
-    dependencies.logger.info('[RunTestUseCase] Recovery bootstrap applied from latest checkpoint', {
+    dependencies.logger.info('[RunUseCase] Recovery bootstrap applied from latest checkpoint', {
         recoveryRunId,
         stepNumber: bootstrap.state.stepNumber,
         status: bootstrap.state.status,
@@ -121,7 +121,7 @@ export async function resolveRecoveryContext(
 export async function replayRecoveryActions(
     dependencies: RunRecoveryDependencies,
     params: {
-        testRunId: string;
+        runId: string;
         sourceRunId: string;
         sourceBranchId: string;
         automation: IAppAutomation;
@@ -130,13 +130,13 @@ export async function replayRecoveryActions(
         targetStepNumber: number;
     }
 ): Promise<RecoveryReplayOutcome> {
-    const { testRunId, sourceRunId, sourceBranchId, automation, controller, state, targetStepNumber } = params;
+    const { runId, sourceRunId, sourceBranchId, automation, controller, state, targetStepNumber } = params;
 
     if (targetStepNumber <= 0) {
         return { type: 'ok', state, replayedCount: 0 };
     }
 
-    const stepsResult = await dependencies.persistence.getTestSteps(sourceRunId);
+    const stepsResult = await dependencies.persistence.getSteps(sourceRunId);
     if (stepsResult.isErr()) {
         return { type: 'failed', reason: stepsResult.error.message, replayedCount: 0 };
     }
@@ -154,7 +154,7 @@ export async function replayRecoveryActions(
     let nextState = state;
 
     for (const sourceStep of sourceSteps.slice(0, targetStepNumber)) {
-        if (controller.state === TestRunState.CANCELLED) {
+        if (controller.state === RunState.CANCELLED) {
             return { type: 'cancelled', state: nextState, replayedCount };
         }
 
@@ -170,8 +170,8 @@ export async function replayRecoveryActions(
         }
 
         if (decision.decision === 'skip') {
-            dependencies.logger.debug('[RunTestUseCase] Recovery replay skipped action', {
-                testRunId,
+            dependencies.logger.debug('[RunUseCase] Recovery replay skipped action', {
+                runId,
                 sourceRunId,
                 sourceStepNumber: sourceStep.stepNumber,
                 actionType: action.type,
@@ -181,7 +181,7 @@ export async function replayRecoveryActions(
         }
 
         const scopedIdempotencyKey = dependencies.recoveryReplayIdempotency.buildNodeReplayKey({
-            runId: testRunId,
+            runId: runId,
             branchId: sourceBranchId,
             nodeId: sourceStep.id,
             actionSignature: decision.idempotencyKey
@@ -189,7 +189,7 @@ export async function replayRecoveryActions(
 
         let shouldExecute = true;
         try {
-            shouldExecute = await dependencies.recoveryReplayIdempotency.shouldExecute(testRunId, scopedIdempotencyKey);
+            shouldExecute = await dependencies.recoveryReplayIdempotency.shouldExecute(runId, scopedIdempotencyKey);
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error);
             return {
@@ -200,8 +200,8 @@ export async function replayRecoveryActions(
         }
 
         if (!shouldExecute) {
-            dependencies.logger.debug('[RunTestUseCase] Recovery replay deduped action by idempotency key', {
-                testRunId,
+            dependencies.logger.debug('[RunUseCase] Recovery replay deduped action by idempotency key', {
+                runId,
                 sourceRunId,
                 sourceStepNumber: sourceStep.stepNumber,
                 idempotencyKey: scopedIdempotencyKey,
@@ -222,7 +222,7 @@ export async function replayRecoveryActions(
         }
 
         try {
-            await dependencies.recoveryReplayIdempotency.markExecuted(testRunId, scopedIdempotencyKey);
+            await dependencies.recoveryReplayIdempotency.markExecuted(runId, scopedIdempotencyKey);
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error);
             return {
@@ -234,14 +234,14 @@ export async function replayRecoveryActions(
 
         const replayStep: TestStep = {
             id: uuidv4(),
-            testRunId,
+            runId,
             stepNumber: nextState.stepNumber + 1,
             actionType: action.type,
             actionPayload: action,
             timestamp: new Date().toISOString()
         };
 
-        const saveReplayStepResult = await dependencies.persistence.saveTestStep(replayStep);
+        const saveReplayStepResult = await dependencies.persistence.saveStep(replayStep);
         if (saveReplayStepResult.isErr()) {
             return {
                 type: 'failed',
@@ -257,7 +257,7 @@ export async function replayRecoveryActions(
         };
         replayedCount += 1;
 
-        await dependencies.durability.checkpoint(testRunId, nextState, 'action_applied');
+        await dependencies.durability.checkpoint(runId, nextState, 'action_applied');
     }
 
     return { type: 'ok', state: nextState, replayedCount };

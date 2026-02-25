@@ -15,7 +15,7 @@ function createServiceContext(): {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'domia-trajectory-export-'));
 
     const persistence = {
-        getTestRuns: vi.fn().mockResolvedValue({
+        getRuns: vi.fn().mockResolvedValue({
             isErr: () => false,
             value: [
                 {
@@ -32,7 +32,7 @@ function createServiceContext(): {
                 }
             ]
         }),
-        getTestRun: vi.fn(async (runId: string): Promise<{ isErr: () => false; value: { id: string; url: string; prompt: string; startedAt: Date } }> => ({
+        getRun: vi.fn(async (runId: string): Promise<{ isErr: () => false; value: { id: string; url: string; prompt: string; startedAt: Date } }> => ({
             isErr: () => false,
             value: {
                 id: runId,
@@ -41,12 +41,12 @@ function createServiceContext(): {
                 startedAt: new Date('2026-02-10T00:00:00.000Z')
             }
         })),
-        getTestSteps: vi.fn(async (runId: string): Promise<{ isErr: () => false; value: Array<{ id: string; testRunId: string; stepNumber: number; actionType: ActionType; actionPayload: { type: ActionType; elementId: number; thought: string }; timestamp: string }> }> => ({
+        getSteps: vi.fn(async (runId: string): Promise<{ isErr: () => false; value: Array<{ id: string; runId: string; stepNumber: number; actionType: ActionType; actionPayload: { type: ActionType; elementId: number; thought: string }; timestamp: string }> }> => ({
             isErr: () => false,
             value: [
                 {
                     id: `${runId}-step-1`,
-                    testRunId: runId,
+                    runId: runId,
                     stepNumber: 1,
                     actionType: ActionType.CLICK,
                     actionPayload: {
@@ -73,7 +73,7 @@ function createServiceContext(): {
                 {
                     id: 'workflow-step-1',
                     workflowRunId: 'workflow-run-1',
-                    testRunId: 'run-1'
+                    runId: 'run-1'
                 }
             ]
         })

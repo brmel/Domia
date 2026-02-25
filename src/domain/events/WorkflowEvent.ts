@@ -15,7 +15,7 @@ export type WorkflowEvent =
         readonly workflowRunId: string;
         readonly stepId: string;
         readonly stepIndex: number;
-        readonly testRunId: string;
+        readonly runId: string;
     }
     | {
         readonly type: 'workflow_step_completed';

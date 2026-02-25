@@ -234,7 +234,7 @@ export class WorkflowCommand {
                                 console.log(chalk.gray(`Step ${event.stepIndex + 1} started (${event.stepId})`));
                                 break;
                             case 'workflow_step_bound':
-                                console.log(chalk.gray(`Step ${event.stepIndex + 1} test run: ${event.testRunId}`));
+                                console.log(chalk.gray(`Step ${event.stepIndex + 1} run: ${event.runId}`));
                                 break;
                             case 'workflow_step_completed':
                                 console.log(event.success
@@ -344,8 +344,8 @@ export class WorkflowCommand {
                     .sort((a, b) => a.stepIndex - b.stepIndex)
                     .forEach((stepRun) => {
                         console.log(`  [${stepRun.stepIndex + 1}] ${stepRun.stepId} | ${stepRun.status}`);
-                        if (stepRun.testRunId) {
-                            console.log(chalk.dim(`      testRunId: ${stepRun.testRunId}`));
+                        if (stepRun.runId) {
+                            console.log(chalk.dim(`      runId: ${stepRun.runId}`));
                         }
                         if (stepRun.summary) {
                             console.log(chalk.dim(`      ${stepRun.summary}`));

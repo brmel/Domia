@@ -1,10 +1,10 @@
-import type { TestRunId } from '../value-objects';
+import type { RunId } from '../value-objects';
 import type { AgentAction } from '../value-objects';
 import type { WorkflowState } from '../value-objects';
 import type { DomainError } from '../errors';
 import type { RecoveryReplayTelemetry, ReplanningTelemetry } from '../types/RunTelemetry';
 
-export type TestRunEvent =
+export type RunEvent =
     | StartedEvent
     | ThinkingEvent
     | ActingEvent
@@ -25,7 +25,7 @@ export interface PlanningEvent {
 
 export interface StartedEvent {
     readonly type: 'started';
-    readonly testRunId: TestRunId;
+    readonly runId: RunId;
 }
 
 export interface PausedEvent {

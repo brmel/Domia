@@ -1,9 +1,9 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { ExecutionController } from '@application/controllers/ExecutionController';
-import { createRunTestUseCaseContext } from '../../../helpers/createRunTestUseCaseContext';
+import { createRunUseCaseContext } from '../../../helpers/createRunUseCaseContext';
 
-describe('RunTestUseCase skill routing', () => {
+describe('RunUseCase skill routing', () => {
     it('injects preferred skill execution graph into planning prompt', async () => {
         const skill = {
             id: 'checkout.skill',
@@ -15,7 +15,7 @@ describe('RunTestUseCase skill routing', () => {
             postconditions: ['order confirmation visible'],
         };
 
-        const ctx = createRunTestUseCaseContext({
+        const ctx = createRunUseCaseContext({
             runId: 'run-skill-routing',
             skillRegistry: { get: vi.fn().mockReturnValue(skill) },
             skillGovernance: { isAllowed: vi.fn().mockReturnValue(true) },
@@ -45,7 +45,7 @@ describe('RunTestUseCase skill routing', () => {
     });
 
     it('auto-selects matching skill when preferred skill is not provided', async () => {
-        const ctx = createRunTestUseCaseContext({
+        const ctx = createRunUseCaseContext({
             runId: 'run-skill-routing',
             skillRegistry: {
                 list: vi.fn().mockReturnValue([
