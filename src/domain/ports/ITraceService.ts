@@ -19,7 +19,6 @@ export interface StepTrace {
         action: AgentAction | Record<string, unknown> | null;
         rawResponse: string;
     };
-    /** Raw tool call as sent by the model — name + full argument map. */
     toolCall?: {
         name: string;
         input: Record<string, unknown>;

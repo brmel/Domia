@@ -11,10 +11,7 @@ import { RecoveryReplayIdempotencyService } from '@application/services/executio
 import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 import { StepExecutionKernelService } from '@application/services/execution/StepExecutionKernelService';
 
-// ---------------------------------------------------------------------------
-// Mock shapes — each creates the minimal mock surface used by RunTestUseCase.
-// Tests that need custom behavior can override individual fields.
-// ---------------------------------------------------------------------------
+
 
 function createLifecycleManagerMock(runId = 'run-test') {
     return {
@@ -106,9 +103,6 @@ function createLoggerMock(): ILogger {
     return { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() };
 }
 
-// ---------------------------------------------------------------------------
-// Public harness
-// ---------------------------------------------------------------------------
 
 export interface UseCaseContextOverrides {
     runId?: string;
@@ -142,20 +136,6 @@ export interface UseCaseContext {
     logger: ILogger;
 }
 
-/**
- * Creates a fully-wired `RunTestUseCase` with sensible default mocks.
- *
- * Real production services are used for stateless domain logic:
- * - CheckpointCompactionService
- * - RecoveryReadModelService
- * - ManualRecoveryBootstrapService
- * - RunRecoveryPolicyService
- * - RecoveryReplayGuardService
- * - ReplanningPolicyService
- *
- * All infrastructure-touching deps (persistence, session, trace, …) are
- * mocked with vi.fn() and returned so tests can override or assert on them.
- */
 export function createRunTestUseCaseContext(overrides: UseCaseContextOverrides = {}): UseCaseContext {
     const logger = overrides.logger ?? createLoggerMock();
     const releaseLane = vi.fn();
@@ -172,7 +152,6 @@ export function createRunTestUseCaseContext(overrides: UseCaseContextOverrides =
     const replayIdempotency = overrides.replayIdempotency ?? createReplayIdempotencyMock();
     const readinessPolicy = { ...createReadinessPolicyMock(), ...overrides.readinessPolicy };
 
-    // Real production services — stateless domain logic
     const checkpointCompaction = new CheckpointCompactionService();
     const recoveryReadModel = new RecoveryReadModelService();
     const recoveryBootstrap = new ManualRecoveryBootstrapService();
@@ -180,7 +159,6 @@ export function createRunTestUseCaseContext(overrides: UseCaseContextOverrides =
     const recoveryReplayGuard = new RecoveryReplayGuardService();
     const replanningPolicy = new ReplanningPolicyService(logger);
 
-    // Build the step execution kernel with its own dependencies
     const kernel = new StepExecutionKernelService(
         executor as unknown as never,
         persistence as unknown as never,

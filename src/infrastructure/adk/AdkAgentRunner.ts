@@ -1,8 +1,9 @@
 import { injectable, inject } from 'tsyringe';
 import { LlmAgent, Gemini, Runner, InMemorySessionService, getFunctionCalls, isFinalResponse, stringifyContent } from '@google/adk';
 import type { Content, Part } from '@google/genai';
-import type { IAppAutomation, IPerceptionPipeline, IStorageService, ILogger } from '@domain/ports';
-import type { IAgentRunner, AgentActionEvent, StepExecutionResult, StepRunnerConfig } from '@domain/ports/IAgentRunner';
+import type { IAppAutomation, IPerceptionPipeline, ILogger } from '@domain/ports';
+import type { IAgentRunner, AgentRunnerEvent, StepExecutionResult, StepRunnerConfig } from '@domain/ports/IAgentRunner';
+import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import { ActionType } from '@domain/enums/ActionType';
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
 import { createAdkTools } from './AdkBrowserToolFactory';
@@ -25,7 +26,6 @@ function extractThought(event: { content?: { parts?: Array<{ text?: string }> } 
 export class AdkAgentRunner implements IAgentRunner {
     constructor(
         @inject('IPerceptionPipeline') private readonly perception: IPerceptionPipeline,
-        @inject('IStorageService') private readonly storage: IStorageService,
         @inject('ILogger') private readonly logger: ILogger,
         @inject(LlmRuntimeConfigResolver) private readonly llmConfigResolver: LlmRuntimeConfigResolver,
     ) {}
@@ -33,8 +33,8 @@ export class AdkAgentRunner implements IAgentRunner {
     async *executeStep(
         config: StepRunnerConfig,
         browser: IAppAutomation,
-    ): AsyncGenerator<AgentActionEvent, StepExecutionResult, unknown> {
-        const { runId, stepGoal, url, maxActions, vision } = config;
+    ): AsyncGenerator<AgentRunnerEvent, StepExecutionResult, unknown> {
+        const { stepGoal, url, maxActions, vision } = config;
 
         const llmConfig = this.llmConfigResolver.resolve();
         if (!llmConfig.apiKey) {
@@ -56,14 +56,7 @@ export class AdkAgentRunner implements IAgentRunner {
         const frame = initialFrame.value;
         const viewport = await browser.getViewportSize();
 
-        let initialAssets: Record<string, string> = {};
-        try {
-            initialAssets = await this.storage.savePerceptionAssets(runId, 0, frame);
-        } catch {
-            this.logger.warn('[AdkAgentRunner] Failed to save initial perception assets');
-        }
-
-        let latestActionAssets: Record<string, string> = {};
+        let latestCapturedFrame: PerceptionFrame | undefined;
         let actionCount = 0;
 
         const { tools, catalog } = createAdkTools({
@@ -71,12 +64,7 @@ export class AdkAgentRunner implements IAgentRunner {
             perception: this.perception,
             vision,
             onCapture: async (capturedFrame) => {
-                const captureStep = actionCount > 0 ? actionCount : 1;
-                try {
-                    latestActionAssets = await this.storage.savePerceptionAssets(runId, captureStep, capturedFrame);
-                } catch {
-                    this.logger.warn(`[AdkAgentRunner] Failed to save perception assets for step ${captureStep}`);
-                }
+                latestCapturedFrame = capturedFrame;
             },
         });
 
@@ -121,7 +109,7 @@ export class AdkAgentRunner implements IAgentRunner {
         const sessionService = new InMemorySessionService();
         const runner = new Runner({ appName: APP_NAME, agent, sessionService });
         const session = await sessionService.createSession({
-            appName: APP_NAME, userId: 'domia', sessionId: runId,
+            appName: APP_NAME, userId: 'domia', sessionId: config.runId,
         });
 
         try {
@@ -142,30 +130,34 @@ export class AdkAgentRunner implements IAgentRunner {
 
                         this.logger.info(`[AdkAgentRunner] Action ${actionCount}/${maxActions}: ${fc.name}`, fc.args);
 
-                        const actionAssets = actionCount === 1 ? initialAssets : latestActionAssets;
-                        latestActionAssets = {};
+                        const capturedFrame = actionCount === 1 ? frame : latestCapturedFrame;
+                        latestCapturedFrame = undefined;
 
                         const { thought: _t, ...actionWithoutThought } = action as unknown as Record<string, unknown>;
 
-                        await this.storage.saveStepTrace(runId, actionCount, {
-                            timestamp: Date.now(),
-                            agentInput: {
-                                goal: stepGoal,
-                                currentUrl: url,
-                                promptPreview: `GOAL: ${stepGoal} | URL: ${url} | Action ${actionCount}/${maxActions}`,
+                        yield {
+                            type: 'action',
+                            action,
+                            actionIndex: actionCount,
+                            trace: {
+                                timestamp: Date.now(),
+                                agentInput: {
+                                    goal: stepGoal,
+                                    currentUrl: url,
+                                    promptPreview: `GOAL: ${stepGoal} | URL: ${url} | Action ${actionCount}/${maxActions}`,
+                                },
+                                agentOutput: {
+                                    thought,
+                                    action: actionWithoutThought as Record<string, unknown>,
+                                    rawResponse: JSON.stringify(event.content ?? {}, null, 2),
+                                },
+                                toolCall: {
+                                    name: fc.name!,
+                                    input: fc.args as Record<string, unknown>,
+                                },
                             },
-                            agentOutput: {
-                                thought,
-                                action: actionWithoutThought as Record<string, unknown>,
-                                rawResponse: JSON.stringify(event.content ?? {}, null, 2),
-                            },
-                            toolCall: {
-                                name: fc.name!,
-                                input: fc.args as Record<string, unknown>,
-                            },
-                        });
-
-                        yield { type: 'action', action, assets: actionAssets };
+                            capturedFrame,
+                        };
 
                         if (action.type === ActionType.PASS) {
                             return { success: true, terminal: 'pass' };
