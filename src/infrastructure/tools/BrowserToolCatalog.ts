@@ -154,16 +154,16 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
 
     /** Common optional params added to every action tool schema. */
     const captureParams = {
-        capture: z.boolean().optional().describe('Set to false to skip page capture after this action (default: true).'),
-        captureDelayMs: z.number().int().nonnegative().optional().describe('Milliseconds to wait before capturing page state after the action (default: 0).'),
+        capture: z.boolean().optional().describe('If false, skip post-action page capture. Default true.'),
+        captureDelayMs: z.number().int().nonnegative().optional().describe('Ms to wait before capturing (animations/network). Default 0.'),
     };
 
     return [
         {
             name: 'click',
-            description: 'Click an interactive element by its numeric elementId from the latest DOM snapshot.',
+            description: 'Click an element by its elementId from the DOM snapshot. Handles navigation, toggling, opening menus, etc. Returns updated DOM elements and optional screenshot.',
             actionType: ActionType.CLICK,
-            parameters: z.object({ elementId: z.number().int().min(0), ...captureParams }),
+            parameters: z.object({ elementId: z.number().int().min(0).describe('Numeric ID from the DOM snapshot (e.g. the [42] in "[42] <button>Submit</button>").'), ...captureParams }),
             execute: async ({ elementId, capture, captureDelayMs }: { elementId: number; capture?: boolean; captureDelayMs?: number }) => {
                 const result = await browser.click(ElementIdFactory.unsafe(elementId));
                 if (result.isErr()) return { status: 'error', error: result.error.message };
@@ -172,12 +172,12 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
         },
         {
             name: 'type',
-            description: 'Type text into an input-like element by elementId. Set submit=true to press Enter after typing.',
+            description: 'Type text into an input, textarea, or contenteditable element. Replaces any existing value. Set submit=true to press Enter after typing (form submission). Returns updated page state.',
             actionType: ActionType.TYPE,
             parameters: z.object({
-                elementId: z.number().int().min(0),
-                text: z.string(),
-                submit: z.boolean().optional(),
+                elementId: z.number().int().min(0).describe('Numeric ID of the target input element from the DOM snapshot.'),
+                text: z.string().describe('Text to type into the element. Replaces current content.'),
+                submit: z.boolean().optional().describe('If true, press Enter after typing to submit the form. Default false.'),
                 ...captureParams,
             }),
             execute: async ({ elementId, text, submit, capture, captureDelayMs }: { elementId: number; text: string; submit?: boolean; capture?: boolean; captureDelayMs?: number }) => {
@@ -192,9 +192,9 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
         },
         {
             name: 'pressKey',
-            description: 'Press a keyboard key (e.g. Enter, Tab, Escape).',
+            description: 'Dispatch a single key press. Supports named keys (Enter, Tab, Escape, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Backspace, Delete, Space, Home, End, PageUp, PageDown) and single characters. Returns updated page state.',
             actionType: ActionType.PRESS_KEY,
-            parameters: z.object({ key: z.string(), ...captureParams }),
+            parameters: z.object({ key: z.string().describe('Key to press — a Playwright key name or single character.'), ...captureParams }),
             execute: async ({ key, capture, captureDelayMs }: { key: string; capture?: boolean; captureDelayMs?: number }) => {
                 const result = await browser.pressKey(key);
                 if (result.isErr()) return { status: 'error', error: result.error.message };
@@ -203,9 +203,9 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
         },
         {
             name: 'scroll',
-            description: 'Scroll the current view up or down to reveal additional content.',
+            description: 'Scroll the viewport by one page-height in the given direction. Use to reveal off-screen content, lazy-loaded sections, or infinite-scroll items. Returns the newly visible DOM elements.',
             actionType: ActionType.SCROLL,
-            parameters: z.object({ direction: z.enum(['up', 'down']), ...captureParams }),
+            parameters: z.object({ direction: z.enum(['up', 'down']).describe('Scroll direction: "up" or "down".'), ...captureParams }),
             execute: async ({ direction, capture, captureDelayMs }: { direction: 'up' | 'down'; capture?: boolean; captureDelayMs?: number }) => {
                 const result = await browser.scroll(direction);
                 if (result.isErr()) return { status: 'error', error: result.error.message };
@@ -214,9 +214,9 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
         },
         {
             name: 'mouse_move',
-            description: 'Move mouse cursor to viewport coordinates (x, y).',
+            description: 'Move the mouse pointer to absolute viewport coordinates without clicking. Use for hover effects, tooltips, dropdown previews, or positioning before another mouse action. Returns updated page state reflecting hover changes.',
             actionType: ActionType.MOUSE_MOVE,
-            parameters: z.object({ x: z.number(), y: z.number(), ...captureParams }),
+            parameters: z.object({ x: z.number().describe('Viewport X coordinate in pixels.'), y: z.number().describe('Viewport Y coordinate in pixels.'), ...captureParams }),
             execute: async ({ x, y, capture, captureDelayMs }: { x: number; y: number; capture?: boolean; captureDelayMs?: number }) => {
                 const result = await browser.mouseMove(x, y);
                 if (result.isErr()) return { status: 'error', error: result.error.message };
@@ -225,9 +225,9 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
         },
         {
             name: 'mouse_click_left',
-            description: 'Left-click at viewport coordinates (x, y).',
+            description: 'Left-click at absolute viewport pixel coordinates. Use when elementId-based click is unavailable — e.g. canvas elements, SVG graphics, maps, or custom widgets without DOM handles. Returns updated page state.',
             actionType: ActionType.MOUSE_CLICK_LEFT,
-            parameters: z.object({ x: z.number(), y: z.number(), ...captureParams }),
+            parameters: z.object({ x: z.number().describe('Viewport X coordinate in pixels.'), y: z.number().describe('Viewport Y coordinate in pixels.'), ...captureParams }),
             execute: async ({ x, y, capture, captureDelayMs }: { x: number; y: number; capture?: boolean; captureDelayMs?: number }) => {
                 const result = await browser.mouseClick(x, y, 'left');
                 if (result.isErr()) return { status: 'error', error: result.error.message };
@@ -236,9 +236,9 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
         },
         {
             name: 'mouse_click_right',
-            description: 'Right-click at viewport coordinates (x, y).',
+            description: 'Right-click (context menu) at absolute viewport pixel coordinates. Use to open browser or application context menus. Returns updated page state.',
             actionType: ActionType.MOUSE_CLICK_RIGHT,
-            parameters: z.object({ x: z.number(), y: z.number(), ...captureParams }),
+            parameters: z.object({ x: z.number().describe('Viewport X coordinate in pixels.'), y: z.number().describe('Viewport Y coordinate in pixels.'), ...captureParams }),
             execute: async ({ x, y, capture, captureDelayMs }: { x: number; y: number; capture?: boolean; captureDelayMs?: number }) => {
                 const result = await browser.mouseClick(x, y, 'right');
                 if (result.isErr()) return { status: 'error', error: result.error.message };
@@ -247,9 +247,9 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
         },
         {
             name: 'mouse_double_click',
-            description: 'Double-click at viewport coordinates (x, y).',
+            description: 'Double-click at absolute viewport pixel coordinates. Typically used to select a word of text, activate an editable field, or trigger double-click handlers. Returns updated page state.',
             actionType: ActionType.MOUSE_DOUBLE_CLICK,
-            parameters: z.object({ x: z.number(), y: z.number(), ...captureParams }),
+            parameters: z.object({ x: z.number().describe('Viewport X coordinate in pixels.'), y: z.number().describe('Viewport Y coordinate in pixels.'), ...captureParams }),
             execute: async ({ x, y, capture, captureDelayMs }: { x: number; y: number; capture?: boolean; captureDelayMs?: number }) => {
                 const result = await browser.mouseDoubleClick(x, y);
                 if (result.isErr()) return { status: 'error', error: result.error.message };
@@ -258,14 +258,14 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
         },
         {
             name: 'mouse_drag',
-            description: 'Drag mouse from source coordinates to target coordinates.',
+            description: 'Click-and-drag from source to target coordinates. Use for sliders, drag-and-drop reordering, resizing handles, drawing on canvas, or range selections. Returns updated page state.',
             actionType: ActionType.MOUSE_DRAG,
             parameters: z.object({
-                fromX: z.number(),
-                fromY: z.number(),
-                toX: z.number(),
-                toY: z.number(),
-                steps: z.number().int().min(1).max(100).optional(),
+                fromX: z.number().describe('Source X coordinate in viewport pixels.'),
+                fromY: z.number().describe('Source Y coordinate in viewport pixels.'),
+                toX: z.number().describe('Destination X coordinate in viewport pixels.'),
+                toY: z.number().describe('Destination Y coordinate in viewport pixels.'),
+                steps: z.number().int().min(1).max(100).optional().describe('Intermediate move steps between source and target. More steps = smoother drag. Default: 10.'),
                 ...captureParams,
             }),
             execute: async ({ fromX, fromY, toX, toY, steps, capture, captureDelayMs }: { fromX: number; fromY: number; toX: number; toY: number; steps?: number; capture?: boolean; captureDelayMs?: number }) => {
@@ -276,9 +276,9 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
         },
         {
             name: 'mouse_scroll',
-            description: 'Scroll at current cursor position using wheel deltas.',
+            description: 'Dispatch a mouse wheel event at the current cursor position. Unlike scroll (page-level), this targets the element under the cursor — useful for scrollable containers, maps, or zoom controls. Positive deltaY = scroll down, negative = scroll up.',
             actionType: ActionType.MOUSE_SCROLL,
-            parameters: z.object({ deltaX: z.number().optional(), deltaY: z.number(), ...captureParams }),
+            parameters: z.object({ deltaX: z.number().optional().describe('Horizontal scroll delta in pixels. Positive = right. Default 0.'), deltaY: z.number().describe('Vertical scroll delta in pixels. Positive = down, negative = up.'), ...captureParams }),
             execute: async ({ deltaX, deltaY, capture, captureDelayMs }: { deltaX?: number; deltaY: number; capture?: boolean; captureDelayMs?: number }) => {
                 const result = await browser.mouseScroll(deltaX ?? 0, deltaY);
                 if (result.isErr()) return { status: 'error', error: result.error.message };
@@ -287,9 +287,9 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
         },
         {
             name: 'wait',
-            description: 'Wait for UI/network settling before the next action. Prefer short waits.',
+            description: 'Pause execution for a specified duration, then capture page state. Use to let animations, transitions, AJAX calls, or debounced UI updates complete. Prefer short waits (500-2000ms). Returns refreshed DOM snapshot.',
             actionType: ActionType.WAIT,
-            parameters: z.object({ durationMs: z.number().optional(), ...captureParams }),
+            parameters: z.object({ durationMs: z.number().optional().describe('Milliseconds to pause. Default 1000.'), ...captureParams }),
             execute: async ({ durationMs, capture, captureDelayMs }: { durationMs?: number; capture?: boolean; captureDelayMs?: number }) => {
                 const ms = typeof durationMs === 'number' ? durationMs : 1000;
                 const result = await browser.wait(ms);
@@ -299,9 +299,9 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
         },
         {
             name: 'extract',
-            description: 'Extract text/content from an element by elementId for verification purposes.',
+            description: 'Extract the visible text content of an element for assertion or verification. Returns up to 400 characters of whitespace-normalized text. No page capture is performed — use observe afterwards if you need a fresh DOM snapshot.',
             actionType: ActionType.EXTRACT,
-            parameters: z.object({ elementId: z.number().int().min(0) }),
+            parameters: z.object({ elementId: z.number().int().min(0).describe('Numeric ID of the element to extract text from.') }),
             execute: async ({ elementId }: { elementId: number }) => {
                 const result = await browser.extractText(ElementIdFactory.unsafe(elementId));
                 if (result.isErr()) return { status: 'error', error: result.error.message };
@@ -311,9 +311,9 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
         },
         {
             name: 'navigate',
-            description: 'Navigate to an absolute URL when changing page is required.',
+            description: 'Navigate the browser to an absolute URL. Waits for the page to load then captures DOM and optional screenshot. Use when you need to open a different page, reload, or jump to a deep link.',
             actionType: ActionType.NAVIGATE,
-            parameters: z.object({ url: z.string(), ...captureParams }),
+            parameters: z.object({ url: z.string().describe('Absolute URL to navigate to (must include protocol, e.g. https://example.com).'), ...captureParams }),
             execute: async ({ url, capture, captureDelayMs }: { url: string; capture?: boolean; captureDelayMs?: number }) => {
                 const urlVO = (await import('@domain/value-objects')).UrlFactory.create(url);
                 if (urlVO.isErr()) return { status: 'error', error: `Invalid URL: ${urlVO.error.message}` };
@@ -324,11 +324,11 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
         },
         {
             name: 'observe',
-            description: 'Capture the current page state (DOM snapshot + optional screenshot) without performing any browser action. Use this to see the page after a fire-and-forget action, or after waiting for an animation/network request to complete.',
+            description: 'Capture current page state (DOM elements + optional screenshot) without any browser action. Use to refresh your view after a fire-and-forget action, verify visual changes, or re-examine the page after waiting. Returns the same page data as action tools but with no side effects.',
             actionType: ActionType.OBSERVE,
             parameters: z.object({
-                delayMs: z.number().int().nonnegative().optional().describe('Milliseconds to wait before capturing (default: 0).'),
-                vision: z.boolean().optional().describe('Override session-level vision. Set true to force a screenshot, false to skip it.'),
+                delayMs: z.number().int().nonnegative().optional().describe('Ms to wait before capturing. Use for animations/transitions. Default 0.'),
+                vision: z.boolean().optional().describe('Override session-level vision setting. True = force screenshot, false = skip it.'),
             }),
             execute: async ({ delayMs, vision: visionOverride }: { delayMs?: number; vision?: boolean }) => {
                 return capturePostActionState(browser, perception, vision, delayMs ?? 0, visionOverride, onCapture);
@@ -336,18 +336,18 @@ export function createBrowserToolCatalog(deps: BrowserToolDependencies): Browser
         },
         {
             name: 'pass',
-            description: 'Mark the current task as completed. Call this ONLY when you have gathered concrete evidence that the goal is satisfied.',
+            description: 'Declare the task PASSED. Call ONLY when you have concrete evidence (via extract or observe) that the goal is fully satisfied. Terminates the agent loop. No page capture is performed.',
             actionType: ActionType.PASS,
-            parameters: z.object({ summary: z.string().optional() }),
+            parameters: z.object({ summary: z.string().optional().describe('Brief description of what was verified and how the goal was met.') }),
             execute: ({ summary }: { summary?: string }) => {
                 return { status: 'TASK_COMPLETED', summary: summary ?? 'Task completed successfully' };
             },
         },
         {
             name: 'fail',
-            description: 'Mark the current task as failed with a concrete reason after re-checking and trying alternatives.',
+            description: 'Declare the task FAILED. Call ONLY after exhausting alternatives and retries. Terminates the agent loop. No page capture is performed.',
             actionType: ActionType.FAIL,
-            parameters: z.object({ reason: z.string() }),
+            parameters: z.object({ reason: z.string().describe('Specific explanation of what was attempted and why it could not succeed.') }),
             execute: ({ reason }: { reason: string }) => {
                 return { status: 'TASK_FAILED', reason };
             },
