@@ -1,6 +1,6 @@
 import { inject, injectable } from 'tsyringe';
 import type { RunTestInput } from '../../dtos';
-import type { ILogger, IBrowserAutomation } from '../../../domain/ports';
+import type { ILogger, IAppAutomation } from '../../../domain/ports';
 import { WorkflowError } from '../../../domain/errors';
 import type { IAppDriverFactory, AppDriverCreateOptions } from '../../../domain/ports/IAppDriverFactory';
 import type { PlatformSession } from './PlatformSession';
@@ -28,10 +28,10 @@ export class PlatformSessionFactory {
             ...(driverOptions ? { options: driverOptions } : {})
         });
 
-        let browser: IBrowserAutomation;
+        let browser: IAppAutomation;
 
         try {
-            browser = driver.getBrowserAutomation();
+            browser = driver.getAutomation();
         } catch (error) {
             await driver.disconnect().catch(() => undefined);
             const message = error instanceof Error ? error.message : String(error);

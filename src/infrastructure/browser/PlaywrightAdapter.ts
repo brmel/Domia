@@ -1,13 +1,13 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync, okAsync, errAsync } from 'neverthrow';
 import { chromium, Browser, Page, ElementHandle } from 'playwright';
-import type { IBrowserAutomation, LaunchOptions, ILogger, IViewHost } from '@domain/ports';
+import type { IAppAutomation, LaunchOptions, ILogger, IViewHost } from '@domain/ports';
 import type { Url, ElementId } from '@domain/value-objects';
 import { NavigationError, InteractionError } from '@domain/errors';
 import { TOOL_TIMEOUTS, SCROLL_CONSTANTS, AGENT_VIEW_CONFIG } from '@domain/constants/PlatformConstants';
 
 @injectable()
-export class PlaywrightAdapter implements IBrowserAutomation {
+export class PlaywrightAdapter implements IAppAutomation {
     private browser: Browser | null = null;
     private page: Page | null = null;
 

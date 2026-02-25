@@ -5,7 +5,7 @@ import type { Page } from 'playwright';
 
 import type { ILogger } from '@domain/ports';
 import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
-import type { IBrowserAutomation } from '../../domain/ports/IBrowserAutomation';
+import type { IAppAutomation } from '../../domain/ports/IAppAutomation';
 import { SnapshotError } from '@domain/errors';
 import { v4 as uuidv4 } from 'uuid';
 import { VisionSensor } from './sensors/VisionSensor';
@@ -23,7 +23,7 @@ export class PerceptionPipeline implements IPerceptionPipeline {
     ) { }
 
     capture(
-        browser: IBrowserAutomation,
+        browser: IAppAutomation,
         options: import('@domain/ports/IPerceptionPipeline').PerceptionOptions = { vision: true, aria: true, dom: true }
     ): ResultAsync<PerceptionFrame, SnapshotError> {
         this.logger.info(`[PerceptionPipeline] Starting capture sequence (Options: ${JSON.stringify(options)})`);
@@ -73,7 +73,7 @@ export class PerceptionPipeline implements IPerceptionPipeline {
         });
     }
 
-    private resolvePage(browser: IBrowserAutomation): Page | null {
+    private resolvePage(browser: IAppAutomation): Page | null {
         const candidate = browser as unknown as { getPage?: () => unknown; page?: unknown };
 
         if (typeof candidate.getPage === 'function') {

@@ -15,5 +15,5 @@ export interface IAppDriver {
     connect(config?: unknown): ResultAsync<void, NavigationError | Error>;
     disconnect(): Promise<void>;
     getCapabilities(): AppCapabilities;
-    getBrowserAutomation(): import('./IBrowserAutomation').IBrowserAutomation;
+    getAutomation(): import('./IAppAutomation').IAppAutomation;
 }

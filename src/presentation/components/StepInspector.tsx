@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react';
 import { useStepInspectorStore } from '../stores/useStepInspectorStore';
 import { trpc } from '../trpc';
-import { JsonTreeView } from './JsonTreeView';
-import { CognitiveTraceView } from './CognitiveTraceView';
+import { JsonTreeView } from './test/JsonTreeView';
 import { cn } from '../utils';
 import { Button } from './ui/Button';
 import { SegmentedControl } from './ui/SegmentedControl';
@@ -186,24 +185,12 @@ function InspectorContent({ artifacts, stepDetail }: { artifacts: StepArtifacts;
                 <div className={cn("absolute inset-0 transition-opacity duration-300",
                     activeTab === 'trace' ? "opacity-100 z-10" : "opacity-0 pointer-events-none")}>
                     {traceData ? (
-                        <div className="h-full grid grid-cols-5 divide-x divide-gray-200">
-                            {/* Cognitive Flow - Wider */}
-                            <div className="col-span-3 flex flex-col overflow-hidden bg-white">
-                                <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                    Cognitive Process
-                                </div>
-                                <div className="flex-1 overflow-auto p-4">
-                                    <CognitiveTraceView trace={traceData} />
-                                </div>
+                        <div className="h-full flex flex-col overflow-hidden bg-white">
+                            <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                Trace Data
                             </div>
-                            {/* Raw Data - Narrows */}
-                            <div className="col-span-2 flex flex-col overflow-hidden bg-gray-50/50">
-                                <div className="px-4 py-2 bg-gray-100 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                                    Raw Trace Data
-                                </div>
-                                <div className="flex-1 overflow-auto p-4">
-                                    <JsonTreeView data={traceData} name="Trace" />
-                                </div>
+                            <div className="flex-1 overflow-auto p-4">
+                                <JsonTreeView data={traceData} name="Trace" />
                             </div>
                         </div>
                     ) : (

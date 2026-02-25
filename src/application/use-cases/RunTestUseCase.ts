@@ -1,6 +1,6 @@
 
 import { injectable, inject } from 'tsyringe';
-import type { IBrowserAutomation } from '../../domain/ports';
+import type { IAppAutomation } from '../../domain/ports';
 import { ExecutionGraph, UrlFactory, WorkflowState } from '../../domain/value-objects';
 import { ExecutionController } from '../controllers/ExecutionController';
 import { WorkflowError } from '../../domain/errors';
@@ -115,7 +115,7 @@ export class RunTestUseCase {
         let estimatedTokensUsed = 0;
         const recoveryContext = await resolveRecoveryContextForRun(this.recoveryDeps, input);
 
-        let browser: IBrowserAutomation;
+        let browser: IAppAutomation;
         let disposeSession: (() => Promise<void>) | undefined;
         let shouldNavigate = true;
         let ownsSession = false;

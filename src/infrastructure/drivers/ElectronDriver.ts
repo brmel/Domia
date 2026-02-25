@@ -10,7 +10,7 @@ import { CDPValidator } from '../../domain/validators/CDPValidator';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
 import { PlaywrightAdapter } from '../browser/PlaywrightAdapter';
-import { IBrowserAutomation } from '../../domain/ports';
+import { IAppAutomation } from '../../domain/ports';
 import { retryAsync } from '@shared/reliability/retry';
 import { RETRY_PROFILES, isTransientElectronConnectError } from '@shared/reliability/retryProfiles';
 
@@ -254,7 +254,7 @@ export class ElectronDriver implements IAppDriver {
      * Get browser automation interface for execution services.
      * Creates a PlaywrightAdapter around the active Electron window.
      */
-    getBrowserAutomation(): IBrowserAutomation {
+    getAutomation(): IAppAutomation {
         const win = this.windowManager.getActiveWindow();
         if (!win) {
              throw new Error('[ElectronDriver] No active window available for browser automation.');

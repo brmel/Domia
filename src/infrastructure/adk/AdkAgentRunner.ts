@@ -1,102 +1,18 @@
 import { injectable, inject } from 'tsyringe';
 import { LlmAgent, Gemini, Runner, InMemorySessionService, getFunctionCalls, isFinalResponse, stringifyContent } from '@google/adk';
 import type { Content, Part } from '@google/genai';
-import type { IBrowserAutomation, IPerceptionPipeline, IStorageService, ILogger } from '@domain/ports';
+import type { IAppAutomation, IPerceptionPipeline, IStorageService, ILogger } from '@domain/ports';
 import type { IAgentRunner, AgentActionEvent, StepExecutionResult, StepRunnerConfig } from '@domain/ports/IAgentRunner';
-import type { AgentAction } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
-import { createAdkBrowserTools, formatElements } from './AdkBrowserToolFactory';
+import { createAdkTools } from './AdkBrowserToolFactory';
+import { formatElements } from '../tools/ToolSpec';
+import { ActionMapper } from '../agent/common/ActionMapper';
+import { AgentLoopGuard } from '../agent/common/AgentLoopGuard';
+import { buildAgentInstruction } from '../agent/common/AgentInstructionBuilder';
 
 const APP_NAME = 'domia';
 
-const AGENT_INSTRUCTION = `You are an autonomous web testing agent. You interact with web pages to verify conditions and achieve goals.
-
-CAPABILITIES:
-- You can click, type, pressKey, scroll, wait, extract data, observe, and use coordinate mouse controls.
-- You receive bounding box coordinates for every element.
-- You receive the viewport dimensions to calculate positions.
-
-CAPTURE CONTROL:
-Every action tool (click, type, scroll, navigate, etc.) accepts two optional parameters:
-  - capture (boolean, default true): Set to false to perform the action WITHOUT capturing page state afterward. Use this for fire-and-forget actions (e.g. dismissing a cookie banner before the real work).
-  - captureDelayMs (number, default 0): Milliseconds to wait BEFORE capturing. Use this when the action triggers an animation, network request, or page transition that needs time to settle.
-
-The 'observe' tool captures the current page state without performing any browser action:
-  - delayMs (number, default 0): Wait this many ms before capturing.
-  - vision (boolean): Override session-level screenshot setting. Set true to force a screenshot, false to skip.
-
-USAGE PATTERNS:
-  - click(elementId: 5)                                  → click + immediate capture (default)
-  - click(elementId: 5, capture: false)                  → fire-and-forget click, no capture cost
-  - click(elementId: 5, captureDelayMs: 2000)            → click, wait 2s for animation, then capture
-  - observe()                                            → just read current page state
-  - observe(delayMs: 5000, vision: true)                 → wait 5s then capture with screenshot
-
-LAYOUT ANALYSIS:
-To check if an element is horizontally centered:
-  - Element center: elementX + (elementWidth / 2)
-  - Page center: viewportWidth / 2
-  - Centered if: |elementCenter - pageCenter| < 50 pixels
-
-RULES:
-1. Analyze elements and their positions before deciding.
-2. Use element IDs from the snapshot to target elements.
-3. Use navigate only when a page change is truly required; do not navigate to empty or relative URLs.
-4. Do not fail on the first uncertainty. Re-check state and try one alternative action when feasible before returning fail.
-5. Avoid repeating scroll when the page state is unchanged; after a few no-progress attempts, choose a different action or fail with a clear reason.
-6. Do not call pass as your first action. Perform at least one concrete verification action first and only pass when you can cite clear evidence.
-7. When the goal requires validating a list/value (e.g., supported languages), use extract on concrete UI elements and base the decision on extracted content, not assumptions.
-8. For goals that validate multiple required items, gather explicit evidence for each required item before passing.
-9. If the same interaction repeats without producing new evidence, switch to a different action type (prefer extract on relevant visible elements).
-10. Use capture: false when you plan to perform multiple rapid actions in sequence and only need to observe the result after the last one — then call observe().
-
-Think step by step. Choose exactly one tool call per turn. After each tool call you will see the updated page state (unless you set capture: false).
-When the goal is confirmed, call 'pass'. When blocked after multiple attempts, call 'fail' with a concrete reason.`;
-
-function mapFunctionCallToAction(name: string, args: Record<string, unknown>, thought: string): AgentAction {
-    switch (name) {
-        case 'click':
-            return { type: ActionType.CLICK, elementId: args['elementId'] as number, thought } as AgentAction;
-        case 'type':
-            return { type: ActionType.TYPE, elementId: args['elementId'] as number, text: args['text'] as string, submit: (args['submit'] as boolean) ?? false, thought } as AgentAction;
-        case 'pressKey':
-            return { type: ActionType.PRESS_KEY, key: args['key'] as string, thought } as AgentAction;
-        case 'scroll':
-            return { type: ActionType.SCROLL, direction: args['direction'] as 'up' | 'down', thought } as AgentAction;
-        case 'mouse_move':
-            return { type: ActionType.MOUSE_MOVE, x: args['x'] as number, y: args['y'] as number, thought } as AgentAction;
-        case 'mouse_click_left':
-            return { type: ActionType.MOUSE_CLICK_LEFT, x: args['x'] as number, y: args['y'] as number, thought } as AgentAction;
-        case 'mouse_click_right':
-            return { type: ActionType.MOUSE_CLICK_RIGHT, x: args['x'] as number, y: args['y'] as number, thought } as AgentAction;
-        case 'mouse_double_click':
-            return { type: ActionType.MOUSE_DOUBLE_CLICK, x: args['x'] as number, y: args['y'] as number, thought } as AgentAction;
-        case 'mouse_drag':
-            return { type: ActionType.MOUSE_DRAG, fromX: args['fromX'] as number, fromY: args['fromY'] as number, toX: args['toX'] as number, toY: args['toY'] as number, steps: args['steps'] as number | undefined, thought } as AgentAction;
-        case 'mouse_scroll':
-            return { type: ActionType.MOUSE_SCROLL, deltaX: (args['deltaX'] as number) ?? 0, deltaY: args['deltaY'] as number, thought } as AgentAction;
-        case 'wait':
-            return { type: ActionType.WAIT, durationMs: (args['durationMs'] as number) ?? 1000, thought } as AgentAction;
-        case 'extract':
-            return { type: ActionType.EXTRACT, elementId: args['elementId'] as number, thought } as AgentAction;
-        case 'navigate':
-            return { type: ActionType.NAVIGATE, url: args['url'] as string, thought } as AgentAction;
-        case 'observe':
-            return { type: ActionType.OBSERVE, delayMs: args['delayMs'] as number | undefined, vision: args['vision'] as boolean | undefined, thought } as AgentAction;
-        case 'pass':
-            return { type: ActionType.PASS, summary: (args['summary'] as string) ?? 'Task completed', thought } as AgentAction;
-        case 'fail':
-            return { type: ActionType.FAIL, reason: (args['reason'] as string) ?? 'Unknown failure', thought } as AgentAction;
-        default:
-            return { type: ActionType.FAIL, reason: `Unknown tool: ${name}`, thought } as AgentAction;
-    }
-}
-
-/**
- * Extract the model's reasoning text from an ADK event.
- * When the model returns both text and function calls, the text parts contain chain-of-thought.
- */
 function extractThought(event: { content?: { parts?: Array<{ text?: string }> } }): string {
     if (!event.content?.parts) return '';
     return event.content.parts
@@ -105,12 +21,6 @@ function extractThought(event: { content?: { parts?: Array<{ text?: string }> } 
         .join('\n');
 }
 
-/**
- * Google ADK implementation of the IAgentRunner port.
- *
- * Encapsulates all @google/adk and @google/genai coupling.
- * Can be swapped for any other agent framework by implementing IAgentRunner.
- */
 @injectable()
 export class AdkAgentRunner implements IAgentRunner {
     constructor(
@@ -122,29 +32,23 @@ export class AdkAgentRunner implements IAgentRunner {
 
     async *executeStep(
         config: StepRunnerConfig,
-        browser: IBrowserAutomation,
+        browser: IAppAutomation,
     ): AsyncGenerator<AgentActionEvent, StepExecutionResult, unknown> {
         const { runId, stepGoal, url, maxActions, vision } = config;
 
-        // Resolve LLM configuration
         const llmConfig = this.llmConfigResolver.resolve();
         if (!llmConfig.apiKey) {
             return {
-                success: false,
-                terminal: 'error',
-                code: 'llm_error',
+                success: false, terminal: 'error', code: 'llm_error',
                 reason: 'No API key configured. Set GOOGLE_API_KEY, GEMINI_API_KEY, or DOMIA_LLM_API_KEY.',
             };
         }
         const model = llmConfig.model || 'gemini-2.0-flash';
 
-        // 1. Capture initial page state
         const initialFrame = await this.perception.capture(browser, { vision, aria: true, dom: true });
         if (initialFrame.isErr()) {
             return {
-                success: false,
-                terminal: 'error',
-                code: 'perception_error',
+                success: false, terminal: 'error', code: 'perception_error',
                 reason: `Initial perception failed: ${initialFrame.error.message}`,
             };
         }
@@ -152,8 +56,6 @@ export class AdkAgentRunner implements IAgentRunner {
         const frame = initialFrame.value;
         const viewport = await browser.getViewportSize();
 
-        // Save initial perception assets as step 0 (pre-action baseline).
-        // Post-action captures are saved as step N matching the TestStep.stepNumber.
         let initialAssets: Record<string, string> = {};
         try {
             initialAssets = await this.storage.savePerceptionAssets(runId, 0, frame);
@@ -161,31 +63,33 @@ export class AdkAgentRunner implements IAgentRunner {
             this.logger.warn('[AdkAgentRunner] Failed to save initial perception assets');
         }
 
-        // Track the latest saved assets per action so the yield can include them.
         let latestActionAssets: Record<string, string> = {};
+        let actionCount = 0;
 
-        // 2. Build initial user message (text + optional screenshot)
+        const { tools, catalog } = createAdkTools({
+            automation: browser,
+            perception: this.perception,
+            vision,
+            onCapture: async (capturedFrame) => {
+                const captureStep = actionCount > 0 ? actionCount : 1;
+                try {
+                    latestActionAssets = await this.storage.savePerceptionAssets(runId, captureStep, capturedFrame);
+                } catch {
+                    this.logger.warn(`[AdkAgentRunner] Failed to save perception assets for step ${captureStep}`);
+                }
+            },
+        });
+
+        const actionMapper = new ActionMapper(catalog);
+        const loopGuard = new AgentLoopGuard();
+        const instruction = buildAgentInstruction(catalog);
+
         const elementsStr = formatElements(frame.semantic.dom.elements);
         const textPart: Part = {
-            text: `GOAL: ${stepGoal}
-
-VIEWPORT: ${viewport.width}x${viewport.height} pixels
-
-CURRENT PAGE:
-URL: ${frame.metadata.url || url}
-Title: ${frame.metadata.title}
-
-INTERACTIVE ELEMENTS (with bounding boxes [x,y,w,h]):
-${elementsStr}
-
-MAX ACTIONS REMAINING: ${maxActions}
-
-Analyze the current page state and begin working toward the goal. Call exactly one tool per turn.`,
+            text: `GOAL: ${stepGoal}\n\nVIEWPORT: ${viewport.width}x${viewport.height} pixels\n\nCURRENT PAGE:\nURL: ${frame.metadata.url || url}\nTitle: ${frame.metadata.title}\n\nINTERACTIVE ELEMENTS (with bounding boxes [x,y,w,h]):\n${elementsStr}\n\nMAX ACTIONS REMAINING: ${maxActions}\n\nAnalyze the current page state and begin working toward the goal. Call exactly one tool per turn.`,
         };
 
         const parts: Part[] = [textPart];
-
-        // Vision: send screenshot as inlineData per ADK/Gemini multimodal spec
         if (vision && frame.vision.primaryScreenshot) {
             parts.push({
                 inlineData: {
@@ -197,111 +101,52 @@ Analyze the current page state and begin working toward the goal. Call exactly o
 
         const initialMessage: Content = { role: 'user', parts };
 
-        // 3. Create ADK tools from browser automation.
-        //    The onCapture hook saves each tool's perception frame to disk
-        //    so the Step Inspector can display it later.
-        //    Captures are saved as step N matching actionCount (= TestStep.stepNumber).
-        const tools = createAdkBrowserTools({
-            browser,
-            perception: this.perception,
-            vision,
-            onCapture: async (capturedFrame) => {
-                // actionCount is incremented before yield, so it matches TestStep.stepNumber
-                const captureStep = actionCount > 0 ? actionCount : 1;
-                try {
-                    latestActionAssets = await this.storage.savePerceptionAssets(
-                        runId,
-                        captureStep,
-                        capturedFrame,
-                    );
-                } catch {
-                    this.logger.warn(`[AdkAgentRunner] Failed to save perception assets for step ${captureStep}`);
-                }
-            },
-        });
-
-        // 4. Create the ADK agent with best-practice configuration
-        const actionHistory: string[] = [];
-
         const agent = new LlmAgent({
             name: 'browser_agent',
             model: new Gemini({ model, apiKey: llmConfig.apiKey }),
-            instruction: AGENT_INSTRUCTION,
+            instruction,
             tools,
-            generateContentConfig: {
-                temperature: 0,
-            },
+            generateContentConfig: { temperature: 0 },
             beforeToolCallback: ({ tool, args }) => {
-                // Loop detection: track action signatures
                 const sig = `${tool.name}:${JSON.stringify(args)}`;
-                actionHistory.push(sig);
-
-                if (actionHistory.length >= 3) {
-                    const last3 = actionHistory.slice(-3);
-                    if (last3.every((s) => s === sig)) {
-                        this.logger.warn(`[AdkAgentRunner] Loop detected: ${sig} repeated 3 times`);
-                        return {
-                            status: 'error',
-                            error: `LOOP DETECTED: You have called ${tool.name} with the same arguments 3 times. The page state has not changed. Choose a DIFFERENT action or call 'fail' if the goal cannot be achieved.`,
-                        };
-                    }
+                loopGuard.record(tool.name, args as Record<string, unknown>);
+                if (loopGuard.isLoop()) {
+                    this.logger.warn(`[AdkAgentRunner] Loop detected: ${sig}`);
+                    return { status: 'error', error: loopGuard.getWarning(tool.name) };
                 }
                 return undefined;
             },
         });
 
-        // 5. Create runner with session management and budget control
         const sessionService = new InMemorySessionService();
-        const runner = new Runner({
-            appName: APP_NAME,
-            agent,
-            sessionService,
-        });
-
+        const runner = new Runner({ appName: APP_NAME, agent, sessionService });
         const session = await sessionService.createSession({
-            appName: APP_NAME,
-            userId: 'domia',
-            sessionId: runId,
+            appName: APP_NAME, userId: 'domia', sessionId: runId,
         });
-
-        // 6. Run the agent — yield actions, handle terminal conditions
-        let actionCount = 0;
 
         try {
             for await (const event of runner.runAsync({
                 userId: session.userId,
                 sessionId: session.id,
                 newMessage: initialMessage,
-                runConfig: {
-                    // ADK-native budget control: limit total LLM calls
-                    maxLlmCalls: maxActions + 2,
-                },
+                runConfig: { maxLlmCalls: maxActions + 2 },
             })) {
                 const functionCalls = getFunctionCalls(event);
 
                 if (functionCalls?.length) {
-                    // Extract the model's chain-of-thought from the same event
                     const thought = extractThought(event);
 
                     for (const fc of functionCalls) {
-                        const action = mapFunctionCallToAction(fc.name!, fc.args as Record<string, unknown>, thought);
+                        const action = actionMapper.map(fc.name!, fc.args as Record<string, unknown>, thought);
                         actionCount++;
 
                         this.logger.info(`[AdkAgentRunner] Action ${actionCount}/${maxActions}: ${fc.name}`, fc.args);
 
-                        // For the first action, use the initial perception assets.
-                        // For subsequent actions, use whatever onCapture saved (may be empty
-                        // if the tool did not trigger a capture).
-                        const actionAssets = actionCount === 1
-                            ? initialAssets
-                            : latestActionAssets;
-                        latestActionAssets = {}; // reset for next action
-                        yield { type: 'action', action, assets: actionAssets };
+                        const actionAssets = actionCount === 1 ? initialAssets : latestActionAssets;
+                        latestActionAssets = {};
 
-                        // Build a clean action record for the trace (strip `thought` to avoid duplication)
                         const { thought: _t, ...actionWithoutThought } = action as unknown as Record<string, unknown>;
 
-                        // Persist trace data so the Step Inspector can display it
                         await this.storage.saveStepTrace(runId, actionCount, {
                             timestamp: Date.now(),
                             agentInput: {
@@ -320,41 +165,32 @@ Analyze the current page state and begin working toward the goal. Call exactly o
                             },
                         });
 
-                        // Terminal actions
+                        yield { type: 'action', action, assets: actionAssets };
+
                         if (action.type === ActionType.PASS) {
                             return { success: true, terminal: 'pass' };
                         }
                         if (action.type === ActionType.FAIL) {
                             return {
-                                success: false,
-                                terminal: 'fail',
-                                code: 'agent_fail',
+                                success: false, terminal: 'fail', code: 'agent_fail',
                                 reason: (action as { reason: string }).reason,
                             };
                         }
-
-                        // Budget check
                         if (actionCount >= maxActions) {
                             return {
-                                success: false,
-                                terminal: 'max_actions',
-                                code: 'max_actions_reached',
+                                success: false, terminal: 'max_actions', code: 'max_actions_reached',
                                 reason: `Max actions (${maxActions}) reached for step: ${stepGoal}`,
                             };
                         }
                     }
                 }
 
-                // Final text response without a tool call
                 if (isFinalResponse(event)) {
                     const text = stringifyContent(event);
                     this.logger.info(`[AdkAgentRunner] Final response: ${text.slice(0, 200)}`);
-
                     if (actionCount === 0) {
                         return {
-                            success: false,
-                            terminal: 'fail',
-                            code: 'agent_fail',
+                            success: false, terminal: 'fail', code: 'agent_fail',
                             reason: 'Agent generated text without calling any tools',
                         };
                     }
@@ -365,17 +201,13 @@ Analyze the current page state and begin working toward the goal. Call exactly o
             const message = error instanceof Error ? error.message : String(error);
             this.logger.error(`[AdkAgentRunner] Agent error: ${message}`);
             return {
-                success: false,
-                terminal: 'error',
-                code: 'llm_error',
+                success: false, terminal: 'error', code: 'llm_error',
                 reason: `ADK agent error: ${message}`,
             };
         }
 
         return {
-            success: false,
-            terminal: 'max_actions',
-            code: 'max_actions_reached',
+            success: false, terminal: 'max_actions', code: 'max_actions_reached',
             reason: `Agent finished without calling pass/fail. Completed ${actionCount} actions.`,
         };
     }

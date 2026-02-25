@@ -7,7 +7,7 @@ export interface LaunchOptions {
     readonly timeout?: number;
 }
 
-export interface IBrowserAutomation {
+export interface IAppAutomation {
     launch(options: LaunchOptions): ResultAsync<void, NavigationError>;
     navigateTo(url: Url): ResultAsync<void, NavigationError>;
     click(elementId: ElementId, options?: { force?: boolean; timeout?: number }): ResultAsync<void, InteractionError>;

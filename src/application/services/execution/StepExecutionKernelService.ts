@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import type { IBrowserAutomation } from '@domain/ports';
+import type { IAppAutomation } from '@domain/ports';
 import type { TestStep } from '@domain/ports';
 import { WorkflowError } from '@domain/errors';
 import { WorkflowState } from '@domain/value-objects';
@@ -35,7 +35,7 @@ export class StepExecutionKernelService {
     async *execute(
         testRunId: string,
         executionGoal: string,
-        browser: IBrowserAutomation,
+        browser: IAppAutomation,
         url: string,
         currentState: WorkflowState,
         executionOptions: StepExecutionOptions,

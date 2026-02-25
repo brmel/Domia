@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import type { IBrowserAutomation, ITraceService } from '@domain/ports';
+import type { IAppAutomation, ITraceService } from '@domain/ports';
 import type { IAgentRunner, AgentActionEvent, StepExecutionResult } from '@domain/ports/IAgentRunner';
 
 export type { StepExecutionResult } from '@domain/ports/IAgentRunner';
@@ -14,7 +14,7 @@ export class StepExecutor {
     async *executeStep(
         runId: string,
         stepGoal: string,
-        browser: IBrowserAutomation,
+        browser: IAppAutomation,
         url: string,
         _initialStepNumber: number = 0,
         options: {

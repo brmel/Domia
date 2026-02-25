@@ -65,6 +65,6 @@ export interface IAgentRunner {
      */
     executeStep(
         config: StepRunnerConfig,
-        browser: import('./IBrowserAutomation').IBrowserAutomation,
+        browser: import('./IAppAutomation').IAppAutomation,
     ): AsyncGenerator<AgentActionEvent, StepExecutionResult, unknown>;
 }

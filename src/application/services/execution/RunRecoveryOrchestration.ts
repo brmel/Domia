@@ -4,7 +4,7 @@ import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { AgentAction } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
 import { TestRunState } from '@domain/enums/TestRunState';
-import type { ILogger, IPersistenceAdapter, TestStep, IBrowserAutomation } from '@domain/ports';
+import type { ILogger, IPersistenceAdapter, TestStep, IAppAutomation } from '@domain/ports';
 import { WorkflowError } from '@domain/errors';
 import type { RunTestInput } from '@application/dtos';
 import type { ExecutionController } from '@application/controllers/ExecutionController';
@@ -124,7 +124,7 @@ export async function replayRecoveryActions(
         testRunId: string;
         sourceRunId: string;
         sourceBranchId: string;
-        browser: IBrowserAutomation;
+        browser: IAppAutomation;
         controller: ExecutionController;
         state: WorkflowState;
         targetStepNumber: number;
@@ -263,7 +263,7 @@ export async function replayRecoveryActions(
     return { type: 'ok', state: nextState, replayedCount };
 }
 
-async function executeReplayAction(browser: IBrowserAutomation, action: AgentAction): Promise<void> {
+async function executeReplayAction(browser: IAppAutomation, action: AgentAction): Promise<void> {
     switch (action.type) {
         case ActionType.WAIT: {
             const result = await browser.wait(action.durationMs);

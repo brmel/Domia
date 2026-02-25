@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { ok, okAsync } from 'neverthrow';
-import type { IBrowserAutomation, ILogger } from '@domain/ports';
+import type { IAppAutomation, ILogger } from '@domain/ports';
 import { RunTestUseCase } from '@application/use-cases/RunTestUseCase';
 import { RecoveryReadModelService } from '@application/services/execution/RecoveryReadModelService';
 import { RunRecoveryPolicyService } from '@application/services/execution/RunRecoveryPolicyService';
@@ -46,17 +46,17 @@ function createTraceMock() {
     };
 }
 
-function createBrowserMock(): IBrowserAutomation {
+function createBrowserMock(): IAppAutomation {
     return {
         waitForDOMStable: vi.fn().mockResolvedValue(undefined),
         navigateTo: vi.fn(() => okAsync(undefined)),
         wait: vi.fn(() => okAsync(undefined)),
         scroll: vi.fn(() => okAsync(undefined)),
         extractText: vi.fn(() => okAsync('text')),
-    } as unknown as IBrowserAutomation;
+    } as unknown as IAppAutomation;
 }
 
-function createSessionFactoryMock(browser: IBrowserAutomation) {
+function createSessionFactoryMock(browser: IAppAutomation) {
     return {
         createSession: vi.fn().mockResolvedValue({
             browser,
@@ -117,7 +117,7 @@ export interface UseCaseContextOverrides {
     executor?: Record<string, unknown>;
     persistence?: Record<string, unknown>;
     trace?: Record<string, unknown>;
-    browser?: IBrowserAutomation;
+    browser?: IAppAutomation;
     sessionFactory?: Record<string, unknown>;
     laneService?: Record<string, unknown>;
     durability?: Record<string, unknown>;
@@ -133,7 +133,7 @@ export interface UseCaseContext {
     executor: ReturnType<typeof createExecutorMock>;
     persistence: ReturnType<typeof createPersistenceMock>;
     trace: ReturnType<typeof createTraceMock>;
-    browser: IBrowserAutomation;
+    browser: IAppAutomation;
     releaseLane: ReturnType<typeof vi.fn>;
     durability: ReturnType<typeof createDurabilityMock>;
     budgetPolicy: ReturnType<typeof createBudgetPolicyMock>;

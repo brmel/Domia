@@ -33,7 +33,7 @@ export class WebDriver implements IAppDriver {
         };
     }
 
-    getBrowserAutomation(): import('../../domain/ports').IBrowserAutomation {
+    getAutomation(): import('../../domain/ports').IAppAutomation {
         return this.playwright;
     }
 }

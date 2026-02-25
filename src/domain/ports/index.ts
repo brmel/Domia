@@ -1,5 +1,5 @@
 export * from './IAgentRunner';
-export * from './IBrowserAutomation';
+export * from './IAppAutomation';
 export * from './IAppDriver';
 export * from './IAppDriverFactory';
 

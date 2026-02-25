@@ -1,0 +1,30 @@
+import type { AgentAction } from '@domain/value-objects';
+import { ActionType } from '@domain/enums/ActionType';
+import type { ToolSpec } from '@infrastructure/tools/ToolSpec';
+
+const TOOL_DEFAULTS: Readonly<Record<string, Record<string, unknown>>> = {
+    type: { submit: false },
+    mouse_scroll: { deltaX: 0 },
+    wait: { durationMs: 1000 },
+    pass: { summary: 'Task completed successfully' },
+    fail: { reason: 'Unknown failure' },
+};
+
+export class ActionMapper {
+    private readonly byName: ReadonlyMap<string, ToolSpec>;
+
+    constructor(catalog: readonly ToolSpec[]) {
+        this.byName = new Map(catalog.map((s) => [s.name, s]));
+    }
+
+    map(toolName: string, args: Record<string, unknown>, thought: string): AgentAction {
+        const spec = this.byName.get(toolName);
+        if (!spec) {
+            return { type: ActionType.FAIL, reason: `Unknown tool: ${toolName}`, thought } as AgentAction;
+        }
+        const { capture: _, captureDelayMs: __, ...cleanArgs } = args;
+        const defaults = TOOL_DEFAULTS[toolName];
+        const merged = defaults ? { ...defaults, ...cleanArgs } : cleanArgs;
+        return { type: spec.actionType, ...merged, thought } as AgentAction;
+    }
+}

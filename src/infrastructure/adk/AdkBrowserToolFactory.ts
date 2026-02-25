@@ -1,27 +1,9 @@
-/**
- * Thin ADK adapter: converts framework-agnostic BrowserToolSpecs into
- * Google ADK FunctionTool instances.
- *
- * All tool definitions, parameter schemas, and execute logic live in
- * BrowserToolCatalog. This file only handles the ADK-specific wrapping.
- */
-
 import { FunctionTool } from '@google/adk';
 import type { ToolOptions, ToolInputParameters } from '@google/adk';
-import {
-    createBrowserToolCatalog,
-    formatElements,
-    type BrowserToolDependencies,
-    type BrowserToolSpec,
-} from '../tools/BrowserToolCatalog';
+import { buildToolCatalog } from '../tools/buildToolCatalog';
+import type { ToolDependencies, ToolSpec } from '../tools/ToolSpec';
 
-// Re-export for consumers that imported from this module before the refactor.
-export { formatElements };
-export type { BrowserToolDependencies as AdkToolDependencies };
-
-// Bypass Zod version mismatch (project Zod 3.25 vs ADK Zod 4.x).
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function toFunctionTool(spec: BrowserToolSpec): FunctionTool {
+function toFunctionTool(spec: ToolSpec): FunctionTool {
     return new FunctionTool({
         name: spec.name,
         description: spec.description,
@@ -30,9 +12,7 @@ function toFunctionTool(spec: BrowserToolSpec): FunctionTool {
     } as unknown as ToolOptions<ToolInputParameters>);
 }
 
-/**
- * Creates ADK FunctionTool instances for all browser actions.
- */
-export function createAdkBrowserTools(deps: BrowserToolDependencies): FunctionTool[] {
-    return createBrowserToolCatalog(deps).map(toFunctionTool);
+export function createAdkTools(deps: ToolDependencies): { tools: FunctionTool[]; catalog: ToolSpec[] } {
+    const catalog = buildToolCatalog(deps);
+    return { tools: catalog.map(toFunctionTool), catalog };
 }
