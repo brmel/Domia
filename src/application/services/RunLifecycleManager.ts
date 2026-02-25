@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { Result, ok, err } from 'neverthrow';
 import { RunIdFactory, RunId, UrlFactory } from '@domain/value-objects';
-import { TestRun } from '@domain/entities/Run';
+import { Run } from '@domain/entities/Run';
 import type { IPersistenceAdapter, ILogger } from '@domain/ports';
 
 @injectable()
@@ -21,13 +21,13 @@ export class RunLifecycleManager {
 
         this.logger.info(`Run initialized`, { id, url: urlString });
 
-        const testRun = TestRun.create({
+        const created = Run.create({
             id,
             url: urlResult.value,
             prompt
         });
 
-        const runningRun = TestRun.start(testRun);
+        const runningRun = Run.start(created);
 
         try {
             await this.persistence.saveRun(runningRun);
@@ -52,8 +52,8 @@ export class RunLifecycleManager {
         }
 
         const finalized = success
-            ? TestRun.pass(existing, summary || 'Test completed successfully')
-            : TestRun.fail(existing, summary || 'Unknown error');
+            ? Run.pass(existing, summary || 'Completed successfully')
+            : Run.fail(existing, summary || 'Unknown error');
 
         await this.persistence.updateRun(id, {
             status: finalized.status,
@@ -75,7 +75,7 @@ export class RunLifecycleManager {
             return;
         }
 
-        const failed = TestRun.fail(existing, message);
+        const failed = Run.fail(existing, message);
 
         await this.persistence.updateRun(id, {
             status: failed.status,

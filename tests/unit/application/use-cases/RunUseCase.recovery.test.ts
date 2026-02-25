@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { okAsync } from 'neverthrow';
-import type { TestStep } from '@domain/ports';
+import type { Step } from '@domain/ports';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 import type { Plan } from '@domain/entities/Plan';
 import type { RunOutput } from '@application/dtos';
@@ -42,7 +42,7 @@ function createCheckpoint(
 
 function createUseCaseContext(
     checkpoints: readonly CheckpointRecord[] = [],
-    sourceSteps: readonly TestStep[] = []
+    sourceSteps: readonly Step[] = []
 ) {
     return createRunUseCaseContext({
         runId: 'new-run',
@@ -132,7 +132,7 @@ describe('RunUseCase recovery flow', () => {
             ])
         };
 
-        const sourceSteps: TestStep[] = [
+        const sourceSteps: Step[] = [
             {
                 id: 'step-1',
                 runId: 'recovery-run',
@@ -204,7 +204,7 @@ describe('RunUseCase recovery flow', () => {
             ])
         };
 
-        const sourceSteps: TestStep[] = [
+        const sourceSteps: Step[] = [
             {
                 id: 'step-1',
                 runId: 'recovery-run',
@@ -252,7 +252,7 @@ describe('RunUseCase recovery flow', () => {
             ])
         };
 
-        const sourceSteps: TestStep[] = [
+        const sourceSteps: Step[] = [
             {
                 id: 'step-1',
                 runId: 'recovery-run',
@@ -291,7 +291,7 @@ describe('RunUseCase recovery flow', () => {
             ])
         };
 
-        const sourceSteps: TestStep[] = [
+        const sourceSteps: Step[] = [
             {
                 id: 'step-1',
                 runId: 'recovery-run',
@@ -331,7 +331,7 @@ describe('RunUseCase recovery flow', () => {
             ])
         };
 
-        const sourceSteps: TestStep[] = [
+        const sourceSteps: Step[] = [
             {
                 id: 'step-1',
                 runId: 'recovery-run',
@@ -393,7 +393,7 @@ describe('RunUseCase recovery flow', () => {
             })
         ];
 
-        const sourceSteps: TestStep[] = [
+        const sourceSteps: Step[] = [
             {
                 id: 'step-1',
                 runId: 'recovery-run',
@@ -439,7 +439,7 @@ describe('RunUseCase recovery flow', () => {
             ])
         };
 
-        const sourceSteps: TestStep[] = [
+        const sourceSteps: Step[] = [
             {
                 id: 'step-1',
                 runId: 'recovery-run',
@@ -479,7 +479,7 @@ describe('RunUseCase recovery flow', () => {
             ])
         };
 
-        const sourceSteps: TestStep[] = [
+        const sourceSteps: Step[] = [
             {
                 id: 'step-1',
                 runId: 'recovery-run',

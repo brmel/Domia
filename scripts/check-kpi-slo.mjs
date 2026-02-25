@@ -6,7 +6,7 @@ const rootDir = process.cwd();
 
 const checks = [
     {
-        file: 'src/application/use-cases/RunTestUseCase.ts',
+        file: 'src/application/use-cases/RunUseCase.ts',
         required: [
             "type: 'replanning'",
             "type: 'recovery_replay'"

@@ -119,7 +119,7 @@ export interface IInputPort {
 import { ResultAsync } from 'neverthrow';
 
 // Current output shape - can be extended without breaking consumers
-export interface TestOutput {
+export interface RunOutput {
   readonly response: TestResponse;
   readonly file: OutputFile;
 }
@@ -140,8 +140,8 @@ export interface OutputFile {
 
 // Port interface - implementations can format for CLI, API, UI, etc.
 export interface IOutputPort {
-  format(result: TestRun): TestOutput;
-  save(output: TestOutput): ResultAsync<void, OutputError>;
+  format(result: Run): RunOutput;
+  save(output: RunOutput): ResultAsync<void, OutputError>;
 }
 ```
 
@@ -204,8 +204,8 @@ Zero external dependencies except `neverthrow`. Contains business logic and cont
 
 | Component | Purpose |
 |-----------|---------|
-| **Entities** | `TestRun`, `TestStep`, `Agent` |
-| **Value Objects** | `Url`, `ElementId`, `TestRunId` (branded types) |
+| **Entities** | `Run`, `Step`, `Agent` |
+| **Value Objects** | `Url`, `ElementId`, `RunId` (branded types) |
 | **Ports** | Interfaces for all external capabilities |
 | **Errors** | Typed domain errors |
 
@@ -228,7 +228,7 @@ Orchestrates domain objects. Depends only on domain layer.
 
 ```typescript
 @injectable()
-export class RunTestUseCase {
+export class RunUseCase {
   constructor(
     @inject('IInputPort') private input: IInputPort,
     @inject('IOutputPort') private output: IOutputPort,
@@ -236,7 +236,7 @@ export class RunTestUseCase {
     @inject('ILLMProvider') private llm: ILLMProvider
   ) {}
   
-  execute(raw: unknown): ResultAsync<TestOutput, TestError> {
+  execute(raw: unknown): ResultAsync<RunOutput, TestError> {
     return this.input.parse(raw)
       .asyncAndThen(input => this.input.validate(input))
       .andThen(validated => this.runTest(validated))
@@ -314,8 +314,8 @@ Use cases that coordinate multiple steps return `AsyncGenerator`:
 
 ```typescript
 // Application layer uses AsyncGenerator for streaming
-class RunTestUseCase {
-  async *execute(input: TestInput): AsyncGenerator<TestRunEvent, TestOutput> {
+class RunUseCase {
+  async *execute(input: TestInput): AsyncGenerator<RunEvent, RunOutput> {
     yield { type: 'started', testRunId };
     
     while (!done) {
@@ -342,17 +342,17 @@ class RunTestUseCase {
 ### Event Types
 
 ```typescript
-// src/domain/events/TestRunEvent.ts
-export type TestRunEvent =
-  | { type: 'started'; testRunId: TestRunId }
+// src/domain/events/RunEvent.ts
+export type RunEvent =
+  | { type: 'started'; testRunId: RunId }
   | { type: 'observing' }
   | { type: 'thinking' }
   | { type: 'acting'; action: AgentAction }
-  | { type: 'step_complete'; step: TestStep }
+  | { type: 'step_complete'; step: Step }
   | { type: 'screenshot'; data: Buffer }
   | { type: 'error'; error: DomainError }
   | { type: 'cancelled' }
-  | { type: 'completed'; output: TestOutput };
+  | { type: 'completed'; output: RunOutput };
 ```
 
 ### Cancellation Pattern
@@ -398,11 +398,11 @@ for await (const event of generator) {
 ┌─────────────────────────────────────────────────────────────┐
 │  RENDERER PROCESS (UI)                                       │
 │  ┌─────────────────────────────────────────────────────────┐ │
-│  │ useTestRunStore.subscribe() ← IPC events                │ │
+│  │ useRunStore.subscribe() ← IPC events                │ │
 │  └─────────────────────────────────────────────────────────┘ │
 ├─────────────────────────────────────────────────────────────┤
 │  IPC CHANNEL                                                 │
-│  'test:event' → Streams TestRunEvent to renderer            │
+│  'test:event' → Streams RunEvent to renderer            │
 │  'test:cancel' → Signals cancellation to main               │
 ├─────────────────────────────────────────────────────────────┤
 │  MAIN PROCESS                                                │
@@ -444,7 +444,7 @@ for await (const event of generator) {
 ┌─────────────────────────────────────────────────────────────────────┐
 │  OUTPUT                                                              │
 │  ┌─────────────────────────┐                                        │
-│  │ response: TestResponse  │  ← IOutputPort.format() ← TestRun     │
+│  │ response: TestResponse  │  ← IOutputPort.format() ← Run     │
 │  │ file: OutputFile        │                                        │
 │  └─────────────────────────┘                                        │
 └─────────────────────────────────────────────────────────────────────┘
@@ -457,14 +457,14 @@ for await (const event of generator) {
 ```
 src/
 ├── domain/
-│   ├── entities/           # TestRun, TestStep, Agent
+│   ├── entities/           # Run, Step, Agent
 │   ├── value-objects/      # Branded types, DOMSnapshot, AgentAction
 │   ├── ports/              # All interfaces (IInputPort, IOutputPort, etc.)
 │   └── errors/             # Typed domain errors
 │
 ├── application/
-│   ├── use-cases/          # RunTestUseCase, CancelTestUseCase
-│   ├── queries/            # GetTestRunQuery, ListTestRunsQuery
+│   ├── use-cases/          # RunUseCase, CancelTestUseCase
+│   ├── queries/            # GetRunQuery, ListRunsQuery
 │   └── dtos/               # Command and response DTOs
 │
 ├── infrastructure/
@@ -504,8 +504,8 @@ export interface TestInput {
 ### Adding New Output Formats
 
 ```typescript
-// 1. Extend TestOutput (non-breaking)
-export interface TestOutput {
+// 1. Extend RunOutput (non-breaking)
+export interface RunOutput {
   readonly response: TestResponse;
   readonly file: OutputFile;
   readonly metrics?: PerformanceMetrics;  // New field

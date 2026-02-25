@@ -56,7 +56,7 @@ describe('ObjectiveCompletionPolicyService', () => {
         });
 
         expect(result.success).toBe(true);
-        expect(result.summary).toBe('Test completed successfully.');
+        expect(result.summary).toBe('Completed successfully.');
     });
 
     it('passes when execution graph indicates completion even if plan statuses are stale', () => {
@@ -86,6 +86,6 @@ describe('ObjectiveCompletionPolicyService', () => {
         });
 
         expect(result.success).toBe(true);
-        expect(result.summary).toBe('Test completed successfully.');
+        expect(result.summary).toBe('Completed successfully.');
     });
 });

@@ -93,8 +93,8 @@ You can also override these per run via run options (`verification.*`).
 
 Domia is built with a Hexagonal Architecture (Ports & Adapters):
 
--   **Core Domain**: Contains the business logic, entities (TestRun, Plan, AgentAction), and ports.
--   **Application Layer**: Orchestrates use cases (`RunTestUseCase`), services (`PlannerService`), and workflows.
+-   **Core Domain**: Contains the business logic, entities (Run, Plan, AgentAction), and ports.
+-   **Application Layer**: Orchestrates use cases (`RunUseCase`), services (`PlannerService`), and workflows.
 -   **Infrastructure**: Implements adapters for Browser (Playwright), LLM (Google Gemini), Persistence (SQLite), and UI.
 
 ## Contributing

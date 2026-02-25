@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { WorkflowWorkspace } from './WorkflowWorkspace';
+import { WorkflowWorkspace } from '@presentation/components/workflow/WorkflowWorkspace';
 
-vi.mock('../../trpc', () => {
+vi.mock('@presentation/trpc', () => {
 	const queryResult = (data: unknown): { data: unknown; isLoading: boolean; refetch: ReturnType<typeof vi.fn> } => ({
 		data,
 		isLoading: false,
@@ -47,7 +47,7 @@ vi.mock('../../trpc', () => {
 			history: {
 				getRun: { useQuery: vi.fn(() => queryResult(null)) }
 			},
-			test: {
+			run: {
 				getCheckpoints: { useQuery: vi.fn(() => queryResult([])) }
 			}
 		}

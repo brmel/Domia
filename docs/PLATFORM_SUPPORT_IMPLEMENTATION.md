@@ -362,7 +362,7 @@ export function getPlatformDefinition(type: PlatformType): PlatformDefinition<an
 ### UI Component Structure
 
 ```
-TestForm (Main Container)
+RunForm (Main Container)
 ├── PlatformSelector
 │   └── Dropdown/Tabs to select platform
 ├── Dynamic Platform Fields
@@ -388,7 +388,7 @@ TestForm (Main Container)
 // ===== src/application/dtos.ts =====
 
 import { PlatformConfig } from '@domain/types/PlatformConfig';
-import { AgentAction, TestRunId } from '@domain/value-objects';
+import { AgentAction, RunId } from '@domain/value-objects';
 import { WorkflowError } from '@domain/errors';
 
 /**
@@ -406,7 +406,7 @@ export interface RunTestInput {
 
 // RunTestOutput remains unchanged
 export type RunTestOutput =
-  | { type: 'started'; testRunId: TestRunId }
+  | { type: 'started'; testRunId: RunId }
   | { type: 'observing' }
   | { type: 'thinking' }
   | { type: 'acting'; action: AgentAction }
@@ -415,10 +415,10 @@ export type RunTestOutput =
   | { type: 'error'; error: WorkflowError | Error };
 ```
 
-### RunTestUseCase Refactoring
+### RunUseCase Refactoring
 
 ```typescript
-// ===== src/application/use-cases/RunTestUseCase.ts =====
+// ===== src/application/use-cases/RunUseCase.ts =====
 
 async *execute(input: RunTestInput, controller: ExecutionController): AsyncGenerator<RunTestOutput, void, unknown> {
   // 1. Initialize Test Run (platform-agnostic)
@@ -428,7 +428,7 @@ async *execute(input: RunTestInput, controller: ExecutionController): AsyncGener
   const urlForPersistence = this.extractUrlFromConfig(platformConfig);
   const prompt = platformConfig.prompt;
   
-  const initResult = await this.lifecycleManager.initializeTestRun(
+  const initResult = await this.lifecycleManager.initializeRun(
     urlForPersistence,
     prompt
   );
@@ -607,8 +607,8 @@ async createDriver(config: DriverConfig): Promise<IAppDriver> {
 5. `src/presentation/components/platform/ConnectionTypeSelector.tsx` - CDP/Executable toggle
 
 **Files to Update:**
-1. `src/presentation/components/TestForm.tsx` - Integrate platform selector
-2. `src/presentation/stores/useTestRunStore.ts` - Store platform config
+1. `src/presentation/components/RunForm.tsx` - Integrate platform selector
+2. `src/presentation/stores/useRunStore.ts` - Store platform config
 
 **Component Architecture:**
 
@@ -723,14 +723,14 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
 ### Phase 3: Backend Integration ⏱️ 3-4 hours
 
 **Files to Update:**
-1. `src/application/use-cases/RunTestUseCase.ts` - Use AppDriverFactory
+1. `src/application/use-cases/RunUseCase.ts` - Use AppDriverFactory
 2. `electron/router.ts` - Accept new schema
 3. `src/infrastructure/adapters/drivers/AppDriverFactory.ts` - Enhance as designed
 4. `src/infrastructure/adapters/drivers/ElectronDriver.ts` - Handle executable launch
 
 **Key Changes:**
 
-1. **RunTestUseCase**: Replace direct browser allocation with driver factory
+1. **RunUseCase**: Replace direct browser allocation with driver factory
 2. **Router**: Update input schema to accept PlatformConfigSchema
 3. **ElectronDriver**: Add executable launch support (if not exists)
 
@@ -960,7 +960,7 @@ src/
 ├── application/
 │   ├── dtos.ts                        [UPDATED]
 │   └── use-cases/
-│       └── RunTestUseCase.ts          [UPDATED]
+│       └── RunUseCase.ts          [UPDATED]
 ├── infrastructure/
 │   └── adapters/
 │       └── drivers/
@@ -971,14 +971,14 @@ src/
     ├── config/
     │   └── platformRegistry.tsx       [NEW]
     ├── components/
-    │   ├── TestForm.tsx               [UPDATED]
+    │   ├── RunForm.tsx               [UPDATED]
     │   └── platform/
     │       ├── PlatformSelector.tsx   [NEW]
     │       ├── WebPlatformFields.tsx  [NEW]
     │       ├── ElectronPlatformFields.tsx [NEW]
     │       └── ConnectionTypeSelector.tsx [NEW]
     └── stores/
-        └── useTestRunStore.ts         [UPDATED]
+        └── useRunStore.ts         [UPDATED]
 ```
 
 **Lines of Code Estimate:**

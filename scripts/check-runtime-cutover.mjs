@@ -6,13 +6,13 @@ const rootDir = process.cwd();
 
 const checks = [
     {
-        file: 'src/application/use-cases/RunTestUseCase.ts',
-        required: ['GraphSchedulerService', 'this.graphScheduler.selectNextReadyNode'],
+        file: 'src/application/use-cases/RunUseCase.ts',
+        required: ['ExecutionGraph', 'ExecutionGraph.selectNextReadyNode'],
         forbidden: [/for\s*\(\s*let\s+i\s*=\s*0\s*;\s*i\s*<\s*plan\.items\.length\s*;\s*i\+\+\s*\)/]
     },
     {
         file: 'src/application/services/workflow/WorkflowRunOrchestratorService.ts',
-        required: ['GraphSchedulerService', 'this.graphScheduler.selectNextReadyNode'],
+        required: ['ExecutionGraph', 'ExecutionGraph.selectNextReadyNode'],
         forbidden: [/for\s*\(\s*let\s+stepIndex\s*=\s*0\s*;\s*stepIndex\s*<\s*definition\.steps\.length\s*;\s*stepIndex\+\+\s*\)/]
     }
 ];

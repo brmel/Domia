@@ -51,7 +51,7 @@ export class ObjectiveCompletionPolicyService {
 
             return {
                 success: true,
-                summary: 'Test completed successfully.',
+                summary: 'Completed successfully.',
                 unmetObjectives: []
             };
         }
@@ -71,7 +71,7 @@ export class ObjectiveCompletionPolicyService {
 
         return {
             success: true,
-            summary: 'Test completed successfully.',
+            summary: 'Completed successfully.',
             unmetObjectives: []
         };
     }

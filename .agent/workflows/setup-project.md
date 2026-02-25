@@ -215,7 +215,7 @@ type Brand<T, B> = T & { readonly [brand]: B };
 
 export type Url = Brand<string, 'Url'>;
 export type ElementId = Brand<number, 'ElementId'>;
-export type TestRunId = Brand<string, 'TestRunId'>;
+export type RunId = Brand<string, 'RunId'>;
 
 export const Url = {
   create: (value: string): Result<Url, ValidationError> => {

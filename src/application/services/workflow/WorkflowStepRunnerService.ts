@@ -19,7 +19,7 @@ export interface WorkflowStepRuntimeContext {
 @injectable()
 export class WorkflowStepRunnerService {
     constructor(
-        @inject(RunUseCase) private readonly runTestUseCase: RunUseCase,
+        @inject(RunUseCase) private readonly runUseCase: RunUseCase,
         @inject(PlatformSessionFactory) private readonly sessionFactory: PlatformSessionFactory
     ) {}
 
@@ -40,7 +40,7 @@ export class WorkflowStepRunnerService {
         let runId: string | undefined;
         let completedSummary: string | undefined;
 
-        const generator = this.runTestUseCase.execute(
+        const generator = this.runUseCase.execute(
             {
                 platformConfig: definition.platformConfig,
                 prompt: step.prompt,

@@ -45,8 +45,8 @@ A phased implementation plan leveraging open-source libraries to minimize boiler
 
 | Component | Implementation |
 |-----------|----------------|
-| **Branded Types** | `Url`, `ElementId`, `TestRunId` with validation |
-| **Entities** | `TestRun`, `TestStep` with discriminated union states |
+| **Branded Types** | `Url`, `ElementId`, `RunId` with validation |
+| **Entities** | `Run`, `Step` with discriminated union states |
 | **I/O Ports** | `IInputPort`, `IOutputPort` for abstracted app interface |
 | **Core Ports** | `IBrowserAutomation`, `ILLMProvider`, `ITestRunStorage` |
 | **Errors** | Typed domain errors extending base class |
@@ -59,7 +59,7 @@ export interface TestInput {
 }
 
 // Abstracted output - can change without affecting use cases
-export interface TestOutput {
+export interface RunOutput {
   readonly response: TestResponse;
   readonly file: OutputFile;
 }
@@ -69,7 +69,7 @@ export interface IInputPort {
 }
 
 export interface IOutputPort {
-  format(run: TestRun): TestOutput;
+  format(run: Run): RunOutput;
 }
 ```
 
@@ -153,7 +153,7 @@ export class UIInputAdapter implements IInputPort {
 
 @injectable()
 export class FileOutputAdapter implements IOutputPort {
-  format(run: TestRun): TestOutput {
+  format(run: Run): RunOutput {
     return {
       response: { success: run.status.type === 'passed', ... },
       file: { path: this.artifactPath(run.id), type: 'video', ... }
@@ -172,15 +172,15 @@ export class FileOutputAdapter implements IOutputPort {
 
 | Use Case | Pattern | Output |
 |----------|---------|--------|
-| `RunTestUseCase` | `AsyncGenerator` | Yields `TestRunEvent`, returns `TestOutput` |
+| `RunUseCase` | `AsyncGenerator` | Yields `RunEvent`, returns `RunOutput` |
 | `CancelTestUseCase` | `ResultAsync` | `ResultAsync<void, Error>` |
-| `GetTestRunQuery` | `ResultAsync` | `ResultAsync<TestOutput, Error>` |
+| `GetRunQuery` | `ResultAsync` | `ResultAsync<RunOutput, Error>` |
 
 ### Event-Driven Agent Loop
 
 ```typescript
 @injectable()
-export class RunTestUseCase {
+export class RunUseCase {
   constructor(
     @inject('IInputPort') private input: IInputPort,
     @inject('IOutputPort') private output: IOutputPort,
@@ -191,7 +191,7 @@ export class RunTestUseCase {
   async *execute(
     raw: unknown,
     cancellation: CancellationToken
-  ): AsyncGenerator<TestRunEvent, TestOutput> {
+  ): AsyncGenerator<RunEvent, RunOutput> {
     
     const parsed = this.input.parse(raw);
     if (parsed.isErr()) {
@@ -256,13 +256,13 @@ export class RunTestUseCase {
 | Component | Technology | Purpose |
 |-----------|------------|---------|
 | IPC Bridge | Electron IPC | Main ↔ Renderer |
-| State | zustand | `useTestRunStore` |
+| State | zustand | `useRunStore` |
 | Forms | React | URL + Prompt input |
 | Results | React | Response + File display |
 
 ```typescript
 // zustand store
-export const useTestRunStore = create<Store>((set) => ({
+export const useRunStore = create<Store>((set) => ({
   output: null,
   isRunning: false,
   runTest: async (url, prompt) => {
@@ -323,7 +323,7 @@ gantt
 
 ### Adding Output Formats
 
-1. Extend `TestOutput` interface in domain
+1. Extend `RunOutput` interface in domain
 2. Update `FileOutputAdapter` to generate new format
 3. No changes to use cases
 

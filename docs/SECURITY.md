@@ -32,7 +32,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('api', {
   runTest: (input: unknown) => ipcRenderer.invoke('test:run', input),
   cancelTest: () => ipcRenderer.invoke('test:cancel'),
-  getTestRun: (id: string) => ipcRenderer.invoke('test:get', id),
+  getRun: (id: string) => ipcRenderer.invoke('test:get', id),
   // No direct Node.js or Electron access
 });
 ```
@@ -122,7 +122,7 @@ export function isForbiddenAction(action: AgentAction): boolean {
 Pause for user confirmation on sensitive actions:
 
 ```typescript
-// src/application/use-cases/RunTestUseCase.ts
+// src/application/use-cases/RunUseCase.ts
 if (requiresConfirmation(action)) {
   const confirmed = await this.promptUser(action);
   if (!confirmed) {

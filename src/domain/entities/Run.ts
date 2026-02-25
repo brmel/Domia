@@ -1,7 +1,7 @@
 import { RunId, Url } from '../value-objects';
 import { Plan } from './Plan';
 
-export interface TestRun {
+export interface Run {
     readonly id: RunId;
     readonly url: Url;
     readonly prompt: string;
@@ -19,8 +19,8 @@ export type RunStatus =
     | { type: 'failed'; error: string; duration: number }
     | { type: 'cancelled'; reason: string };
 
-export const TestRun = {
-    create(params: { id: RunId; url: Url; prompt: string }): TestRun {
+export const Run = {
+    create(params: { id: RunId; url: Url; prompt: string }): Run {
         return {
             id: params.id,
             url: params.url,
@@ -31,7 +31,7 @@ export const TestRun = {
         };
     },
 
-    start(run: TestRun): TestRun {
+    start(run: Run): Run {
         if (run.status.type !== 'pending') {
             throw new Error(`Cannot start a run in '${run.status.type}' state`);
         }
@@ -43,7 +43,7 @@ export const TestRun = {
         };
     },
 
-    updatePlan(run: TestRun, plan: Plan): TestRun {
+    updatePlan(run: Run, plan: Plan): Run {
         return {
             ...run,
             plan,
@@ -51,7 +51,7 @@ export const TestRun = {
         };
     },
 
-    pass(run: TestRun, summary: string): TestRun {
+    pass(run: Run, summary: string): Run {
         if (run.status.type !== 'running') {
             throw new Error(`Cannot pass a run in '${run.status.type}' state`);
         }
@@ -63,7 +63,7 @@ export const TestRun = {
         };
     },
 
-    fail(run: TestRun, error: string): TestRun {
+    fail(run: Run, error: string): Run {
         if (run.status.type !== 'running' && run.status.type !== 'pending') {
             throw new Error(`Cannot fail a run in '${run.status.type}' state`);
         }
@@ -75,7 +75,7 @@ export const TestRun = {
         };
     },
 
-    cancel(run: TestRun, reason: string): TestRun {
+    cancel(run: Run, reason: string): Run {
         if (run.status.type !== 'running' && run.status.type !== 'pending') {
             throw new Error(`Cannot cancel a run in '${run.status.type}' state`);
         }

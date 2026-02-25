@@ -4,7 +4,7 @@ import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { AgentAction } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
 import { RunState } from '@domain/enums/RunState';
-import type { ILogger, IPersistenceAdapter, TestStep, IAppAutomation } from '@domain/ports';
+import type { ILogger, IPersistenceAdapter, Step, IAppAutomation } from '@domain/ports';
 import { WorkflowError } from '@domain/errors';
 import type { RunInput } from '@application/dtos';
 import type { ExecutionController } from '@application/controllers/ExecutionController';
@@ -232,7 +232,7 @@ export async function replayRecoveryActions(
             };
         }
 
-        const replayStep: TestStep = {
+        const replayStep: Step = {
             id: uuidv4(),
             runId,
             stepNumber: nextState.stepNumber + 1,

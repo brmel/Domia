@@ -4,8 +4,8 @@ import Database from 'better-sqlite3';
 import { Kysely, SqliteDialect, Generated } from 'kysely';
 import fs from 'fs-extra';
 import path from 'path';
-import { IPersistenceAdapter, TestStep, LogEntry } from '@domain/ports';
-import { TestRun, RunStatus } from '@domain/entities/Run';
+import { IPersistenceAdapter, Step, LogEntry } from '@domain/ports';
+import { Run, RunStatus } from '@domain/entities/Run';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
 import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
 import { RunId, Url } from '@domain/value-objects';
@@ -348,7 +348,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         tx();
     }
 
-    saveRun(run: TestRun): ResultAsync<void, PersistenceError> {
+    saveRun(run: Run): ResultAsync<void, PersistenceError> {
         let summary: string | null = null;
         let durationMs: number | null = null;
 
@@ -381,7 +381,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         ).map(() => undefined);
     }
 
-    updateRun(id: string, updates: Partial<TestRun>): ResultAsync<void, PersistenceError> {
+    updateRun(id: string, updates: Partial<Run>): ResultAsync<void, PersistenceError> {
         const values: Partial<TestRunTable> = {};
 
         if (updates.status) {
@@ -412,7 +412,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         ).map(() => undefined);
     }
 
-    saveStep(step: TestStep): ResultAsync<void, PersistenceError> {
+    saveStep(step: Step): ResultAsync<void, PersistenceError> {
         return ResultAsync.fromPromise(
             this.db.insertInto('test_steps')
                 .values({
@@ -425,7 +425,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                     timestamp: step.timestamp
                 })
                 .execute(),
-            (e) => new PersistenceError(`Failed to save test step: ${e}`)
+            (e) => new PersistenceError(`Failed to save step: ${e}`)
         ).map(() => undefined);
     }
 
@@ -444,7 +444,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         ).map(() => undefined);
     }
 
-    getRuns(limit: number = 50): ResultAsync<TestRun[], PersistenceError> {
+    getRuns(limit: number = 50): ResultAsync<Run[], PersistenceError> {
         return ResultAsync.fromPromise(
             this.db.selectFrom('test_runs')
                 .selectAll()
@@ -452,20 +452,20 @@ export class SQLiteAdapter implements IPersistenceAdapter {
                 .limit(limit)
                 .execute(),
             (e) => new PersistenceError(`Failed to get runs: ${e}`)
-        ).map(rows => rows.map(row => this.mapToTestRun(row)));
+        ).map(rows => rows.map(row => this.mapToRun(row)));
     }
 
-    getRun(id: string): ResultAsync<TestRun | null, PersistenceError> {
+    getRun(id: string): ResultAsync<Run | null, PersistenceError> {
         return ResultAsync.fromPromise(
             this.db.selectFrom('test_runs')
                 .selectAll()
                 .where('id', '=', id)
                 .executeTakeFirst(),
             (e) => new PersistenceError(`Failed to get run: ${e}`)
-        ).map(row => row ? this.mapToTestRun(row) : null);
+        ).map(row => row ? this.mapToRun(row) : null);
     }
 
-    private mapToTestRun(row: TestRunTable): TestRun {
+    private mapToRun(row: TestRunTable): Run {
         let status: RunStatus;
 
         if (row.status === 'passed') {
@@ -491,18 +491,18 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         };
     }
 
-    getSteps(runId: string): ResultAsync<TestStep[], PersistenceError> {
+    getSteps(runId: string): ResultAsync<Step[], PersistenceError> {
         return ResultAsync.fromPromise(
             this.db.selectFrom('test_steps')
                 .selectAll()
                 .where('test_run_id', '=', runId)
                 .orderBy('step_number', 'asc')
                 .execute(),
-            (e) => new PersistenceError(`Failed to get test steps: ${e}`)
-        ).map(rows => rows.map(row => this.mapToTestStep(row)));
+            (e) => new PersistenceError(`Failed to get steps: ${e}`)
+        ).map(rows => rows.map(row => this.mapToStep(row)));
     }
 
-    private mapToTestStep(row: TestStepTable): TestStep {
+    private mapToStep(row: TestStepTable): Step {
         const action = JSON.parse(row.action_payload);
         return {
             id: row.id,

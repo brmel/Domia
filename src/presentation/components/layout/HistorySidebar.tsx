@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { trpc } from '../../trpc';
-import type { TestStep } from '@domain/ports';
+import type { Step } from '@domain/ports';
 import { useStepInspectorStore } from '../../stores/useStepInspectorStore';
 import { Button } from '../ui/Button';
 
@@ -75,7 +75,7 @@ export function HistorySidebar({ onClose, disabled = false }: HistorySidebarProp
                     <div>
                         <h4 className="font-medium text-xs text-gray-500 uppercase tracking-wider mb-3">Timeline ({run.steps?.length || 0})</h4>
                         <div className="space-y-4 relative before:absolute before:inset-y-0 before:left-2 before:w-0.5 before:bg-gray-100">
-                            {run.steps?.map((step: TestStep) => (
+                            {run.steps?.map((step: Step) => (
                                 <div key={step.id} className="relative pl-6">
                                     <div className="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-white border-2 border-blue-100 z-10"></div>
                                     <div
@@ -181,7 +181,7 @@ export function HistorySidebar({ onClose, disabled = false }: HistorySidebarProp
                             <div className="text-center py-12 px-4">
                                 <div className="text-4xl mb-3 opacity-20">📭</div>
                                 <p className="text-gray-500 font-medium text-sm">No history found</p>
-                                <p className="text-gray-400 text-xs mt-1">Run a test to see it here</p>
+                                <p className="text-gray-400 text-xs mt-1">Start a run to see it here</p>
                             </div>
                         )}
                     </div>

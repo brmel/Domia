@@ -462,8 +462,8 @@ export class RunUseCase {
                 currentState = WorkflowState.applyTerminal(currentState, 'idle', 'cancelled');
                 runLifecycle = this.durability.transition(runId, runLifecycle, 'cancelled');
                 await this.durability.checkpoint(runId, currentState, 'terminal_cancelled');
-                yield { type: 'completed', success: false, summary: "Test cancelled by user." };
-                await this.lifecycleManager.finalizeRun(runId, false, "Test cancelled by user.");
+                yield { type: 'completed', success: false, summary: "Cancelled by user." };
+                await this.lifecycleManager.finalizeRun(runId, false, "Cancelled by user.");
             } else if (completed) {
                 currentState = WorkflowState.applyTerminal(
                     currentState,

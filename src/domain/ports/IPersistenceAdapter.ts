@@ -1,7 +1,7 @@
 import { ResultAsync } from 'neverthrow';
 import { PersistenceError } from '@domain/errors';
 import { AgentAction } from '@domain/value-objects';
-import { TestRun } from '@domain/entities/Run';
+import { Run } from '@domain/entities/Run';
 import type { RunCheckpointReason } from '@domain/value-objects/RunLifecycle';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 
@@ -15,7 +15,7 @@ export interface AtomicWorkflowTransitionInput {
     readonly workflowStepRunUpdates: Pick<WorkflowStepRunRecord, 'status'> & Partial<Pick<WorkflowStepRunRecord, 'summary' | 'completedAt' | 'runId'>>;
 }
 
-export interface TestStep {
+export interface Step {
     id: string;
     runId: string;
     stepNumber: number;
@@ -43,13 +43,13 @@ export interface CheckpointLineageInput {
 }
 
 export interface IPersistenceAdapter {
-    saveRun(run: TestRun): ResultAsync<void, PersistenceError>;
-    updateRun(id: string, updates: Partial<TestRun>): ResultAsync<void, PersistenceError>;
-    saveStep(step: TestStep): ResultAsync<void, PersistenceError>;
+    saveRun(run: Run): ResultAsync<void, PersistenceError>;
+    updateRun(id: string, updates: Partial<Run>): ResultAsync<void, PersistenceError>;
+    saveStep(step: Step): ResultAsync<void, PersistenceError>;
     saveLog(log: LogEntry): ResultAsync<void, PersistenceError>;
-    getRuns(limit?: number): ResultAsync<TestRun[], PersistenceError>;
-    getRun(id: string): ResultAsync<TestRun | null, PersistenceError>;
-    getSteps(runId: string): ResultAsync<TestStep[], PersistenceError>;
+    getRuns(limit?: number): ResultAsync<Run[], PersistenceError>;
+    getRun(id: string): ResultAsync<Run | null, PersistenceError>;
+    getSteps(runId: string): ResultAsync<Step[], PersistenceError>;
     clearHistory(): ResultAsync<void, PersistenceError>;
 
     saveCheckpoint(

@@ -6,7 +6,7 @@ import { cn } from '../../utils';
 import { Button } from '../ui/Button';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import type { StepArtifacts } from '@domain/ports/IStorageService';
-import type { TestStep } from '@domain/ports/IPersistenceAdapter';
+import type { Step } from '@domain/ports/IPersistenceAdapter';
 import type { StepTrace } from '@domain/ports/ITraceService';
 
 export function StepInspector(): JSX.Element | null {
@@ -110,7 +110,7 @@ export function StepInspector(): JSX.Element | null {
 interface InspectorContentProps {
     beforeArtifacts: StepArtifacts;
     afterArtifacts: StepArtifacts;
-    stepDetail: TestStep | undefined;
+    stepDetail: Step | undefined;
 }
 
 function InspectorContent({ beforeArtifacts, afterArtifacts, stepDetail }: InspectorContentProps): JSX.Element {
@@ -183,7 +183,7 @@ function InspectorContent({ beforeArtifacts, afterArtifacts, stepDetail }: Inspe
 // ---------------------------------------------------------------------------
 
 function SummaryTab({ stepDetail, beforeScreenshot }: {
-    stepDetail: TestStep | undefined;
+    stepDetail: Step | undefined;
     beforeScreenshot: string | undefined;
 }): JSX.Element {
     if (!stepDetail) {
@@ -366,7 +366,7 @@ function ContextTab({ dom, accessibility }: {
 
 function RawTab({ trace, stepDetail }: {
     trace: (Record<string, unknown> & Partial<StepTrace>) | undefined;
-    stepDetail: TestStep | undefined;
+    stepDetail: Step | undefined;
 }): JSX.Element {
     if (!trace && !stepDetail) {
         return <EmptyState icon="{ }" title="No raw data" description="Debug information is not available for this step." />;

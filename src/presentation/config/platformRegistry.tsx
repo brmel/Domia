@@ -38,7 +38,7 @@ export const platformRegistry: {
   web: {
     type: 'web',
     label: 'Web Browser',
-    description: 'Test web applications and websites',
+    description: 'Automate web applications and websites',
     icon: '🌐',
     renderFields: WebPlatformFields,
     defaultValues: {
@@ -49,7 +49,7 @@ export const platformRegistry: {
   electron: {
     type: 'electron',
     label: 'Electron App',
-    description: 'Test Electron desktop applications',
+    description: 'Automate Electron desktop applications',
     icon: '⚡',
     renderFields: ElectronPlatformFields,
     defaultValues: {

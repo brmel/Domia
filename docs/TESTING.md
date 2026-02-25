@@ -54,12 +54,12 @@ describe('Url', () => {
 Mock all ports using neverthrow helpers.
 
 ```typescript
-// src/application/use-cases/RunTestUseCase.test.ts
+// src/application/use-cases/RunUseCase.test.ts
 import { describe, it, expect, vi } from 'vitest';
 import { okAsync, errAsync } from 'neverthrow';
-import { RunTestUseCase } from './RunTestUseCase';
+import { RunUseCase } from './RunUseCase';
 
-describe('RunTestUseCase', () => {
+describe('RunUseCase', () => {
   const mockInput: IInputPort = {
     parse: vi.fn().mockReturnValue(ok({ url: 'https://test.com', prompt: 'test' }))
   };
@@ -70,7 +70,7 @@ describe('RunTestUseCase', () => {
   };
   
   it('executes successfully', async () => {
-    const useCase = new RunTestUseCase(mockInput, mockOutput, mockBrowser, mockLlm);
+    const useCase = new RunUseCase(mockInput, mockOutput, mockBrowser, mockLlm);
     const result = await useCase.execute({ url: 'https://test.com', prompt: 'test' });
     expect(result.isOk()).toBe(true);
   });

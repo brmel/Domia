@@ -16,13 +16,13 @@ export class RunCommand {
     static register(program: Command): void {
         program
             .command('run')
-            .description('Start an autonomous test agent session')
-            .option('-u, --url <url>', 'Target URL to test (Web platform)')
+            .description('Start an autonomous agent session')
+            .option('-u, --url <url>', 'Target URL (Web platform)')
             .option('--cdp-url <cdpUrl>', 'CDP URL for Electron (e.g., http://localhost:9222)')
             .option('--executable-path <path>', 'Path to Electron executable')
             .option('--launch-args <args>', 'Launch arguments for Electron (comma-separated)')
             .option('--window-title <title>', 'Target window title (Electron)')
-            .option('-p, --prompt <prompt>', 'Testing instruction')
+            .option('-p, --prompt <prompt>', 'Goal or instruction for the agent')
             .option('-s, --steps <steps>', 'Max steps', '10')
             .option('-H, --no-headless', 'Run in headful mode (visible window)', false)
             .option('--provider <provider>', 'LLM provider: google')

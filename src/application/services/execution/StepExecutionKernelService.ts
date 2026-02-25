@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import type { IAppAutomation } from '@domain/ports';
-import type { TestStep } from '@domain/ports';
+import type { Step } from '@domain/ports';
 import { WorkflowError } from '@domain/errors';
 import { WorkflowState } from '@domain/value-objects';
 import { RunDurabilityService } from './RunDurabilityService';
@@ -68,7 +68,7 @@ export class StepExecutionKernelService {
                     const action = next.value.action;
                     const assets = next.value.assets;
 
-                    const step: TestStep = {
+                    const step: Step = {
                         id: uuidv4(),
                         runId,
                         stepNumber: currentState.stepNumber + 1,
@@ -80,7 +80,7 @@ export class StepExecutionKernelService {
 
                     const saveStepResult = await this.persistence.saveStep(step);
                     if (saveStepResult.isErr()) {
-                        throw new WorkflowError(`Failed to persist test step: ${saveStepResult.error.message}`);
+                        throw new WorkflowError(`Failed to persist step: ${saveStepResult.error.message}`);
                     }
 
                     currentState = WorkflowState.applyAction(currentState, action);
