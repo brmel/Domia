@@ -438,6 +438,10 @@ export function TestRunner(): React.ReactElement {
                                     className="group flex gap-4 p-3 rounded-xl border border-transparent hover:border-gray-200 hover:bg-gray-50 transition-all cursor-pointer"
                                 >
                                     <span className="text-xs font-bold text-gray-400 mt-1 w-6">#{stepNum}</span>
+
+                                    {/* Screenshot thumbnail */}
+                                    {runId && <StepThumbnail runId={runId} stepNumber={stepNum} />}
+
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-1">
                                             <span className={cn(
@@ -478,5 +482,25 @@ export function TestRunner(): React.ReactElement {
                 </div>
             </div>
         </div>
+    );
+}
+
+/**
+ * Lazily fetches and renders a tiny screenshot thumbnail for a step in the activity log.
+ */
+function StepThumbnail({ runId, stepNumber }: { runId: string; stepNumber: number }): React.ReactElement | null {
+    const { data } = trpc.history.getStepArtifacts.useQuery(
+        { runId, stepNumber },
+        { staleTime: Infinity }
+    );
+
+    if (!data?.screenshots?.[0]) return null;
+
+    return (
+        <img
+            src={data.screenshots[0]}
+            alt={`Step ${stepNumber}`}
+            className="w-16 h-10 rounded border border-gray-200 object-cover shrink-0 mt-0.5"
+        />
     );
 }

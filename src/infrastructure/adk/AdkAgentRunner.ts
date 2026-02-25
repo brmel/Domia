@@ -298,13 +298,25 @@ Analyze the current page state and begin working toward the goal. Call exactly o
                         latestActionAssets = {}; // reset for next action
                         yield { type: 'action', action, assets: actionAssets };
 
+                        // Build a clean action record for the trace (strip `thought` to avoid duplication)
+                        const { thought: _t, ...actionWithoutThought } = action as unknown as Record<string, unknown>;
+
                         // Persist trace data so the Step Inspector can display it
                         await this.storage.saveStepTrace(runId, actionCount, {
                             timestamp: Date.now(),
+                            agentInput: {
+                                goal: stepGoal,
+                                currentUrl: url,
+                                promptPreview: `GOAL: ${stepGoal} | URL: ${url} | Action ${actionCount}/${maxActions}`,
+                            },
                             agentOutput: {
                                 thought,
-                                action,
-                                rawResponse: stringifyContent(event),
+                                action: actionWithoutThought as Record<string, unknown>,
+                                rawResponse: JSON.stringify(event.content ?? {}, null, 2),
+                            },
+                            toolCall: {
+                                name: fc.name!,
+                                input: fc.args as Record<string, unknown>,
                             },
                         });
 

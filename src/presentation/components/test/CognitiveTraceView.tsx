@@ -85,7 +85,28 @@ export function CognitiveTraceView({ trace }: CognitiveTraceViewProps): JSX.Elem
                     </div>
                 )}
 
-                {/* Errors */}
+                {/* Tool Call Details */}
+                {trace.toolCall && (
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-green-900/50 flex items-center justify-center text-green-400">
+                                🔧
+                            </div>
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Tool Call</span>
+                        </div>
+                        <div className="ml-10 bg-[#1e1e1e] border border-gray-800 rounded-lg p-4 text-sm text-gray-300">
+                            <div className="mb-2">
+                                <span className="text-green-400 font-bold">Tool:</span> {trace.toolCall.name}
+                            </div>
+                            <div className="bg-black/30 rounded p-3 border border-white/5">
+                                <div className="text-xs font-bold text-green-300 mb-1 uppercase">Input Parameters</div>
+                                <pre className="text-[10px] text-gray-500 font-mono whitespace-pre-wrap">
+                                    {JSON.stringify(trace.toolCall.input, null, 2)}
+                                </pre>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Metadata sensors */}
                 {trace.sensorData && (
