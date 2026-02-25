@@ -35,7 +35,7 @@ export class StepExecutionKernelService {
     async *execute(
         testRunId: string,
         executionGoal: string,
-        browser: IAppAutomation,
+        automation: IAppAutomation,
         url: string,
         currentState: WorkflowState,
         executionOptions: StepExecutionOptions,
@@ -46,9 +46,8 @@ export class StepExecutionKernelService {
         const stepGen = this.executor.executeStep(
             testRunId,
             executionGoal,
-            browser,
+            automation,
             url,
-            currentState.stepNumber,
             {
                 vision: executionOptions.vision,
                 maxActions: executionOptions.maxActions,

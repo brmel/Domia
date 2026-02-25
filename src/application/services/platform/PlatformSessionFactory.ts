@@ -28,14 +28,14 @@ export class PlatformSessionFactory {
             ...(driverOptions ? { options: driverOptions } : {})
         });
 
-        let browser: IAppAutomation;
+        let automation: IAppAutomation;
 
         try {
-            browser = driver.getAutomation();
+            automation = driver.getAutomation();
         } catch (error) {
             await driver.disconnect().catch(() => undefined);
             const message = error instanceof Error ? error.message : String(error);
-            throw new WorkflowError(`Driver is connected but browser automation bridge is unavailable: ${message}`);
+            throw new WorkflowError(`Driver is connected but automation bridge is unavailable: ${message}`);
         }
 
         const executionUrl = this.getExecutionUrlFromInput(input);
@@ -44,7 +44,7 @@ export class PlatformSessionFactory {
         return {
             executionUrl,
             shouldNavigate,
-            browser,
+            automation,
             driver,
             dispose: async (): Promise<void> => {
                 await driver.disconnect().catch((err): void => {

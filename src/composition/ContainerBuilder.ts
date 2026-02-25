@@ -67,12 +67,7 @@ import type { IStorageService } from '@domain/ports/IStorageService';
 // ── CLI ──
 import { ConsoleViewHost } from '@infrastructure/view/ConsoleViewHost';
 
-/**
- * Single-entry builder that wires every DI registration in deterministic order.
- * Replaces the former 7 scattered register*Module files.
- */
 export class ContainerBuilder {
-    /** Core singletons: config, persistence, logging. */
     registerCore(): this {
         container.registerSingleton(ConfigService);
         container.register('IConfigService', { useToken: ConfigService });
@@ -81,7 +76,6 @@ export class ContainerBuilder {
         return this;
     }
 
-    /** Browser drivers, session factory, driver providers. */
     registerPlatform(): this {
         container.registerSingleton(PlaywrightAdapter);
         container.registerSingleton(WebDriver);
@@ -94,7 +88,6 @@ export class ContainerBuilder {
         return this;
     }
 
-    /** Test-run lifecycle, execution, recovery, replanning, coordinators, hardening. */
     registerRuntime(): this {
         container.registerSingleton(TestRunLifecycleManager);
         container.registerSingleton(InMemoryRunExecutionLaneService);
@@ -119,7 +112,6 @@ export class ContainerBuilder {
         return this;
     }
 
-    /** Workflow definition, orchestration, step governance, runner. */
     registerWorkflow(): this {
         container.registerSingleton(WorkflowDefinitionService);
         container.registerSingleton(WorkflowStepPolicyService);
@@ -130,14 +122,12 @@ export class ContainerBuilder {
         return this;
     }
 
-    /** LLM runtime config resolver and ADK agent runner. */
     registerLlm(): this {
         container.registerSingleton(LlmRuntimeConfigResolver);
         container.registerSingleton('IAgentRunner', AdkAgentRunner);
         return this;
     }
 
-    /** Perception pipeline: vision, DOM, ARIA sensors. */
     registerPerception(): this {
         container.registerSingleton(VisionSensor);
         container.registerSingleton(DomSensor);
@@ -146,7 +136,6 @@ export class ContainerBuilder {
         return this;
     }
 
-    /** Storage, tracing, trajectory export. */
     registerObservability(): this {
         container.registerSingleton('IStorageService', FileSystemStorage);
         container.registerSingleton(TraceService);
@@ -164,22 +153,16 @@ export class ContainerBuilder {
         return this;
     }
 
-    /** Use-case entry point (must be called after all deps are registered). */
     registerUseCases(): this {
         container.register('RunTestUseCase', { useClass: RunTestUseCase });
         return this;
     }
 
-    /** CLI-specific IViewHost binding. */
     registerCliViewHost(): this {
         container.register('IViewHost', { useClass: ConsoleViewHost });
         return this;
     }
 
-    /**
-     * Eagerly resolves the platform factory and wires built-in providers.
-     * Must be called AFTER all dependency tokens (ILogger, IViewHost, etc.) are registered.
-     */
     initializePlatformProviders(): this {
         const factory = container.resolve(AppDriverFactory);
         factory.registerProvider(container.resolve(WebDriverProvider));
@@ -188,10 +171,6 @@ export class ContainerBuilder {
     }
 }
 
-/**
- * Enable verbose file-based tracing at runtime (e.g. from CLI --verbose flag).
- * Keeps infrastructure imports inside the composition layer.
- */
 export function configureVerboseTracing(): void {
     const traceService = container.resolve(TraceService);
     const storage = container.resolve<IStorageService>('IStorageService');

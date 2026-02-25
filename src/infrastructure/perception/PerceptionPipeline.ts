@@ -23,11 +23,11 @@ export class PerceptionPipeline implements IPerceptionPipeline {
     ) { }
 
     capture(
-        browser: IAppAutomation,
+        automation: IAppAutomation,
         options: import('@domain/ports/IPerceptionPipeline').PerceptionOptions = { vision: true, aria: true, dom: true }
     ): ResultAsync<PerceptionFrame, SnapshotError> {
         this.logger.info(`[PerceptionPipeline] Starting capture sequence (Options: ${JSON.stringify(options)})`);
-        const page = this.resolvePage(browser);
+        const page = this.resolvePage(automation);
 
         if (!page) {
             return ResultAsync.fromPromise(
@@ -73,8 +73,8 @@ export class PerceptionPipeline implements IPerceptionPipeline {
         });
     }
 
-    private resolvePage(browser: IAppAutomation): Page | null {
-        const candidate = browser as unknown as { getPage?: () => unknown; page?: unknown };
+    private resolvePage(automation: IAppAutomation): Page | null {
+        const candidate = automation as unknown as { getPage?: () => unknown; page?: unknown };
 
         if (typeof candidate.getPage === 'function') {
             const resolved = candidate.getPage();

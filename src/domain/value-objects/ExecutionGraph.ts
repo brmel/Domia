@@ -97,7 +97,6 @@ export const ExecutionGraph = {
         }
     },
 
-    /** Returns all nodes whose upstream dependencies are satisfied. */
     getReadyNodes(graph: WorkflowExecutionGraph): readonly GraphNode[] {
         const incoming = new Map<string, string[]>();
         for (const edge of graph.edges) {
@@ -119,12 +118,10 @@ export const ExecutionGraph = {
             .sort((a, b) => a.id.localeCompare(b.id));
     },
 
-    /** Returns the first ready node, or undefined if none. */
     selectNextReadyNode(graph: WorkflowExecutionGraph): GraphNode | undefined {
         return this.getReadyNodes(graph)[0];
     },
 
-    /** Returns a new graph with the given node's state updated. */
     updateNodeState(graph: WorkflowExecutionGraph, nodeId: string, state: GraphNodeState): WorkflowExecutionGraph {
         return {
             ...graph,

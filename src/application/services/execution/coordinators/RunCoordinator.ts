@@ -8,10 +8,6 @@ export interface StepExecutionOptions {
     maxActions: number;
 }
 
-/**
- * Consolidated coordinator for run-level concerns:
- * bootstrap (URL/lane resolution) and step execution options.
- */
 @injectable()
 export class RunCoordinator {
     resolveExecutionUrl(input: RunTestInput, runContext?: { session?: PlatformSession }): string {

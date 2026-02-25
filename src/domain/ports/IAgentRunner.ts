@@ -26,12 +26,6 @@ export interface AgentRunnerEvent {
     readonly capturedFrame?: PerceptionFrame | undefined;
 }
 
-export interface AgentActionEvent {
-    readonly type: 'action';
-    readonly action: AgentAction;
-    readonly assets?: Record<string, string> | undefined;
-}
-
 export interface StepRunnerConfig {
     readonly runId: string;
     readonly stepGoal: string;
@@ -43,6 +37,6 @@ export interface StepRunnerConfig {
 export interface IAgentRunner {
     executeStep(
         config: StepRunnerConfig,
-        browser: import('./IAppAutomation').IAppAutomation,
+        automation: import('./IAppAutomation').IAppAutomation,
     ): AsyncGenerator<AgentRunnerEvent, StepExecutionResult, unknown>;
 }

@@ -1,8 +1,15 @@
 import { injectable, inject } from 'tsyringe';
 import type { IAppAutomation, ITraceService, IStorageService, ILogger } from '@domain/ports';
-import type { IAgentRunner, AgentActionEvent, StepExecutionResult } from '@domain/ports/IAgentRunner';
+import type { IAgentRunner, StepExecutionResult } from '@domain/ports/IAgentRunner';
+import type { AgentAction } from '@domain/value-objects';
 
 export type { StepExecutionResult } from '@domain/ports/IAgentRunner';
+
+export interface AgentActionEvent {
+    readonly type: 'action';
+    readonly action: AgentAction;
+    readonly assets?: Record<string, string> | undefined;
+}
 
 @injectable()
 export class StepExecutor {
@@ -16,9 +23,8 @@ export class StepExecutor {
     async *executeStep(
         runId: string,
         stepGoal: string,
-        browser: IAppAutomation,
+        automation: IAppAutomation,
         url: string,
-        _initialStepNumber: number = 0,
         options: {
             vision: boolean;
             maxActions: number;
@@ -29,7 +35,7 @@ export class StepExecutor {
 
         const gen = this.agentRunner.executeStep(
             { runId, stepGoal, url, maxActions: options.maxActions, vision: options.vision },
-            browser,
+            automation,
         );
 
         let next = await gen.next();

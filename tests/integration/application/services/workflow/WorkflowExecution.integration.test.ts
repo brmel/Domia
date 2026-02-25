@@ -47,7 +47,7 @@ describe('Workflow execution integration', () => {
             createSession: vi.fn(async () => ({
                 executionUrl: 'https://example.com',
                 shouldNavigate: true,
-                browser: {},
+                automation: {},
                 dispose: vi.fn(async () => undefined)
             }))
         } as unknown as never);

@@ -1,9 +1,5 @@
 import type { ElementId } from './Brand';
 
-/**
- * DOMSnapshot Value Object
- * Represents a simplified view of the page DOM for LLM consumption
- */
 export interface DOMElement {
     readonly id: ElementId;
     readonly tag: string;

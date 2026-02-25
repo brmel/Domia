@@ -53,10 +53,10 @@ function createBrowserMock(): IAppAutomation {
     } as unknown as IAppAutomation;
 }
 
-function createSessionFactoryMock(browser: IAppAutomation) {
+function createSessionFactoryMock(automation: IAppAutomation) {
     return {
         createSession: vi.fn().mockResolvedValue({
-            browser,
+            automation,
             shouldNavigate: false,
             dispose: vi.fn().mockResolvedValue(undefined),
         }),

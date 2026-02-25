@@ -115,14 +115,14 @@ export class RunTestUseCase {
         let estimatedTokensUsed = 0;
         const recoveryContext = await resolveRecoveryContextForRun(this.recoveryDeps, input);
 
-        let browser: IAppAutomation;
+        let automation: IAppAutomation;
         let disposeSession: (() => Promise<void>) | undefined;
         let shouldNavigate = true;
         let ownsSession = false;
         
         try {
             const session = runContext?.session ?? await this.sessionFactory.createSession(input);
-            browser = session.browser;
+            automation = session.automation;
             disposeSession = session.dispose;
             shouldNavigate = runContext?.shouldNavigate ?? session.shouldNavigate;
             ownsSession = runContext?.session
@@ -169,10 +169,10 @@ export class RunTestUseCase {
             yield { type: 'thinking' };
 
             if (shouldNavigate) {
-                const navResult = await browser.navigateTo(urlResult.value);
+                const navResult = await automation.navigateTo(urlResult.value);
                 if (navResult.isErr()) throw new WorkflowError(`Navigation failed: ${navResult.error.message}`);
             } else {
-                await browser.waitForDOMStable();
+                await automation.waitForDOMStable();
             }
 
             if (recoveryContext) {
@@ -187,7 +187,7 @@ export class RunTestUseCase {
                     testRunId,
                     sourceRunId: recoveryContext.sourceRunId,
                     sourceBranchId: recoveryContext.branchId,
-                    browser,
+                    automation,
                     controller,
                     state: currentState,
                     targetStepNumber: recoveryTargetStepNumber
@@ -315,7 +315,7 @@ export class RunTestUseCase {
                 const stepKernel = this.kernel.execute(
                     testRunId,
                     executionGoal,
-                    browser,
+                    automation,
                     url,
                     currentState,
                     executionOptions,

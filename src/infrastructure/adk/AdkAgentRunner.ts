@@ -6,7 +6,7 @@ import type { IAgentRunner, AgentRunnerEvent, StepExecutionResult, StepRunnerCon
 import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import { ActionType } from '@domain/enums/ActionType';
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
-import { createAdkTools } from './AdkBrowserToolFactory';
+import { createAdkTools } from './AdkToolFactory';
 import { formatElements } from '../tools/ToolSpec';
 import { ActionMapper } from '../agent/common/ActionMapper';
 import { AgentLoopGuard } from '../agent/common/AgentLoopGuard';
@@ -32,7 +32,7 @@ export class AdkAgentRunner implements IAgentRunner {
 
     async *executeStep(
         config: StepRunnerConfig,
-        browser: IAppAutomation,
+        automation: IAppAutomation,
     ): AsyncGenerator<AgentRunnerEvent, StepExecutionResult, unknown> {
         const { stepGoal, url, maxActions, vision } = config;
 
@@ -45,7 +45,7 @@ export class AdkAgentRunner implements IAgentRunner {
         }
         const model = llmConfig.model || 'gemini-2.0-flash';
 
-        const initialFrame = await this.perception.capture(browser, { vision, aria: true, dom: true });
+        const initialFrame = await this.perception.capture(automation, { vision, aria: true, dom: true });
         if (initialFrame.isErr()) {
             return {
                 success: false, terminal: 'error', code: 'perception_error',
@@ -54,13 +54,13 @@ export class AdkAgentRunner implements IAgentRunner {
         }
 
         const frame = initialFrame.value;
-        const viewport = await browser.getViewportSize();
+        const viewport = await automation.getViewportSize();
 
         let latestCapturedFrame: PerceptionFrame | undefined;
         let actionCount = 0;
 
         const { tools, catalog } = createAdkTools({
-            automation: browser,
+            automation,
             perception: this.perception,
             vision,
             onCapture: async (capturedFrame) => {
@@ -90,7 +90,7 @@ export class AdkAgentRunner implements IAgentRunner {
         const initialMessage: Content = { role: 'user', parts };
 
         const agent = new LlmAgent({
-            name: 'browser_agent',
+            name: 'app_agent',
             model: new Gemini({ model, apiKey: llmConfig.apiKey }),
             instruction,
             tools,

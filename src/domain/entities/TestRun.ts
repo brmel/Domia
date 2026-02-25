@@ -1,10 +1,6 @@
 import { TestRunId, Url } from '../value-objects';
 import { Plan } from './Plan';
 
-/**
- * TestRun Entity (Aggregate Root)
- * Represents a complete test execution
- */
 export interface TestRun {
     readonly id: TestRunId;
     readonly url: Url;

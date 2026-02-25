@@ -10,7 +10,6 @@ export interface AppCapabilities {
     readonly supportsNativeInteraction: boolean;
 }
 
-/** Unified interface for driving any application (Web, Electron, Mobile). */
 export interface IAppDriver {
     connect(config?: unknown): ResultAsync<void, NavigationError | Error>;
     disconnect(): Promise<void>;

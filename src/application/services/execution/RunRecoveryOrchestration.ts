@@ -124,13 +124,13 @@ export async function replayRecoveryActions(
         testRunId: string;
         sourceRunId: string;
         sourceBranchId: string;
-        browser: IAppAutomation;
+        automation: IAppAutomation;
         controller: ExecutionController;
         state: WorkflowState;
         targetStepNumber: number;
     }
 ): Promise<RecoveryReplayOutcome> {
-    const { testRunId, sourceRunId, sourceBranchId, browser, controller, state, targetStepNumber } = params;
+    const { testRunId, sourceRunId, sourceBranchId, automation, controller, state, targetStepNumber } = params;
 
     if (targetStepNumber <= 0) {
         return { type: 'ok', state, replayedCount: 0 };
@@ -211,7 +211,7 @@ export async function replayRecoveryActions(
         }
 
         try {
-            await executeReplayAction(browser, action);
+            await executeReplayAction(automation, action);
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error);
             return {
@@ -263,10 +263,10 @@ export async function replayRecoveryActions(
     return { type: 'ok', state: nextState, replayedCount };
 }
 
-async function executeReplayAction(browser: IAppAutomation, action: AgentAction): Promise<void> {
+async function executeReplayAction(automation: IAppAutomation, action: AgentAction): Promise<void> {
     switch (action.type) {
         case ActionType.WAIT: {
-            const result = await browser.wait(action.durationMs);
+            const result = await automation.wait(action.durationMs);
             if (result.isErr()) {
                 throw new WorkflowError(`wait failed: ${result.error.message}`);
             }
@@ -274,7 +274,7 @@ async function executeReplayAction(browser: IAppAutomation, action: AgentAction)
         }
 
         case ActionType.SCROLL: {
-            const result = await browser.scroll(action.direction);
+            const result = await automation.scroll(action.direction);
             if (result.isErr()) {
                 throw new WorkflowError(`scroll failed: ${result.error.message}`);
             }
@@ -282,7 +282,7 @@ async function executeReplayAction(browser: IAppAutomation, action: AgentAction)
         }
 
         case ActionType.MOUSE_MOVE: {
-            const result = await browser.mouseMove(action.x, action.y);
+            const result = await automation.mouseMove(action.x, action.y);
             if (result.isErr()) {
                 throw new WorkflowError(`mouse_move failed: ${result.error.message}`);
             }
@@ -290,7 +290,7 @@ async function executeReplayAction(browser: IAppAutomation, action: AgentAction)
         }
 
         case ActionType.MOUSE_SCROLL: {
-            const result = await browser.mouseScroll(action.deltaX, action.deltaY);
+            const result = await automation.mouseScroll(action.deltaX, action.deltaY);
             if (result.isErr()) {
                 throw new WorkflowError(`mouse_scroll failed: ${result.error.message}`);
             }
@@ -298,7 +298,7 @@ async function executeReplayAction(browser: IAppAutomation, action: AgentAction)
         }
 
         case ActionType.EXTRACT: {
-            const result = await browser.extractText(action.elementId);
+            const result = await automation.extractText(action.elementId);
             if (result.isErr()) {
                 throw new WorkflowError(`extract failed: ${result.error.message}`);
             }
@@ -315,7 +315,7 @@ async function executeReplayAction(browser: IAppAutomation, action: AgentAction)
                 throw new WorkflowError(`navigate failed: invalid url '${action.url}'`);
             }
 
-            const result = await browser.navigateTo(urlResult.value);
+            const result = await automation.navigateTo(urlResult.value);
             if (result.isErr()) {
                 throw new WorkflowError(`navigate failed: ${result.error.message}`);
             }

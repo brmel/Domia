@@ -485,9 +485,6 @@ export function TestRunner(): React.ReactElement {
     );
 }
 
-/**
- * Lazily fetches and renders a tiny screenshot thumbnail for a step in the activity log.
- */
 function StepThumbnail({ runId, stepNumber }: { runId: string; stepNumber: number }): React.ReactElement | null {
     const { data } = trpc.history.getStepArtifacts.useQuery(
         { runId, stepNumber },

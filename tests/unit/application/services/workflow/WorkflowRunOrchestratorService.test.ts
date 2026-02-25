@@ -65,7 +65,7 @@ describe('WorkflowRunOrchestratorService', () => {
                 openSharedSession: vi.fn().mockResolvedValue({
                     executionUrl: 'https://example.com',
                     shouldNavigate: true,
-                    browser: {},
+                    automation: {},
                     dispose: vi.fn().mockResolvedValue(undefined)
                 }),
                 runStep: vi.fn().mockResolvedValue(options?.stepResult ?? { success: true, summary: 'step ok', testRunId: 'run-1' })
@@ -157,7 +157,7 @@ describe('WorkflowRunOrchestratorService', () => {
                 openSharedSession: vi.fn().mockResolvedValue({
                     executionUrl: 'https://example.com',
                     shouldNavigate: true,
-                    browser: {},
+                    automation: {},
                     dispose: vi.fn().mockResolvedValue(undefined)
                 }),
                 runStep

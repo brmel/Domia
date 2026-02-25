@@ -3,13 +3,6 @@ import type { IAppDriverFactory, IAppDriverProvider, AppDriverCreateConfig } fro
 import type { IAppDriver } from '../../domain/ports/IAppDriver';
 import type { ILogger } from '../../domain/ports';
 
-/**
- * Registry-based driver factory.
- *
- * Instead of a hardcoded switch, platform-specific providers register
- * themselves at composition time. Adding a new platform (e.g. mobile,
- * SSH) only requires creating a new IAppDriverProvider and registering it.
- */
 @injectable()
 export class AppDriverFactory implements IAppDriverFactory {
     private readonly providers = new Map<string, IAppDriverProvider>();

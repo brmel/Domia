@@ -10,5 +10,5 @@ export interface PerceptionOptions {
 }
 
 export interface IPerceptionPipeline {
-    capture(browser: IAppAutomation, options?: PerceptionOptions): ResultAsync<PerceptionFrame, SnapshotError>;
+    capture(automation: IAppAutomation, options?: PerceptionOptions): ResultAsync<PerceptionFrame, SnapshotError>;
 }

@@ -250,10 +250,6 @@ export class ElectronDriver implements IAppDriver {
         }
     }
 
-    /**
-     * Get browser automation interface for execution services.
-     * Creates a PlaywrightAdapter around the active Electron window.
-     */
     getAutomation(): IAppAutomation {
         const win = this.windowManager.getActiveWindow();
         if (!win) {

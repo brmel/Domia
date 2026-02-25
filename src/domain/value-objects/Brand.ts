@@ -1,10 +1,6 @@
 import { Result, ok, err } from 'neverthrow';
 import { ValidationError } from '../errors';
 
-/**
- * Branded type utility
- * Creates nominal types from primitive types to prevent mixing
- */
 declare const brand: unique symbol;
 export type Brand<T, B> = T & { readonly [brand]: B };
 

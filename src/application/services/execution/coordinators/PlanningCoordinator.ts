@@ -18,7 +18,7 @@ export class PlanningCoordinator {
                     id: nanoid(),
                     description: prompt,
                     status: 'pending',
-                    type: 'browser'
+                    type: 'app'
                 }
             ]
         };

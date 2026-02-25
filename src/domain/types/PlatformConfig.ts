@@ -1,10 +1,5 @@
-/** Built-in platform types. Custom platforms can use any string. */
 export type BuiltInPlatformType = 'web' | 'electron';
 
-/**
- * Extensible platform type: built-in types get autocompletion,
- * but any string is accepted for custom platforms.
- */
 export type PlatformType = BuiltInPlatformType | (string & {});
 
 export interface BasePlatformConfig {

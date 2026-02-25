@@ -4,10 +4,6 @@ import type { WorkflowState } from '../value-objects';
 import type { DomainError } from '../errors';
 import type { RecoveryReplayTelemetry, ReplanningTelemetry } from '../types/RunTelemetry';
 
-/**
- * TestRunEvent Discriminated Union
- * Events yielded by RunTestUseCase AsyncGenerator
- */
 export type TestRunEvent =
     | StartedEvent
     | ThinkingEvent

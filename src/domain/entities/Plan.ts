@@ -1,7 +1,7 @@
 
 export type PlanStatus = 'planning' | 'executing' | 'completed' | 'failed';
 export type PlanItemStatus = 'pending' | 'active' | 'completed' | 'failed';
-export type PlanItemType = 'general' | 'vision' | 'code' | 'browser';
+export type PlanItemType = 'general' | 'vision' | 'code' | 'app';
 
 export interface PlanItemContract {
     objective: string;
