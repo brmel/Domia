@@ -4,18 +4,16 @@ import { AriaNode } from './AriaNode';
 import { VisualContext } from './VisualContext';
 
 export interface PerceptionFrame {
-    id: string; // UUID
-    timestamp: number;
-    metadata: {
-        url: string;
-        title: string;
-        viewport: { width: number; height: number };
+    readonly id: string;
+    readonly timestamp: number;
+    readonly metadata: {
+        readonly url: string;
+        readonly title: string;
+        readonly viewport: { readonly width: number; readonly height: number };
     };
-    vision: VisualContext;
-    semantic: {
-        dom: DOMSnapshot;
-        accessibility: AriaNode | null;
+    readonly vision: VisualContext;
+    readonly semantic: {
+        readonly dom: DOMSnapshot;
+        readonly accessibility: AriaNode | null;
     };
-    network?: unknown[];
-    console?: unknown[];
 }

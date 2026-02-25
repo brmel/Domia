@@ -21,7 +21,7 @@ export function createNavigationTools(automation: IAppAutomation): ToolSpec[] {
         },
         {
             name: 'navigate',
-            description: 'Navigate the browser to an absolute URL. Waits for the page to load then captures DOM and optional screenshot. Use when you need to open a different page, reload, or jump to a deep link.',
+            description: 'Navigate to an absolute URL. Waits for the page to load then captures DOM and optional screenshot. Use when you need to open a different page, reload, or jump to a deep link.',
             actionType: ActionType.NAVIGATE,
             capturable: true,
             parameters: z.object({

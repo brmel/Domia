@@ -1,7 +1,6 @@
 export enum Platform {
     WEB = 'web',
     ELECTRON = 'electron',
-    MOBILE = 'mobile'
 }
 
 export const CDP_CONSTANTS = {

@@ -37,7 +37,7 @@ export function createMouseTools(automation: IAppAutomation): ToolSpec[] {
         },
         {
             name: 'mouse_click_right',
-            description: 'Right-click (context menu) at absolute viewport pixel coordinates. Use to open browser or application context menus.',
+            description: 'Right-click (context menu) at absolute viewport pixel coordinates. Use to open application context menus.',
             actionType: ActionType.MOUSE_CLICK_RIGHT,
             capturable: true,
             parameters: z.object({

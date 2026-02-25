@@ -16,7 +16,7 @@ Action tools (${capturableTools}) accept two optional parameters:
   - capture (boolean, default true): Set to false to perform the action WITHOUT capturing page state afterward.
   - captureDelayMs (number, default 0): Milliseconds to wait BEFORE capturing.
 
-The 'observe' tool captures the current page state without performing any browser action:
+The 'observe' tool captures the current page state without performing any interaction:
   - delayMs (number, default 0): Wait this many ms before capturing.
   - vision (boolean): Override session-level screenshot setting.
 

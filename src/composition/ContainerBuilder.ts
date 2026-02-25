@@ -7,7 +7,7 @@ import { ConsoleLogger } from '@infrastructure/logger/ConsoleLogger';
 import { RunTestUseCase } from '@application/use-cases';
 
 // ── Platform ──
-import { PlaywrightAdapter } from '@infrastructure/browser';
+import { PlaywrightAdapter } from '@infrastructure/playwright';
 import {
     WebDriver,
     ElectronDriver,

@@ -31,7 +31,7 @@ export class PerceptionPipeline implements IPerceptionPipeline {
 
         if (!page) {
             return ResultAsync.fromPromise(
-                Promise.reject(new Error('Browser automation does not expose an active page for perception capture.')),
+                Promise.reject(new Error('Automation adapter does not expose an active page for perception capture.')),
                 e => new SnapshotError(`Sensor capture failed: ${String(e)}`)
             );
         }

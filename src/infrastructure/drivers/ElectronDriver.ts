@@ -9,7 +9,7 @@ import { Platform, CDP_CONSTANTS } from '../../domain/constants/PlatformConstant
 import { CDPValidator } from '../../domain/validators/CDPValidator';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
-import { PlaywrightAdapter } from '../browser/PlaywrightAdapter';
+import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
 import { IAppAutomation } from '../../domain/ports';
 import { retryAsync } from '@shared/reliability/retry';
 import { RETRY_PROFILES, isTransientElectronConnectError } from '@shared/reliability/retryProfiles';

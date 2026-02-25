@@ -12,7 +12,7 @@ export function createObservationTools(
     return [
         {
             name: 'observe',
-            description: 'Capture current page state (DOM elements + optional screenshot) without any browser action. Use to refresh your view after a fire-and-forget action, verify visual changes, or re-examine the page after waiting.',
+            description: 'Capture current page state (DOM elements + optional screenshot) without any interaction. Use to refresh your view after a fire-and-forget action, verify visual changes, or re-examine the page after waiting.',
             actionType: ActionType.OBSERVE,
             capturable: false,
             parameters: z.object({

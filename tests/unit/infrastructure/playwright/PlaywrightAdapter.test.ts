@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import type { ILogger } from '@domain/ports';
-import { PlaywrightAdapter } from '@infrastructure/browser/PlaywrightAdapter';
+import { PlaywrightAdapter } from '@infrastructure/playwright/PlaywrightAdapter';
 
 function createLogger(): ILogger {
     return {
