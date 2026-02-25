@@ -54,43 +54,55 @@ RULES:
 Think step by step. Choose exactly one tool call per turn. After each tool call you will see the updated page state (unless you set capture: false).
 When the goal is confirmed, call 'pass'. When blocked after multiple attempts, call 'fail' with a concrete reason.`;
 
-function mapFunctionCallToAction(name: string, args: Record<string, unknown>): AgentAction {
+function mapFunctionCallToAction(name: string, args: Record<string, unknown>, thought: string): AgentAction {
     switch (name) {
         case 'click':
-            return { type: ActionType.CLICK, elementId: args['elementId'] as number, thought: '' } as AgentAction;
+            return { type: ActionType.CLICK, elementId: args['elementId'] as number, thought } as AgentAction;
         case 'type':
-            return { type: ActionType.TYPE, elementId: args['elementId'] as number, text: args['text'] as string, submit: (args['submit'] as boolean) ?? false, thought: '' } as AgentAction;
+            return { type: ActionType.TYPE, elementId: args['elementId'] as number, text: args['text'] as string, submit: (args['submit'] as boolean) ?? false, thought } as AgentAction;
         case 'pressKey':
-            return { type: ActionType.PRESS_KEY, key: args['key'] as string, thought: '' } as AgentAction;
+            return { type: ActionType.PRESS_KEY, key: args['key'] as string, thought } as AgentAction;
         case 'scroll':
-            return { type: ActionType.SCROLL, direction: args['direction'] as 'up' | 'down', thought: '' } as AgentAction;
+            return { type: ActionType.SCROLL, direction: args['direction'] as 'up' | 'down', thought } as AgentAction;
         case 'mouse_move':
-            return { type: ActionType.MOUSE_MOVE, x: args['x'] as number, y: args['y'] as number, thought: '' } as AgentAction;
+            return { type: ActionType.MOUSE_MOVE, x: args['x'] as number, y: args['y'] as number, thought } as AgentAction;
         case 'mouse_click_left':
-            return { type: ActionType.MOUSE_CLICK_LEFT, x: args['x'] as number, y: args['y'] as number, thought: '' } as AgentAction;
+            return { type: ActionType.MOUSE_CLICK_LEFT, x: args['x'] as number, y: args['y'] as number, thought } as AgentAction;
         case 'mouse_click_right':
-            return { type: ActionType.MOUSE_CLICK_RIGHT, x: args['x'] as number, y: args['y'] as number, thought: '' } as AgentAction;
+            return { type: ActionType.MOUSE_CLICK_RIGHT, x: args['x'] as number, y: args['y'] as number, thought } as AgentAction;
         case 'mouse_double_click':
-            return { type: ActionType.MOUSE_DOUBLE_CLICK, x: args['x'] as number, y: args['y'] as number, thought: '' } as AgentAction;
+            return { type: ActionType.MOUSE_DOUBLE_CLICK, x: args['x'] as number, y: args['y'] as number, thought } as AgentAction;
         case 'mouse_drag':
-            return { type: ActionType.MOUSE_DRAG, fromX: args['fromX'] as number, fromY: args['fromY'] as number, toX: args['toX'] as number, toY: args['toY'] as number, steps: args['steps'] as number | undefined, thought: '' } as AgentAction;
+            return { type: ActionType.MOUSE_DRAG, fromX: args['fromX'] as number, fromY: args['fromY'] as number, toX: args['toX'] as number, toY: args['toY'] as number, steps: args['steps'] as number | undefined, thought } as AgentAction;
         case 'mouse_scroll':
-            return { type: ActionType.MOUSE_SCROLL, deltaX: (args['deltaX'] as number) ?? 0, deltaY: args['deltaY'] as number, thought: '' } as AgentAction;
+            return { type: ActionType.MOUSE_SCROLL, deltaX: (args['deltaX'] as number) ?? 0, deltaY: args['deltaY'] as number, thought } as AgentAction;
         case 'wait':
-            return { type: ActionType.WAIT, durationMs: (args['durationMs'] as number) ?? 1000, thought: '' } as AgentAction;
+            return { type: ActionType.WAIT, durationMs: (args['durationMs'] as number) ?? 1000, thought } as AgentAction;
         case 'extract':
-            return { type: ActionType.EXTRACT, elementId: args['elementId'] as number, thought: '' } as AgentAction;
+            return { type: ActionType.EXTRACT, elementId: args['elementId'] as number, thought } as AgentAction;
         case 'navigate':
-            return { type: ActionType.NAVIGATE, url: args['url'] as string, thought: '' } as AgentAction;
+            return { type: ActionType.NAVIGATE, url: args['url'] as string, thought } as AgentAction;
         case 'observe':
-            return { type: ActionType.OBSERVE, delayMs: args['delayMs'] as number | undefined, vision: args['vision'] as boolean | undefined, thought: '' } as AgentAction;
+            return { type: ActionType.OBSERVE, delayMs: args['delayMs'] as number | undefined, vision: args['vision'] as boolean | undefined, thought } as AgentAction;
         case 'pass':
-            return { type: ActionType.PASS, summary: (args['summary'] as string) ?? 'Task completed', thought: '' } as AgentAction;
+            return { type: ActionType.PASS, summary: (args['summary'] as string) ?? 'Task completed', thought } as AgentAction;
         case 'fail':
-            return { type: ActionType.FAIL, reason: (args['reason'] as string) ?? 'Unknown failure', thought: '' } as AgentAction;
+            return { type: ActionType.FAIL, reason: (args['reason'] as string) ?? 'Unknown failure', thought } as AgentAction;
         default:
-            return { type: ActionType.FAIL, reason: `Unknown tool: ${name}`, thought: '' } as AgentAction;
+            return { type: ActionType.FAIL, reason: `Unknown tool: ${name}`, thought } as AgentAction;
     }
+}
+
+/**
+ * Extract the model's reasoning text from an ADK event.
+ * When the model returns both text and function calls, the text parts contain chain-of-thought.
+ */
+function extractThought(event: { content?: { parts?: Array<{ text?: string }> } }): string {
+    if (!event.content?.parts) return '';
+    return event.content.parts
+        .filter((p): p is { text: string } => typeof p.text === 'string' && p.text.trim().length > 0)
+        .map(p => p.text.trim())
+        .join('\n');
 }
 
 /**
@@ -140,10 +152,11 @@ export class AdkAgentRunner implements IAgentRunner {
         const frame = initialFrame.value;
         const viewport = await browser.getViewportSize();
 
-        // Save initial perception assets
+        // Save initial perception assets as step 0 (pre-action baseline).
+        // Post-action captures are saved as step N matching the TestStep.stepNumber.
         let initialAssets: Record<string, string> = {};
         try {
-            initialAssets = await this.storage.savePerceptionAssets(runId, 1, frame);
+            initialAssets = await this.storage.savePerceptionAssets(runId, 0, frame);
         } catch {
             this.logger.warn('[AdkAgentRunner] Failed to save initial perception assets');
         }
@@ -187,21 +200,22 @@ Analyze the current page state and begin working toward the goal. Call exactly o
         // 3. Create ADK tools from browser automation.
         //    The onCapture hook saves each tool's perception frame to disk
         //    so the Step Inspector can display it later.
-        let captureStepCounter = 1; // initial capture already saved as step 1
+        //    Captures are saved as step N matching actionCount (= TestStep.stepNumber).
         const tools = createAdkBrowserTools({
             browser,
             perception: this.perception,
             vision,
             onCapture: async (capturedFrame) => {
-                captureStepCounter++;
+                // actionCount is incremented before yield, so it matches TestStep.stepNumber
+                const captureStep = actionCount > 0 ? actionCount : 1;
                 try {
                     latestActionAssets = await this.storage.savePerceptionAssets(
                         runId,
-                        captureStepCounter,
+                        captureStep,
                         capturedFrame,
                     );
                 } catch {
-                    this.logger.warn(`[AdkAgentRunner] Failed to save perception assets for step ${captureStepCounter}`);
+                    this.logger.warn(`[AdkAgentRunner] Failed to save perception assets for step ${captureStep}`);
                 }
             },
         });
@@ -266,8 +280,11 @@ Analyze the current page state and begin working toward the goal. Call exactly o
                 const functionCalls = getFunctionCalls(event);
 
                 if (functionCalls?.length) {
+                    // Extract the model's chain-of-thought from the same event
+                    const thought = extractThought(event);
+
                     for (const fc of functionCalls) {
-                        const action = mapFunctionCallToAction(fc.name!, fc.args as Record<string, unknown>);
+                        const action = mapFunctionCallToAction(fc.name!, fc.args as Record<string, unknown>, thought);
                         actionCount++;
 
                         this.logger.info(`[AdkAgentRunner] Action ${actionCount}/${maxActions}: ${fc.name}`, fc.args);
@@ -280,6 +297,16 @@ Analyze the current page state and begin working toward the goal. Call exactly o
                             : latestActionAssets;
                         latestActionAssets = {}; // reset for next action
                         yield { type: 'action', action, assets: actionAssets };
+
+                        // Persist trace data so the Step Inspector can display it
+                        await this.storage.saveStepTrace(runId, actionCount, {
+                            timestamp: Date.now(),
+                            agentOutput: {
+                                thought,
+                                action,
+                                rawResponse: stringifyContent(event),
+                            },
+                        });
 
                         // Terminal actions
                         if (action.type === ActionType.PASS) {
