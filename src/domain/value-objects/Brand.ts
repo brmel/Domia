@@ -7,7 +7,6 @@ export type Brand<T, B> = T & { readonly [brand]: B };
 export type Url = Brand<string, 'Url'>;
 export type RunId = Brand<string, 'RunId'>;
 export type ElementId = Brand<number, 'ElementId'>;
-export type Selector = Brand<string, 'Selector'>;
 
 export const UrlFactory = {
     create(value: string): Result<Url, ValidationError> {

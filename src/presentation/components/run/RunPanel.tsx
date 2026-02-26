@@ -1,138 +1,15 @@
-import React, { useMemo, useState } from 'react';
-import { useRunStore, useStepInspectorStore } from '../../stores';
-import type { AgentAction } from '@domain/value-objects';
-import { cn } from '../../utils';
-import { trpc } from '../../trpc';
-import { RunState } from '@domain/enums/RunState';
+import type { ReactElement } from 'react';
+import { useRunPanel } from './useRunPanel';
 import { SegmentedControl } from '../ui/SegmentedControl';
-import { InfoCard } from '../ui/InfoCard';
-import { SectionBlock } from '../ui/SectionBlock';
+import { RunPlanView } from './RunPlanView';
+import { RunStateView } from './RunStateView';
+import { RunCheckpointsView } from './RunCheckpointsView';
+import { RunSafetyView } from './RunSafetyView';
+import { RunActivityLog } from './RunActivityLog';
 import { RunTimelineView } from './RunTimelineView';
-import { Button } from '../ui/Button';
 
-
-export function RunPanel(): React.ReactElement {
-    const { status, currentAction, plan, history, success, summary, errorMessage, handleEvent, runId: runId, recoveryReplay, replanningEvents } =
-        useRunStore();
-    const { open } = useStepInspectorStore();
-    const [rightRailTab, setRightRailTab] = useState<'execution' | 'safety'>('execution');
-    const [workspaceTab, setWorkspaceTab] = useState<'plan' | 'state' | 'timeline' | 'checkpoints'>('plan');
-    const [actionOverrideJson, setActionOverrideJson] = useState('');
-    const [actionOverrideError, setActionOverrideError] = useState<string | null>(null);
-
-    const checkpointsQuery = trpc.run.getCheckpoints.useQuery(
-        { runId: runId ?? '' },
-        { enabled: Boolean(runId) }
-    );
-
-    const readinessQuery = trpc.run.getReadiness.useQuery(
-        { runId: runId ?? '' },
-        { enabled: Boolean(runId) }
-    );
-
-    trpc.run.onUpdate.useSubscription(undefined, {
-        onData: (event) => {
-            handleEvent(event as Parameters<typeof handleEvent>[0]);
-        },
-        onError: () => {},
-        enabled: typeof window !== 'undefined' && 'electronTRPC' in window
-    });
-
-    const cancelMutation = trpc.run.cancel.useMutation({});
-
-    const overrideActionMutation = trpc.run.overrideAction.useMutation({
-        onSuccess: () => {
-            setActionOverrideError(null);
-            setActionOverrideJson('');
-        },
-        onError: (err) => {
-            setActionOverrideError(err.message);
-        }
-    });
-
-    const getThought = (action: AgentAction): string | undefined => {
-        return 'thought' in action ? (action as { thought?: string }).thought : undefined;
-    };
-
-    const checkpoints = useMemo(() => {
-        const records: Array<{ id: string; reason: string; detail: string }> = [];
-
-        if (runId) {
-            records.push({ id: `${runId}-init`, reason: 'run_initialized', detail: `Run ${runId} started` });
-        }
-
-        if (plan?.items?.length) {
-            records.push({ id: 'plan-ready', reason: 'plan_ready', detail: `${plan.items.length} plan item(s) prepared` });
-        }
-
-        history.forEach((action, index) => {
-            records.push({
-                id: `action-${index + 1}`,
-                reason: 'action_applied',
-                detail: `Step ${index + 1}: ${action.type}`
-            });
-        });
-
-        if (status === RunState.COMPLETED) {
-            records.push({
-                id: success ? 'terminal-success' : 'terminal-failure',
-                reason: success ? 'terminal_success' : 'terminal_failure',
-                detail: success ? 'Run completed successfully' : 'Run completed with failure'
-            });
-        }
-
-        if (status === RunState.CANCELLED) {
-            records.push({ id: 'terminal-cancelled', reason: 'terminal_cancelled', detail: 'Run cancelled by operator' });
-        }
-
-        return records;
-    }, [history, plan?.items?.length, runId, status, success]);
-
-    const readinessData = readinessQuery.data;
-    const readinessSummary = readinessData
-        ? `${readinessData.mode}${readinessData.blocked ? ' (blocked)' : ' (allowed)'}`
-        : 'Not available yet';
-
-    const policyFlags = readinessData?.report.gates
-        .filter(gate => gate.id.endsWith('_flag_alignment'))
-        .map(gate => ({
-            label: gate.id.replace('_flag_alignment', '').replace(/_/g, ' '),
-            enabled: gate.passed
-        })) ?? [];
-
-    const checkpointRecords = checkpointsQuery.data?.map((record, index) => ({
-        id: `${record.createdAt}-${index}`,
-        reason: record.reason,
-        detail: `Step ${record.state.stepNumber}: ${record.state.status}`
-    })) ?? checkpoints;
-
-    const recentPolicyEvents = history.slice(-5).map((action, index) => ({
-        id: `${index}-${action.type}`,
-        action: action.type,
-        decision: action.type === 'fail' ? 'deny' : action.type === 'pass' ? 'allow' : 'observe'
-    }));
-
-    const handleOpenInspect = (stepNum: number): void => {
-        if (!runId) {
-            return;
-        }
-        open(runId, stepNum);
-    };
-
-    const handleQueueActionOverride = (): void => {
-        if (status !== RunState.RUNNING) {
-            setActionOverrideError('Action override is only available while a run is active.');
-            return;
-        }
-
-        try {
-            const parsedAction = JSON.parse(actionOverrideJson);
-            overrideActionMutation.mutate({ action: parsedAction });
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            setActionOverrideError(`Invalid JSON: ${message}`);
-        }
-    };
+export function RunPanel(): ReactElement {
+    const vm = useRunPanel();
 
     return (
         <div className="w-full h-full min-h-0 p-4 overflow-hidden">
@@ -143,361 +20,95 @@ export function RunPanel(): React.ReactElement {
                         <SegmentedControl
                             items={[
                                 { value: 'execution', label: 'Execution' },
-                                { value: 'safety', label: 'Safety' }
+                                { value: 'safety', label: 'Safety' },
                             ] as const}
-                            value={rightRailTab}
-                            onChange={setRightRailTab}
+                            value={vm.rightRailTab}
+                            onChange={vm.setRightRailTab}
                             className="bg-white"
                             activeItemClassName="bg-blue-50 text-blue-700"
                         />
                     </div>
 
                     <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-                        {rightRailTab === 'execution' && (
+                        {vm.rightRailTab === 'execution' && (
                             <SegmentedControl
                                 items={[
                                     { value: 'plan', label: 'Plan' },
                                     { value: 'state', label: 'State' },
                                     { value: 'timeline', label: 'Timeline' },
-                                    { value: 'checkpoints', label: 'Checkpoints' }
+                                    { value: 'checkpoints', label: 'Checkpoints' },
                                 ] as const}
-                                value={workspaceTab}
-                                onChange={setWorkspaceTab}
+                                value={vm.workspaceTab}
+                                onChange={vm.setWorkspaceTab}
                                 fullWidth
                             />
                         )}
 
-                        {rightRailTab === 'execution' && workspaceTab === 'plan' && (
-                            <div className="space-y-4">
-                                {plan?.items?.map((item, i) => (
-                                    <div key={i} className={cn(
-                                        "relative pl-6 py-1 transition-all",
-                                        item.status === 'active' ? "opacity-100" : "opacity-80"
-                                    )}>
-                                        {i !== plan.items.length - 1 && (
-                                            <div className="absolute left-2.75 top-6 -bottom-4 w-0.5 bg-gray-100"></div>
-                                        )}
-
-                                        <div className={cn(
-                                            "absolute left-0 top-1.5 w-6 h-6 rounded-full flex items-center justify-center border-2 z-10 bg-white",
-                                            item.status === 'completed' ? "border-green-500 text-green-600" :
-                                                item.status === 'active' ? "border-blue-500 text-blue-600 ring-2 ring-blue-100" :
-                                                    item.status === 'failed' ? "border-red-500 text-red-600" :
-                                                        "border-gray-200 text-gray-300"
-                                        )}>
-                                            {item.status === 'completed' && <span className="text-[10px] font-bold">✓</span>}
-                                            {item.status === 'failed' && <span className="text-[10px] font-bold">✕</span>}
-                                            {item.status === 'active' && <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>}
-                                            {item.status === 'pending' && <span className="text-[10px]">○</span>}
-                                        </div>
-
-                                        <div className={cn(
-                                            "text-sm",
-                                            item.status === 'active' ? "font-semibold text-gray-900" :
-                                                item.status === 'completed' ? "text-gray-500" :
-                                                    "text-gray-400"
-                                        )}>
-                                            {item.description}
-                                        </div>
-                                        {item.status === 'failed' && item.error && (
-                                            <div className="mt-1 text-xs text-red-500 bg-red-50 p-2 rounded">
-                                                {item.error}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                                {!plan?.items?.length && (
-                                    <div className="text-xs text-gray-500">No plan available yet for this run.</div>
-                                )}
-                            </div>
+                        {vm.rightRailTab === 'execution' && vm.workspaceTab === 'plan' && (
+                            <RunPlanView plan={vm.plan} />
                         )}
 
-                        {rightRailTab === 'execution' && workspaceTab === 'state' && (
-                            <div className="space-y-3 text-xs">
-                                <InfoCard label="Run Status" value={status} />
-                                <InfoCard label="History Length" value={`${history.length} action(s)`} />
-                                <InfoCard label="Current Action" value={currentAction?.type ?? 'None'} />
-                                <InfoCard
-                                    label="Recovery Replay"
-                                    value={recoveryReplay
-                                        ? `${recoveryReplay.status} (${recoveryReplay.replayedCount}/${recoveryReplay.targetStepNumber})`
-                                        : 'Not active'}
-                                    detail={recoveryReplay?.reason}
-                                />
-                                <InfoCard
-                                    label="Terminal Summary"
-                                    value={<span className="font-normal text-gray-800 line-clamp-4 whitespace-pre-wrap">{summary || errorMessage || 'Not available yet'}</span>}
-                                />
-
-                                <SectionBlock title="Operator Action Override">
-                                    <div className="space-y-2">
-                                        <textarea
-                                            value={actionOverrideJson}
-                                            onChange={(event) => {
-                                                setActionOverrideJson(event.target.value);
-                                                if (actionOverrideError) {
-                                                    setActionOverrideError(null);
-                                                }
-                                            }}
-                                            placeholder='{"type":"mouse_click_left","x":120,"y":240,"thought":"Operator override"}'
-                                            className="w-full min-h-24 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-mono"
-                                            disabled={status !== RunState.RUNNING || overrideActionMutation.isPending}
-                                        />
-                                        {actionOverrideError ? (
-                                            <p className="text-[11px] text-red-600">{actionOverrideError}</p>
-                                        ) : (
-                                            <p className="text-[11px] text-gray-500">Queue one validated action to override the next model-generated action.</p>
-                                        )}
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handleQueueActionOverride}
-                                            disabled={status !== RunState.RUNNING || overrideActionMutation.isPending || actionOverrideJson.trim().length === 0}
-                                        >
-                                            {overrideActionMutation.isPending ? 'Queueing…' : 'Queue Override Action'}
-                                        </Button>
-                                    </div>
-                                </SectionBlock>
-                            </div>
-                        )}
-
-                        {rightRailTab === 'execution' && workspaceTab === 'checkpoints' && (
-                            <div className="space-y-2">
-                                {checkpointsQuery.isLoading && (
-                                    <div className="text-xs text-gray-500">Loading persisted checkpoints…</div>
-                                )}
-                                {checkpointsQuery.isError && (
-                                    <div className="text-xs text-red-600">Could not load persisted checkpoints. Showing local summary.</div>
-                                )}
-                                {checkpointRecords.map((checkpoint) => (
-                                    <div key={checkpoint.id} className="rounded-lg border border-gray-200 p-3 bg-gray-50">
-                                        <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{checkpoint.reason}</div>
-                                        <div className="mt-1 text-xs text-gray-600">{checkpoint.detail}</div>
-                                    </div>
-                                ))}
-                                {checkpointRecords.length === 0 && (
-                                    <div className="text-xs text-gray-500">No checkpoint events yet.</div>
-                                )}
-                            </div>
-                        )}
-
-                        {rightRailTab === 'execution' && workspaceTab === 'timeline' && (
-                            <RunTimelineView
-                                statusLabel={status}
-                                actionTypes={history.map(action => action.type)}
-                                checkpoints={checkpointRecords}
-                                recoveryReplay={recoveryReplay}
-                                replanningEvents={replanningEvents}
+                        {vm.rightRailTab === 'execution' && vm.workspaceTab === 'state' && (
+                            <RunStateView
+                                status={vm.status}
+                                history={vm.history}
+                                currentAction={vm.currentAction}
+                                recoveryReplay={vm.recoveryReplay}
+                                summary={vm.summary}
+                                errorMessage={vm.errorMessage}
+                                actionOverrideJson={vm.actionOverrideJson}
+                                setActionOverrideJson={vm.setActionOverrideJson}
+                                actionOverrideError={vm.actionOverrideError}
+                                setActionOverrideError={vm.setActionOverrideError}
+                                overrideIsPending={vm.overrideActionMutation.isPending}
+                                onQueueOverride={vm.handleQueueActionOverride}
                             />
                         )}
 
-                        {rightRailTab === 'safety' && (
-                            <div className="space-y-3">
-                                {readinessQuery.isLoading && (
-                                    <div className="text-xs text-gray-500">Loading readiness report…</div>
-                                )}
-                                {readinessQuery.isError && (
-                                    <div className="text-xs text-red-600">Could not load readiness report yet.</div>
-                                )}
+                        {vm.rightRailTab === 'execution' && vm.workspaceTab === 'checkpoints' && (
+                            <RunCheckpointsView
+                                isLoading={vm.checkpointsQuery.isLoading}
+                                isError={vm.checkpointsQuery.isError}
+                                checkpointRecords={vm.checkpointRecords}
+                            />
+                        )}
 
-                                <SectionBlock title="Readiness">
-                                    <InfoCard
-                                        label="Gate mode"
-                                        value={readinessSummary}
-                                        detail={readinessData?.message}
-                                    />
-                                </SectionBlock>
+                        {vm.rightRailTab === 'execution' && vm.workspaceTab === 'timeline' && (
+                            <RunTimelineView
+                                statusLabel={vm.status}
+                                actionTypes={vm.history.map(action => action.type)}
+                                checkpoints={vm.checkpointRecords}
+                                recoveryReplay={vm.recoveryReplay}
+                                replanningEvents={vm.replanningEvents}
+                            />
+                        )}
 
-                                <SectionBlock title="Policy Flags">
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {policyFlags.map((flag) => (
-                                            <div key={flag.label} className="rounded-md border border-gray-200 px-2 py-1.5 bg-gray-50">
-                                                <div className="text-xs text-gray-600 capitalize">{flag.label}</div>
-                                                <div className={cn('text-xs font-semibold', flag.enabled ? 'text-green-700' : 'text-gray-500')}>
-                                                    {flag.enabled ? 'Enabled' : 'Disabled'}
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {policyFlags.length === 0 && (
-                                            <div className="col-span-2 text-xs text-gray-500">No policy alignment records yet.</div>
-                                        )}
-                                    </div>
-                                </SectionBlock>
-
-                                <SectionBlock title="Recent Policy View">
-                                    <div className="space-y-1.5">
-                                        {recentPolicyEvents.map((event) => (
-                                            <div key={event.id} className="rounded-md border border-gray-200 px-2 py-1.5 bg-gray-50 flex items-center justify-between">
-                                                <span className="text-xs text-gray-700">{event.action}</span>
-                                                <span className={cn(
-                                                    'text-xs font-semibold uppercase',
-                                                    event.decision === 'allow' && 'text-green-700',
-                                                    event.decision === 'deny' && 'text-red-700',
-                                                    event.decision === 'observe' && 'text-blue-700'
-                                                )}>
-                                                    {event.decision}
-                                                </span>
-                                            </div>
-                                        ))}
-                                        {recentPolicyEvents.length === 0 && (
-                                            <div className="text-xs text-gray-500">No policy-relevant action events yet.</div>
-                                        )}
-                                    </div>
-                                </SectionBlock>
-                            </div>
+                        {vm.rightRailTab === 'safety' && (
+                            <RunSafetyView
+                                isLoading={vm.readinessQuery.isLoading}
+                                isError={vm.readinessQuery.isError}
+                                readinessSummary={vm.readinessSummary}
+                                readinessMessage={vm.readinessData?.message}
+                                policyFlags={vm.policyFlags}
+                                recentPolicyEvents={vm.recentPolicyEvents}
+                            />
                         )}
                     </div>
                 </div>
 
-                <div className="min-h-0 flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden min-w-0">
-                    {/* Header Actions */}
-                    <div className="flex justify-between items-center px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-                        <div>
-                            <h3 className="font-semibold text-gray-700 text-sm flex items-center gap-2">
-                                <span className={cn(
-                                    "w-2 h-2 rounded-full transition-all duration-300",
-                                    status === RunState.RUNNING && "bg-blue-500 animate-pulse ring-2 ring-blue-500/30",
-                                    status === RunState.COMPLETED && "bg-green-500 ring-2 ring-green-500/30",
-                                    status === RunState.CANCELLED && "bg-yellow-500",
-                                    status === RunState.FAILED && "bg-red-500"
-                                )}></span>
-                                Activity Log
-                            </h3>
-                            <div className="text-xs text-gray-400 font-mono mt-0.5">
-                                Status: {status.toUpperCase()}
-                            </div>
-                        </div>
-
-                        {status === RunState.RUNNING && (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => cancelMutation.mutate()}
-                                disabled={cancelMutation.isPending}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                                {cancelMutation.isPending ? 'Stopping...' : 'Stop Agent'}
-                            </Button>
-                        )}
-                    </div>
-
-                    {/* Log Content */}
-                    <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 font-mono text-sm relative">
-                        {/* Welcome Message */}
-                        {history.length === 0 && !currentAction && status === RunState.IDLE && (
-                            <div className="text-gray-400 text-center mt-10 italic">
-                                Agent is ready. Waiting for instructions...
-                            </div>
-                        )}
-
-                        {/* Pending Action (Currently executing) - Show at Top if running */}
-                        {currentAction && status === RunState.RUNNING && (
-                            <div className="border-l-4 border-blue-500 pl-4 py-3 bg-blue-50/10 animate-pulse rounded-r-lg">
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-xs font-bold text-blue-500 uppercase tracking-wider">Processing</span>
-                                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-ping"></span>
-                                </div>
-                                <div className="text-gray-900 font-bold text-lg mb-1">{currentAction.type}</div>
-                                {getThought(currentAction) && (
-                                    <div className="text-gray-600 text-sm italic leading-relaxed">"{getThought(currentAction)}"</div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Result Card (Inlined if completed) */}
-                        {(status === RunState.COMPLETED || status === RunState.FAILED) && (
-                            <div className={cn(
-                                "p-4 rounded-xl border-l-4 shadow-sm mb-4 bg-white",
-                                success ? "bg-green-50/50 border-green-500 text-green-900" : "bg-red-50/50 border-red-500 text-red-900"
-                            )}>
-                                <div className="flex items-start gap-4">
-                                    <div className={`p-2 rounded-full ${success ? 'bg-green-100' : 'bg-red-100'}`}>
-                                        <span className="text-2xl">{success ? '🎉' : '❌'}</span>
-                                    </div>
-                                    <div className="flex-1">
-                                        <h4 className="font-bold text-base uppercase tracking-wide mb-1">
-                                            {success ? 'Goal Achieved' : 'Goal Failed'}
-                                        </h4>
-                                        <p className="text-sm leading-relaxed opacity-90 whitespace-pre-wrap">
-                                            {status === RunState.FAILED ? errorMessage : summary}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* History Steps (Newest first) */}
-                        {history.slice().reverse().map((action, i) => {
-                            const stepNum = history.length - i;
-                            return (
-                                <div
-                                    key={i}
-                                    onClick={() => handleOpenInspect(stepNum)}
-                                    className="group flex gap-4 p-3 rounded-xl border border-transparent hover:border-gray-200 hover:bg-gray-50 transition-all cursor-pointer"
-                                >
-                                    <span className="text-xs font-bold text-gray-400 mt-1 w-6">#{stepNum}</span>
-
-                                    {/* Screenshot thumbnail */}
-                                    {runId && <StepThumbnail runId={runId} stepNumber={stepNum} />}
-
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className={cn(
-                                                "text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider",
-                                                action.type === 'fail' ? 'bg-red-100 text-red-700' :
-                                                    action.type === 'pass' ? 'bg-green-100 text-green-700' :
-                                                        'bg-gray-100 text-gray-600'
-                                            )}>
-                                                {action.type}
-                                            </span>
-
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-                                                    handleOpenInspect(stepNum);
-                                                }}
-                                                disabled={!runId}
-                                                className="ml-auto border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                                            >
-                                                Inspect
-                                            </Button>
-                                        </div>
-
-                                        {/* Show thought for history items too if available */}
-                                        {getThought(action) && (
-                                            <p className="text-gray-500 text-xs mt-1 line-clamp-2 italic group-hover:line-clamp-none">
-                                                "{getThought(action)}"
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
+                <RunActivityLog
+                    status={vm.status}
+                    currentAction={vm.currentAction}
+                    history={vm.history}
+                    success={vm.success}
+                    summary={vm.summary}
+                    errorMessage={vm.errorMessage}
+                    runId={vm.runId}
+                    cancelIsPending={vm.cancelMutation.isPending}
+                    onCancel={() => vm.cancelMutation.mutate()}
+                    onInspect={vm.handleOpenInspect}
+                />
             </div>
         </div>
-    );
-}
-
-function StepThumbnail({ runId, stepNumber }: { runId: string; stepNumber: number }): React.ReactElement | null {
-    const { data } = trpc.history.getStepArtifacts.useQuery(
-        { runId, stepNumber },
-        { staleTime: Infinity }
-    );
-
-    if (!data?.screenshots?.[0]) return null;
-
-    return (
-        <img
-            src={data.screenshots[0]}
-            alt={`Step ${stepNumber}`}
-            className="w-16 h-10 rounded border border-gray-200 object-cover shrink-0 mt-0.5"
-        />
     );
 }

@@ -1,5 +1,5 @@
 import type { PlatformConfig } from '@domain/types/PlatformConfig';
-import type { RunOptions } from '@shared/validation';
+import type { RunOptions } from '@domain/types/RunOptions';
 
 export type WorkflowStatus = 'draft' | 'published';
 

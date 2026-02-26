@@ -1,9 +1,12 @@
 import { useRef, useState } from 'react';
 import { useStepInspectorStore } from '../../stores/useStepInspectorStore';
 import { trpc } from '../../trpc';
+import { getThought } from '../../utils/actionUtils';
 import { JsonTreeView } from './JsonTreeView';
 import { cn } from '../../utils';
 import { Button } from '../ui/Button';
+import { CollapsibleSection } from '../ui/CollapsibleSection';
+import { EmptyState } from '../ui/EmptyState';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import type { StepArtifacts } from '@domain/ports/IStorageService';
 import type { Step } from '@domain/ports/IPersistenceAdapter';
@@ -191,7 +194,7 @@ function SummaryTab({ stepDetail, beforeScreenshot }: {
     }
 
     const { actionType, actionPayload, timestamp } = stepDetail;
-    const thought = 'thought' in actionPayload ? (actionPayload as { thought?: string }).thought : undefined;
+    const thought = getThought(actionPayload);
 
     // Clean params — exclude 'type' and 'thought' (shown separately)
     const params: Record<string, unknown> = {};
@@ -457,44 +460,3 @@ function RawTab({ trace, stepDetail }: {
 // Shared UI primitives
 // ---------------------------------------------------------------------------
 
-const BADGE_COLORS: Record<string, string> = {
-    green: 'bg-green-50 text-green-700 border-green-200',
-    purple: 'bg-purple-50 text-purple-700 border-purple-200',
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
-    gray: 'bg-gray-100 text-gray-600 border-gray-200',
-};
-
-function CollapsibleSection({ title, badge, badgeColor = 'gray', defaultOpen = false, children }: {
-    title: string;
-    badge?: string;
-    badgeColor?: string;
-    defaultOpen?: boolean;
-    children: React.ReactNode;
-}): JSX.Element {
-    return (
-        <details open={defaultOpen || undefined} className="bg-white border border-gray-200 rounded-xl overflow-hidden group">
-            <summary className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors flex items-center gap-3 select-none">
-                <svg className="w-3.5 h-3.5 text-gray-400 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                <span>{title}</span>
-                {badge && (
-                    <span className={cn("text-[10px] font-mono px-1.5 py-0.5 rounded border", BADGE_COLORS[badgeColor] ?? BADGE_COLORS['gray'])}>
-                        {badge}
-                    </span>
-                )}
-            </summary>
-            <div className="p-4">{children}</div>
-        </details>
-    );
-}
-
-function EmptyState({ icon, title, description }: { icon: string; title: string; description: string }): JSX.Element {
-    return (
-        <div className="h-full flex flex-col items-center justify-center text-center p-8 text-gray-400">
-            <div className="text-4xl mb-4 opacity-50">{icon}</div>
-            <h4 className="text-gray-600 font-semibold mb-1">{title}</h4>
-            <p className="text-sm max-w-xs">{description}</p>
-        </div>
-    );
-}

@@ -1,4 +1,4 @@
-import { DomiaConfig } from '../../shared/config-types';
+import type { DomiaConfig } from '../types/DomiaConfig';
 
 export interface IConfigService {
     get(): DomiaConfig;

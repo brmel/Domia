@@ -19,63 +19,63 @@ export type RunEvent =
     | RecoveryReplayEvent
     | ReplanningEvent;
 
-export interface PlanningEvent {
+interface PlanningEvent {
     readonly type: 'planning';
 }
 
-export interface StartedEvent {
+interface StartedEvent {
     readonly type: 'started';
     readonly runId: RunId;
 }
 
-export interface PausedEvent {
+interface PausedEvent {
     readonly type: 'paused';
 }
 
-export interface ResumedEvent {
+interface ResumedEvent {
     readonly type: 'resumed';
 }
 
-export interface ThinkingEvent {
+interface ThinkingEvent {
     readonly type: 'thinking';
 }
 
-export interface ActingEvent {
+interface ActingEvent {
     readonly type: 'acting';
     readonly action: AgentAction;
 }
 
-export interface StateUpdatedEvent {
+interface StateUpdatedEvent {
     readonly type: 'state_updated';
     readonly state: WorkflowState;
 }
 
-export interface ScreenshotEvent {
+interface ScreenshotEvent {
     readonly type: 'screenshot';
     readonly data: string; // base64 encoded
 }
 
-export interface ErrorEvent {
+interface ErrorEvent {
     readonly type: 'error';
     readonly error: DomainError;
 }
 
-export interface CancelledEvent {
+interface CancelledEvent {
     readonly type: 'cancelled';
 }
 
-export interface CompletedEvent {
+interface CompletedEvent {
     readonly type: 'completed';
     readonly success: boolean;
     readonly summary: string;
 }
 
-export interface RecoveryReplayEvent {
+interface RecoveryReplayEvent {
     readonly type: 'recovery_replay';
     readonly telemetry: RecoveryReplayTelemetry;
 }
 
-export interface ReplanningEvent {
+interface ReplanningEvent {
     readonly type: 'replanning';
     readonly telemetry: ReplanningTelemetry;
 }

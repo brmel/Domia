@@ -6,12 +6,12 @@ import { resolve } from 'path';
 import { ExecutionController } from '../application/controllers/ExecutionController';
 import { WorkflowDefinitionService } from '../application/services/workflow/WorkflowDefinitionService';
 import { WorkflowRunOrchestratorService } from '../application/services/workflow/WorkflowRunOrchestratorService';
-import type { PlatformConfig } from '../domain/types/PlatformConfig';
 import type { IPersistenceAdapter } from '../domain/ports';
 import {
     CreateWorkflowInputSchema,
     UpdateWorkflowInputSchema
 } from '../shared/validation/workflow';
+import { buildPlatformConfig } from './platformUtils';
 
 interface WorkflowStepFileRecord {
     id?: string;
@@ -104,7 +104,7 @@ export class WorkflowCommand {
             .action(async (options) => {
                 const definitionService = container.resolve(WorkflowDefinitionService);
 
-                const platformConfig = this.buildPlatformConfig(options);
+                const platformConfig = buildPlatformConfig(options);
                 const steps = this.readStepsFile(options.stepsFile, false);
 
                 const payload = CreateWorkflowInputSchema.parse({
@@ -160,7 +160,7 @@ export class WorkflowCommand {
                     process.exit(1);
                 }
 
-                const platformConfig = this.buildPlatformConfig(options, existingResult.value.platformConfig);
+                const platformConfig = buildPlatformConfig(options, existingResult.value.platformConfig);
                 const steps = this.readStepsFile(options.stepsFile, true);
 
                 const payload = UpdateWorkflowInputSchema.parse({
@@ -381,51 +381,5 @@ export class WorkflowCommand {
         }
 
         return steps;
-    }
-
-    private static buildPlatformConfig(options: {
-        url?: string;
-        cdpUrl?: string;
-        executablePath?: string;
-        launchArgs?: string;
-        windowTitle?: string;
-    }, defaultPlatformConfig?: PlatformConfig): PlatformConfig {
-        const { url, cdpUrl, executablePath, launchArgs, windowTitle } = options;
-
-        if (url) {
-            return {
-                platform: 'web',
-                url
-            };
-        }
-
-        if (cdpUrl) {
-            return {
-                platform: 'electron',
-                connection: {
-                    type: 'cdp',
-                    cdpUrl,
-                    ...(windowTitle ? { windowTitle } : {})
-                }
-            };
-        }
-
-        if (executablePath) {
-            return {
-                platform: 'electron',
-                connection: {
-                    type: 'executable',
-                    executablePath,
-                    ...(launchArgs ? { launchArgs: launchArgs.split(',').map((arg) => arg.trim()).filter(Boolean) } : {}),
-                    ...(windowTitle ? { windowTitle } : {})
-                }
-            };
-        }
-
-        if (defaultPlatformConfig) {
-            return defaultPlatformConfig;
-        }
-
-        throw new Error('Must provide one of --url, --cdp-url, or --executable-path.');
     }
 }

@@ -9,8 +9,8 @@ import readline from 'readline';
 import { RunUseCase } from '../application/use-cases';
 import { ExecutionController } from '../application/controllers/ExecutionController';
 import { RunState } from '../domain/enums/RunState';
-import type { PlatformConfig } from '../domain/types/PlatformConfig';
 import { configureVerboseTracing } from '../composition/ContainerBuilder';
+import { buildPlatformConfig } from './platformUtils';
 
 export class RunCommand {
     static register(program: Command): void {
@@ -195,39 +195,13 @@ export class RunCommand {
                         process.exit(0);
                     });
 
-                    let platformConfig: PlatformConfig;
-                    
-                    if (url) {
-                        platformConfig = {
-                            platform: 'web',
-                            url
-                        };
-                    } else if (cdpUrl) {
-                        platformConfig = {
-                            platform: 'electron',
-                            connection: {
-                                type: 'cdp',
-                                cdpUrl,
-                                ...(windowTitle && { windowTitle })
-                            }
-                        };
-                    } else if (executablePath) {
-                        const parsedLaunchArgs = launchArgs 
-                            ? launchArgs.split(',').map((arg: string) => arg.trim())
-                            : [];
-                            
-                        platformConfig = {
-                            platform: 'electron',
-                            connection: {
-                                type: 'executable',
-                                executablePath,
-                                launchArgs: parsedLaunchArgs,
-                                ...(windowTitle && { windowTitle })
-                            }
-                        };
-                    } else {
-                        throw new Error('Must provide either --url, --cdp-url, or --executable-path');
-                    }
+                    const platformConfig = buildPlatformConfig({
+                        url,
+                        cdpUrl,
+                        executablePath,
+                        launchArgs,
+                        windowTitle,
+                    });
 
                     const input = {
                         platformConfig,

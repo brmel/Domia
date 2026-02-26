@@ -153,94 +153,18 @@ export class WorkflowRunOrchestratorService {
                 const governanceDecision = this.governance.assess(step, definition, workflowRunId);
                 if (!governanceDecision.allowed) {
                     const blockedReason = governanceDecision.reason;
-                    const completedAt = new Date().toISOString();
                     executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
 
-                    const blockedTransition = await this.persistence.commitAtomicWorkflowTransition({
-                        workflowRunId,
-                        workflowRunUpdates: {
-                            status: 'failed',
-                            summary: blockedReason,
-                            completedAt
-                        },
-                        workflowStepRunId: stepRunId,
-                        workflowStepRunUpdates: {
-                            status: 'failed',
-                            summary: blockedReason,
-                            completedAt
-                        }
-                    });
-
-                    if (blockedTransition.isErr()) {
-                        this.logger.warn('[WorkflowRunOrchestratorService] Failed to atomically persist governance-blocked transition', {
-                            workflowRunId,
-                            stepRunId,
-                            reason: blockedTransition.error.message
-                        });
-                    }
-
-                    yield {
-                        type: 'workflow_step_completed',
-                        workflowRunId,
-                        stepId: step.id,
-                        stepIndex,
-                        success: false,
-                        summary: blockedReason
-                    };
-
-                    yield {
-                        type: 'workflow_failed',
-                        workflowRunId,
-                        reason: blockedReason
-                    };
-
+                    yield* this.yieldBlockedTransition(workflowRunId, stepRunId, step.id, stepIndex, blockedReason, 'governance');
                     return;
                 }
 
                 const capabilityAssessment = this.capabilityNegotiation.assessStep(step, definition.platformConfig.platform);
                 if (capabilityAssessment.blocked) {
                     const blockedReason = capabilityAssessment.reason ?? `Step '${step.name}' blocked by platform capability policy.`;
-                    const completedAt = new Date().toISOString();
                     executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
 
-                    const blockedTransition = await this.persistence.commitAtomicWorkflowTransition({
-                        workflowRunId,
-                        workflowRunUpdates: {
-                            status: 'failed',
-                            summary: blockedReason,
-                            completedAt
-                        },
-                        workflowStepRunId: stepRunId,
-                        workflowStepRunUpdates: {
-                            status: 'failed',
-                            summary: blockedReason,
-                            completedAt
-                        }
-                    });
-
-                    if (blockedTransition.isErr()) {
-                        this.logger.warn('[WorkflowRunOrchestratorService] Failed to atomically persist capability-blocked transition', {
-                            workflowRunId,
-                            stepRunId,
-                            reason: blockedTransition.error.message
-                        });
-                    }
-
-                    yield {
-                        type: 'workflow_step_completed',
-                        workflowRunId,
-                        stepId: step.id,
-                        stepIndex,
-                        success: false,
-                        summary: blockedReason
-                    };
-
-                    yield {
-                        type: 'workflow_failed',
-                        workflowRunId,
-                        reason: blockedReason
-                    };
-
+                    yield* this.yieldBlockedTransition(workflowRunId, stepRunId, step.id, stepIndex, blockedReason, 'capability');
                     return;
                 }
 
@@ -426,6 +350,55 @@ export class WorkflowRunOrchestratorService {
             edges,
             entryNodeIds: definition.steps[0] ? [definition.steps[0].id] : [],
             terminalNodeIds: definition.steps.length > 0 ? [definition.steps[definition.steps.length - 1]!.id] : []
+        };
+    }
+
+    private async *yieldBlockedTransition(
+        workflowRunId: string,
+        stepRunId: string,
+        stepId: string,
+        stepIndex: number,
+        blockedReason: string,
+        source: 'governance' | 'capability',
+    ): AsyncGenerator<WorkflowEvent, void, unknown> {
+        const completedAt = new Date().toISOString();
+
+        const blockedTransition = await this.persistence.commitAtomicWorkflowTransition({
+            workflowRunId,
+            workflowRunUpdates: {
+                status: 'failed',
+                summary: blockedReason,
+                completedAt,
+            },
+            workflowStepRunId: stepRunId,
+            workflowStepRunUpdates: {
+                status: 'failed',
+                summary: blockedReason,
+                completedAt,
+            },
+        });
+
+        if (blockedTransition.isErr()) {
+            this.logger.warn(`[WorkflowRunOrchestratorService] Failed to atomically persist ${source}-blocked transition`, {
+                workflowRunId,
+                stepRunId,
+                reason: blockedTransition.error.message,
+            });
+        }
+
+        yield {
+            type: 'workflow_step_completed',
+            workflowRunId,
+            stepId,
+            stepIndex,
+            success: false,
+            summary: blockedReason,
+        };
+
+        yield {
+            type: 'workflow_failed',
+            workflowRunId,
+            reason: blockedReason,
         };
     }
 
