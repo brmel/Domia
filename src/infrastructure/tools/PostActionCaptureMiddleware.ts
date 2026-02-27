@@ -51,8 +51,9 @@ export class PostActionCaptureMiddleware {
 
         if (useVision && frame.vision.primaryScreenshot) {
             result['screenshot'] = {
-                base64: frame.vision.primaryScreenshot.toString('base64'),
+                captured: true,
                 mimeType: frame.vision.mimeType,
+                count: frame.vision.screenshots?.length ?? 1,
             };
         }
 

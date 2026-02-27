@@ -109,7 +109,7 @@ export function RunActivityLog({
                     const stepNum = history.length - i;
                     return (
                         <div
-                            key={i}
+                            key={`${runId}-${stepNum}`}
                             onClick={() => onInspect(stepNum)}
                             className="group flex gap-4 p-3 rounded-xl border border-transparent hover:border-gray-200 hover:bg-gray-50 transition-all cursor-pointer"
                         >

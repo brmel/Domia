@@ -87,7 +87,19 @@ export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
     handleEvent: (event: RunEvent): void => {
         switch (event.type) {
             case 'started':
-                set({ runId: event.runId, status: RunState.RUNNING });
+                set({
+                    runId: event.runId,
+                    status: RunState.RUNNING,
+                    history: [],
+                    plan: null,
+                    currentAction: null,
+                    currentPhase: null,
+                    success: null,
+                    summary: null,
+                    errorMessage: null,
+                    recoveryReplay: null,
+                    replanningEvents: [],
+                });
                 break;
 
             case 'thinking':
