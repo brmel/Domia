@@ -1,6 +1,6 @@
 import type { Plan, PlanItemType } from '@domain/entities/Plan';
 
-export type GraphNodeKind = 'objective' | 'skill' | 'action' | 'verification' | 'system';
+type GraphNodeKind = 'objective' | 'skill' | 'action' | 'verification' | 'system';
 
 export type GraphNodeState =
     | 'pending'
@@ -11,7 +11,7 @@ export type GraphNodeState =
     | 'failed'
     | 'skipped';
 
-export interface GraphNodeFailure {
+interface GraphNodeFailure {
     readonly code: string;
     readonly reason: string;
     readonly attemptCount: number;
@@ -28,7 +28,7 @@ export interface GraphNode {
     readonly failure?: GraphNodeFailure;
 }
 
-export interface GraphEdge {
+interface GraphEdge {
     readonly fromNodeId: string;
     readonly toNodeId: string;
     readonly condition?: string;

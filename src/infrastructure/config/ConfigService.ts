@@ -4,8 +4,6 @@ import fs from 'fs-extra';
 import path from 'path';
 import { DomiaConfigSchema, type DomiaConfig } from '../../shared/config-types';
 
-export { DomiaConfigSchema, type DomiaConfig };
-
 import { IConfigService } from '../../domain/ports/IConfigService';
 
 @injectable()

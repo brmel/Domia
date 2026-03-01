@@ -10,7 +10,7 @@ export interface DOMElement {
     readonly boundingBox: BoundingBox | null;
 }
 
-export interface BoundingBox {
+interface BoundingBox {
     readonly x: number;
     readonly y: number;
     readonly width: number;
@@ -31,27 +31,4 @@ export interface DOMSnapshot {
     readonly timestamp: Date;
 }
 
-export const DOMSnapshot = {
-    create(params: {
-        url: string;
-        title: string;
-        rootElements: {
-            html: Record<string, string>;
-            body: Record<string, string>;
-        };
-        elements: DOMElement[];
-        screenshot?: string | undefined;
-    }): DOMSnapshot {
-        return {
-            url: params.url,
-            title: params.title,
-            rootElements: {
-                html: Object.freeze(params.rootElements.html),
-                body: Object.freeze(params.rootElements.body),
-            },
-            elements: Object.freeze(params.elements),
-            screenshot: params.screenshot,
-            timestamp: new Date(),
-        };
-    },
-};
+

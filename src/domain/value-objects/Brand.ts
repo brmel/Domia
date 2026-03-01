@@ -2,7 +2,7 @@ import { Result, ok, err } from 'neverthrow';
 import { ValidationError } from '../errors';
 
 declare const brand: unique symbol;
-export type Brand<T, B> = T & { readonly [brand]: B };
+type Brand<T, B> = T & { readonly [brand]: B };
 
 export type Url = Brand<string, 'Url'>;
 export type RunId = Brand<string, 'RunId'>;

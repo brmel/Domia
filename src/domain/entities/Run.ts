@@ -43,14 +43,6 @@ export const Run = {
         };
     },
 
-    updatePlan(run: Run, plan: Plan): Run {
-        return {
-            ...run,
-            plan,
-            updatedAt: new Date(),
-        };
-    },
-
     pass(run: Run, summary: string): Run {
         if (run.status.type !== 'running') {
             throw new Error(`Cannot pass a run in '${run.status.type}' state`);
@@ -75,14 +67,4 @@ export const Run = {
         };
     },
 
-    cancel(run: Run, reason: string): Run {
-        if (run.status.type !== 'running' && run.status.type !== 'pending') {
-            throw new Error(`Cannot cancel a run in '${run.status.type}' state`);
-        }
-        return {
-            ...run,
-            status: { type: 'cancelled', reason },
-            updatedAt: new Date(),
-        };
-    },
 };

@@ -48,22 +48,6 @@ export class CDPValidator {
         }
     }
 
-    static validateTimeout(timeoutMs: number): Result<number, ValidationError> {
-        if (!Number.isInteger(timeoutMs)) {
-            return err(new ValidationError('Timeout must be an integer', 'timeout', timeoutMs));
-        }
-
-        if (timeoutMs < 0) {
-            return err(new ValidationError('Timeout cannot be negative', 'timeout', timeoutMs));
-        }
-
-        if (timeoutMs > 300000) {
-            return err(new ValidationError('Timeout cannot exceed 300000ms (5 minutes)', 'timeout', timeoutMs));
-        }
-
-        return ok(timeoutMs);
-    }
-
     static validateWindowId(windowId: string): Result<string, ValidationError> {
         if (!windowId || windowId.trim().length === 0) {
             return err(new ValidationError('Window ID cannot be empty', 'windowId', windowId));
@@ -78,22 +62,5 @@ export class CDPValidator {
         return ok(trimmed);
     }
 
-    static validateMenuPath(menuPath: string): Result<string, ValidationError> {
-        if (!menuPath || menuPath.trim().length === 0) {
-            return err(new ValidationError('Menu path cannot be empty', 'menuPath', menuPath));
-        }
 
-        const trimmed = menuPath.trim();
-        if (!trimmed.includes('>') && !trimmed.includes('/')) {
-            return ok(trimmed);
-        }
-
-        const parts = trimmed.split(/[>/]/).map(p => p.trim());
-        
-        if (parts.some(part => part.length === 0)) {
-            return err(new ValidationError('Menu path contains empty segments', 'menuPath', menuPath));
-        }
-
-        return ok(trimmed);
-    }
 }

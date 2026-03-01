@@ -1,4 +1,4 @@
-export type RetryInfo = {
+type RetryInfo = {
     attempt: number;
     maxAttempts: number;
     delayMs: number;

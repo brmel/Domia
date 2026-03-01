@@ -29,8 +29,5 @@ export const RunInputSchema = z.object({
   prompt: z.string().trim().min(1, 'Prompt cannot be empty'),
   options: RunOptionsSchema.optional()
 });
-export type PlatformConfig = z.infer<typeof PlatformConfigSchema>;
 export type RunOptions = z.infer<typeof RunOptionsSchema>;
 
-export { WebConfigSchema } from './validation/platforms/web';
-export { ElectronConfigSchema } from './validation/platforms/electron';

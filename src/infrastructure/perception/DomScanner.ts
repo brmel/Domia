@@ -1,7 +1,7 @@
 import { injectable } from 'tsyringe';
 import { Page } from 'playwright';
 
-export interface RawElement {
+interface RawElement {
     id: number;
     tag: string;
     role: string | null;
