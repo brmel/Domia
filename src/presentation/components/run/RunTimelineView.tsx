@@ -44,14 +44,17 @@ export function RunTimelineView({
         });
     });
 
-    checkpoints.forEach((checkpoint) => {
-        events.push({
-            id: `checkpoint-${checkpoint.id}`,
-            lane: 'checkpoint',
-            title: checkpoint.reason,
-            detail: checkpoint.detail
+    // skip action_applied checkpoints — already represented in the action lane above
+    checkpoints
+        .filter((checkpoint) => checkpoint.reason !== 'action_applied')
+        .forEach((checkpoint) => {
+            events.push({
+                id: `checkpoint-${checkpoint.id}`,
+                lane: 'checkpoint',
+                title: checkpoint.reason,
+                detail: checkpoint.detail
+            });
         });
-    });
 
     if (recoveryReplay) {
         events.push({

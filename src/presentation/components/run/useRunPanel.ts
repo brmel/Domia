@@ -11,7 +11,7 @@ export function useRunPanel() {
     const { open } = useStepInspectorStore();
 
     const [rightRailTab, setRightRailTab] = useState<'execution' | 'safety'>('execution');
-    const [workspaceTab, setWorkspaceTab] = useState<'plan' | 'state' | 'timeline' | 'checkpoints'>('plan');
+    const [workspaceTab, setWorkspaceTab] = useState<'plan' | 'state' | 'timeline'>('plan');
     const [actionOverrideJson, setActionOverrideJson] = useState('');
     const [actionOverrideError, setActionOverrideError] = useState<string | null>(null);
 
@@ -79,9 +79,8 @@ export function useRunPanel() {
         : 'Not available yet';
 
     const policyFlags = readinessData?.report.gates
-        .filter(gate => gate.id.endsWith('_flag_alignment'))
         .map(gate => ({
-            label: gate.id.replace('_flag_alignment', '').replace(/_/g, ' '),
+            label: gate.description,
             enabled: gate.passed,
         })) ?? [];
 
@@ -91,11 +90,11 @@ export function useRunPanel() {
         detail: `Step ${record.state.stepNumber}: ${record.state.status}`,
     })) ?? checkpoints;
 
-    const recentPolicyEvents = history.slice(-5).map((action, index) => ({
-        id: `${index}-${action.type}`,
-        action: action.type,
-        decision: action.type === 'fail' ? 'deny' : action.type === 'pass' ? 'allow' : 'observe',
-    }));
+    const recentPolicyEvents = readinessData?.report.gates.map((gate) => ({
+        id: gate.id,
+        action: gate.description,
+        decision: gate.passed ? 'allow' : gate.required ? 'deny' : 'observe',
+    })) ?? [];
 
     const handleOpenInspect = (stepNum: number): void => {
         if (!runId) return;

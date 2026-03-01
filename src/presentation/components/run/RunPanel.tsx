@@ -3,7 +3,6 @@ import { useRunPanel } from './useRunPanel';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import { RunPlanView } from './RunPlanView';
 import { RunStateView } from './RunStateView';
-import { RunCheckpointsView } from './RunCheckpointsView';
 import { RunSafetyView } from './RunSafetyView';
 import { RunActivityLog } from './RunActivityLog';
 import { RunTimelineView } from './RunTimelineView';
@@ -36,7 +35,6 @@ export function RunPanel(): ReactElement {
                                     { value: 'plan', label: 'Plan' },
                                     { value: 'state', label: 'State' },
                                     { value: 'timeline', label: 'Timeline' },
-                                    { value: 'checkpoints', label: 'Checkpoints' },
                                 ] as const}
                                 value={vm.workspaceTab}
                                 onChange={vm.setWorkspaceTab}
@@ -62,14 +60,6 @@ export function RunPanel(): ReactElement {
                                 setActionOverrideError={vm.setActionOverrideError}
                                 overrideIsPending={vm.overrideActionMutation.isPending}
                                 onQueueOverride={vm.handleQueueActionOverride}
-                            />
-                        )}
-
-                        {vm.rightRailTab === 'execution' && vm.workspaceTab === 'checkpoints' && (
-                            <RunCheckpointsView
-                                isLoading={vm.checkpointsQuery.isLoading}
-                                isError={vm.checkpointsQuery.isError}
-                                checkpointRecords={vm.checkpointRecords}
                             />
                         )}
 

@@ -217,6 +217,27 @@ export function useWorkflowWorkspace() {
         startMutation.mutate({ workflowDefinitionId: selectedDefinitionId });
     };
 
+    const onCreateAndStart = (): void => {
+        const name = workflowName.trim();
+        const normalizedSteps = normalizeSteps(steps);
+        const platformConfig = buildPlatformConfig(selectedPlatform, platformData);
+        if (!name || normalizedSteps.length === 0) return;
+
+        createMutation.mutate(
+            {
+                name,
+                ...(workflowDescription.trim() ? { description: workflowDescription.trim() } : {}),
+                platformConfig,
+                steps: normalizedSteps
+            },
+            {
+                onSuccess: ({ id }) => {
+                    startMutation.mutate({ workflowDefinitionId: id });
+                }
+            }
+        );
+    };
+
     return {
         selectedDefinitionId, setSelectedDefinitionId,
         selectedRunId, setSelectedRunId,
@@ -233,6 +254,6 @@ export function useWorkflowWorkspace() {
         runDetailsQuery, childCheckpointsQuery, childRunDetailsQuery,
         createMutation, updateMutation, publishMutation, nextVersionMutation, startMutation, cancelMutation,
         appendStep, moveStep, updateStep, removeStep,
-        onCreateDefinition, onUpdateDefinition, onPublishDefinition, onCreateNextVersion, onStartWorkflow,
+        onCreateDefinition, onUpdateDefinition, onPublishDefinition, onCreateNextVersion, onStartWorkflow, onCreateAndStart,
     };
 }

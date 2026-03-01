@@ -22,7 +22,7 @@ export function WorkflowWorkspace(): React.ReactElement {
         runDetailsQuery, childCheckpointsQuery, childRunDetailsQuery,
         createMutation, updateMutation, publishMutation, nextVersionMutation, startMutation, cancelMutation,
         appendStep, moveStep, updateStep, removeStep,
-        onCreateDefinition, onUpdateDefinition, onPublishDefinition, onCreateNextVersion, onStartWorkflow,
+        onCreateDefinition, onUpdateDefinition, onPublishDefinition, onCreateNextVersion, onStartWorkflow, onCreateAndStart,
     } = useWorkflowWorkspace();
 
     return (
@@ -81,7 +81,16 @@ export function WorkflowWorkspace(): React.ReactElement {
                         </div>
                     </div>
 
-                    <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-2">
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-5 gap-2">
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={selectedDefinitionId ? onStartWorkflow : onCreateAndStart}
+                            disabled={startMutation.isPending || createMutation.isPending}
+                            isLoading={startMutation.isPending || createMutation.isPending}
+                        >
+                            {selectedDefinitionId ? 'Run Selected' : 'Run'}
+                        </Button>
                         <Button
                             variant="ghost"
                             size="sm"
