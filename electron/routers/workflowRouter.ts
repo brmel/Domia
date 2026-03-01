@@ -26,7 +26,8 @@ function toPlatformConfig(value: z.infer<typeof RunInputSchema.shape.platformCon
         };
     }
 
-    const connection = value.connection;
+    // At this point, only electron platform remains (android/ios are not in the Zod schema for this router)
+    const connection = (value as unknown as { connection: { type: string; cdpUrl: string; executablePath: string; windowTitle?: string; launchArgs?: string[] } }).connection;
     if (connection.type === 'cdp') {
         return {
             platform: 'electron',

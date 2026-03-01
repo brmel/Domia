@@ -1,6 +1,11 @@
 import { injectable, inject } from 'tsyringe';
-import { Page, CDPSession } from 'playwright';
+import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 import type { ILogger } from '@domain/ports';
+
+interface CDPSessionLike {
+    send(method: string, params?: Record<string, unknown>): Promise<{ data: string }>;
+    detach(): Promise<void>;
+}
 
 
 @injectable()
@@ -9,22 +14,24 @@ export class SmartScrollCapture {
         @inject('ILogger') private logger: ILogger
     ) { }
 
-    async capture(page: Page, maxScreenshots: number = 3): Promise<Buffer[]> {
+    async capture(source: IPerceptionSource, maxScreenshots: number = 3): Promise<Buffer[]> {
         const screenshots: Buffer[] = [];
-        let client: CDPSession | null = null;
+        let client: CDPSessionLike | null = null;
 
         try {
-            client = await page.context().newCDPSession(page);
+            if (source.createCDPSession) {
+                client = await source.createCDPSession() as CDPSessionLike;
+            }
 
-            const decision = await this.decideCaptureMode(page);
+            const decision = this.decideCaptureMode(source);
             if (decision.mode === 'single' || !decision.viewport) {
                 this.logger.warn('[SmartScrollCapture] Single capture mode selected: viewport unavailable');
-                return [await this.captureViewport(client)];
+                return [await this.captureFrame(client, source)];
             }
 
             const viewport = decision.viewport;
 
-            const scrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+            const scrollHeight = await source.evaluateScript(() => document.documentElement.scrollHeight);
             const viewportHeight = viewport.height;
 
             this.logger.debug(`[SmartScrollCapture] Page height: ${scrollHeight}, Viewport: ${viewportHeight}`);
@@ -32,11 +39,10 @@ export class SmartScrollCapture {
             let currentScrollY = 0;
             const overlap = 100;
 
-            await page.evaluate(() => window.scrollTo(0, 0));
-            await page.waitForTimeout(100);
+            await source.evaluateScript(() => window.scrollTo(0, 0));
 
             for (let i = 0; i < maxScreenshots; i++) {
-                const buffer = await this.captureViewport(client);
+                const buffer = await this.captureFrame(client, source);
                 screenshots.push(buffer);
 
                 const nextScrollY = currentScrollY + (viewportHeight - overlap);
@@ -47,8 +53,7 @@ export class SmartScrollCapture {
                 }
 
                 currentScrollY = nextScrollY;
-                await page.evaluate((y) => window.scrollTo(0, y), currentScrollY);
-                await page.waitForTimeout(200);
+                await source.evaluateScript(((y: unknown) => window.scrollTo(0, y as number)) as (...args: unknown[]) => void, currentScrollY);
             }
 
         } catch (error) {
@@ -66,26 +71,26 @@ export class SmartScrollCapture {
         return screenshots;
     }
 
-    private async decideCaptureMode(page: Page): Promise<{ mode: 'single' | 'multi'; viewport?: { width: number; height: number } }> {
-        const viewport = page.viewportSize();
+    private decideCaptureMode(source: IPerceptionSource): { mode: 'single' | 'multi'; viewport?: { width: number; height: number } } {
+        const viewport = source.getViewportSize();
         if (viewport && viewport.width > 0 && viewport.height > 0) {
             return { mode: 'multi', viewport };
         }
-
-        const dimensions = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
-        if (dimensions.width > 0 && dimensions.height > 0) {
-            return { mode: 'multi', viewport: dimensions };
-        }
-
         return { mode: 'single' };
     }
 
-    private async captureViewport(client: CDPSession): Promise<Buffer> {
-        const result = await client.send('Page.captureScreenshot', {
-            format: 'jpeg',
-            quality: 60,
-            fromSurface: true
-        });
-        return Buffer.from(result.data, 'base64');
+    private async captureFrame(
+        client: CDPSessionLike | null,
+        source: IPerceptionSource,
+    ): Promise<Buffer> {
+        if (client) {
+            const result = await client.send('Page.captureScreenshot', {
+                format: 'jpeg',
+                quality: 60,
+                fromSurface: true,
+            });
+            return Buffer.from(result.data, 'base64');
+        }
+        return source.captureScreenshot({ type: 'jpeg', quality: 60 });
     }
 }

@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import { Page } from 'playwright';
+import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 import type { ILogger } from '@domain/ports';
 
 export interface PageMetadata {
@@ -15,12 +15,12 @@ export interface PageMetadata {
 export class MetadataParser {
     constructor(@inject('ILogger') private logger: ILogger) { }
 
-    async parse(page: Page): Promise<PageMetadata> {
+    async parse(source: IPerceptionSource): Promise<PageMetadata> {
         this.logger.debug('[MetadataParser] Extracting metadata');
 
-        const url = page.url();
-        const title = await page.title();
-        const rootElements = await page.evaluate(`
+        const url = source.getUrl();
+        const title = await source.getTitle();
+        const rootElements = await source.evaluateScript(`
             (() => {
                 const getAttrs = (el) => {
                     const attrs = {};

@@ -1,4 +1,4 @@
-export type BuiltInPlatformType = 'web' | 'electron';
+export type BuiltInPlatformType = 'web' | 'electron' | 'android' | 'ios';
 
 export type PlatformType = BuiltInPlatformType | (string & {});
 
@@ -33,6 +33,28 @@ export interface ElectronPlatformConfig extends BasePlatformConfig {
   connection: ElectronConnection;
 }
 
+export interface AndroidPlatformConfig extends BasePlatformConfig {
+  platform: 'android';
+  /** App package identifier, e.g. com.example.app */
+  appPackage: string;
+  /** Optional Appium server URL. Defaults to http://localhost:4723. */
+  appiumUrl?: string;
+  /** Optional device serial for adb / Appium. */
+  deviceSerial?: string;
+}
+
+export interface IosPlatformConfig extends BasePlatformConfig {
+  platform: 'ios';
+  /** Bundle identifier, e.g. com.example.App */
+  bundleId: string;
+  /** Optional Appium server URL. Defaults to http://localhost:4723. */
+  appiumUrl?: string;
+  /** Optional device UDID for Xcode / Appium. */
+  deviceUdid?: string;
+}
+
 export type PlatformConfig = 
   | WebPlatformConfig 
-  | ElectronPlatformConfig;
+  | ElectronPlatformConfig
+  | AndroidPlatformConfig
+  | IosPlatformConfig;

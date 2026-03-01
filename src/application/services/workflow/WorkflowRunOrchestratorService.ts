@@ -1,7 +1,7 @@
 import { inject, injectable } from 'tsyringe';
 import { v4 as uuidv4 } from 'uuid';
 import type { WorkflowEvent } from '@domain/events/WorkflowEvent';
-import type { IPersistenceAdapter } from '@domain/ports/IPersistenceAdapter';
+import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
 import type { ILogger } from '@domain/ports';
 import { RunState } from '@domain/enums/RunState';
 import type { WorkflowDefinition } from '@domain/entities/Workflow';
@@ -16,7 +16,7 @@ import { PlatformCapabilityNegotiationService } from '../platform/PlatformCapabi
 @injectable()
 export class WorkflowRunOrchestratorService {
     constructor(
-        @inject('IPersistenceAdapter') private readonly persistence: IPersistenceAdapter,
+        @inject('IWorkflowRepository') private readonly persistence: IWorkflowRepository,
         @inject('ILogger') private readonly logger: ILogger,
         @inject(WorkflowStepPolicyService) private readonly stepPolicy: WorkflowStepPolicyService,
         @inject(WorkflowStepGovernanceService) private readonly governance: WorkflowStepGovernanceService,

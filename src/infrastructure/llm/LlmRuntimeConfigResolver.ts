@@ -2,10 +2,9 @@ import { inject, injectable } from 'tsyringe';
 import type { IConfigService } from '@domain/ports';
 
 export interface LLMConfig {
-    readonly provider: 'google' | 'openai' | 'anthropic' | (string & {});
+    readonly provider: 'google';
     readonly model: string;
     readonly apiKey?: string;
-    readonly baseUrl?: string;
 }
 
 @injectable()
@@ -17,13 +16,7 @@ export class LlmRuntimeConfigResolver {
     resolve(): LLMConfig {
         const config = this.configService.get();
 
-        const providerOverride = process.env['DOMIA_LLM_PROVIDER'] as LLMConfig['provider'] | undefined;
-        const provider = providerOverride || config.ai.provider;
-
         const model = process.env['DOMIA_LLM_MODEL'] || config.ai.model;
-
-        const baseUrl = process.env['DOMIA_LLM_BASE_URL']
-            || config.ai.baseUrl;
 
         const apiKey = process.env['DOMIA_LLM_API_KEY']
             || process.env['GOOGLE_API_KEY']
@@ -31,10 +24,9 @@ export class LlmRuntimeConfigResolver {
             || config.ai.apiKey;
 
         return {
-            provider,
+            provider: 'google',
             model,
-            ...(apiKey ? { apiKey } : {}),
-            ...(baseUrl ? { baseUrl } : {})
+            ...(apiKey ? { apiKey } : {})
         };
     }
 }

@@ -4,7 +4,7 @@ import Database from 'better-sqlite3';
 import { Kysely, SqliteDialect } from 'kysely';
 import fs from 'fs-extra';
 import path from 'path';
-import { IPersistenceAdapter, Step, LogEntry } from '@domain/ports';
+import { IPersistenceAdapter, Step } from '@domain/ports';
 import { Run } from '@domain/entities/Run';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
 import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
@@ -40,7 +40,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
             dialect: new SqliteDialect({ database }),
         });
 
-        initializeSchema(database, this.db);
+        initializeSchema(database);
 
         this.runs = new SQLiteRunRepository(this.db);
         this.checkpoints = new SQLiteCheckpointRepository(this.db);
@@ -57,10 +57,6 @@ export class SQLiteAdapter implements IPersistenceAdapter {
 
     saveStep(step: Step): ResultAsync<void, PersistenceError> {
         return this.runs.saveStep(step);
-    }
-
-    saveLog(log: LogEntry): ResultAsync<void, PersistenceError> {
-        return this.runs.saveLog(log);
     }
 
     getRuns(limit: number = 50): ResultAsync<Run[], PersistenceError> {
@@ -86,10 +82,6 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         lineage: CheckpointLineageInput
     ): ResultAsync<void, PersistenceError> {
         return this.checkpoints.saveCheckpoint(runId, state, reason, lineage);
-    }
-
-    getCheckpoint(runId: string): ResultAsync<WorkflowState | null, PersistenceError> {
-        return this.checkpoints.getCheckpoint(runId);
     }
 
     getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError> {

@@ -1,6 +1,7 @@
 import { inject, injectable } from 'tsyringe';
 import { randomUUID, createHash } from 'crypto';
-import type { IPersistenceAdapter, ILogger } from '@domain/ports';
+import type { ICheckpointRepository } from '@domain/ports/ICheckpointRepository';
+import type { ILogger } from '@domain/ports';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { RunCheckpointReason, RunLifecycleState } from '@domain/value-objects/RunLifecycle';
 import { canTransitionRunLifecycle } from '@domain/value-objects/RunLifecycle';
@@ -14,7 +15,7 @@ export class RunDurabilityService {
     private readonly checkpointBranchByRun = new Map<string, string>();
 
     constructor(
-        @inject('IPersistenceAdapter') private readonly persistence: IPersistenceAdapter,
+        @inject('ICheckpointRepository') private readonly persistence: ICheckpointRepository,
         @inject('ILogger') private readonly logger: ILogger
     ) {}
 

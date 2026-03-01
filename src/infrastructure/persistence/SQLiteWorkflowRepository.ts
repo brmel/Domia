@@ -124,7 +124,7 @@ export class SQLiteWorkflowRepository {
                     workflow_run_id: stepRun.workflowRunId,
                     step_id: stepRun.stepId,
                     step_index: stepRun.stepIndex,
-                    test_run_id: stepRun.runId ?? null,
+                    run_id: stepRun.runId ?? null,
                     status: stepRun.status,
                     summary: stepRun.summary ?? null,
                     started_at: stepRun.startedAt,
@@ -142,7 +142,7 @@ export class SQLiteWorkflowRepository {
                     ...(updates.workflowRunId !== undefined ? { workflow_run_id: updates.workflowRunId } : {}),
                     ...(updates.stepId !== undefined ? { step_id: updates.stepId } : {}),
                     ...(updates.stepIndex !== undefined ? { step_index: updates.stepIndex } : {}),
-                    ...(updates.runId !== undefined ? { test_run_id: updates.runId } : {}),
+                    ...(updates.runId !== undefined ? { run_id: updates.runId } : {}),
                     ...(updates.status !== undefined ? { status: updates.status } : {}),
                     ...(updates.summary !== undefined ? { summary: updates.summary } : {}),
                     ...(updates.startedAt !== undefined ? { started_at: updates.startedAt } : {}),
@@ -179,7 +179,7 @@ export class SQLiteWorkflowRepository {
                         workflowStepSetClauses.push('completed_at = @step_completed_at');
                     }
                     if (payload.workflowStepRunUpdates.runId !== undefined) {
-                        workflowStepSetClauses.push('test_run_id = @step_test_run_id');
+                        workflowStepSetClauses.push('run_id = @step_linked_run_id');
                     }
 
                     if (payload.workflowRunUpdates.summary !== undefined) {
@@ -197,7 +197,7 @@ export class SQLiteWorkflowRepository {
                         step_status: payload.workflowStepRunUpdates.status,
                         step_summary: payload.workflowStepRunUpdates.summary ?? null,
                         step_completed_at: payload.workflowStepRunUpdates.completedAt ?? null,
-                        step_test_run_id: payload.workflowStepRunUpdates.runId ?? null,
+                        step_linked_run_id: payload.workflowStepRunUpdates.runId ?? null,
                         step_run_id: payload.workflowStepRunId
                     });
 
@@ -251,7 +251,7 @@ export class SQLiteWorkflowRepository {
             workflowRunId: row.workflow_run_id,
             stepId: row.step_id,
             stepIndex: row.step_index,
-            ...(row.test_run_id ? { runId: row.test_run_id } : {}),
+            ...(row.run_id ? { runId: row.run_id } : {}),
             status: row.status as WorkflowStepRunRecord['status'],
             ...(row.summary ? { summary: row.summary } : {}),
             startedAt: row.started_at,

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { trpc } from '../../trpc';
 import type { WorkflowEvent } from '@domain/events';
 import { platformRegistry, type PlatformFieldValue } from '../../config/platformRegistry';
-import type { BuiltInPlatformType, PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../../domain/types/PlatformConfig';
+import type { PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../../domain/types/PlatformConfig';
+import type { UIPlatformType } from '../../config/platformRegistry';
 import {
     appendStepToList,
     type EditableWorkflowStep,
@@ -18,7 +19,7 @@ export interface WorkflowEventView {
 }
 
 function buildPlatformConfig(
-    platform: BuiltInPlatformType,
+    platform: UIPlatformType,
     fieldValue: PlatformFieldValue
 ): PlatformConfig {
     switch (platform) {
@@ -31,8 +32,7 @@ function buildPlatformConfig(
             return { platform: 'electron', connection: electronFields.connection };
         }
         default: {
-            const exhaustive: never = platform;
-            throw new Error(`Unsupported workflow platform: ${String(exhaustive)}`);
+            throw new Error(`Unsupported workflow platform: ${String(platform)}`);
         }
     }
 }
@@ -66,7 +66,7 @@ export function useWorkflowWorkspace() {
     const [selectedRunId, setSelectedRunId] = useState<string>('');
     const [workflowName, setWorkflowName] = useState('Smoke Workflow');
     const [workflowDescription, setWorkflowDescription] = useState('');
-    const [selectedPlatform, setSelectedPlatform] = useState<BuiltInPlatformType>('web');
+    const [selectedPlatform, setSelectedPlatform] = useState<UIPlatformType>('web');
     const [platformData, setPlatformData] = useState<PlatformFieldValue>(platformRegistry.web.defaultValues);
     const [steps, setSteps] = useState<Array<EditableWorkflowStep>>([
         {
@@ -156,10 +156,10 @@ export function useWorkflowWorkspace() {
 
         setWorkflowName(selectedDefinition.name);
         setWorkflowDescription(selectedDefinition.description ?? '');
-        setSelectedPlatform(selectedDefinition.platformConfig.platform as BuiltInPlatformType);
+        setSelectedPlatform(selectedDefinition.platformConfig.platform as UIPlatformType);
         if (selectedDefinition.platformConfig.platform === 'web') {
             setPlatformData({ url: selectedDefinition.platformConfig.url });
-        } else {
+        } else if (selectedDefinition.platformConfig.platform === 'electron') {
             setPlatformData({ connection: selectedDefinition.platformConfig.connection });
         }
         setSteps(

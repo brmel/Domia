@@ -1,5 +1,4 @@
 import type { AgentAction } from '@domain/value-objects';
-import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import type { StepTrace } from './ITraceService';
 
 export type StepExecutionResult =
@@ -23,7 +22,6 @@ export interface AgentRunnerEvent {
     readonly action: AgentAction;
     readonly actionIndex: number;
     readonly trace: Partial<StepTrace>;
-    readonly capturedFrame?: PerceptionFrame | undefined;
 }
 
 export interface StepRunnerConfig {
@@ -31,12 +29,13 @@ export interface StepRunnerConfig {
     readonly stepGoal: string;
     readonly url: string;
     readonly maxActions: number;
+    readonly maxElements: number;
     readonly vision: boolean;
 }
 
 export interface IAgentRunner {
     executeStep(
         config: StepRunnerConfig,
-        automation: import('./IAppAutomation').IAppAutomation,
+        automation: import('./IAppAutomation').IStructuredAutomation,
     ): AsyncGenerator<AgentRunnerEvent, StepExecutionResult, unknown>;
 }

@@ -1,21 +1,18 @@
-import { z } from 'zod';
-import type { IAppAutomation } from '@domain/ports';
-import { formatElements, type ToolSpec } from './ToolSpec';
+import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
+import { formatInteractiveNodes } from './formatInteractiveNodes';
 import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import type { IPerceptionPipeline } from '@domain/ports';
 
-const CAPTURE_SKIPPED: Record<string, unknown> = { status: 'success', capture: 'skipped' };
-
-const captureSchema = {
-    capture: z.boolean().optional().describe('If false, skip post-action page capture. Default true.'),
-    captureDelayMs: z.number().int().nonnegative().optional().describe('Ms to wait before capturing (animations/network). Default 0.'),
-};
-
+/**
+ * Provides on-demand perception capture for the `observe` tool.
+ * No longer wraps action tools — the agent explicitly calls `observe` when it needs page state.
+ */
 export class PostActionCaptureMiddleware {
     constructor(
-        private readonly automation: IAppAutomation,
+        private readonly perceptionSource: IPerceptionSource,
         private readonly perception: IPerceptionPipeline,
         private readonly vision: boolean,
+        private readonly maxElements: number = 50,
         private readonly onCapture?: (frame: PerceptionFrame) => void | Promise<void>,
     ) {}
 
@@ -23,10 +20,9 @@ export class PostActionCaptureMiddleware {
         if (delayMs && delayMs > 0) {
             await new Promise((resolve) => setTimeout(resolve, delayMs));
         }
-        await this.automation.waitForDOMStable();
 
         const useVision = visionOverride ?? this.vision;
-        const frameResult = await this.perception.capture(this.automation, { dom: true, aria: true, vision: useVision });
+        const frameResult = await this.perception.capture(this.perceptionSource, { dom: true, aria: true, vision: useVision });
 
         if (frameResult.isErr()) {
             return { status: 'error', error: `Perception capture failed: ${frameResult.error.message}` };
@@ -38,15 +34,12 @@ export class PostActionCaptureMiddleware {
             try { await this.onCapture(frame); } catch { /* persistence must not break agent loop */ }
         }
 
-        const viewport = await this.automation.getViewportSize();
-
         const result: Record<string, unknown> = {
             status: 'success',
             currentUrl: frame.metadata.url,
             pageTitle: frame.metadata.title,
-            viewport: `${viewport.width}x${viewport.height}`,
             elementCount: frame.semantic.dom.elements.length,
-            elements: formatElements(frame.semantic.dom.elements),
+            elements: formatInteractiveNodes(frame.semantic.dom.elements, this.maxElements),
         };
 
         if (useVision && frame.vision.primaryScreenshot) {
@@ -58,20 +51,5 @@ export class PostActionCaptureMiddleware {
         }
 
         return result;
-    }
-
-    wrap(spec: ToolSpec): ToolSpec {
-        if (!spec.capturable) return spec;
-
-        return {
-            ...spec,
-            parameters: z.object({ ...spec.parameters.shape, ...captureSchema }),
-            execute: async (args: Record<string, unknown>) => {
-                const result = await Promise.resolve(spec.execute(args));
-                if (result['status'] === 'error') return result;
-                if (args['capture'] === false) return CAPTURE_SKIPPED;
-                return this.capture(args['captureDelayMs'] as number | undefined);
-            },
-        };
     }
 }

@@ -1,6 +1,6 @@
 import { inject, injectable } from 'tsyringe';
 import type { RunInput } from '../../dtos';
-import type { ILogger, IAppAutomation } from '../../../domain/ports';
+import type { ILogger, IStructuredAutomation } from '../../../domain/ports';
 import { WorkflowError } from '../../../domain/errors';
 import type { IAppDriverFactory, AppDriverCreateOptions } from '../../../domain/ports/IAppDriverFactory';
 import type { PlatformSession } from './PlatformSession';
@@ -28,7 +28,7 @@ export class PlatformSessionFactory {
             ...(driverOptions ? { options: driverOptions } : {})
         });
 
-        let automation: IAppAutomation;
+        let automation: IStructuredAutomation;
 
         try {
             automation = driver.getAutomation();
@@ -55,17 +55,28 @@ export class PlatformSessionFactory {
     }
 
     private getExecutionUrlFromInput(input: RunInput): string {
-        if (input.platformConfig?.platform === 'web') {
-            return input.platformConfig.url;
+        const config = input.platformConfig;
+
+        if (config?.platform === 'web') {
+            return config.url;
         }
 
-        if (input.platformConfig?.platform === 'electron') {
-            return input.platformConfig.connection.type === 'cdp'
-                ? input.platformConfig.connection.cdpUrl
+        if (config?.platform === 'electron') {
+            return config.connection.type === 'cdp'
+                ? config.connection.cdpUrl
                 : 'electron://app';
         }
 
-        throw new WorkflowError('Unable to resolve execution URL from provided input');
+        if (config?.platform === 'android') {
+            return `android://${(config as import('@domain/types/PlatformConfig').AndroidPlatformConfig).appPackage}`;
+        }
+
+        if (config?.platform === 'ios') {
+            return `ios://${(config as import('@domain/types/PlatformConfig').IosPlatformConfig).bundleId}`;
+        }
+
+        // Exhaustive — all PlatformConfig variants handled above
+        return `${(config as { platform: string }).platform}://app`;
     }
 
     private toDriverOptions(options: RunInput['options']): AppDriverCreateOptions | undefined {

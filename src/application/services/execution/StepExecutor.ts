@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import type { IAppAutomation, ITraceService, IStorageService, ILogger } from '@domain/ports';
+import type { IStructuredAutomation, ITraceService, IStorageService, ILogger } from '@domain/ports';
 import type { IAgentRunner, StepExecutionResult } from '@domain/ports/IAgentRunner';
 import type { AgentAction } from '@domain/value-objects';
 
@@ -8,7 +8,6 @@ export type { StepExecutionResult } from '@domain/ports/IAgentRunner';
 export interface AgentActionEvent {
     readonly type: 'action';
     readonly action: AgentAction;
-    readonly assets?: Record<string, string> | undefined;
 }
 
 @injectable()
@@ -23,18 +22,19 @@ export class StepExecutor {
     async *executeStep(
         runId: string,
         stepGoal: string,
-        automation: IAppAutomation,
+        automation: IStructuredAutomation,
         url: string,
         options: {
             vision: boolean;
             maxActions: number;
+            maxElements?: number;
             [key: string]: unknown;
         } = { vision: true, maxActions: 20 },
     ): AsyncGenerator<AgentActionEvent, StepExecutionResult, unknown> {
         await this.trace.startTrace(runId);
 
         const gen = this.agentRunner.executeStep(
-            { runId, stepGoal, url, maxActions: options.maxActions, vision: options.vision },
+            { runId, stepGoal, url, maxActions: options.maxActions, maxElements: options.maxElements ?? 50, vision: options.vision },
             automation,
         );
 
@@ -42,22 +42,13 @@ export class StepExecutor {
         while (!next.done) {
             const event = next.value;
 
-            let assets: Record<string, string> | undefined;
-            if (event.capturedFrame) {
-                try {
-                    assets = await this.storage.savePerceptionAssets(runId, event.actionIndex, event.capturedFrame);
-                } catch {
-                    this.logger.warn(`[StepExecutor] Failed to save perception assets for action ${event.actionIndex}`);
-                }
-            }
-
             try {
                 await this.storage.saveStepTrace(runId, event.actionIndex, event.trace);
             } catch {
                 this.logger.warn(`[StepExecutor] Failed to save step trace for action ${event.actionIndex}`);
             }
 
-            yield { type: 'action', action: event.action, assets };
+            yield { type: 'action', action: event.action };
 
             next = await gen.next();
         }

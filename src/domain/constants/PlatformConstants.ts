@@ -1,6 +1,8 @@
 export enum Platform {
     WEB = 'web',
     ELECTRON = 'electron',
+    ANDROID = 'android',
+    IOS = 'ios',
 }
 
 export const CDP_CONSTANTS = {
@@ -18,7 +20,6 @@ export const TOOL_TIMEOUTS = {
     NAVIGATION_MS: 30000,
     ELEMENT_WAIT_MS: 10000,
     DEFAULT_SCREENSHOT_TIMEOUT_MS: 30000,
-    CDP_RETRY_DELAY_MS: 1000,
     HIGHLIGHT_DURATION_MS: 1000
 } as const;
 

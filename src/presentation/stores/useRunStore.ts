@@ -5,7 +5,7 @@ import type { AgentAction, RunId } from '@domain/value-objects';
 import type { Plan } from '@domain/entities/Plan';
 import type { RecoveryReplayTelemetry, ReplanningTelemetry } from '@application/dtos';
 import { RunState } from '@domain/enums/RunState';
-import type { BuiltInPlatformType } from '../../domain/types/PlatformConfig';
+import type { UIPlatformType } from '../config/platformRegistry';
 import type { PlatformFieldValue } from '../config/platformRegistry';
 
 export interface RunStoreState {
@@ -24,7 +24,7 @@ export interface RunStoreState {
 
     url: string;
     prompt: string;
-    selectedPlatform: BuiltInPlatformType;
+    selectedPlatform: UIPlatformType;
     platformData: PlatformFieldValue;
 
     recoveryReplay: RecoveryReplayTelemetry | null;
@@ -36,7 +36,7 @@ interface TestRunActions {
 
     setUrl: (url: string) => void;
     setPrompt: (prompt: string) => void;
-    setSelectedPlatform: (platform: BuiltInPlatformType) => void;
+    setSelectedPlatform: (platform: UIPlatformType) => void;
     setPlatformData: (data: PlatformFieldValue) => void;
     setStatus: (status: RunState) => void;
 
@@ -75,7 +75,7 @@ export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
             : state.platformData
     })),
     setPrompt: (prompt: string): void => set({ prompt }),
-    setSelectedPlatform: (selectedPlatform: BuiltInPlatformType): void => set({ selectedPlatform }),
+    setSelectedPlatform: (selectedPlatform: UIPlatformType): void => set({ selectedPlatform }),
     setPlatformData: (platformData: PlatformFieldValue): void => set({
         platformData,
         ...(get().selectedPlatform === 'web' && 'url' in platformData && typeof platformData.url === 'string'

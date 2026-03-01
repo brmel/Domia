@@ -1,15 +1,20 @@
 import { z } from 'zod';
 import { WebConfigSchema } from './validation/platforms/web';
 import { ElectronConfigSchema } from './validation/platforms/electron';
+import { AndroidConfigSchema } from './validation/platforms/android';
+import { IosConfigSchema } from './validation/platforms/ios';
 
 export const PlatformConfigSchema = z.discriminatedUnion('platform', [
   WebConfigSchema,
   ElectronConfigSchema,
+  AndroidConfigSchema,
+  IosConfigSchema,
 ]);
 
 export const RunOptionsSchema = z.object({
   headless: z.boolean().optional(),
   maxSteps: z.number().int().positive().optional(),
+  maxElements: z.number().int().min(10).max(200).optional(),
   maxDurationMs: z.number().int().positive().optional(),
   maxEstimatedTokens: z.number().int().positive().optional(),
   maxRetries: z.number().int().nonnegative().optional(),

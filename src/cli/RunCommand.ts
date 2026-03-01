@@ -25,9 +25,7 @@ export class RunCommand {
             .option('-p, --prompt <prompt>', 'Goal or instruction for the agent')
             .option('-s, --steps <steps>', 'Max steps', '10')
             .option('-H, --no-headless', 'Run in headful mode (visible window)', false)
-            .option('--provider <provider>', 'LLM provider: google')
             .option('--model <model>', 'LLM model name (e.g., gemini-2.0-flash)')
-            .option('--base-url <url>', 'LLM base URL override')
             .option('--api-key <key>', 'LLM API key override for this run')
             .option('--verbose', 'Enable verbose artifact export', false)
             .option('--debug', 'Enable debug logging', false)
@@ -51,9 +49,7 @@ export class RunCommand {
                     executablePath,
                     launchArgs,
                     windowTitle,
-                    provider,
                     model,
-                    baseUrl,
                     apiKey
                 } = options;
 
@@ -61,24 +57,21 @@ export class RunCommand {
 
                 const configService = container.resolve<import('../domain/ports/IConfigService').IConfigService>('IConfigService');
                 const currentConfig = configService.get();
-                const resolvedProvider = provider || currentConfig.ai.provider;
                 const resolvedModel = model || currentConfig.ai.model;
-                const resolvedBaseUrl = baseUrl || currentConfig.ai.baseUrl;
                 const resolvedApiKey = apiKey || currentConfig.ai.apiKey;
                 const updates = {
                     ai: {
-                        provider: resolvedProvider,
+                        provider: 'google' as const,
                         model: resolvedModel,
                         ...(resolvedApiKey ? { apiKey: resolvedApiKey } : {}),
-                        ...(resolvedBaseUrl ? { baseUrl: resolvedBaseUrl } : {}),
                         visionEnabled: !!vision,
                         debugScreenshots: !!screenshots
                     }
                 };
                 configService.update(updates);
 
-                if (provider || model || baseUrl) {
-                    console.log(chalk.gray(`[LLM] provider=${resolvedProvider} model=${resolvedModel}${resolvedBaseUrl ? ` baseUrl=${resolvedBaseUrl}` : ''}`));
+                if (model) {
+                    console.log(chalk.gray(`[LLM] provider=google model=${resolvedModel}`));
                 }
 
                 if (debug) {

@@ -1,11 +1,10 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
 import { IPerceptionPipeline } from '@domain/ports/IPerceptionPipeline';
-import type { Page } from 'playwright';
+import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 
 import type { ILogger } from '@domain/ports';
 import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
-import type { IAppAutomation } from '../../domain/ports/IAppAutomation';
 import { SnapshotError } from '@domain/errors';
 import { v4 as uuidv4 } from 'uuid';
 import { VisionSensor } from './sensors/VisionSensor';
@@ -23,24 +22,23 @@ export class PerceptionPipeline implements IPerceptionPipeline {
     ) { }
 
     capture(
-        automation: IAppAutomation,
+        source: IPerceptionSource,
         options: import('@domain/ports/IPerceptionPipeline').PerceptionOptions = { vision: true, aria: true, dom: true }
     ): ResultAsync<PerceptionFrame, SnapshotError> {
         this.logger.info(`[PerceptionPipeline] Starting capture sequence (Options: ${JSON.stringify(options)})`);
-        const page = this.resolvePage(automation);
 
-        if (!page) {
+        if (!source) {
             return ResultAsync.fromPromise(
-                Promise.reject(new Error('Automation adapter does not expose an active page for perception capture.')),
+                Promise.reject(new Error('No perception source provided.')),
                 e => new SnapshotError(`Sensor capture failed: ${String(e)}`)
             );
         }
 
         const capturePromise = Promise.all([
-            options.vision ? this.visionSensor.capture(page) : Promise.resolve({ screenshots: [], mimeType: 'image/jpeg' }),
-            options.aria ? this.ariaSensor.capture(page) : Promise.resolve(null),
-            options.dom ? this.domSensor.capture(page) : Promise.resolve(Object.freeze({
-                url: page.url(),
+            options.vision ? this.visionSensor.capture(source) : Promise.resolve({ screenshots: [], mimeType: 'image/jpeg' }),
+            options.aria ? this.ariaSensor.capture(source) : Promise.resolve(null),
+            options.dom ? this.domSensor.capture(source) : Promise.resolve(Object.freeze({
+                url: source.getUrl(),
                 title: '',
                 rootElements: {
                     html: {},
@@ -71,33 +69,5 @@ export class PerceptionPipeline implements IPerceptionPipeline {
             };
             return frame;
         });
-    }
-
-    private resolvePage(automation: IAppAutomation): Page | null {
-        const candidate = automation as unknown as { getPage?: () => unknown; page?: unknown };
-
-        if (typeof candidate.getPage === 'function') {
-            const resolved = candidate.getPage();
-            if (this.isPage(resolved)) {
-                return resolved;
-            }
-        }
-
-        if (this.isPage(candidate.page)) {
-            return candidate.page;
-        }
-
-        return null;
-    }
-
-    private isPage(value: unknown): value is Page {
-        if (!value || typeof value !== 'object') {
-            return false;
-        }
-
-        const pageCandidate = value as Partial<Page>;
-        return typeof pageCandidate.url === 'function'
-            && typeof pageCandidate.screenshot === 'function'
-            && typeof pageCandidate.evaluate === 'function';
     }
 }

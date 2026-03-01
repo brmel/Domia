@@ -4,17 +4,16 @@ import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { AgentAction } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
 import { RunState } from '@domain/enums/RunState';
-import type { ILogger, IPersistenceAdapter, Step, IAppAutomation } from '@domain/ports';
+import type { ILogger, Step, IStructuredAutomation } from '@domain/ports';
+import type { IRunRepository } from '@domain/ports/IRunRepository';
 import { WorkflowError } from '@domain/errors';
 import type { RunInput } from '@application/dtos';
 import type { ExecutionController } from '@application/controllers/ExecutionController';
 import type { RunDurabilityService } from './RunDurabilityService';
 import type { CheckpointCompactionService } from './CheckpointCompactionService';
-import type { RecoveryReadModelService } from './RecoveryReadModelService';
+import type { RecoveryEligibilityService, RecoveryMode } from './RecoveryEligibilityService';
 import type { ManualRecoveryBootstrapService } from './ManualRecoveryBootstrapService';
-import type { RecoveryMode, RunRecoveryPolicyService } from './RunRecoveryPolicyService';
-import type { RecoveryReplayGuardService } from './RecoveryReplayGuardService';
-import type { RecoveryReplayIdempotencyService } from './RecoveryReplayIdempotencyService';
+import type { RecoveryReplayService } from './RecoveryReplayService';
 import type { BranchRollbackService } from './BranchRollbackService';
 import type { Plan } from '@domain/entities/Plan';
 
@@ -33,15 +32,13 @@ export type RecoveryReplayOutcome =
     | { readonly type: 'failed'; readonly reason: string; readonly replayedCount: number };
 
 export interface RunRecoveryDependencies {
-    readonly persistence: IPersistenceAdapter;
+    readonly persistence: IRunRepository;
     readonly durability: RunDurabilityService;
     readonly checkpointCompaction: CheckpointCompactionService;
     readonly branchRollback: BranchRollbackService;
-    readonly recoveryReadModel: RecoveryReadModelService;
+    readonly recoveryEligibility: RecoveryEligibilityService;
     readonly recoveryBootstrap: ManualRecoveryBootstrapService;
-    readonly recoveryPolicy: RunRecoveryPolicyService;
-    readonly recoveryReplayGuard: RecoveryReplayGuardService;
-    readonly recoveryReplayIdempotency: RecoveryReplayIdempotencyService;
+    readonly recoveryReplay: RecoveryReplayService;
     readonly logger: ILogger;
 }
 
@@ -57,9 +54,9 @@ export async function resolveRecoveryContext(
 
     const checkpoints = await dependencies.durability.getCheckpointRecords(recoveryRunId);
     const compactedView = dependencies.checkpointCompaction.compact(recoveryRunId, checkpoints);
-    const readModel = dependencies.recoveryReadModel.build(recoveryRunId, compactedView.compacted);
+    const readModel = dependencies.recoveryEligibility.buildReadModel(recoveryRunId, compactedView.compacted);
     const recoveryMode: RecoveryMode = input.options?.recoveryMode ?? 'manual-only';
-    const decision = dependencies.recoveryPolicy.decide(readModel, recoveryMode);
+    const decision = dependencies.recoveryEligibility.evaluatePolicy(readModel, recoveryMode);
 
     dependencies.logger.info('[RunUseCase] Recovery decision evaluated', {
         recoveryRunId,
@@ -124,7 +121,7 @@ export async function replayRecoveryActions(
         runId: string;
         sourceRunId: string;
         sourceBranchId: string;
-        automation: IAppAutomation;
+        automation: IStructuredAutomation;
         controller: ExecutionController;
         state: WorkflowState;
         targetStepNumber: number;
@@ -159,7 +156,7 @@ export async function replayRecoveryActions(
         }
 
         const action = sourceStep.actionPayload;
-        const decision = dependencies.recoveryReplayGuard.decide(action);
+        const decision = dependencies.recoveryReplay.guardAction(action);
 
         if (decision.decision === 'block') {
             return {
@@ -180,7 +177,7 @@ export async function replayRecoveryActions(
             continue;
         }
 
-        const scopedIdempotencyKey = dependencies.recoveryReplayIdempotency.buildNodeReplayKey({
+        const scopedIdempotencyKey = dependencies.recoveryReplay.buildNodeReplayKey({
             runId: runId,
             branchId: sourceBranchId,
             nodeId: sourceStep.id,
@@ -189,7 +186,7 @@ export async function replayRecoveryActions(
 
         let shouldExecute = true;
         try {
-            shouldExecute = await dependencies.recoveryReplayIdempotency.shouldExecute(runId, scopedIdempotencyKey);
+            shouldExecute = await dependencies.recoveryReplay.shouldExecute(runId, scopedIdempotencyKey);
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error);
             return {
@@ -222,7 +219,7 @@ export async function replayRecoveryActions(
         }
 
         try {
-            await dependencies.recoveryReplayIdempotency.markExecuted(runId, scopedIdempotencyKey);
+            await dependencies.recoveryReplay.markExecuted(runId, scopedIdempotencyKey);
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error);
             return {
@@ -263,7 +260,7 @@ export async function replayRecoveryActions(
     return { type: 'ok', state: nextState, replayedCount };
 }
 
-async function executeReplayAction(automation: IAppAutomation, action: AgentAction): Promise<void> {
+async function executeReplayAction(automation: IStructuredAutomation, action: AgentAction): Promise<void> {
     switch (action.type) {
         case ActionType.WAIT: {
             const result = await automation.wait(action.durationMs);

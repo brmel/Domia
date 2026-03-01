@@ -1,15 +1,13 @@
-import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
 import { IAppDriver, AppCapabilities } from '../../domain/ports/IAppDriver';
 import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
 import type { ILogger } from '../../domain/ports';
 import { Platform } from '../../domain/constants/PlatformConstants';
 
-@injectable()
 export class WebDriver implements IAppDriver {
     constructor(
-        @inject(PlaywrightAdapter) private playwright: PlaywrightAdapter,
-        @inject('ILogger') private logger: ILogger
+        private readonly playwright: PlaywrightAdapter,
+        private readonly logger: ILogger
     ) { }
 
     connect(config?: { headless?: boolean }): ResultAsync<void, Error> {
@@ -33,7 +31,7 @@ export class WebDriver implements IAppDriver {
         };
     }
 
-    getAutomation(): import('../../domain/ports').IAppAutomation {
+    getAutomation(): import('../../domain/ports').IStructuredAutomation {
         return this.playwright;
     }
 }

@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe';
-import { Page } from 'playwright';
+import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 
 interface RawElement {
     id: number;
@@ -14,7 +14,7 @@ interface RawElement {
 @injectable()
 export class DomScanner {
 
-    async scan(page: Page): Promise<RawElement[]> {
+    async scan(source: IPerceptionSource): Promise<RawElement[]> {
         const extractionScript = `
             (() => {
                 // Phase 1: query explicit interactive selectors
@@ -135,7 +135,7 @@ export class DomScanner {
         `;
 
         try {
-            return await page.evaluate(extractionScript) as RawElement[];
+            return await source.evaluateScript(extractionScript) as RawElement[];
         } catch (_) {
             return [];
         }

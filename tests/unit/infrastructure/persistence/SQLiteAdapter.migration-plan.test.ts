@@ -6,7 +6,8 @@ describe('SQLiteAdapter migration plan', () => {
     it('keeps deterministic migration ordering', () => {
         expect(SQLITE_MIGRATION_IDS).toEqual([
             '20260213_baseline_v1',
-            '20260213_workflow_indexes_v1'
+            '20260213_workflow_indexes_v1',
+            '20260214_rename_legacy_tables_v1'
         ]);
     });
 });

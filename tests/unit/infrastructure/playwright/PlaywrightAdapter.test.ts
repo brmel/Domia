@@ -41,7 +41,7 @@ function createPage(options?: { url?: string; closed?: boolean }) {
 describe('PlaywrightAdapter lifecycle recovery', () => {
     it('recovers a closed active page from existing browser contexts', () => {
         const logger = createLogger();
-        const adapter = new PlaywrightAdapter(undefined, logger);
+        const adapter = new PlaywrightAdapter(logger);
 
         const closed = createPage({ url: 'about:blank', closed: true });
         const candidate = createPage({ url: 'https://app.local', closed: false });
@@ -67,7 +67,7 @@ describe('PlaywrightAdapter lifecycle recovery', () => {
 
     it('nulls active page when close lifecycle event is emitted', () => {
         const logger = createLogger();
-        const adapter = new PlaywrightAdapter(undefined, logger);
+        const adapter = new PlaywrightAdapter(logger);
 
         const attached = createPage({ url: 'https://app.local', closed: false });
         const browser = {

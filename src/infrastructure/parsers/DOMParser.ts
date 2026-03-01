@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import { Page } from 'playwright';
+import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 import { DOMElement, ElementIdFactory } from '@domain/value-objects';
 import type { ILogger } from '@domain/ports';
 import { DomScanner } from '../perception/DomScanner';
@@ -11,13 +11,13 @@ export class DOMParser {
         @inject(DomScanner) private domSensor: DomScanner
     ) { }
 
-    async parse(page: Page): Promise<DOMElement[]> {
+    async parse(source: IPerceptionSource): Promise<DOMElement[]> {
         this.logger.debug('[DOMParser] Extracting interactive elements');
-        return this.doParse(page);
+        return this.doParse(source);
     }
 
-    private async doParse(page: Page): Promise<DOMElement[]> {
-        const raw = await this.domSensor.scan(page);
+    private async doParse(source: IPerceptionSource): Promise<DOMElement[]> {
+        const raw = await this.domSensor.scan(source);
 
         const elements = raw.map((el): DOMElement => ({
             id: ElementIdFactory.unsafe(el.id),

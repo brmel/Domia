@@ -1,10 +1,10 @@
 import { ResultAsync } from 'neverthrow';
 import { Kysely } from 'kysely';
-import type { Step, LogEntry } from '@domain/ports';
+import type { Step } from '@domain/ports';
 import { Run, RunStatus } from '@domain/entities/Run';
 import { RunId, Url } from '@domain/value-objects';
 import { PersistenceError } from '@domain/errors';
-import type { DatabaseSchema, TestRunTable, TestStepTable } from './DatabaseSchema';
+import type { DatabaseSchema, RunTable, StepTable } from './DatabaseSchema';
 
 export class SQLiteRunRepository {
     constructor(private readonly db: Kysely<DatabaseSchema>) {}
@@ -26,7 +26,7 @@ export class SQLiteRunRepository {
         const startedAt = run.startedAt ? run.startedAt.toISOString() : run.createdAt.toISOString();
 
         return ResultAsync.fromPromise(
-            this.db.insertInto('test_runs')
+            this.db.insertInto('runs')
                 .values({
                     id: run.id,
                     url: run.url,
@@ -43,7 +43,7 @@ export class SQLiteRunRepository {
     }
 
     updateRun(id: string, updates: Partial<Run>): ResultAsync<void, PersistenceError> {
-        const values: Partial<TestRunTable> = {};
+        const values: Partial<RunTable> = {};
 
         if (updates.status) {
             values.status = updates.status.type;
@@ -65,7 +65,7 @@ export class SQLiteRunRepository {
         }
 
         return ResultAsync.fromPromise(
-            this.db.updateTable('test_runs')
+            this.db.updateTable('runs')
                 .set(values)
                 .where('id', '=', id)
                 .execute(),
@@ -75,10 +75,10 @@ export class SQLiteRunRepository {
 
     saveStep(step: Step): ResultAsync<void, PersistenceError> {
         return ResultAsync.fromPromise(
-            this.db.insertInto('test_steps')
+            this.db.insertInto('steps')
                 .values({
                     id: step.id,
-                    test_run_id: step.runId,
+                    run_id: step.runId,
                     step_number: step.stepNumber,
                     action_type: step.actionType,
                     action_payload: JSON.stringify(step.actionPayload),
@@ -90,24 +90,9 @@ export class SQLiteRunRepository {
         ).map(() => undefined);
     }
 
-    saveLog(log: LogEntry): ResultAsync<void, PersistenceError> {
-        return ResultAsync.fromPromise(
-            this.db.insertInto('logs')
-                .values({
-                    test_run_id: log.runId,
-                    level: log.level,
-                    message: log.message,
-                    metadata: log.metadata ? JSON.stringify(log.metadata) : null,
-                    timestamp: log.timestamp
-                })
-                .execute(),
-            (e) => new PersistenceError(`Failed to save log: ${e}`)
-        ).map(() => undefined);
-    }
-
     getRuns(limit: number = 50): ResultAsync<Run[], PersistenceError> {
         return ResultAsync.fromPromise(
-            this.db.selectFrom('test_runs')
+            this.db.selectFrom('runs')
                 .selectAll()
                 .orderBy('started_at', 'desc')
                 .limit(limit)
@@ -118,7 +103,7 @@ export class SQLiteRunRepository {
 
     getRun(id: string): ResultAsync<Run | null, PersistenceError> {
         return ResultAsync.fromPromise(
-            this.db.selectFrom('test_runs')
+            this.db.selectFrom('runs')
                 .selectAll()
                 .where('id', '=', id)
                 .executeTakeFirst(),
@@ -128,9 +113,9 @@ export class SQLiteRunRepository {
 
     getSteps(runId: string): ResultAsync<Step[], PersistenceError> {
         return ResultAsync.fromPromise(
-            this.db.selectFrom('test_steps')
+            this.db.selectFrom('steps')
                 .selectAll()
-                .where('test_run_id', '=', runId)
+                .where('run_id', '=', runId)
                 .orderBy('step_number', 'asc')
                 .execute(),
             (e) => new PersistenceError(`Failed to get steps: ${e}`)
@@ -140,20 +125,20 @@ export class SQLiteRunRepository {
     clearHistory(db: Kysely<DatabaseSchema>): ResultAsync<void, PersistenceError> {
         return ResultAsync.fromPromise(
             (async (): Promise<void> => {
-                await db.deleteFrom('test_steps').execute();
+                await db.deleteFrom('steps').execute();
                 await db.deleteFrom('logs').execute();
                 await db.deleteFrom('workflow_checkpoints').execute();
                 await db.deleteFrom('replay_idempotency_keys').execute();
                 await db.deleteFrom('workflow_step_runs').execute();
                 await db.deleteFrom('workflow_runs').execute();
                 await db.deleteFrom('workflow_definitions').execute();
-                await db.deleteFrom('test_runs').execute();
+                await db.deleteFrom('runs').execute();
             })(),
             (e) => new PersistenceError(`Failed to clear history: ${e}`)
         ).map(() => undefined);
     }
 
-    private mapToRun(row: TestRunTable): Run {
+    private mapToRun(row: RunTable): Run {
         let status: RunStatus;
 
         if (row.status === 'passed') {
@@ -179,11 +164,11 @@ export class SQLiteRunRepository {
         };
     }
 
-    private mapToStep(row: TestStepTable): Step {
+    private mapToStep(row: StepTable): Step {
         const action = JSON.parse(row.action_payload);
         return {
             id: row.id,
-            runId: row.test_run_id,
+            runId: row.run_id,
             stepNumber: row.step_number,
             actionType: row.action_type as import('@domain/enums/ActionType').ActionType,
             actionPayload: action,

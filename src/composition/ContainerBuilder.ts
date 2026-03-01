@@ -7,12 +7,11 @@ import { ConsoleLogger } from '@infrastructure/logger/ConsoleLogger';
 import { RunUseCase } from '@application/use-cases';
 
 // ── Platform ──
-import { PlaywrightAdapter } from '@infrastructure/playwright';
 import {
-    WebDriver,
-    ElectronDriver,
     WebDriverProvider,
     ElectronDriverProvider,
+    AndroidDriverProvider,
+    IosDriverProvider,
     AppDriverFactory,
 } from '@infrastructure/drivers';
 import { PlatformSessionFactory } from '@application/services/platform/PlatformSessionFactory';
@@ -23,11 +22,9 @@ import { InMemoryRunExecutionLaneService } from '@application/services/execution
 import { RunDurabilityService } from '@application/services/execution/RunDurabilityService';
 import { RunBudgetPolicyService } from '@application/services/execution/RunBudgetPolicyService';
 import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
-import { RecoveryReadModelService } from '@application/services/execution/RecoveryReadModelService';
+import { RecoveryEligibilityService } from '@application/services/execution/RecoveryEligibilityService';
 import { ManualRecoveryBootstrapService } from '@application/services/execution/ManualRecoveryBootstrapService';
-import { RunRecoveryPolicyService } from '@application/services/execution/RunRecoveryPolicyService';
-import { RecoveryReplayGuardService } from '@application/services/execution/RecoveryReplayGuardService';
-import { RecoveryReplayIdempotencyService } from '@application/services/execution/RecoveryReplayIdempotencyService';
+import { RecoveryReplayService } from '@application/services/execution/RecoveryReplayService';
 import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 import { BranchRollbackService } from '@application/services/execution/BranchRollbackService';
 import { StepExecutionKernelService } from '@application/services/execution/StepExecutionKernelService';
@@ -64,22 +61,19 @@ import { DebugExporter } from '@infrastructure/services/exporters/DebugExporter'
 import { TrajectoryExportService } from '@infrastructure/services/exporters/TrajectoryExportService';
 import type { IStorageService } from '@domain/ports/IStorageService';
 
-// ── CLI ──
-import { ConsoleViewHost } from '@infrastructure/view/ConsoleViewHost';
-
 export class ContainerBuilder {
     registerCore(): this {
         container.registerSingleton(ConfigService);
         container.register('IConfigService', { useToken: ConfigService });
         container.registerSingleton('IPersistenceAdapter', SQLiteAdapter);
+        container.register('IRunRepository', { useToken: 'IPersistenceAdapter' });
+        container.register('ICheckpointRepository', { useToken: 'IPersistenceAdapter' });
+        container.register('IWorkflowRepository', { useToken: 'IPersistenceAdapter' });
         container.registerSingleton('ILogger', ConsoleLogger);
         return this;
     }
 
     registerPlatform(): this {
-        container.registerSingleton(PlaywrightAdapter);
-        container.registerSingleton(WebDriver);
-        container.registerSingleton(ElectronDriver);
         container.registerSingleton(PlatformSessionFactory);
         container.registerSingleton(WebDriverProvider);
         container.registerSingleton(ElectronDriverProvider);
@@ -95,11 +89,9 @@ export class ContainerBuilder {
         container.registerSingleton(RunDurabilityService);
         container.registerSingleton(RunBudgetPolicyService);
         container.registerSingleton(CheckpointCompactionService);
-        container.registerSingleton(RecoveryReadModelService);
+        container.registerSingleton(RecoveryEligibilityService);
         container.registerSingleton(ManualRecoveryBootstrapService);
-        container.registerSingleton(RunRecoveryPolicyService);
-        container.registerSingleton(RecoveryReplayGuardService);
-        container.registerSingleton(RecoveryReplayIdempotencyService);
+        container.registerSingleton(RecoveryReplayService);
         container.registerSingleton(ReplanningPolicyService);
         container.registerSingleton(BranchRollbackService);
         container.registerSingleton(StepExecutionKernelService);
@@ -158,15 +150,12 @@ export class ContainerBuilder {
         return this;
     }
 
-    registerCliViewHost(): this {
-        container.register('IViewHost', { useClass: ConsoleViewHost });
-        return this;
-    }
-
     initializePlatformProviders(): this {
         const factory = container.resolve(AppDriverFactory);
         factory.registerProvider(container.resolve(WebDriverProvider));
         factory.registerProvider(container.resolve(ElectronDriverProvider));
+        factory.registerProvider(container.resolve(AndroidDriverProvider));
+        factory.registerProvider(container.resolve(IosDriverProvider));
         return this;
     }
 }

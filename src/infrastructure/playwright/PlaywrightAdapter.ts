@@ -1,21 +1,16 @@
-import { injectable, inject } from 'tsyringe';
 import { ResultAsync, okAsync, errAsync } from 'neverthrow';
 import { chromium, Browser, Page, ElementHandle } from 'playwright';
-import type { IAppAutomation, LaunchOptions, ILogger, IViewHost } from '@domain/ports';
+import type { IStructuredAutomation, LaunchOptions, ILogger, IPerceptionSource } from '@domain/ports';
 import type { Url, ElementId } from '@domain/value-objects';
 import { NavigationError, InteractionError } from '@domain/errors';
 import { TOOL_TIMEOUTS, SCROLL_CONSTANTS, AGENT_VIEW_CONFIG } from '@domain/constants/PlatformConstants';
+import { PlaywrightPerceptionSource } from './PlaywrightPerceptionSource';
 
-@injectable()
-export class PlaywrightAdapter implements IAppAutomation {
+export class PlaywrightAdapter implements IStructuredAutomation {
     private browser: Browser | null = null;
     private page: Page | null = null;
 
-
-    constructor(
-        @inject('IViewHost') private viewHost: IViewHost | undefined,
-        @inject('ILogger') private logger: ILogger
-    ) { }
+    constructor(private readonly logger: ILogger) { }
 
     launch(options: LaunchOptions): ResultAsync<void, NavigationError> {
         return ResultAsync.fromPromise(
@@ -31,99 +26,17 @@ export class PlaywrightAdapter implements IAppAutomation {
             this.logger.debug('[PlaywrightAdapter] Adapting view for headless: false');
         }
 
-        let wsEndpoint: string | null = null;
-        if (this.viewHost) {
-            try {
-                wsEndpoint = await this.viewHost.getCDPWebSocketURL();
-            } catch (error) {
-                this.logger.debug('[PlaywrightAdapter] ViewHost does not support CDP, falling back to standalone launch');
-            }
-        }
-
-        if (wsEndpoint) {
-            this.logger.debug(`[PlaywrightAdapter] Connecting to: ${wsEndpoint}`);
-
-            let retries = 3;
-            while (retries > 0) {
-                try {
-                    this.browser = await chromium.connectOverCDP({
-                        endpointURL: wsEndpoint,
-                        headers: { 'Upgrade': 'websocket' },
-                        timeout: TOOL_TIMEOUTS.CLICK_MS
-                    });
-                    break;
-                } catch (e) {
-                    retries--;
-                    this.logger.warn(`[PlaywrightAdapter] Connection attempt failed: ${e}. Retries left: ${retries}`);
-                    if (retries === 0) throw e;
-                    await new Promise(r => setTimeout(r, TOOL_TIMEOUTS.CDP_RETRY_DELAY_MS));
-                }
-            }
-
-            const contexts = this.browser!.contexts();
-            const appShellPrefix = process.env['VITE_DEV_SERVER_URL'];
-
-            const isAppShellPage = (url: string): boolean => {
-                if (!url) return false;
-                if (url.startsWith('file://')) return true;
-                if (appShellPrefix && url.startsWith(appShellPrefix)) return true;
-                return false;
-            };
-
-            const discoveredPages: Array<{ url: string; isDevTools: boolean; isExtension: boolean; isAppShell: boolean }> = [];
-            let preferredAgentPage: Page | null = null;
-            let fallbackNonShellPage: Page | null = null;
-
-            for (const ctx of contexts) {
-                const pages = ctx.pages();
-                for (const p of pages) {
-                    const url = p.url();
-                    const isDevTools = url.startsWith('devtools://');
-                    const isExtension = url.startsWith('chrome-extension://');
-                    const isAppShell = isAppShellPage(url);
-
-                    discoveredPages.push({ url, isDevTools, isExtension, isAppShell });
-
-                    if (!isDevTools && !isExtension) {
-                        if (url.includes('#domia-agent-view')) {
-                            preferredAgentPage = p;
-                        } else if (!isAppShell && !fallbackNonShellPage) {
-                            fallbackNonShellPage = p;
-                        }
-                    }
-                }
-            }
-
-            this.logger.debug('[PlaywrightAdapter] CDP pages discovered', { discoveredPages });
-
-            if (preferredAgentPage) {
-                this.page = preferredAgentPage;
-                this.attachPageLifecycleHandlers(this.page);
-                this.logger.info(`[PlaywrightAdapter] Selected tagged agent page at: ${preferredAgentPage.url()}`);
-                return;
-            }
-
-            if (fallbackNonShellPage) {
-                this.page = fallbackNonShellPage;
-                this.attachPageLifecycleHandlers(this.page);
-                this.logger.warn(`[PlaywrightAdapter] Tagged agent page not found; selected non-app target page: ${fallbackNonShellPage.url()}`);
-                return;
-            }
-
-            throw new NavigationError('Could not find a safe agent WebContentsView page (only app-shell/devtools targets detected)');
-        } else {
-            this.logger.info('[PlaywrightAdapter] Launching standalone browser');
-            this.browser = await chromium.launch({
-                headless: options.headless,
-                args: ['--no-sandbox', '--disable-setuid-sandbox']
-            });
-            const context = await this.browser.newContext({
-                ignoreHTTPSErrors: true
-            });
-            this.page = await context.newPage();
-            this.attachPageLifecycleHandlers(this.page);
-            this.logger.info('[PlaywrightAdapter] Created new page');
-        }
+        this.logger.info('[PlaywrightAdapter] Launching standalone browser');
+        this.browser = await chromium.launch({
+            headless: options.headless,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        const context = await this.browser.newContext({
+            ignoreHTTPSErrors: true
+        });
+        this.page = await context.newPage();
+        this.attachPageLifecycleHandlers(this.page);
+        this.logger.info('[PlaywrightAdapter] Created new page');
     }
 
     navigateTo(url: Url): ResultAsync<void, NavigationError> {
@@ -135,7 +48,7 @@ export class PlaywrightAdapter implements IAppAutomation {
         return ResultAsync.fromPromise(
             this.page.goto(url, { waitUntil: 'load', timeout: TOOL_TIMEOUTS.NAVIGATION_MS }),
             (e) => new NavigationError(`Navigation failed: ${String(e)}`)
-        ).andThen(() => ResultAsync.fromPromise(this.waitForDOMStable(), e => new NavigationError(String(e))));
+        ).andThen(() => ResultAsync.fromPromise(this.waitForReady(), e => new NavigationError(String(e))));
     }
 
     click(elementId: ElementId, options?: { force?: boolean; timeout?: number }): ResultAsync<void, InteractionError> {
@@ -317,10 +230,10 @@ export class PlaywrightAdapter implements IAppAutomation {
         return size ?? { width: AGENT_VIEW_CONFIG.DEFAULT_WIDTH, height: AGENT_VIEW_CONFIG.DEFAULT_HEIGHT };
     }
 
-    async waitForDOMStable(timeout: number = 5000): Promise<void> {
+    async waitForReady(timeout: number = 5000): Promise<void> {
         this.ensureRecoverablePage();
         if (!this.page) return;
-        this.logger.debug('[PlaywrightAdapter] Waiting for DOM stability');
+        this.logger.debug('[PlaywrightAdapter] Waiting for page ready');
         try {
             await Promise.all([
                 this.page.waitForLoadState('load', { timeout }),
@@ -342,6 +255,11 @@ export class PlaywrightAdapter implements IAppAutomation {
             this.browser = null;
         }
         this.page = null;
+    }
+
+    getPerceptionSource(): IPerceptionSource | null {
+        this.ensureRecoverablePage();
+        return this.page ? new PlaywrightPerceptionSource(this.page) : null;
     }
 
     getPage(): Page | null {

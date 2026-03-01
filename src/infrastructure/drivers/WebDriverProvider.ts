@@ -3,13 +3,13 @@ import type { IAppDriverProvider, AppDriverCreateConfig } from '@domain/ports/IA
 import type { IAppDriver } from '@domain/ports/IAppDriver';
 import type { ILogger } from '@domain/ports';
 import { WebDriver } from './WebDriver';
+import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
 
 @injectable()
 export class WebDriverProvider implements IAppDriverProvider {
     readonly platform = 'web' as const;
 
     constructor(
-        @inject(WebDriver) private readonly webDriver: WebDriver,
         @inject('ILogger') private readonly logger: ILogger,
     ) {}
 
@@ -18,7 +18,8 @@ export class WebDriverProvider implements IAppDriverProvider {
             throw new Error('[WebDriverProvider] Invalid platform config');
         }
 
-        const driver = this.webDriver;
+        const adapter = new PlaywrightAdapter(this.logger);
+        const driver = new WebDriver(adapter, this.logger);
         const connectResult = await driver.connect({
             headless: config.options?.headless ?? true,
         });

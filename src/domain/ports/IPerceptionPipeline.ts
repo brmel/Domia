@@ -1,7 +1,7 @@
 import { ResultAsync } from 'neverthrow';
 import { SnapshotError } from '../errors';
 import { PerceptionFrame } from '../value-objects/PerceptionFrame';
-import type { IAppAutomation } from './IAppAutomation';
+import type { IPerceptionSource } from './IPerceptionSource';
 
 export interface PerceptionOptions {
     vision?: boolean;
@@ -10,5 +10,5 @@ export interface PerceptionOptions {
 }
 
 export interface IPerceptionPipeline {
-    capture(automation: IAppAutomation, options?: PerceptionOptions): ResultAsync<PerceptionFrame, SnapshotError>;
+    capture(source: IPerceptionSource, options?: PerceptionOptions): ResultAsync<PerceptionFrame, SnapshotError>;
 }

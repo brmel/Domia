@@ -6,6 +6,9 @@ import type {
 import { WebPlatformFields } from '../components/platform/WebPlatformFields';
 import { ElectronPlatformFields } from '../components/platform/ElectronPlatformFields';
 
+/** Platforms that currently have full UI support (form fields, etc.). */
+export type UIPlatformType = 'web' | 'electron';
+
 export type PlatformFieldValue =
   | Omit<WebPlatformConfig, 'platform'>
   | Omit<ElectronPlatformConfig, 'platform'>;
@@ -28,13 +31,7 @@ export interface PlatformDefinition<T extends BasePlatformConfig> {
   defaultValues: Omit<T, 'platform'>;
 }
 
-type WebFieldValue = Omit<WebPlatformConfig, 'platform'>;
-type ElectronFieldValue = Omit<ElectronPlatformConfig, 'platform'>;
-
-export const platformRegistry: {
-  web: PlatformDefinition<WebPlatformConfig> & { defaultValues: WebFieldValue };
-  electron: PlatformDefinition<ElectronPlatformConfig> & { defaultValues: ElectronFieldValue };
-} = {
+export const platformRegistry: Record<UIPlatformType, PlatformDefinition<BasePlatformConfig> & { defaultValues: PlatformFieldValue }> = {
   web: {
     type: 'web',
     label: 'Web Browser',

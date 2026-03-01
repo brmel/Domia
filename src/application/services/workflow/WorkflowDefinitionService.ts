@@ -1,6 +1,6 @@
 import { inject, injectable } from 'tsyringe';
 import { randomUUID } from 'crypto';
-import type { IPersistenceAdapter } from '@domain/ports/IPersistenceAdapter';
+import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
 import type { ILogger } from '@domain/ports';
 import type { WorkflowDefinition, WorkflowStepDefinition } from '@domain/entities/Workflow';
 import type { PlatformConfig } from '@domain/types/PlatformConfig';
@@ -35,7 +35,7 @@ export interface UpdateWorkflowDefinitionRequest {
 @injectable()
 export class WorkflowDefinitionService {
     constructor(
-        @inject('IPersistenceAdapter') private readonly persistence: IPersistenceAdapter,
+        @inject('IWorkflowRepository') private readonly persistence: IWorkflowRepository,
         @inject('ILogger') private readonly logger: ILogger
     ) {}
 

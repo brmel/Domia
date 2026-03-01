@@ -35,18 +35,6 @@ export class SQLiteCheckpointRepository {
         ).map(() => undefined);
     }
 
-    getCheckpoint(runId: string): ResultAsync<WorkflowState | null, PersistenceError> {
-        return ResultAsync.fromPromise(
-            this.db.selectFrom('workflow_checkpoints')
-                .select('state_json')
-                .where('run_id', '=', runId)
-                .orderBy('created_at', 'desc')
-                .limit(1)
-                .executeTakeFirst(),
-            (e) => new PersistenceError(`Failed to get checkpoint: ${e}`)
-        ).map(row => row ? JSON.parse(row.state_json) : null);
-    }
-
     getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError> {
         return ResultAsync.fromPromise(
             this.db.selectFrom('workflow_checkpoints')

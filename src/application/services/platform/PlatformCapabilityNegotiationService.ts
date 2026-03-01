@@ -107,6 +107,24 @@ export class PlatformCapabilityNegotiationService {
                 validate: 'supported',
                 'app-control': 'supported',
                 'system-control': 'degraded'
+            },
+            android: {
+                navigate: 'unsupported',
+                locate: 'degraded',
+                interact: 'degraded',
+                extract: 'degraded',
+                validate: 'degraded',
+                'app-control': 'supported',
+                'system-control': 'unsupported'
+            },
+            ios: {
+                navigate: 'unsupported',
+                locate: 'degraded',
+                interact: 'degraded',
+                extract: 'degraded',
+                validate: 'degraded',
+                'app-control': 'supported',
+                'system-control': 'unsupported'
             }
         };
 

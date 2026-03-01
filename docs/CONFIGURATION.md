@@ -47,10 +47,10 @@ Environment, configuration, and secrets management.
 
 | Variable | Overrides |
 |----------|-----------|
-| `DOMIA_LLM_PROVIDER` | `ai.provider` |
 | `DOMIA_LLM_MODEL` | `ai.model` |
 | `DOMIA_LLM_API_KEY` | `ai.apiKey` |
-| `DOMIA_LLM_BASE_URL` | `ai.baseUrl` |
+| `GOOGLE_API_KEY` | `ai.apiKey` (fallback) |
+| `GEMINI_API_KEY` | `ai.apiKey` (fallback) |
 
 ---
 

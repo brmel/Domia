@@ -3,13 +3,14 @@ import type { IAppDriverProvider, AppDriverCreateConfig } from '@domain/ports/IA
 import type { IAppDriver } from '@domain/ports/IAppDriver';
 import type { ILogger } from '@domain/ports';
 import { ElectronDriver, ElectronConnectionConfig } from './ElectronDriver';
+import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
 
 @injectable()
 export class ElectronDriverProvider implements IAppDriverProvider {
     readonly platform = 'electron' as const;
 
     constructor(
-        @inject(ElectronDriver) private readonly electronDriver: ElectronDriver,
+        @inject(ElectronWindowSelectionPolicy) private readonly windowSelectionPolicy: ElectronWindowSelectionPolicy,
         @inject('ILogger') private readonly logger: ILogger,
     ) {}
 
@@ -18,7 +19,7 @@ export class ElectronDriverProvider implements IAppDriverProvider {
             throw new Error('[ElectronDriverProvider] Invalid platform config');
         }
 
-        const driver = this.electronDriver;
+        const driver = new ElectronDriver(this.windowSelectionPolicy, this.logger);
         const connection = config.platformConfig.connection;
 
         if (connection.type === 'cdp') {

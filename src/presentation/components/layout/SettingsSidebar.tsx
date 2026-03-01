@@ -29,6 +29,15 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
         });
     };
 
+    const updateMaxElements = (max: number, e: React.ChangeEvent): void => {
+        e.stopPropagation();
+        if (!config) return;
+        handleUpdate({
+            ...config,
+            limits: { ...(config.limits || {}), maxElements: Math.max(10, Math.min(200, max)) }
+        });
+    };
+
     const toggleHeadless = (enabled: boolean, e: React.ChangeEvent): void => {
         e.stopPropagation();
         if (!config) return;
@@ -95,6 +104,19 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
                                 type="number"
                                 value={effectiveConfig.limits?.maxSteps ?? 20}
                                 onChange={(e) => updateMaxSteps(parseInt(e.target.value), e)}
+                                disabled={disabled}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Max Elements</label>
+                            <p className="text-xs text-gray-500 mb-1">Maximum interactive elements sent to the LLM per turn (10–200).</p>
+                            <input
+                                type="number"
+                                min={10}
+                                max={200}
+                                value={effectiveConfig.limits?.maxElements ?? 50}
+                                onChange={(e) => updateMaxElements(parseInt(e.target.value), e)}
                                 disabled={disabled}
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
                             />

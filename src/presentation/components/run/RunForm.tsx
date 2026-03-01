@@ -6,8 +6,8 @@ import { Button } from '../ui/Button';
 import { RunState } from '@domain/enums/RunState';
 import { canStart, canPause, canResume, canStop, isAgentRunning } from '../../utils/agentStateUtils';
 import { PlatformSelector } from '../platform/PlatformSelector';
-import { platformRegistry, type PlatformFieldValue } from '../../config/platformRegistry';
-import type { BuiltInPlatformType, PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../../domain/types/PlatformConfig';
+import { platformRegistry, type PlatformFieldValue, type UIPlatformType } from '../../config/platformRegistry';
+import type { PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../../domain/types/PlatformConfig';
 
 interface RunFormProps {
     onOpenHistory: () => void;
@@ -69,7 +69,7 @@ export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): R
         });
     };
 
-    const handlePlatformChange = (newPlatform: BuiltInPlatformType): void => {
+    const handlePlatformChange = (newPlatform: UIPlatformType): void => {
         setSelectedPlatform(newPlatform);
         const definition = platformRegistry[newPlatform];
         setPlatformData(definition.defaultValues);
@@ -83,7 +83,7 @@ export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): R
         }
     };
 
-    const validatePlatformData = (platform: BuiltInPlatformType, data: PlatformFieldValue): Record<string, string> => {
+    const validatePlatformData = (platform: UIPlatformType, data: PlatformFieldValue): Record<string, string> => {
         const nextErrors: Record<string, string> = {};
 
         if (platform === 'web') {
@@ -135,7 +135,7 @@ export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): R
     };
 
     const buildPlatformConfig = (
-        platform: BuiltInPlatformType,
+        platform: UIPlatformType,
         fieldValue: PlatformFieldValue
     ): PlatformConfig => {
         switch (platform) {
@@ -154,8 +154,7 @@ export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): R
                 };
             }
             default: {
-                const exhaustive: never = platform;
-                throw new Error(`Unsupported platform: ${String(exhaustive)}`);
+                throw new Error(`Unsupported platform: ${String(platform)}`);
             }
         }
     };

@@ -1,13 +1,11 @@
 import { vi } from 'vitest';
 import { ok, okAsync } from 'neverthrow';
-import type { IAppAutomation, ILogger } from '@domain/ports';
+import type { IStructuredAutomation, ILogger } from '@domain/ports';
 import { RunUseCase } from '@application/use-cases/RunUseCase';
-import { RecoveryReadModelService } from '@application/services/execution/RecoveryReadModelService';
-import { RunRecoveryPolicyService } from '@application/services/execution/RunRecoveryPolicyService';
 import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
+import { RecoveryEligibilityService } from '@application/services/execution/RecoveryEligibilityService';
 import { ManualRecoveryBootstrapService } from '@application/services/execution/ManualRecoveryBootstrapService';
-import { RecoveryReplayGuardService } from '@application/services/execution/RecoveryReplayGuardService';
-import { RecoveryReplayIdempotencyService } from '@application/services/execution/RecoveryReplayIdempotencyService';
+import { RecoveryReplayService } from '@application/services/execution/RecoveryReplayService';
 import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 import { StepExecutionKernelService } from '@application/services/execution/StepExecutionKernelService';
 
@@ -43,17 +41,17 @@ function createTraceMock() {
     };
 }
 
-function createBrowserMock(): IAppAutomation {
+function createBrowserMock(): IStructuredAutomation {
     return {
-        waitForDOMStable: vi.fn().mockResolvedValue(undefined),
+        waitForReady: vi.fn().mockResolvedValue(undefined),
         navigateTo: vi.fn(() => okAsync(undefined)),
         wait: vi.fn(() => okAsync(undefined)),
         scroll: vi.fn(() => okAsync(undefined)),
         extractText: vi.fn(() => okAsync('text')),
-    } as unknown as IAppAutomation;
+    } as unknown as IStructuredAutomation;
 }
 
-function createSessionFactoryMock(automation: IAppAutomation) {
+function createSessionFactoryMock(automation: IStructuredAutomation) {
     return {
         createSession: vi.fn().mockResolvedValue({
             automation,
@@ -86,13 +84,14 @@ function createBudgetPolicyMock() {
     };
 }
 
-function createReplayIdempotencyMock(): RecoveryReplayIdempotencyService {
+function createRecoveryReplayMock(): RecoveryReplayService {
     return {
+        guardAction: vi.fn().mockReturnValue({ decision: 'replay', idempotencyKey: 'mock-key' }),
         buildNodeReplayKey: vi.fn(({ runId, branchId, nodeId, actionSignature }: Record<string, string>) =>
             `${runId}:${branchId}:${nodeId}:${actionSignature}`),
         shouldExecute: vi.fn().mockResolvedValue(true),
         markExecuted: vi.fn().mockResolvedValue(undefined),
-    } as unknown as RecoveryReplayIdempotencyService;
+    } as unknown as RecoveryReplayService;
 }
 
 function createReadinessPolicyMock() {
@@ -111,12 +110,12 @@ export interface UseCaseContextOverrides {
     executor?: Record<string, unknown>;
     persistence?: Record<string, unknown>;
     trace?: Record<string, unknown>;
-    browser?: IAppAutomation;
+    browser?: IStructuredAutomation;
     sessionFactory?: Record<string, unknown>;
     laneService?: Record<string, unknown>;
     durability?: Record<string, unknown>;
     budgetPolicy?: Record<string, unknown>;
-    replayIdempotency?: RecoveryReplayIdempotencyService;
+    replayService?: RecoveryReplayService;
     readinessPolicy?: Record<string, unknown>;
     logger?: ILogger;
 }
@@ -127,11 +126,11 @@ export interface UseCaseContext {
     executor: ReturnType<typeof createExecutorMock>;
     persistence: ReturnType<typeof createPersistenceMock>;
     trace: ReturnType<typeof createTraceMock>;
-    browser: IAppAutomation;
+    browser: IStructuredAutomation;
     releaseLane: ReturnType<typeof vi.fn>;
     durability: ReturnType<typeof createDurabilityMock>;
     budgetPolicy: ReturnType<typeof createBudgetPolicyMock>;
-    replayIdempotency: RecoveryReplayIdempotencyService;
+    replayService: RecoveryReplayService;
     readinessPolicy: ReturnType<typeof createReadinessPolicyMock>;
     logger: ILogger;
 }
@@ -149,14 +148,12 @@ export function createRunUseCaseContext(overrides: UseCaseContextOverrides = {})
     const laneService = overrides.laneService ?? createLaneServiceMock(releaseLane);
     const durability = { ...createDurabilityMock(overrides.checkpointRecords), ...overrides.durability };
     const budgetPolicy = { ...createBudgetPolicyMock(), ...overrides.budgetPolicy };
-    const replayIdempotency = overrides.replayIdempotency ?? createReplayIdempotencyMock();
+    const replayService = overrides.replayService ?? createRecoveryReplayMock();
     const readinessPolicy = { ...createReadinessPolicyMock(), ...overrides.readinessPolicy };
 
     const checkpointCompaction = new CheckpointCompactionService();
-    const recoveryReadModel = new RecoveryReadModelService();
+    const recoveryEligibility = new RecoveryEligibilityService();
     const recoveryBootstrap = new ManualRecoveryBootstrapService();
-    const recoveryPolicy = new RunRecoveryPolicyService();
-    const recoveryReplayGuard = new RecoveryReplayGuardService();
     const replanningPolicy = new ReplanningPolicyService(logger);
 
     const kernel = new StepExecutionKernelService(
@@ -174,11 +171,9 @@ export function createRunUseCaseContext(overrides: UseCaseContextOverrides = {})
         durability as unknown as never,
         budgetPolicy as unknown as never,
         checkpointCompaction as unknown as never,
-        recoveryReadModel as unknown as never,
+        recoveryEligibility as unknown as never,
         recoveryBootstrap as unknown as never,
-        recoveryPolicy as unknown as never,
-        recoveryReplayGuard as unknown as never,
-        replayIdempotency as unknown as never,
+        replayService as unknown as never,
         replanningPolicy as unknown as never,
         readinessPolicy as unknown as never,
         logger as unknown as never,
@@ -196,7 +191,7 @@ export function createRunUseCaseContext(overrides: UseCaseContextOverrides = {})
         releaseLane,
         durability,
         budgetPolicy,
-        replayIdempotency,
+        replayService,
         readinessPolicy,
         logger,
     };

@@ -1,16 +1,14 @@
-import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
 import { spawn, ChildProcess } from 'child_process';
 import { chromium, Browser } from 'playwright';
 import { IAppDriver, AppCapabilities } from '../../domain/ports/IAppDriver';
-import type { ILogger } from '../../domain/ports';
+import type { ILogger, IStructuredAutomation } from '../../domain/ports';
 import { NavigationError } from '../../domain/errors';
 import { Platform, CDP_CONSTANTS } from '../../domain/constants/PlatformConstants';
 import { CDPValidator } from '../../domain/validators/CDPValidator';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
 import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
-import { IAppAutomation } from '../../domain/ports';
 import { retryAsync } from '@shared/reliability/retry';
 import { RETRY_PROFILES, isTransientElectronConnectError } from '@shared/reliability/retryProfiles';
 
@@ -23,15 +21,14 @@ export interface ElectronConnectionConfig {
     readonly windowTitle?: string;
 }
 
-@injectable()
 export class ElectronDriver implements IAppDriver {
     private browser: Browser | null = null;
     private appProcess: ChildProcess | null = null;
     private readonly windowManager: ElectronWindowManager;
 
     constructor(
-        @inject(ElectronWindowSelectionPolicy) private readonly windowSelectionPolicy: ElectronWindowSelectionPolicy,
-        @inject('ILogger') private readonly logger: ILogger
+        private readonly windowSelectionPolicy: ElectronWindowSelectionPolicy,
+        private readonly logger: ILogger
     ) {
         this.windowManager = new ElectronWindowManager(logger);
     }
@@ -250,13 +247,13 @@ export class ElectronDriver implements IAppDriver {
         }
     }
 
-    getAutomation(): IAppAutomation {
+    getAutomation(): IStructuredAutomation {
         const win = this.windowManager.getActiveWindow();
         if (!win) {
              throw new Error('[ElectronDriver] No active window available for browser automation.');
         }
 
-        const adapter = new PlaywrightAdapter(undefined, this.logger);
+        const adapter = new PlaywrightAdapter(this.logger);
         adapter.setAttachedPage(win.page);
         return adapter;
     }

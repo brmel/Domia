@@ -343,7 +343,7 @@ describe('RunUseCase recovery flow', () => {
         ];
 
         const ctx = createUseCaseContext([createCheckpoint(checkpointState)], sourceSteps);
-        vi.mocked(ctx.replayIdempotency.shouldExecute).mockResolvedValue(false);
+        vi.mocked(ctx.replayService.shouldExecute).mockResolvedValue(false);
 
         const controller = new ExecutionController();
 
@@ -359,7 +359,7 @@ describe('RunUseCase recovery flow', () => {
         }
 
         expect(ctx.browser.wait).not.toHaveBeenCalled();
-        expect(ctx.replayIdempotency.markExecuted).not.toHaveBeenCalled();
+        expect(ctx.replayService.markExecuted).not.toHaveBeenCalled();
         expect(ctx.executor.executeStep).toHaveBeenCalledTimes(1);
     });
 

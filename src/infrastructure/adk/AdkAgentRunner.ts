@@ -1,13 +1,11 @@
 import { injectable, inject } from 'tsyringe';
 import { LlmAgent, Gemini, Runner, InMemorySessionService, getFunctionCalls, isFinalResponse, stringifyContent } from '@google/adk';
 import type { Content, Part } from '@google/genai';
-import type { IAppAutomation, IPerceptionPipeline, ILogger } from '@domain/ports';
+import type { IStructuredAutomation, IPerceptionPipeline, ILogger, IStorageService } from '@domain/ports';
 import type { IAgentRunner, AgentRunnerEvent, StepExecutionResult, StepRunnerConfig } from '@domain/ports/IAgentRunner';
-import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import { ActionType } from '@domain/enums/ActionType';
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
 import { createAdkTools } from './AdkToolFactory';
-import { formatElements } from '../tools/ToolSpec';
 import { ActionMapper } from '../agent/common/ActionMapper';
 import { AgentLoopGuard } from '../agent/common/AgentLoopGuard';
 import { buildAgentInstruction } from '../agent/common/AgentInstructionBuilder';
@@ -26,15 +24,16 @@ function extractThought(event: { content?: { parts?: Array<{ text?: string }> } 
 export class AdkAgentRunner implements IAgentRunner {
     constructor(
         @inject('IPerceptionPipeline') private readonly perception: IPerceptionPipeline,
+        @inject('IStorageService') private readonly storage: IStorageService,
         @inject('ILogger') private readonly logger: ILogger,
         @inject(LlmRuntimeConfigResolver) private readonly llmConfigResolver: LlmRuntimeConfigResolver,
     ) {}
 
     async *executeStep(
         config: StepRunnerConfig,
-        automation: IAppAutomation,
+        automation: IStructuredAutomation,
     ): AsyncGenerator<AgentRunnerEvent, StepExecutionResult, unknown> {
-        const { stepGoal, url, maxActions, vision } = config;
+        const { stepGoal, url, maxActions, maxElements, vision } = config;
 
         const llmConfig = this.llmConfigResolver.resolve();
         if (!llmConfig.apiKey) {
@@ -45,26 +44,30 @@ export class AdkAgentRunner implements IAgentRunner {
         }
         const model = llmConfig.model || 'gemini-2.0-flash';
 
-        const initialFrame = await this.perception.capture(automation, { vision, aria: true, dom: true });
-        if (initialFrame.isErr()) {
+        const perceptionSource = automation.getPerceptionSource();
+        if (!perceptionSource) {
             return {
                 success: false, terminal: 'error', code: 'perception_error',
-                reason: `Initial perception failed: ${initialFrame.error.message}`,
+                reason: 'Automation adapter does not expose a perception source.',
             };
         }
 
-        const frame = initialFrame.value;
         const viewport = await automation.getViewportSize();
 
-        let latestCapturedFrame: PerceptionFrame | undefined;
         let actionCount = 0;
 
         const { tools, catalog } = createAdkTools({
             automation,
             perception: this.perception,
+            perceptionSource,
             vision,
+            maxElements,
             onCapture: async (capturedFrame) => {
-                latestCapturedFrame = capturedFrame;
+                try {
+                    await this.storage.savePerceptionAssets(config.runId, actionCount, capturedFrame);
+                } catch {
+                    this.logger.warn(`[AdkAgentRunner] Failed to save perception assets for action ${actionCount}`);
+                }
             },
         });
 
@@ -72,22 +75,11 @@ export class AdkAgentRunner implements IAgentRunner {
         const loopGuard = new AgentLoopGuard();
         const instruction = buildAgentInstruction(catalog);
 
-        const elementsStr = formatElements(frame.semantic.dom.elements);
         const textPart: Part = {
-            text: `GOAL: ${stepGoal}\n\nVIEWPORT: ${viewport.width}x${viewport.height} pixels\n\nCURRENT PAGE:\nURL: ${frame.metadata.url || url}\nTitle: ${frame.metadata.title}\n\nINTERACTIVE ELEMENTS (with bounding boxes [x,y,w,h]):\n${elementsStr}\n\nMAX ACTIONS REMAINING: ${maxActions}\n\nAnalyze the current page state and begin working toward the goal. Call exactly one tool per turn.`,
+            text: `GOAL: ${stepGoal}\n\nVIEWPORT: ${viewport.width}x${viewport.height} pixels\n\nCURRENT PAGE URL: ${url}\n\nMAX ACTIONS REMAINING: ${maxActions}\n\nCall observe to see the current page state, then work toward the goal. Call exactly one tool per turn.`,
         };
 
-        const parts: Part[] = [textPart];
-        if (vision && frame.vision.primaryScreenshot) {
-            parts.push({
-                inlineData: {
-                    data: frame.vision.primaryScreenshot.toString('base64'),
-                    mimeType: frame.vision.mimeType,
-                },
-            });
-        }
-
-        const initialMessage: Content = { role: 'user', parts };
+        const initialMessage: Content = { role: 'user', parts: [textPart] };
 
         const agent = new LlmAgent({
             name: 'app_agent',
@@ -130,9 +122,6 @@ export class AdkAgentRunner implements IAgentRunner {
 
                         this.logger.info(`[AdkAgentRunner] Action ${actionCount}/${maxActions}: ${fc.name}`, fc.args);
 
-                        const capturedFrame = actionCount === 1 ? frame : latestCapturedFrame;
-                        latestCapturedFrame = undefined;
-
                         const { thought: _t, ...actionWithoutThought } = action as unknown as Record<string, unknown>;
 
                         yield {
@@ -156,7 +145,6 @@ export class AdkAgentRunner implements IAgentRunner {
                                     input: fc.args as Record<string, unknown>,
                                 },
                             },
-                            capturedFrame,
                         };
 
                         if (action.type === ActionType.PASS) {

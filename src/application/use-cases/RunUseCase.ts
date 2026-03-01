@@ -1,7 +1,8 @@
-
 import { injectable, inject } from 'tsyringe';
-import type { IAppAutomation } from '../../domain/ports';
+import type { IStructuredAutomation } from '../../domain/ports';
 import { ExecutionGraph, UrlFactory, WorkflowState } from '../../domain/value-objects';
+import type { WorkflowExecutionGraph } from '../../domain/value-objects/ExecutionGraph';
+import type { RunId } from '../../domain/value-objects/Brand';
 import { ExecutionController } from '../controllers/ExecutionController';
 import { WorkflowError } from '../../domain/errors';
 import { RunLifecycleManager } from '../services/RunLifecycleManager';
@@ -11,14 +12,13 @@ import type { RunExecutionLaneService } from '../services/execution/RunExecution
 import { RunDurabilityService } from '../services/execution/RunDurabilityService';
 import { RunBudgetPolicyService } from '../services/execution/RunBudgetPolicyService';
 import { CheckpointCompactionService } from '../services/execution/CheckpointCompactionService';
-import { RecoveryReadModelService } from '../services/execution/RecoveryReadModelService';
+import { RecoveryEligibilityService } from '../services/execution/RecoveryEligibilityService';
 import { ManualRecoveryBootstrapService } from '../services/execution/ManualRecoveryBootstrapService';
-import { RunRecoveryPolicyService } from '../services/execution/RunRecoveryPolicyService';
-import { RecoveryReplayGuardService } from '../services/execution/RecoveryReplayGuardService';
-import { RecoveryReplayIdempotencyService } from '../services/execution/RecoveryReplayIdempotencyService';
+import { RecoveryReplayService } from '../services/execution/RecoveryReplayService';
 import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
 import { ObjectiveCompletionPolicyService } from '../services/execution/ObjectiveCompletionPolicyService';
 import { StepExecutionKernelService } from '../services/execution/StepExecutionKernelService';
+import type { StepExecutionResult } from '../services/execution/StepExecutor';
 
 import { BranchRollbackService } from '../services/execution/BranchRollbackService';
 import { PlanningCoordinator } from '../services/execution/coordinators/PlanningCoordinator';
@@ -27,7 +27,8 @@ import { ReplanningCoordinator } from '../services/execution/coordinators/Replan
 import {
     resolveRecoveryContext as resolveRecoveryContextForRun,
     replayRecoveryActions as replayRecoveryActionsForRun,
-    type RunRecoveryDependencies
+    type RunRecoveryDependencies,
+    type RecoveryBootstrapContext
 } from '../services/execution/RunRecoveryOrchestration';
 import { RuntimeReadinessPolicyService } from '../services/hardening/RuntimeReadinessPolicyService';
 import { Plan, PlanItem } from '@domain/entities/Plan';
@@ -54,16 +55,14 @@ export class RunUseCase {
         @inject(RunDurabilityService) private readonly durability: RunDurabilityService,
         @inject(RunBudgetPolicyService) private readonly budgetPolicy: RunBudgetPolicyService,
         @inject(CheckpointCompactionService) private readonly checkpointCompaction: CheckpointCompactionService,
-        @inject(RecoveryReadModelService) private readonly recoveryReadModel: RecoveryReadModelService,
+        @inject(RecoveryEligibilityService) private readonly recoveryEligibility: RecoveryEligibilityService,
         @inject(ManualRecoveryBootstrapService) private readonly recoveryBootstrap: ManualRecoveryBootstrapService,
-        @inject(RunRecoveryPolicyService) private readonly recoveryPolicy: RunRecoveryPolicyService,
-        @inject(RecoveryReplayGuardService) private readonly recoveryReplayGuard: RecoveryReplayGuardService,
-        @inject(RecoveryReplayIdempotencyService) private readonly recoveryReplayIdempotency: RecoveryReplayIdempotencyService,
+        @inject(RecoveryReplayService) private readonly recoveryReplay: RecoveryReplayService,
         @inject(ReplanningPolicyService) private readonly replanningPolicy: ReplanningPolicyService,
         @inject(RuntimeReadinessPolicyService) private readonly readinessPolicy: RuntimeReadinessPolicyService,
         @inject('ILogger') private logger: ILogger,
         @inject(StepExecutionKernelService) private readonly kernel: StepExecutionKernelService,
-        @inject('IPersistenceAdapter') private persistence: import('../../domain/ports').IPersistenceAdapter,
+        @inject('IRunRepository') private persistence: import('../../domain/ports').IRunRepository,
         @inject(PlanningCoordinator) private readonly planningCoordinator: PlanningCoordinator = new PlanningCoordinator(),
         @inject(RunCoordinator) private readonly runCoordinator: RunCoordinator = new RunCoordinator(),
         @inject(ReplanningCoordinator) private readonly replanningCoordinator: ReplanningCoordinator = new ReplanningCoordinator(),
@@ -77,11 +76,9 @@ export class RunUseCase {
             durability: this.durability,
             checkpointCompaction: this.checkpointCompaction,
             branchRollback: this.branchRollback,
-            recoveryReadModel: this.recoveryReadModel,
+            recoveryEligibility: this.recoveryEligibility,
             recoveryBootstrap: this.recoveryBootstrap,
-            recoveryPolicy: this.recoveryPolicy,
-            recoveryReplayGuard: this.recoveryReplayGuard,
-            recoveryReplayIdempotency: this.recoveryReplayIdempotency,
+            recoveryReplay: this.recoveryReplay,
             logger: this.logger
         };
     }
@@ -115,7 +112,7 @@ export class RunUseCase {
         let estimatedTokensUsed = 0;
         const recoveryContext = await resolveRecoveryContextForRun(this.recoveryDeps, input);
 
-        let automation: IAppAutomation;
+        let automation: IStructuredAutomation;
         let disposeSession: (() => Promise<void>) | undefined;
         let shouldNavigate = true;
         let ownsSession = false;
@@ -172,64 +169,16 @@ export class RunUseCase {
                 const navResult = await automation.navigateTo(urlResult.value);
                 if (navResult.isErr()) throw new WorkflowError(`Navigation failed: ${navResult.error.message}`);
             } else {
-                await automation.waitForDOMStable();
+                await automation.waitForReady();
             }
 
             if (recoveryContext) {
-                yield this.buildRecoveryReplayEvent({
-                    sourceRunId: recoveryContext.sourceRunId,
-                    targetStepNumber: recoveryTargetStepNumber,
-                    replayedCount: 0,
-                    status: 'started'
-                });
+                const replayResult = yield* this.performRecoveryReplay(
+                    runId, recoveryContext, automation, controller, currentState, recoveryTargetStepNumber
+                );
 
-                const replayOutcome = await replayRecoveryActionsForRun(this.recoveryDeps, {
-                    runId,
-                    sourceRunId: recoveryContext.sourceRunId,
-                    sourceBranchId: recoveryContext.branchId,
-                    automation,
-                    controller,
-                    state: currentState,
-                    targetStepNumber: recoveryTargetStepNumber
-                });
-
-                if (replayOutcome.type === 'ok' || replayOutcome.type === 'cancelled') {
-                    yield this.buildRecoveryReplayEvent({
-                        sourceRunId: recoveryContext.sourceRunId,
-                        targetStepNumber: recoveryTargetStepNumber,
-                        replayedCount: replayOutcome.replayedCount,
-                        status: replayOutcome.type === 'ok' ? 'completed' : 'cancelled'
-                    });
-                } else {
-                    yield this.buildRecoveryReplayEvent({
-                        sourceRunId: recoveryContext.sourceRunId,
-                        targetStepNumber: recoveryTargetStepNumber,
-                        replayedCount: replayOutcome.replayedCount,
-                        status: replayOutcome.type,
-                        reason: replayOutcome.reason
-                    });
-                }
-
-                if (replayOutcome.type === 'blocked') {
-                    throw new WorkflowError(`Recovery replay blocked: ${replayOutcome.reason}`);
-                }
-
-                if (replayOutcome.type === 'failed') {
-                    throw new WorkflowError(`Recovery replay failed: ${replayOutcome.reason}`);
-                }
-
-                currentState = replayOutcome.state;
-                yield { type: 'state_updated', state: currentState };
-
-                this.logger.info('[RunUseCase] Recovery replay completed', {
-                    runId,
-                    sourceRunId: recoveryContext.sourceRunId,
-                    replayedCount: replayOutcome.replayedCount
-                });
-
-                if (replayOutcome.type === 'cancelled') {
-                    return;
-                }
+                if (replayResult.cancelled) return;
+                currentState = replayResult.state;
             }
 
             currentState = WorkflowState.transitionTo(currentState, 'planning');
@@ -326,25 +275,10 @@ export class RunUseCase {
                     }
                 );
 
-                const kernelIterator = stepKernel[Symbol.asyncIterator]();
-                let kernelNext = await kernelIterator.next();
-                while (!kernelNext.done) {
-                    if (kernelNext.value.type === 'state_updated') {
-                        currentState = kernelNext.value.state;
-                    }
-
-                    yield kernelNext.value;
-                    kernelNext = await kernelIterator.next();
-                }
-
-                const {
-                    state: kernelState,
-                    result,
-                    estimatedTokensUsed: nextEstimatedTokensUsed
-                } = kernelNext.value;
-
-                currentState = kernelState;
-                estimatedTokensUsed = nextEstimatedTokensUsed;
+                const kernelResult = yield* stepKernel;
+                currentState = kernelResult.state;
+                estimatedTokensUsed = kernelResult.estimatedTokensUsed;
+                const { result } = kernelResult;
 
                 if (result && result.success) {
                     const successItem = PlanItem.complete(runningItem);
@@ -361,69 +295,18 @@ export class RunUseCase {
                     hasUnresolvedVerificationFailure = false;
                     finalSummary = undefined;
                 } else {
-                    const errorMsg = result ? `${result.code}: ${result.reason}` : 'unknown_error: Unknown error';
-                    const replanningTrigger = result ? this.replanningCoordinator.mapResultCodeToTrigger(result.code) : undefined;
-                    const replanningAssessment = this.replanningPolicy.assess({
-                        runId: runId,
-                        replanCount,
-                        ...(replanningTrigger ? { trigger: replanningTrigger } : {})
-                    });
+                    const failureOutcome = yield* this.handleStepFailure({
+                        runId, result, runningItem, plan, updatedItems, itemIndex: i,
+                        replanCount, consecutiveStepFailures, maxConsecutiveStepFailures
+                    }, currentState, executionGraph);
 
-                    if (replanningAssessment.shouldReplan) {
-                        this.logger.warn('[ReplanningPolicyService] Replanning approved (active mode)', {
-                            runId: runId,
-                            trigger: replanningTrigger,
-                            replanCount,
-                            reason: replanningAssessment.reason
-                        });
-                    }
-
-                    const replanningLimits = this.replanningPolicy.resolveLimits();
-                    yield {
-                        type: 'replanning',
-                        telemetry: {
-                            runId: runId,
-                            ...(replanningTrigger ? { trigger: replanningTrigger } : {}),
-                            status: replanningAssessment.shouldReplan ? 'executed' : 'suppressed',
-                            reason: replanningAssessment.reason,
-                            mode: replanningAssessment.mode,
-                            replanCount,
-                            maxReplansPerRun: replanningLimits.maxReplansPerRun
-                        }
-                    };
-
-                    const failedItem = PlanItem.fail(runningItem);
-                    const newItems = [...updatedItems];
-                    newItems[i] = failedItem;
-                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, failedItem.id, 'failed');
-                    currentState = WorkflowState.transitionTo(
-                        WorkflowState.clearActiveItem(currentState),
-                        'failed',
-                        { error: errorMsg, executionGraph, plan: { ...plan, items: newItems } }
-                    );
-                    yield { type: 'state_updated', state: currentState };
-
-                    replanCount += 1;
-                    consecutiveStepFailures += 1;
-
-                    this.logger.warn('[RunUseCase] Step failed verification', {
-                        runId: runId,
-                        error: errorMsg,
-                        planItemId: item.id,
-                        planItemDescription: item.description
-                    });
-                    finalSummary = `Verification failed: ${errorMsg}`;
+                    currentState = failureOutcome.state;
+                    executionGraph = failureOutcome.executionGraph;
+                    replanCount = failureOutcome.replanCount;
+                    consecutiveStepFailures = failureOutcome.consecutiveStepFailures;
+                    finalSummary = failureOutcome.finalSummary;
                     hasUnresolvedVerificationFailure = true;
-
-                    if (consecutiveStepFailures >= maxConsecutiveStepFailures) {
-                        this.logger.warn('[RunUseCase] Halting run after consecutive failed steps', {
-                            runId: runId,
-                            consecutiveStepFailures,
-                            maxConsecutiveStepFailures
-                        });
-                        finalSummary = `Stopped after ${consecutiveStepFailures} consecutive failed steps: ${errorMsg}`;
-                        break;
-                    }
+                    if (failureOutcome.shouldHalt) break;
                 }
             }
 
@@ -448,38 +331,215 @@ export class RunUseCase {
                     this.logger.warn(`[RunUseCase] Error during session cleanup: ${String(err)}`)
                 );
             }
-
             releaseLane();
-
             await this.trace.endTrace();
 
-            if (terminalError) {
-                currentState = WorkflowState.applyTerminal(currentState, 'failed', terminalError.message);
-                runLifecycle = this.durability.transition(runId, runLifecycle, 'failed');
-                await this.durability.checkpoint(runId, currentState, 'terminal_failure');
-                yield { type: 'error', error: terminalError };
-            } else if (controller.state === RunState.CANCELLED) {
-                currentState = WorkflowState.applyTerminal(currentState, 'idle', 'cancelled');
-                runLifecycle = this.durability.transition(runId, runLifecycle, 'cancelled');
-                await this.durability.checkpoint(runId, currentState, 'terminal_cancelled');
-                yield { type: 'completed', success: false, summary: "Cancelled by user." };
-                await this.lifecycleManager.finalizeRun(runId, false, "Cancelled by user.");
-            } else if (completed) {
-                currentState = WorkflowState.applyTerminal(
-                    currentState,
-                    hasUnresolvedVerificationFailure ? 'failed' : 'completed',
-                    hasUnresolvedVerificationFailure ? finalSummary : undefined
-                );
-                runLifecycle = this.durability.transition(runId, runLifecycle, hasUnresolvedVerificationFailure ? 'failed' : 'completed');
-                await this.durability.checkpoint(runId, currentState, hasUnresolvedVerificationFailure ? 'terminal_failure' : 'terminal_success');
-                const isGlobalSuccess = !hasUnresolvedVerificationFailure;
-                yield { type: 'completed', success: isGlobalSuccess, ...(finalSummary ? { summary: finalSummary } : {}) };
-                await this.lifecycleManager.finalizeRun(runId, isGlobalSuccess, finalSummary);
-            }
-
-            await this.logCheckpointCompactionSummary(runId);
-
+            yield* this.finalizeExecution({
+                runId, controller, completed, terminalError,
+                hasUnresolvedVerificationFailure, finalSummary,
+                currentState, runLifecycle
+            });
         }
+    }
+
+    private async *handleStepFailure(
+        ctx: {
+            readonly runId: RunId;
+            readonly result: StepExecutionResult | undefined;
+            readonly runningItem: PlanItem;
+            readonly plan: Plan;
+            readonly updatedItems: PlanItem[];
+            readonly itemIndex: number;
+            readonly replanCount: number;
+            readonly consecutiveStepFailures: number;
+            readonly maxConsecutiveStepFailures: number;
+        },
+        currentState: WorkflowState,
+        executionGraph: WorkflowExecutionGraph
+    ): AsyncGenerator<RunOutput, {
+        state: WorkflowState;
+        executionGraph: WorkflowExecutionGraph;
+        replanCount: number;
+        consecutiveStepFailures: number;
+        finalSummary: string;
+        shouldHalt: boolean;
+    }, unknown> {
+        const { result, runningItem, plan, updatedItems, itemIndex } = ctx;
+        const errorMsg = result && !result.success ? `${result.code}: ${result.reason}` : 'unknown_error: Unknown error';
+        const replanningTrigger = result && !result.success ? this.replanningCoordinator.mapResultCodeToTrigger(result.code) : undefined;
+        const replanningAssessment = this.replanningPolicy.assess({
+            runId: ctx.runId,
+            replanCount: ctx.replanCount,
+            ...(replanningTrigger ? { trigger: replanningTrigger } : {})
+        });
+
+        if (replanningAssessment.shouldReplan) {
+            this.logger.warn('[ReplanningPolicyService] Replanning approved (active mode)', {
+                runId: ctx.runId,
+                trigger: replanningTrigger,
+                replanCount: ctx.replanCount,
+                reason: replanningAssessment.reason
+            });
+        }
+
+        const replanningLimits = this.replanningPolicy.resolveLimits();
+        yield {
+            type: 'replanning',
+            telemetry: {
+                runId: ctx.runId,
+                ...(replanningTrigger ? { trigger: replanningTrigger } : {}),
+                status: replanningAssessment.shouldReplan ? 'executed' : 'suppressed',
+                reason: replanningAssessment.reason,
+                mode: replanningAssessment.mode,
+                replanCount: ctx.replanCount,
+                maxReplansPerRun: replanningLimits.maxReplansPerRun
+            }
+        };
+
+        const failedItem = PlanItem.fail(runningItem);
+        const newItems = [...updatedItems];
+        newItems[itemIndex] = failedItem;
+        const updatedGraph = ExecutionGraph.updateNodeState(executionGraph, failedItem.id, 'failed');
+        const updatedState = WorkflowState.transitionTo(
+            WorkflowState.clearActiveItem(currentState),
+            'failed',
+            { error: errorMsg, executionGraph: updatedGraph, plan: { ...plan, items: newItems } }
+        );
+        yield { type: 'state_updated', state: updatedState };
+
+        const newReplanCount = ctx.replanCount + 1;
+        const newConsecutiveFailures = ctx.consecutiveStepFailures + 1;
+
+        this.logger.warn('[RunUseCase] Step failed verification', {
+            runId: ctx.runId,
+            error: errorMsg,
+            planItemId: runningItem.id,
+            planItemDescription: runningItem.description
+        });
+
+        let finalSummary = `Verification failed: ${errorMsg}`;
+        let shouldHalt = false;
+
+        if (newConsecutiveFailures >= ctx.maxConsecutiveStepFailures) {
+            this.logger.warn('[RunUseCase] Halting run after consecutive failed steps', {
+                runId: ctx.runId,
+                consecutiveStepFailures: newConsecutiveFailures,
+                maxConsecutiveStepFailures: ctx.maxConsecutiveStepFailures
+            });
+            finalSummary = `Stopped after ${newConsecutiveFailures} consecutive failed steps: ${errorMsg}`;
+            shouldHalt = true;
+        }
+
+        return {
+            state: updatedState,
+            executionGraph: updatedGraph,
+            replanCount: newReplanCount,
+            consecutiveStepFailures: newConsecutiveFailures,
+            finalSummary,
+            shouldHalt
+        };
+    }
+
+    private async *finalizeExecution(ctx: {
+        readonly runId: RunId;
+        readonly controller: ExecutionController;
+        readonly completed: boolean;
+        readonly terminalError: Error | null;
+        readonly hasUnresolvedVerificationFailure: boolean;
+        readonly finalSummary: string | undefined;
+        readonly currentState: WorkflowState;
+        readonly runLifecycle: RunLifecycleState;
+    }): AsyncGenerator<RunOutput, void, unknown> {
+        const { runId, controller, completed, terminalError, hasUnresolvedVerificationFailure, finalSummary } = ctx;
+        let { currentState, runLifecycle } = ctx;
+
+        if (terminalError) {
+            currentState = WorkflowState.applyTerminal(currentState, 'failed', terminalError.message);
+            runLifecycle = this.durability.transition(runId, runLifecycle, 'failed');
+            await this.durability.checkpoint(runId, currentState, 'terminal_failure');
+            yield { type: 'error', error: terminalError };
+        } else if (controller.state === RunState.CANCELLED) {
+            currentState = WorkflowState.applyTerminal(currentState, 'idle', 'cancelled');
+            runLifecycle = this.durability.transition(runId, runLifecycle, 'cancelled');
+            await this.durability.checkpoint(runId, currentState, 'terminal_cancelled');
+            yield { type: 'completed', success: false, summary: "Cancelled by user." };
+            await this.lifecycleManager.finalizeRun(runId, false, "Cancelled by user.");
+        } else if (completed) {
+            currentState = WorkflowState.applyTerminal(
+                currentState,
+                hasUnresolvedVerificationFailure ? 'failed' : 'completed',
+                hasUnresolvedVerificationFailure ? finalSummary : undefined
+            );
+            runLifecycle = this.durability.transition(runId, runLifecycle, hasUnresolvedVerificationFailure ? 'failed' : 'completed');
+            await this.durability.checkpoint(runId, currentState, hasUnresolvedVerificationFailure ? 'terminal_failure' : 'terminal_success');
+            const isGlobalSuccess = !hasUnresolvedVerificationFailure;
+            yield { type: 'completed', success: isGlobalSuccess, ...(finalSummary ? { summary: finalSummary } : {}) };
+            await this.lifecycleManager.finalizeRun(runId, isGlobalSuccess, finalSummary);
+        }
+
+        await this.logCheckpointCompactionSummary(runId);
+    }
+
+    private async *performRecoveryReplay(
+        runId: RunId,
+        recoveryContext: RecoveryBootstrapContext,
+        automation: IStructuredAutomation,
+        controller: ExecutionController,
+        currentState: WorkflowState,
+        targetStepNumber: number
+    ): AsyncGenerator<RunOutput, { state: WorkflowState; cancelled: boolean }, unknown> {
+        yield this.buildRecoveryReplayEvent({
+            sourceRunId: recoveryContext.sourceRunId,
+            targetStepNumber,
+            replayedCount: 0,
+            status: 'started'
+        });
+
+        const replayOutcome = await replayRecoveryActionsForRun(this.recoveryDeps, {
+            runId,
+            sourceRunId: recoveryContext.sourceRunId,
+            sourceBranchId: recoveryContext.branchId,
+            automation,
+            controller,
+            state: currentState,
+            targetStepNumber
+        });
+
+        if (replayOutcome.type === 'ok' || replayOutcome.type === 'cancelled') {
+            yield this.buildRecoveryReplayEvent({
+                sourceRunId: recoveryContext.sourceRunId,
+                targetStepNumber,
+                replayedCount: replayOutcome.replayedCount,
+                status: replayOutcome.type === 'ok' ? 'completed' : 'cancelled'
+            });
+        } else {
+            yield this.buildRecoveryReplayEvent({
+                sourceRunId: recoveryContext.sourceRunId,
+                targetStepNumber,
+                replayedCount: replayOutcome.replayedCount,
+                status: replayOutcome.type,
+                reason: replayOutcome.reason
+            });
+        }
+
+        if (replayOutcome.type === 'blocked') {
+            throw new WorkflowError(`Recovery replay blocked: ${replayOutcome.reason}`);
+        }
+
+        if (replayOutcome.type === 'failed') {
+            throw new WorkflowError(`Recovery replay failed: ${replayOutcome.reason}`);
+        }
+
+        const updatedState = replayOutcome.state;
+        yield { type: 'state_updated', state: updatedState };
+
+        this.logger.info('[RunUseCase] Recovery replay completed', {
+            runId,
+            sourceRunId: recoveryContext.sourceRunId,
+            replayedCount: replayOutcome.replayedCount
+        });
+
+        return { state: updatedState, cancelled: replayOutcome.type === 'cancelled' };
     }
 
 private buildRecoveryReplayEvent(params: {

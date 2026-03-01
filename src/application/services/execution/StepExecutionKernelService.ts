@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import type { IAppAutomation } from '@domain/ports';
+import type { IStructuredAutomation } from '@domain/ports';
 import type { Step } from '@domain/ports';
 import { WorkflowError } from '@domain/errors';
 import { WorkflowState } from '@domain/value-objects';
@@ -8,7 +8,7 @@ import { RunBudgetPolicyService, type RunBudgetLimits } from './RunBudgetPolicyS
 import { StepExecutor, type StepExecutionResult } from './StepExecutor';
 import type { StepExecutionOptions } from './coordinators/RunCoordinator';
 import type { RunOutput } from '../../dtos';
-import type { IPersistenceAdapter } from '@domain/ports/IPersistenceAdapter';
+import type { IRunRepository } from '@domain/ports/IRunRepository';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface KernelRuntime {
@@ -27,7 +27,7 @@ export interface KernelResult {
 export class StepExecutionKernelService {
     constructor(
         @inject(StepExecutor) private readonly executor: StepExecutor,
-        @inject('IPersistenceAdapter') private readonly persistence: IPersistenceAdapter,
+        @inject('IRunRepository') private readonly persistence: IRunRepository,
         @inject(RunDurabilityService) private readonly durability: RunDurabilityService,
         @inject(RunBudgetPolicyService) private readonly budgetPolicy: RunBudgetPolicyService
     ) {}
@@ -35,7 +35,7 @@ export class StepExecutionKernelService {
     async *execute(
         runId: string,
         executionGoal: string,
-        automation: IAppAutomation,
+        automation: IStructuredAutomation,
         url: string,
         currentState: WorkflowState,
         executionOptions: StepExecutionOptions,
@@ -51,6 +51,7 @@ export class StepExecutionKernelService {
             {
                 vision: executionOptions.vision,
                 maxActions: executionOptions.maxActions,
+                maxElements: executionOptions.maxElements,
             },
         );
 
@@ -66,7 +67,6 @@ export class StepExecutionKernelService {
             while (!next.done) {
                 if (next.value.type === 'action') {
                     const action = next.value.action;
-                    const assets = next.value.assets;
 
                     const step: Step = {
                         id: uuidv4(),
@@ -74,7 +74,6 @@ export class StepExecutionKernelService {
                         stepNumber: currentState.stepNumber + 1,
                         actionType: action.type,
                         actionPayload: action,
-                        ...(assets ? { assets } : {}),
                         timestamp: new Date().toISOString()
                     };
 

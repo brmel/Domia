@@ -7,9 +7,8 @@ export function createNavigationTools(automation: IAppAutomation): ToolSpec[] {
     return [
         {
             name: 'scroll',
-            description: 'Scroll the viewport by one page-height in the given direction. Use to reveal off-screen content, lazy-loaded sections, or infinite-scroll items.',
+            description: 'Scroll the viewport by one page-height in the given direction. Use to reveal off-screen content, lazy-loaded sections, or infinite-scroll items. Input: { direction: "up" | "down" }. Output: { status: "success" } with updated DOM elements and optional screenshot, or { status: "error", error: string }.',
             actionType: ActionType.SCROLL,
-            capturable: true,
             parameters: z.object({
                 direction: z.enum(['up', 'down']).describe('Scroll direction: "up" or "down".'),
             }),
@@ -21,9 +20,8 @@ export function createNavigationTools(automation: IAppAutomation): ToolSpec[] {
         },
         {
             name: 'navigate',
-            description: 'Navigate to an absolute URL. Waits for the page to load then captures DOM and optional screenshot. Use when you need to open a different page, reload, or jump to a deep link.',
+            description: 'Navigate to an absolute URL. Waits for the page to load then captures DOM and optional screenshot. Input: { url: string }. URL must include protocol (e.g. https://example.com). Output: { status: "success" } with updated page state, or { status: "error", error: string }.',
             actionType: ActionType.NAVIGATE,
-            capturable: true,
             parameters: z.object({
                 url: z.string().describe('Absolute URL to navigate to (must include protocol, e.g. https://example.com).'),
             }),

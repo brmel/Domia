@@ -1,6 +1,6 @@
 import { Generated } from 'kysely';
 
-export interface TestRunTable {
+export interface RunTable {
     id: string;
     url: string;
     status: string;
@@ -11,9 +11,9 @@ export interface TestRunTable {
     summary: string | null;
 }
 
-export interface TestStepTable {
+export interface StepTable {
     id: string;
-    test_run_id: string;
+    run_id: string;
     step_number: number;
     action_type: string;
     action_payload: string;
@@ -23,7 +23,7 @@ export interface TestStepTable {
 
 export interface LogTable {
     id: Generated<number>;
-    test_run_id: string;
+    run_id: string;
     level: string;
     message: string;
     metadata: string | null;
@@ -83,7 +83,7 @@ export interface WorkflowStepRunTable {
     workflow_run_id: string;
     step_id: string;
     step_index: number;
-    test_run_id: string | null;
+    run_id: string | null;
     status: string;
     summary: string | null;
     started_at: string;
@@ -91,8 +91,8 @@ export interface WorkflowStepRunTable {
 }
 
 export interface DatabaseSchema {
-    test_runs: TestRunTable;
-    test_steps: TestStepTable;
+    runs: RunTable;
+    steps: StepTable;
     logs: LogTable;
     workflow_checkpoints: WorkflowCheckpointTable;
     replay_idempotency_keys: ReplayIdempotencyKeyTable;

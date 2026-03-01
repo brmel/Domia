@@ -12,7 +12,7 @@ import { WorkflowCommand } from './WorkflowCommand';
 
 registerCoreServices();
 const cliBuilder = new ContainerBuilder();
-cliBuilder.registerCliViewHost().initializePlatformProviders();
+cliBuilder.initializePlatformProviders();
 
 const program = new Command();
 

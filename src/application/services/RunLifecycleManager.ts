@@ -2,12 +2,13 @@ import { injectable, inject } from 'tsyringe';
 import { Result, ok, err } from 'neverthrow';
 import { RunIdFactory, RunId, UrlFactory } from '@domain/value-objects';
 import { Run } from '@domain/entities/Run';
-import type { IPersistenceAdapter, ILogger } from '@domain/ports';
+import type { IRunRepository } from '@domain/ports/IRunRepository';
+import type { ILogger } from '@domain/ports';
 
 @injectable()
 export class RunLifecycleManager {
     constructor(
-        @inject('IPersistenceAdapter') private readonly persistence: IPersistenceAdapter,
+        @inject('IRunRepository') private readonly persistence: IRunRepository,
         @inject('ILogger') private readonly logger: ILogger
     ) { }
 
