@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { trpc } from '../../trpc';
 import type { WorkflowEvent } from '@domain/events';
 import { platformRegistry, type PlatformFieldValue } from '../../config/platformRegistry';
-import type { PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../../domain/types/PlatformConfig';
+import { buildPlatformConfig } from '../../utils/buildPlatformConfig';
 import type { UIPlatformType } from '../../config/platformRegistry';
 import {
     appendStepToList,
@@ -16,25 +16,6 @@ import {
 export interface WorkflowEventView {
     readonly id: string;
     readonly label: string;
-}
-
-function buildPlatformConfig(
-    platform: UIPlatformType,
-    fieldValue: PlatformFieldValue
-): PlatformConfig {
-    switch (platform) {
-        case 'web': {
-            const webFields = fieldValue as Omit<WebPlatformConfig, 'platform'>;
-            return { platform: 'web', url: webFields.url };
-        }
-        case 'electron': {
-            const electronFields = fieldValue as Omit<ElectronPlatformConfig, 'platform'>;
-            return { platform: 'electron', connection: electronFields.connection };
-        }
-        default: {
-            throw new Error(`Unsupported workflow platform: ${String(platform)}`);
-        }
-    }
 }
 
 function renderEventLabel(event: WorkflowEvent): string {

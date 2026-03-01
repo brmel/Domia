@@ -4,6 +4,7 @@ import type { ILogger, IStructuredAutomation } from '../../../domain/ports';
 import { WorkflowError } from '../../../domain/errors';
 import type { IAppDriverFactory, AppDriverCreateOptions } from '../../../domain/ports/IAppDriverFactory';
 import type { PlatformSession } from './PlatformSession';
+import { resolveUrlFromConfig } from './platformUrlUtils';
 
 @injectable()
 export class PlatformSessionFactory {
@@ -38,7 +39,7 @@ export class PlatformSessionFactory {
             throw new WorkflowError(`Driver is connected but automation bridge is unavailable: ${message}`);
         }
 
-        const executionUrl = this.getExecutionUrlFromInput(input);
+        const executionUrl = resolveUrlFromConfig(input.platformConfig);
         const shouldNavigate = platformConfig.platform === 'web';
 
         return {
@@ -52,31 +53,6 @@ export class PlatformSessionFactory {
                 });
             }
         };
-    }
-
-    private getExecutionUrlFromInput(input: RunInput): string {
-        const config = input.platformConfig;
-
-        if (config?.platform === 'web') {
-            return config.url;
-        }
-
-        if (config?.platform === 'electron') {
-            return config.connection.type === 'cdp'
-                ? config.connection.cdpUrl
-                : 'electron://app';
-        }
-
-        if (config?.platform === 'android') {
-            return `android://${(config as import('@domain/types/PlatformConfig').AndroidPlatformConfig).appPackage}`;
-        }
-
-        if (config?.platform === 'ios') {
-            return `ios://${(config as import('@domain/types/PlatformConfig').IosPlatformConfig).bundleId}`;
-        }
-
-        // Exhaustive — all PlatformConfig variants handled above
-        return `${(config as { platform: string }).platform}://app`;
     }
 
     private toDriverOptions(options: RunInput['options']): AppDriverCreateOptions | undefined {

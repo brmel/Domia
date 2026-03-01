@@ -29,7 +29,9 @@ export function useRunPanel() {
         onData: (event) => {
             handleEvent(event as Parameters<typeof handleEvent>[0]);
         },
-        onError: () => {},
+        onError: (err) => {
+            console.error('[useRunPanel] subscription error:', err);
+        },
         enabled: typeof window !== 'undefined' && 'electronTRPC' in window,
     });
 

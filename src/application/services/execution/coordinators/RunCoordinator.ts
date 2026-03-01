@@ -2,6 +2,7 @@ import { injectable } from 'tsyringe';
 import type { RunInput } from '@application/dtos';
 import type { PlatformSession } from '@application/services/platform/PlatformSession';
 import type { RunOptions } from '@shared/validation';
+import { resolveUrlFromConfig, resolveLaneKeyFromConfig } from '@application/services/platform/platformUrlUtils';
 
 export interface StepExecutionOptions {
     vision: boolean;
@@ -17,54 +18,11 @@ export class RunCoordinator {
             return sessionUrl;
         }
 
-        const platformConfig = input.platformConfig;
-        if (platformConfig.platform === 'web') {
-            return platformConfig.url;
-        }
-
-        if (platformConfig.platform === 'electron') {
-            if (platformConfig.connection.type === 'cdp') {
-                return platformConfig.connection.cdpUrl;
-            }
-            return 'electron://app';
-        }
-
-        if (platformConfig.platform === 'android') {
-            return `android://${(platformConfig as import('@domain/types/PlatformConfig').AndroidPlatformConfig).appPackage}`;
-        }
-
-        if (platformConfig.platform === 'ios') {
-            return `ios://${(platformConfig as import('@domain/types/PlatformConfig').IosPlatformConfig).bundleId}`;
-        }
-
-        // Exhaustive — all PlatformConfig variants handled above
-        return (platformConfig as { platform: string }).platform + '://app';
+        return resolveUrlFromConfig(input.platformConfig);
     }
 
     resolveLaneKey(input: RunInput): string {
-        const platformConfig = input.platformConfig;
-
-        if (platformConfig.platform === 'web') {
-            return `platform:web:${platformConfig.url}`;
-        }
-
-        if (platformConfig.platform === 'electron') {
-            if (platformConfig.connection.type === 'cdp') {
-                return `platform:electron:cdp:${platformConfig.connection.cdpUrl}`;
-            }
-            return `platform:electron:executable:${platformConfig.connection.executablePath}`;
-        }
-
-        if (platformConfig.platform === 'android') {
-            return `platform:android:${(platformConfig as import('@domain/types/PlatformConfig').AndroidPlatformConfig).appPackage}`;
-        }
-
-        if (platformConfig.platform === 'ios') {
-            return `platform:ios:${(platformConfig as import('@domain/types/PlatformConfig').IosPlatformConfig).bundleId}`;
-        }
-
-        // Exhaustive — all PlatformConfig variants handled above
-        return `platform:${(platformConfig as { platform: string }).platform}:unknown`;
+        return resolveLaneKeyFromConfig(input.platformConfig);
     }
 
     buildExecutionOptions(options?: RunOptions): StepExecutionOptions {

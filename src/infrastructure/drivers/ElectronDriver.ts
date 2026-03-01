@@ -4,7 +4,7 @@ import { chromium, Browser } from 'playwright';
 import { IAppDriver, AppCapabilities } from '../../domain/ports/IAppDriver';
 import type { ILogger, IStructuredAutomation } from '../../domain/ports';
 import { NavigationError } from '../../domain/errors';
-import { Platform, CDP_CONSTANTS } from '../../domain/constants/PlatformConstants';
+import { CDP_CONSTANTS } from '../../domain/constants/PlatformConstants';
 import { CDPValidator } from '../../domain/validators/CDPValidator';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
@@ -203,7 +203,7 @@ export class ElectronDriver implements IAppDriver {
 
     getCapabilities(): AppCapabilities {
         return {
-            platform: Platform.ELECTRON,
+            platform: 'electron',
             supportsDOM: true,
             supportsVision: true,
             supportsMultiWindow: true,

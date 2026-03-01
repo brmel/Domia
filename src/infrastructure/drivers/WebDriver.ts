@@ -2,7 +2,6 @@ import { ResultAsync } from 'neverthrow';
 import { IAppDriver, AppCapabilities } from '../../domain/ports/IAppDriver';
 import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
 import type { ILogger } from '../../domain/ports';
-import { Platform } from '../../domain/constants/PlatformConstants';
 
 export class WebDriver implements IAppDriver {
     constructor(
@@ -23,7 +22,7 @@ export class WebDriver implements IAppDriver {
 
     getCapabilities(): AppCapabilities {
         return {
-            platform: Platform.WEB,
+            platform: 'web',
             supportsDOM: true,
             supportsVision: true,
             supportsMultiWindow: false,

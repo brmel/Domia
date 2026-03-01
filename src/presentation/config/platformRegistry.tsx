@@ -2,16 +2,21 @@ import type {
   BasePlatformConfig,
   WebPlatformConfig,
   ElectronPlatformConfig,
+  AndroidPlatformConfig,
+  IosPlatformConfig,
 } from '../../domain/types/PlatformConfig';
 import { WebPlatformFields } from '../components/platform/WebPlatformFields';
 import { ElectronPlatformFields } from '../components/platform/ElectronPlatformFields';
+import { AndroidPlatformFields } from '../components/platform/AndroidPlatformFields';
+import { IosPlatformFields } from '../components/platform/IosPlatformFields';
 
-/** Platforms that currently have full UI support (form fields, etc.). */
-export type UIPlatformType = 'web' | 'electron';
+export type UIPlatformType = 'web' | 'electron' | 'android' | 'ios';
 
 export type PlatformFieldValue =
   | Omit<WebPlatformConfig, 'platform'>
-  | Omit<ElectronPlatformConfig, 'platform'>;
+  | Omit<ElectronPlatformConfig, 'platform'>
+  | Omit<AndroidPlatformConfig, 'platform'>
+  | Omit<IosPlatformConfig, 'platform'>;
 
 export interface FieldRenderProps {
   value: PlatformFieldValue;
@@ -54,6 +59,28 @@ export const platformRegistry: Record<UIPlatformType, PlatformDefinition<BasePla
         type: 'cdp',
         cdpUrl: 'http://localhost:9222',
       },
+    },
+  },
+
+  android: {
+    type: 'android',
+    label: 'Android',
+    description: 'Automate Android apps via Appium',
+    icon: '📱',
+    renderFields: AndroidPlatformFields,
+    defaultValues: {
+      appPackage: '',
+    },
+  },
+
+  ios: {
+    type: 'ios',
+    label: 'iOS',
+    description: 'Automate iOS apps via Appium',
+    icon: '🍎',
+    renderFields: IosPlatformFields,
+    defaultValues: {
+      bundleId: '',
     },
   },
 };

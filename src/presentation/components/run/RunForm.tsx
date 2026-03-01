@@ -7,7 +7,8 @@ import { RunState } from '@domain/enums/RunState';
 import { canStart, canPause, canResume, canStop, isAgentRunning } from '../../utils/agentStateUtils';
 import { PlatformSelector } from '../platform/PlatformSelector';
 import { platformRegistry, type PlatformFieldValue, type UIPlatformType } from '../../config/platformRegistry';
-import type { PlatformConfig, WebPlatformConfig, ElectronPlatformConfig } from '../../../domain/types/PlatformConfig';
+import { buildPlatformConfig } from '../../utils/buildPlatformConfig';
+import type { WebPlatformConfig, ElectronPlatformConfig, AndroidPlatformConfig, IosPlatformConfig } from '../../../domain/types/PlatformConfig';
 
 interface RunFormProps {
     onOpenHistory: () => void;
@@ -86,75 +87,70 @@ export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): R
     const validatePlatformData = (platform: UIPlatformType, data: PlatformFieldValue): Record<string, string> => {
         const nextErrors: Record<string, string> = {};
 
-        if (platform === 'web') {
-            const webData = data as Omit<WebPlatformConfig, 'platform'>;
-            const rawUrl = (webData.url || '').trim();
-            if (!rawUrl) {
-                nextErrors['url'] = 'URL is required';
-                return nextErrors;
-            }
-
-            try {
-                new URL(rawUrl);
-            } catch {
-                nextErrors['url'] = 'Enter a valid URL (https://...)';
-            }
-
-            return nextErrors;
-        }
-
-        const electronData = data as Omit<ElectronPlatformConfig, 'platform'>;
-        const connection = electronData.connection;
-        if (!connection) {
-            nextErrors['connection.type'] = 'Connection is required';
-            return nextErrors;
-        }
-
-        if (connection.type === 'cdp') {
-            const cdpUrl = (connection.cdpUrl || '').trim();
-            if (!cdpUrl) {
-                nextErrors['connection.cdpUrl'] = 'CDP URL is required';
-                return nextErrors;
-            }
-
-            try {
-                new URL(cdpUrl);
-            } catch {
-                nextErrors['connection.cdpUrl'] = 'Enter a valid CDP URL';
-            }
-
-            return nextErrors;
-        }
-
-        const executablePath = (connection.executablePath || '').trim();
-        if (!executablePath) {
-            nextErrors['connection.executablePath'] = 'Executable path is required';
-        }
-
-        return nextErrors;
-    };
-
-    const buildPlatformConfig = (
-        platform: UIPlatformType,
-        fieldValue: PlatformFieldValue
-    ): PlatformConfig => {
         switch (platform) {
             case 'web': {
-                const webFields = fieldValue as Omit<WebPlatformConfig, 'platform'>;
-                return {
-                    platform: 'web',
-                    url: webFields.url,
-                };
+                const webData = data as Omit<WebPlatformConfig, 'platform'>;
+                const rawUrl = (webData.url || '').trim();
+                if (!rawUrl) {
+                    nextErrors['url'] = 'URL is required';
+                    return nextErrors;
+                }
+                try {
+                    new URL(rawUrl);
+                } catch {
+                    nextErrors['url'] = 'Enter a valid URL (https://...)';
+                }
+                return nextErrors;
             }
             case 'electron': {
-                const electronFields = fieldValue as Omit<ElectronPlatformConfig, 'platform'>;
-                return {
-                    platform: 'electron',
-                    connection: electronFields.connection,
-                };
+                const electronData = data as Omit<ElectronPlatformConfig, 'platform'>;
+                const connection = electronData.connection;
+                if (!connection) {
+                    nextErrors['connection.type'] = 'Connection is required';
+                    return nextErrors;
+                }
+                if (connection.type === 'cdp') {
+                    const cdpUrl = (connection.cdpUrl || '').trim();
+                    if (!cdpUrl) {
+                        nextErrors['connection.cdpUrl'] = 'CDP URL is required';
+                        return nextErrors;
+                    }
+                    try {
+                        new URL(cdpUrl);
+                    } catch {
+                        nextErrors['connection.cdpUrl'] = 'Enter a valid CDP URL';
+                    }
+                    return nextErrors;
+                }
+                const executablePath = (connection.executablePath || '').trim();
+                if (!executablePath) {
+                    nextErrors['connection.executablePath'] = 'Executable path is required';
+                }
+                return nextErrors;
             }
-            default: {
-                throw new Error(`Unsupported platform: ${String(platform)}`);
+            case 'android': {
+                const androidData = data as Omit<AndroidPlatformConfig, 'platform'>;
+                if (!(androidData.appPackage || '').trim()) {
+                    nextErrors['appPackage'] = 'App package is required (e.g. com.example.app)';
+                }
+                if (androidData.appiumUrl) {
+                    try { new URL(androidData.appiumUrl); } catch {
+                        nextErrors['appiumUrl'] = 'Enter a valid Appium URL';
+                    }
+                }
+                return nextErrors;
+            }
+            case 'ios': {
+                const iosData = data as Omit<IosPlatformConfig, 'platform'>;
+                if (!(iosData.bundleId || '').trim()) {
+                    nextErrors['bundleId'] = 'Bundle ID is required (e.g. com.example.App)';
+                }
+                if (iosData.appiumUrl) {
+                    try { new URL(iosData.appiumUrl); } catch {
+                        nextErrors['appiumUrl'] = 'Enter a valid Appium URL';
+                    }
+                }
+                return nextErrors;
             }
         }
     };

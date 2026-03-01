@@ -23,13 +23,6 @@ const TRANSIENT_ELECTRON_CONNECT_PATTERNS = [
 export const isTransientElectronConnectError = createMessageMatcher(TRANSIENT_ELECTRON_CONNECT_PATTERNS);
 
 export const RETRY_PROFILES = {
-    llmToolCalling: {
-        attempts: 3,
-        minDelayMs: 300,
-        maxDelayMs: 2_000,
-        jitter: 0.15,
-        label: 'llm-tool-calling'
-    } satisfies RetryOptions,
     electronCdpConnect: {
         attempts: 3,
         minDelayMs: 400,

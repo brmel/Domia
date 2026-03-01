@@ -235,14 +235,14 @@ export class PlaywrightAdapter implements IStructuredAutomation {
         if (!this.page) return;
         this.logger.debug('[PlaywrightAdapter] Waiting for page ready');
         try {
-            await Promise.all([
-                this.page.waitForLoadState('load', { timeout }),
-                this.page.waitForLoadState('networkidle', { timeout }).catch(() => {
-                    this.logger.debug('[PlaywrightAdapter] Network idle timeout, proceeding anyway');
-                })
-            ]);
-        } catch (e) {
-            this.logger.debug(`[PlaywrightAdapter] Wait for stable failed or timed out: ${String(e)}`);
+            await this.page.waitForLoadState('load', { timeout });
+        } catch {
+            this.logger.debug('[PlaywrightAdapter] Load-state timeout, proceeding');
+        }
+        try {
+            await this.page.waitForLoadState('networkidle', { timeout });
+        } catch {
+            this.logger.debug('[PlaywrightAdapter] Network idle timeout, proceeding');
         }
         await this.page.waitForTimeout(500);
     }

@@ -1,10 +1,3 @@
-export enum Platform {
-    WEB = 'web',
-    ELECTRON = 'electron',
-    ANDROID = 'android',
-    IOS = 'ios',
-}
-
 export const CDP_CONSTANTS = {
     DEFAULT_PORT: 9222,
     DEFAULT_HOST: 'localhost',
@@ -15,17 +8,13 @@ export const CDP_CONSTANTS = {
 } as const;
 
 export const TOOL_TIMEOUTS = {
-    CLICK_MS: 5000,
-    TYPE_MS: 5000,
     NAVIGATION_MS: 30000,
     ELEMENT_WAIT_MS: 10000,
-    DEFAULT_SCREENSHOT_TIMEOUT_MS: 30000,
     HIGHLIGHT_DURATION_MS: 1000
 } as const;
 
 export const SCROLL_CONSTANTS = {
     AMOUNT_PX: 500,
-    SMOOTH_BEHAVIOR: false
 } as const;
 
 export const WINDOW_ID_CONSTANTS = {

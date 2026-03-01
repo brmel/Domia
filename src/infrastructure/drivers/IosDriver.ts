@@ -1,7 +1,6 @@
 import { ResultAsync, errAsync } from 'neverthrow';
 import { IAppDriver, AppCapabilities } from '@domain/ports/IAppDriver';
 import type { IStructuredAutomation } from '@domain/ports';
-import { Platform } from '@domain/constants/PlatformConstants';
 
 /**
  * Stub iOS driver — placeholder until XCUITest / Appium integration is implemented.
@@ -17,7 +16,7 @@ export class IosDriver implements IAppDriver {
 
     getCapabilities(): AppCapabilities {
         return {
-            platform: Platform.IOS,
+            platform: 'ios',
             supportsDOM: false,
             supportsVision: true,
             supportsMultiWindow: false,

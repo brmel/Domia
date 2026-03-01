@@ -1,9 +1,9 @@
 import { ResultAsync } from 'neverthrow';
 import { NavigationError } from '../errors';
-import { Platform } from '../constants/PlatformConstants';
+import type { BuiltInPlatformType } from '../types/PlatformConfig';
 
 export interface AppCapabilities {
-    readonly platform: Platform;
+    readonly platform: BuiltInPlatformType;
     readonly supportsDOM: boolean;
     readonly supportsVision: boolean;
     readonly supportsMultiWindow: boolean;

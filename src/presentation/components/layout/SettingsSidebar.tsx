@@ -51,7 +51,9 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
         return <div className="p-6 text-gray-500">Loading settings...</div>;
     }
 
-    const effectiveConfig = config || ({} as DomiaConfig);
+    if (!config) {
+        return <div className="p-6 text-red-500">Failed to load settings.</div>;
+    }
 
     return (
         <div className={`flex flex-col h-full bg-white border-r border-gray-200 shadow-xl animate-slide-in-right ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -85,7 +87,7 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
                                 <input
                                     type="checkbox"
                                     className="sr-only peer"
-                                    checked={effectiveConfig.headless ?? true}
+                                    checked={config.headless ?? true}
                                     onChange={(e) => toggleHeadless(e.target.checked, e)}
                                     disabled={disabled}
                                 />
@@ -102,7 +104,7 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
                             <label className="block text-sm font-medium text-gray-700 mb-1">Max Steps</label>
                             <input
                                 type="number"
-                                value={effectiveConfig.limits?.maxSteps ?? 20}
+                                value={config.limits?.maxSteps ?? 20}
                                 onChange={(e) => updateMaxSteps(parseInt(e.target.value), e)}
                                 disabled={disabled}
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
@@ -115,7 +117,7 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
                                 type="number"
                                 min={10}
                                 max={200}
-                                value={effectiveConfig.limits?.maxElements ?? 50}
+                                value={config.limits?.maxElements ?? 50}
                                 onChange={(e) => updateMaxElements(parseInt(e.target.value), e)}
                                 disabled={disabled}
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"

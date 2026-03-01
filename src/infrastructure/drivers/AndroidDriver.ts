@@ -1,7 +1,6 @@
 import { ResultAsync, errAsync } from 'neverthrow';
 import { IAppDriver, AppCapabilities } from '@domain/ports/IAppDriver';
 import type { IStructuredAutomation } from '@domain/ports';
-import { Platform } from '@domain/constants/PlatformConstants';
 
 /**
  * Stub Android driver — placeholder until Appium / UIAutomator integration is implemented.
@@ -17,7 +16,7 @@ export class AndroidDriver implements IAppDriver {
 
     getCapabilities(): AppCapabilities {
         return {
-            platform: Platform.ANDROID,
+            platform: 'android',
             supportsDOM: false,
             supportsVision: true,
             supportsMultiWindow: false,
