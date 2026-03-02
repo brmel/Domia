@@ -1,7 +1,8 @@
 import { ResultAsync, okAsync, errAsync } from 'neverthrow';
-import { chromium, Browser, Page, ElementHandle } from 'playwright';
+import { chromium, Browser, Page, Locator } from 'playwright';
 import type { IStructuredAutomation, LaunchOptions, ILogger, IPerceptionSource } from '@domain/ports';
-import type { Url, ElementId } from '@domain/value-objects';
+import type { Url } from '@domain/value-objects';
+import type { RoleRefMap } from '@domain/value-objects/RoleRef';
 import { NavigationError, InteractionError } from '@domain/errors';
 import { TOOL_TIMEOUTS, SCROLL_CONSTANTS, AGENT_VIEW_CONFIG } from '@domain/constants/PlatformConstants';
 import { PlaywrightPerceptionSource } from './PlaywrightPerceptionSource';
@@ -9,8 +10,13 @@ import { PlaywrightPerceptionSource } from './PlaywrightPerceptionSource';
 export class PlaywrightAdapter implements IStructuredAutomation {
     private browser: Browser | null = null;
     private page: Page | null = null;
+    private refs: RoleRefMap = {};
 
     constructor(private readonly logger: ILogger) { }
+
+    updateRefs(refs: RoleRefMap): void {
+        this.refs = refs;
+    }
 
     launch(options: LaunchOptions): ResultAsync<void, NavigationError> {
         return ResultAsync.fromPromise(
@@ -51,26 +57,26 @@ export class PlaywrightAdapter implements IStructuredAutomation {
         ).andThen(() => ResultAsync.fromPromise(this.waitForReady(), e => new NavigationError(String(e))));
     }
 
-    click(elementId: ElementId, options?: { force?: boolean; timeout?: number }): ResultAsync<void, InteractionError> {
-        this.logger.debug(`[PlaywrightAdapter] Clicking element: ${elementId}${options?.force ? ' (forced)' : ''}`);
+    click(ref: string, options?: { force?: boolean; timeout?: number }): ResultAsync<void, InteractionError> {
+        this.logger.debug(`[PlaywrightAdapter] Clicking element: ${ref}${options?.force ? ' (forced)' : ''}`);
 
-        return this.findElement(elementId).andThen((el) => {
+        return this.resolveRef(ref).andThen((locator) => {
             const clickOptions = {
                 force: options?.force ?? false,
                 timeout: options?.timeout ?? TOOL_TIMEOUTS.ELEMENT_WAIT_MS
             };
 
             const attempt = (): ResultAsync<void, InteractionError> => ResultAsync.fromPromise(
-                el.click(clickOptions),
-                (e) => new InteractionError(`Click failed: ${String(e)}`, elementId)
+                locator.click(clickOptions),
+                (e) => new InteractionError(`Click failed: ${String(e)}`, ref)
             );
 
             return attempt().orElse((err) => {
                 if (!options?.force && (err.message.includes('intercepts pointer events') || err.message.includes('Timeout'))) {
-                    this.logger.warn(`[PlaywrightAdapter] Click on ${elementId} intercepted or timed out, retrying with force: true`);
+                    this.logger.warn(`[PlaywrightAdapter] Click on ${ref} intercepted or timed out, retrying with force: true`);
                     return ResultAsync.fromPromise(
-                        el.click({ ...clickOptions, force: true }),
-                        (e) => new InteractionError(`Force click failed: ${String(e)}`, elementId)
+                        locator.click({ ...clickOptions, force: true }),
+                        (e) => new InteractionError(`Force click failed: ${String(e)}`, ref)
                     );
                 }
                 return errAsync(err);
@@ -127,12 +133,44 @@ export class PlaywrightAdapter implements IStructuredAutomation {
         );
     }
 
-    type(elementId: ElementId, text: string): ResultAsync<void, InteractionError> {
-        this.logger.debug(`[PlaywrightAdapter] Typing into element: ${elementId}`);
-        return this.findElement(elementId).andThen((el) =>
+    type(ref: string, text: string): ResultAsync<void, InteractionError> {
+        this.logger.debug(`[PlaywrightAdapter] Typing into element: ${ref}`);
+        return this.resolveRef(ref).andThen((locator) =>
             ResultAsync.fromPromise(
-                el.fill(text),
-                (e) => new InteractionError(`Type failed: ${String(e)}`, elementId)
+                locator.fill(text),
+                (e) => new InteractionError(`Type failed: ${String(e)}`, ref)
+            )
+        );
+    }
+
+    hover(ref: string): ResultAsync<void, InteractionError> {
+        this.logger.debug(`[PlaywrightAdapter] Hovering element: ${ref}`);
+        return this.resolveRef(ref).andThen((locator) =>
+            ResultAsync.fromPromise(
+                locator.hover({ timeout: TOOL_TIMEOUTS.ELEMENT_WAIT_MS }),
+                (e) => new InteractionError(`Hover failed: ${String(e)}`, ref)
+            )
+        );
+    }
+
+    selectOption(ref: string, values: string[]): ResultAsync<void, InteractionError> {
+        this.logger.debug(`[PlaywrightAdapter] Selecting option on element: ${ref}`);
+        return this.resolveRef(ref).andThen((locator) =>
+            ResultAsync.fromPromise(
+                locator.selectOption(values, { timeout: TOOL_TIMEOUTS.ELEMENT_WAIT_MS }).then(() => {}),
+                (e) => new InteractionError(`Select option failed: ${String(e)}`, ref)
+            )
+        );
+    }
+
+    dragTo(fromRef: string, toRef: string): ResultAsync<void, InteractionError> {
+        this.logger.debug(`[PlaywrightAdapter] Dragging element ${fromRef} to ${toRef}`);
+        return this.resolveRef(fromRef).andThen((source) =>
+            this.resolveRef(toRef).andThen((target) =>
+                ResultAsync.fromPromise(
+                    source.dragTo(target, { timeout: TOOL_TIMEOUTS.ELEMENT_WAIT_MS }),
+                    (e) => new InteractionError(`Drag failed: ${String(e)}`, fromRef)
+                )
             )
         );
     }
@@ -181,13 +219,13 @@ export class PlaywrightAdapter implements IStructuredAutomation {
         );
     }
 
-    highlight(elementId: ElementId): ResultAsync<void, InteractionError> {
-        return this.findElement(elementId).andThen((el) =>
+    highlight(ref: string): ResultAsync<void, InteractionError> {
+        return this.resolveRef(ref).andThen((locator) =>
             ResultAsync.fromPromise(
                 (async (): Promise<void> => {
-                    await el.scrollIntoViewIfNeeded();
+                    await locator.scrollIntoViewIfNeeded();
 
-                    await el.evaluate((node, highlightMs) => {
+                    await locator.evaluate((node, highlightMs) => {
                         const element = node as HTMLElement;
                         const originalOutline = element.style.outline;
                         const originalTransition = element.style.transition;
@@ -206,17 +244,17 @@ export class PlaywrightAdapter implements IStructuredAutomation {
                         await this.page.waitForTimeout(500);
                     }
                 })(),
-                (e) => new InteractionError(`Highlight failed: ${String(e)}`, elementId)
+                (e) => new InteractionError(`Highlight failed: ${String(e)}`, ref)
             )
         );
     }
 
-    extractText(elementId: ElementId): ResultAsync<string, InteractionError> {
-        this.logger.debug(`[PlaywrightAdapter] Extracting text from: ${elementId}`);
-        return this.findElement(elementId).andThen((el) =>
+    extractText(ref: string): ResultAsync<string, InteractionError> {
+        this.logger.debug(`[PlaywrightAdapter] Extracting text from: ${ref}`);
+        return this.resolveRef(ref).andThen((locator) =>
             ResultAsync.fromPromise(
-                el.innerText(),
-                (e) => new InteractionError(`Extract text failed: ${String(e)}`, elementId)
+                locator.innerText(),
+                (e) => new InteractionError(`Extract text failed: ${String(e)}`, ref)
             )
         ).map(text => text ?? '');
     }
@@ -273,17 +311,19 @@ export class PlaywrightAdapter implements IStructuredAutomation {
         this.attachPageLifecycleHandlers(page);
     }
 
-    private findElement(elementId: ElementId): ResultAsync<ElementHandle, InteractionError> {
+    private resolveRef(ref: string): ResultAsync<Locator, InteractionError> {
         this.ensureRecoverablePage();
         if (!this.page) {
-            return errAsync(new InteractionError('Browser not launched', elementId));
+            return errAsync(new InteractionError('Browser not launched', ref));
         }
-        return ResultAsync.fromPromise(
-            this.page.locator(`[data-autoqa-id="${elementId}"]`).elementHandle(),
-            (e) => new InteractionError(`Element not found: ${String(e)}`, elementId)
-        ).andThen((el) =>
-            el ? okAsync(el) : errAsync(new InteractionError('Element not found', elementId))
-        );
+        const entry = this.refs[ref];
+        if (!entry) {
+            return errAsync(new InteractionError(`Unknown ref: ${ref}`, ref));
+        }
+        const locator = entry.name
+            ? this.page.getByRole(entry.role as any, { name: entry.name, exact: true }).nth(entry.nth)
+            : this.page.getByRole(entry.role as any).nth(entry.nth);
+        return okAsync(locator);
     }
 
     private ensureRecoverablePage(): void {

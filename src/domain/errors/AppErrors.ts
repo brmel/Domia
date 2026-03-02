@@ -13,7 +13,7 @@ export class InteractionError extends DomainError {
 
     constructor(
         message: string,
-        readonly elementId?: number,
+        readonly ref?: string,
     ) {
         super(message);
     }

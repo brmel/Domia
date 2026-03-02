@@ -14,7 +14,6 @@ export const PlatformConfigSchema = z.discriminatedUnion('platform', [
 export const RunOptionsSchema = z.object({
   headless: z.boolean().optional(),
   maxSteps: z.number().int().positive().optional(),
-  maxElements: z.number().int().min(10).max(200).optional(),
   maxDurationMs: z.number().int().positive().optional(),
   maxEstimatedTokens: z.number().int().positive().optional(),
   maxRetries: z.number().int().nonnegative().optional(),

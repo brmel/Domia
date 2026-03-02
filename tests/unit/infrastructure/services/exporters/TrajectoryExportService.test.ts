@@ -41,7 +41,7 @@ function createServiceContext(): {
                 startedAt: new Date('2026-02-10T00:00:00.000Z')
             }
         })),
-        getSteps: vi.fn(async (runId: string): Promise<{ isErr: () => false; value: Array<{ id: string; runId: string; stepNumber: number; actionType: ActionType; actionPayload: { type: ActionType; elementId: number; thought: string }; timestamp: string }> }> => ({
+        getSteps: vi.fn(async (runId: string): Promise<{ isErr: () => false; value: Array<{ id: string; runId: string; stepNumber: number; actionType: ActionType; actionPayload: { type: ActionType; ref: string; thought: string }; timestamp: string }> }> => ({
             isErr: () => false,
             value: [
                 {
@@ -51,7 +51,7 @@ function createServiceContext(): {
                     actionType: ActionType.CLICK,
                     actionPayload: {
                         type: ActionType.CLICK,
-                        elementId: 1,
+                        ref: 'e1',
                         thought: `final-action-${runId}`
                     },
                     timestamp: new Date().toISOString()
@@ -100,12 +100,12 @@ function createServiceContext(): {
                             agentOutput: {
                                 action: {
                                     type: ActionType.CLICK,
-                                    elementId: 1,
+                                    ref: 'e1',
                                     thought: 'model proposal'
                                 },
                                 rawResponse: JSON.stringify({
                                     type: ActionType.CLICK,
-                                    elementId: 1,
+                                    ref: 'e1',
                                     thought: 'model proposal'
                                 })
                             }

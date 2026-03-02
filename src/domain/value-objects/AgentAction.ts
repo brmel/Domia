@@ -1,9 +1,11 @@
-import type { ElementId } from './Brand';
 import { ActionType } from '../enums/ActionType';
 
 export type AgentAction =
     | ClickAction
     | TypeAction
+    | HoverAction
+    | SelectOptionAction
+    | DragToAction
     | ScrollAction
     | MouseMoveAction
     | MouseClickLeftAction
@@ -21,17 +23,37 @@ export type AgentAction =
 
 interface ClickAction {
     readonly type: ActionType.CLICK;
-    readonly elementId: ElementId;
+    readonly ref: string;
     readonly elementDescriptor?: string | undefined;
     readonly thought: string;
 }
 
 interface TypeAction {
     readonly type: ActionType.TYPE;
-    readonly elementId: ElementId;
+    readonly ref: string;
     readonly elementDescriptor?: string | undefined;
     readonly text: string;
     readonly submit?: boolean;
+    readonly thought: string;
+}
+
+interface HoverAction {
+    readonly type: ActionType.HOVER;
+    readonly ref: string;
+    readonly thought: string;
+}
+
+interface SelectOptionAction {
+    readonly type: ActionType.SELECT_OPTION;
+    readonly ref: string;
+    readonly values: string[];
+    readonly thought: string;
+}
+
+interface DragToAction {
+    readonly type: ActionType.DRAG_TO;
+    readonly fromRef: string;
+    readonly toRef: string;
     readonly thought: string;
 }
 
@@ -100,7 +122,7 @@ interface PressKeyAction {
 
 interface ExtractAction {
     readonly type: ActionType.EXTRACT;
-    readonly elementId: ElementId;
+    readonly ref: string;
     readonly elementDescriptor?: string | undefined;
     readonly thought: string;
 }

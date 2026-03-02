@@ -6,7 +6,6 @@ type Brand<T, B> = T & { readonly [brand]: B };
 
 export type Url = Brand<string, 'Url'>;
 export type RunId = Brand<string, 'RunId'>;
-export type ElementId = Brand<number, 'ElementId'>;
 
 export const UrlFactory = {
     create(value: string): Result<Url, ValidationError> {
@@ -33,17 +32,5 @@ export const RunIdFactory = {
     },
     fromString(value: string): RunId {
         return value as RunId;
-    },
-};
-
-export const ElementIdFactory = {
-    create(value: number): Result<ElementId, ValidationError> {
-        if (!Number.isInteger(value) || value < 0) {
-            return err(new ValidationError(`Invalid element ID: ${value}`, 'elementId'));
-        }
-        return ok(value as ElementId);
-    },
-    unsafe(value: number): ElementId {
-        return value as ElementId;
     },
 };

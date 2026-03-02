@@ -29,8 +29,8 @@ export interface StepRunnerConfig {
     readonly stepGoal: string;
     readonly url: string;
     readonly maxActions: number;
-    readonly maxElements: number;
     readonly vision: boolean;
+    readonly platform?: import('../types/PlatformConfig').PlatformType | undefined;
 }
 
 export interface IAgentRunner {

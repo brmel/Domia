@@ -46,18 +46,11 @@ export class FileSystemStorage implements IStorageService {
             }
         }
 
-        if (frame.semantic.dom && Object.keys(frame.semantic.dom).length > 0) {
-            const filename = `${stepNumber}_dom.json`;
+        if (frame.semantic.ariaSnapshot) {
+            const filename = `${stepNumber}_aria.txt`;
             const filePath = path.join(baseDir, filename);
-            await fs.writeJson(filePath, frame.semantic.dom, { spaces: 2 });
-            assets['dom'] = filePath;
-        }
-
-        if (frame.semantic.accessibility && Object.keys(frame.semantic.accessibility).length > 0) {
-            const filename = `${stepNumber}_aria.json`;
-            const filePath = path.join(baseDir, filename);
-            await fs.writeJson(filePath, frame.semantic.accessibility, { spaces: 2 });
-            assets['accessibility'] = filePath;
+            await fs.writeFile(filePath, frame.semantic.ariaSnapshot, 'utf-8');
+            assets['ariaSnapshot'] = filePath;
         }
 
         return assets;

@@ -1,10 +1,6 @@
-import type { Page, CDPSession } from 'playwright';
+import type { Page } from 'playwright';
 import type { IPerceptionSource, ScreenshotOptions } from '@domain/ports/IPerceptionSource';
 
-/**
- * Playwright-backed perception source.
- * Wraps a Playwright Page so sensors never import Playwright directly.
- */
 export class PlaywrightPerceptionSource implements IPerceptionSource {
     constructor(private readonly page: Page) {}
 
@@ -28,19 +24,11 @@ export class PlaywrightPerceptionSource implements IPerceptionSource {
         return this.page.evaluate(pageFunction as never, ...args);
     }
 
-    async getAccessibilityTree(options?: { interestingOnly?: boolean }): Promise<unknown> {
-        const pageWithA11y = this.page as unknown as {
-            accessibility?: {
-                snapshot(options: { interestingOnly: boolean }): Promise<unknown>;
-            };
-        };
-        if (!pageWithA11y.accessibility) return null;
+    async getAriaSnapshot(): Promise<string> {
         try {
-            return await pageWithA11y.accessibility.snapshot({
-                interestingOnly: options?.interestingOnly ?? false,
-            }) ?? null;
+            return await this.page.locator('body').ariaSnapshot();
         } catch {
-            return null;
+            return '';
         }
     }
 
@@ -56,7 +44,7 @@ export class PlaywrightPerceptionSource implements IPerceptionSource {
         return this.page.viewportSize();
     }
 
-    async createCDPSession(): Promise<CDPSession> {
+    async createCDPSession(): Promise<unknown> {
         return this.page.context().newCDPSession(this.page);
     }
 }

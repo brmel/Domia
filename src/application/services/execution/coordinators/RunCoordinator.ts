@@ -4,10 +4,12 @@ import type { PlatformSession } from '@application/services/platform/PlatformSes
 import type { RunOptions } from '@shared/validation';
 import { resolveUrlFromConfig, resolveLaneKeyFromConfig } from '@application/services/platform/platformUrlUtils';
 
+import type { PlatformType } from '@domain/types/PlatformConfig';
+
 export interface StepExecutionOptions {
     vision: boolean;
     maxActions: number;
-    maxElements: number;
+    platform?: PlatformType | undefined;
 }
 
 @injectable()
@@ -25,11 +27,11 @@ export class RunCoordinator {
         return resolveLaneKeyFromConfig(input.platformConfig);
     }
 
-    buildExecutionOptions(options?: RunOptions): StepExecutionOptions {
+    buildExecutionOptions(options?: RunOptions, platform?: PlatformType): StepExecutionOptions {
         return {
             vision: options?.vision ?? true,
             maxActions: options?.maxSteps ?? 20,
-            maxElements: options?.maxElements ?? 50,
+            platform,
         };
     }
 }

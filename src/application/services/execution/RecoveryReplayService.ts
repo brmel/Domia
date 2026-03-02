@@ -30,7 +30,7 @@ export class RecoveryReplayService {
             case ActionType.MOUSE_SCROLL:
                 return { decision: 'replay', idempotencyKey: `mouse_scroll:${action.deltaX}:${action.deltaY}` };
             case ActionType.EXTRACT:
-                return { decision: 'replay', idempotencyKey: `extract:${String(action.elementId)}` };
+                return { decision: 'replay', idempotencyKey: `extract:${action.ref}` };
             case ActionType.OBSERVE:
                 return { decision: 'replay', idempotencyKey: `observe:${String(action.delayMs ?? 0)}` };
             case ActionType.NAVIGATE:
@@ -40,6 +40,9 @@ export class RecoveryReplayService {
                 return { decision: 'skip', reason: `Terminal action '${action.type}' is not replayed` };
             case ActionType.CLICK:
             case ActionType.TYPE:
+            case ActionType.HOVER:
+            case ActionType.SELECT_OPTION:
+            case ActionType.DRAG_TO:
             case ActionType.PRESS_KEY:
             case ActionType.MOUSE_CLICK_LEFT:
             case ActionType.MOUSE_CLICK_RIGHT:

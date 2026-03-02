@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import type { IStructuredAutomation } from '@domain/ports';
-import { ElementIdFactory } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
 import type { ToolSpec } from '../ToolSpec';
 
@@ -8,28 +7,30 @@ export function createInteractionTools(automation: IStructuredAutomation): ToolS
     return [
         {
             name: 'click',
-            description: 'Click an element by its elementId from the DOM snapshot. Handles navigation, toggling, opening menus, etc. Input: { elementId: number }. Output: { status: "success" } with updated DOM elements and optional screenshot, or { status: "error", error: string } on failure.',
+            description: 'Click an element by its ref from the ARIA snapshot. Input: { ref: string }. Output: { status: "success" } or { status: "error", error: string }.',
             actionType: ActionType.CLICK,
+            platforms: ['web', 'electron'] as const,
             parameters: z.object({
-                elementId: z.number().int().min(0).describe('Numeric ID from the DOM snapshot (e.g. the [42] in "[42] <button>Submit</button>").'),
+                ref: z.string().describe('Element ref from the ARIA snapshot (e.g. "e3").'),
             }),
             execute: async (args) => {
-                const result = await automation.click(ElementIdFactory.unsafe(args['elementId'] as number));
+                const result = await automation.click(args['ref'] as string);
                 if (result.isErr()) return { status: 'error', error: result.error.message };
                 return { status: 'success' };
             },
         },
         {
             name: 'type',
-            description: 'Type text into an input, textarea, or contenteditable element. Replaces any existing value. Input: { elementId: number, text: string, submit?: boolean }. Set submit=true to press Enter after typing (form submission, default: false). Output: { status: "success" } with updated page state, or { status: "error", error: string }.',
+            description: 'Type text into an input, textarea, or contenteditable element. Replaces any existing value. Set submit=true to press Enter after typing. Input: { ref: string, text: string, submit?: boolean }. Output: { status: "success" } or { status: "error", error: string }.',
             actionType: ActionType.TYPE,
+            platforms: ['web', 'electron'] as const,
             parameters: z.object({
-                elementId: z.number().int().min(0).describe('Numeric ID of the target input element from the DOM snapshot.'),
+                ref: z.string().describe('Element ref of the target input from the ARIA snapshot.'),
                 text: z.string().describe('Text to type into the element. Replaces current content.'),
                 submit: z.boolean().optional().describe('If true, press Enter after typing to submit the form. Default false.'),
             }),
             execute: async (args) => {
-                const result = await automation.type(ElementIdFactory.unsafe(args['elementId'] as number), args['text'] as string);
+                const result = await automation.type(args['ref'] as string, args['text'] as string);
                 if (result.isErr()) return { status: 'error', error: result.error.message };
                 if (args['submit']) {
                     const enterResult = await automation.pressKey('Enter');
@@ -39,8 +40,58 @@ export function createInteractionTools(automation: IStructuredAutomation): ToolS
             },
         },
         {
+            name: 'hover',
+            description: 'Hover over an element to trigger tooltips, dropdown menus, or hover states. Input: { ref: string }. Output: { status: "success" } or { status: "error", error: string }.',
+            actionType: ActionType.HOVER,
+            platforms: ['web', 'electron'] as const,
+            parameters: z.object({
+                ref: z.string().describe('Element ref from the ARIA snapshot.'),
+            }),
+            execute: async (args) => {
+                const result = await automation.hover(args['ref'] as string);
+                if (result.isErr()) return { status: 'error', error: result.error.message };
+                return { status: 'success' };
+            },
+        },
+        {
+            name: 'selectOption',
+            description: 'Select one or more options in a <select> dropdown by their visible text or value. Input: { ref: string, values: string[] }. Output: { status: "success" } or { status: "error", error: string }.',
+            actionType: ActionType.SELECT_OPTION,
+            platforms: ['web', 'electron'] as const,
+            parameters: z.object({
+                ref: z.string().describe('Element ref of the <select> from the ARIA snapshot.'),
+                values: z.array(z.string()).min(1).describe('Option values or labels to select.'),
+            }),
+            execute: async (args) => {
+                const result = await automation.selectOption(
+                    args['ref'] as string,
+                    args['values'] as string[],
+                );
+                if (result.isErr()) return { status: 'error', error: result.error.message };
+                return { status: 'success' };
+            },
+        },
+        {
+            name: 'dragTo',
+            description: 'Drag an element and drop it onto another element. Input: { fromRef: string, toRef: string }. Output: { status: "success" } or { status: "error", error: string }.',
+            actionType: ActionType.DRAG_TO,
+            platforms: ['web', 'electron'] as const,
+            parameters: z.object({
+                fromRef: z.string().describe('Element ref to drag from the ARIA snapshot.'),
+                toRef: z.string().describe('Element ref to drop onto from the ARIA snapshot.'),
+            }),
+            execute: async (args) => {
+                const result = await automation.dragTo(
+                    args['fromRef'] as string,
+                    args['toRef'] as string,
+                );
+                if (result.isErr()) return { status: 'error', error: result.error.message };
+                return { status: 'success' };
+            },
+        },
+        {
             name: 'pressKey',
-            description: 'Dispatch a single key press. Supports named keys (Enter, Tab, Escape, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Backspace, Delete, Space, Home, End, PageUp, PageDown) and single characters. Input: { key: string }. Output: { status: "success" } with updated page state, or { status: "error", error: string }.',
+            description: 'Dispatch a single key press. Supports named keys (Enter, Tab, Escape, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Backspace, Delete, Space, Home, End, PageUp, PageDown) and single characters. Input: { key: string }. Output: { status: "success" } or { status: "error", error: string }.',
             actionType: ActionType.PRESS_KEY,
             parameters: z.object({
                 key: z.string().describe('Key to press — a Playwright key name or single character.'),

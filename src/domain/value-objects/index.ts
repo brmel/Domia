@@ -1,8 +1,7 @@
-export type { Url, RunId, ElementId } from './Brand';
-export { UrlFactory, RunIdFactory, ElementIdFactory } from './Brand';
-export type { DOMSnapshot, DOMElement } from './DOMSnapshot';
+export type { Url, RunId } from './Brand';
+export { UrlFactory, RunIdFactory } from './Brand';
 export type { AgentAction } from './AgentAction';
-export type { AriaNode } from './AriaNode';
+export type { RoleRef, RoleRefMap } from './RoleRef';
 export type {
 	CheckpointRecord,
 	CheckpointCompactionPolicy,

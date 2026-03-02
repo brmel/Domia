@@ -6,7 +6,6 @@ import type { IPerceptionSource } from './IPerceptionSource';
 export interface PerceptionOptions {
     vision?: boolean;
     aria?: boolean;
-    dom?: boolean;
 }
 
 export interface IPerceptionPipeline {

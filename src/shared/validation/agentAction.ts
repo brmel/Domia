@@ -7,17 +7,37 @@ const baseWithThought = {
 
 const clickAction = z.object({
     type: z.literal(ActionType.CLICK),
-    elementId: z.number().int().nonnegative(),
+    ref: z.string().min(1),
     elementDescriptor: z.string().optional(),
     ...baseWithThought
 });
 
 const typeAction = z.object({
     type: z.literal(ActionType.TYPE),
-    elementId: z.number().int().nonnegative(),
+    ref: z.string().min(1),
     elementDescriptor: z.string().optional(),
     text: z.string(),
     submit: z.boolean().optional(),
+    ...baseWithThought
+});
+
+const hoverAction = z.object({
+    type: z.literal(ActionType.HOVER),
+    ref: z.string().min(1),
+    ...baseWithThought
+});
+
+const selectOptionAction = z.object({
+    type: z.literal(ActionType.SELECT_OPTION),
+    ref: z.string().min(1),
+    values: z.array(z.string()).min(1),
+    ...baseWithThought
+});
+
+const dragToAction = z.object({
+    type: z.literal(ActionType.DRAG_TO),
+    fromRef: z.string().min(1),
+    toRef: z.string().min(1),
     ...baseWithThought
 });
 
@@ -86,7 +106,7 @@ const pressKeyAction = z.object({
 
 const extractAction = z.object({
     type: z.literal(ActionType.EXTRACT),
-    elementId: z.number().int().nonnegative(),
+    ref: z.string().min(1),
     elementDescriptor: z.string().optional(),
     ...baseWithThought
 });
@@ -119,6 +139,9 @@ const failAction = z.object({
 export const AgentActionSchema = z.discriminatedUnion('type', [
     clickAction,
     typeAction,
+    hoverAction,
+    selectOptionAction,
+    dragToAction,
     scrollAction,
     mouseMoveAction,
     mouseClickLeftAction,

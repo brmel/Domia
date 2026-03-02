@@ -27,14 +27,14 @@ export class StepExecutor {
         options: {
             vision: boolean;
             maxActions: number;
-            maxElements?: number;
+            platform?: import('@domain/types/PlatformConfig').PlatformType | undefined;
             [key: string]: unknown;
         } = { vision: true, maxActions: 20 },
     ): AsyncGenerator<AgentActionEvent, StepExecutionResult, unknown> {
         await this.trace.startTrace(runId);
 
         const gen = this.agentRunner.executeStep(
-            { runId, stepGoal, url, maxActions: options.maxActions, maxElements: options.maxElements ?? 50, vision: options.vision },
+            { runId, stepGoal, url, maxActions: options.maxActions, vision: options.vision, platform: options.platform as import('@domain/types/PlatformConfig').PlatformType | undefined },
             automation,
         );
 

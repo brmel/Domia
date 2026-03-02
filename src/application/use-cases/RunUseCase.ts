@@ -259,7 +259,7 @@ export class RunUseCase {
                 });
                 yield { type: 'state_updated', state: currentState };
 
-                const executionOptions = this.runCoordinator.buildExecutionOptions(input.options);
+                const executionOptions = this.runCoordinator.buildExecutionOptions(input.options, input.platformConfig.platform);
 
                 const stepKernel = this.kernel.execute(
                     runId,

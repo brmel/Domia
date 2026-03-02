@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { okAsync, errAsync } from 'neverthrow';
 import { ActionType } from '@domain/enums/ActionType';
 import type { AgentAction } from '@domain/value-objects';
-import { ElementIdFactory } from '@domain/value-objects';
 import { PersistenceError } from '@domain/errors';
 import { RecoveryReplayService } from '@application/services/execution/RecoveryReplayService';
 
@@ -21,7 +20,7 @@ describe('RecoveryReplayService', () => {
                 { type: ActionType.SCROLL, direction: 'down', thought: 'scroll' },
                 { type: ActionType.MOUSE_MOVE, x: 10, y: 20, thought: 'move' },
                 { type: ActionType.MOUSE_SCROLL, deltaX: 0, deltaY: 300, thought: 'wheel' },
-                { type: ActionType.EXTRACT, elementId: ElementIdFactory.unsafe(1), thought: 'extract' },
+                { type: ActionType.EXTRACT, ref: 'e1', thought: 'extract' },
                 { type: ActionType.NAVIGATE, url: 'https://example.com', thought: 'navigate' },
                 { type: ActionType.OBSERVE, thought: 'observe' }
             ];
@@ -34,8 +33,8 @@ describe('RecoveryReplayService', () => {
 
         it('blocks non-idempotent action classes', () => {
             const actions: AgentAction[] = [
-                { type: ActionType.CLICK, elementId: ElementIdFactory.unsafe(2), thought: 'click' },
-                { type: ActionType.TYPE, elementId: ElementIdFactory.unsafe(3), text: 'abc', thought: 'type' },
+                { type: ActionType.CLICK, ref: 'e2', thought: 'click' },
+                { type: ActionType.TYPE, ref: 'e3', text: 'abc', thought: 'type' },
                 { type: ActionType.MOUSE_CLICK_LEFT, x: 10, y: 20, thought: 'left click' },
                 { type: ActionType.MOUSE_CLICK_RIGHT, x: 10, y: 20, thought: 'right click' },
                 { type: ActionType.MOUSE_DOUBLE_CLICK, x: 10, y: 20, thought: 'double click' },

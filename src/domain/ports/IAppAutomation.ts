@@ -1,6 +1,7 @@
 import { ResultAsync } from 'neverthrow';
 import { NavigationError, InteractionError } from '../errors';
-import { Url, ElementId } from '../value-objects';
+import type { Url } from '../value-objects';
+import type { RoleRefMap } from '../value-objects/RoleRef';
 import type { IPerceptionSource } from './IPerceptionSource';
 
 export interface LaunchOptions {
@@ -28,17 +29,16 @@ export interface IAppAutomation {
     waitForReady(timeout?: number): Promise<void>;
     close(): Promise<void>;
 
-    /** Return a perception source for capturing page state, or null if unavailable. */
     getPerceptionSource(): IPerceptionSource | null;
 }
 
-/**
- * Extended automation for platforms with a structured element tree (DOM, accessibility tree, etc.).
- * Adds element-targeted interactions that require an element identifier from a snapshot.
- */
 export interface IStructuredAutomation extends IAppAutomation {
-    click(elementId: ElementId, options?: { force?: boolean; timeout?: number }): ResultAsync<void, InteractionError>;
-    type(elementId: ElementId, text: string): ResultAsync<void, InteractionError>;
-    extractText(elementId: ElementId): ResultAsync<string, InteractionError>;
-    highlight(elementId: ElementId): ResultAsync<void, InteractionError>;
+    updateRefs(refs: RoleRefMap): void;
+    click(ref: string, options?: { force?: boolean; timeout?: number }): ResultAsync<void, InteractionError>;
+    type(ref: string, text: string): ResultAsync<void, InteractionError>;
+    hover(ref: string): ResultAsync<void, InteractionError>;
+    selectOption(ref: string, values: string[]): ResultAsync<void, InteractionError>;
+    dragTo(fromRef: string, toRef: string): ResultAsync<void, InteractionError>;
+    extractText(ref: string): ResultAsync<string, InteractionError>;
+    highlight(ref: string): ResultAsync<void, InteractionError>;
 }

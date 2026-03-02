@@ -295,7 +295,7 @@ async function executeReplayAction(automation: IStructuredAutomation, action: Ag
         }
 
         case ActionType.EXTRACT: {
-            const result = await automation.extractText(action.elementId);
+            const result = await automation.extractText(action.ref);
             if (result.isErr()) {
                 throw new WorkflowError(`extract failed: ${result.error.message}`);
             }
@@ -325,6 +325,9 @@ async function executeReplayAction(automation: IStructuredAutomation, action: Ag
 
         case ActionType.CLICK:
         case ActionType.TYPE:
+        case ActionType.HOVER:
+        case ActionType.SELECT_OPTION:
+        case ActionType.DRAG_TO:
         case ActionType.PRESS_KEY:
         case ActionType.MOUSE_CLICK_LEFT:
         case ActionType.MOUSE_CLICK_RIGHT:

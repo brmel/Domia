@@ -1,6 +1,4 @@
-import { DOMSnapshot } from './DOMSnapshot';
-import { AriaNode } from './AriaNode';
-
+import type { RoleRefMap } from './RoleRef';
 import { VisualContext } from './VisualContext';
 
 export interface PerceptionFrame {
@@ -13,7 +11,7 @@ export interface PerceptionFrame {
     };
     readonly vision: VisualContext;
     readonly semantic: {
-        readonly dom: DOMSnapshot;
-        readonly accessibility: AriaNode | null;
+        readonly ariaSnapshot: string;
+        readonly refs: RoleRefMap;
     };
 }

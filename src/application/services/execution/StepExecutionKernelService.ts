@@ -51,7 +51,7 @@ export class StepExecutionKernelService {
             {
                 vision: executionOptions.vision,
                 maxActions: executionOptions.maxActions,
-                maxElements: executionOptions.maxElements,
+                platform: executionOptions.platform,
             },
         );
 

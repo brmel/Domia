@@ -5,7 +5,7 @@ import type { Step } from '@domain/ports';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 import type { Plan } from '@domain/entities/Plan';
 import type { RunOutput } from '@application/dtos';
-import { ElementIdFactory, WorkflowState } from '@domain/value-objects';
+import { WorkflowState } from '@domain/value-objects';
 import { ExecutionController } from '@application/controllers/ExecutionController';
 import { ActionType } from '@domain/enums/ActionType';
 import { createRunUseCaseContext } from '../../../helpers/createRunUseCaseContext';
@@ -258,7 +258,7 @@ describe('RunUseCase recovery flow', () => {
                 runId: 'recovery-run',
                 stepNumber: 1,
                 actionType: ActionType.CLICK,
-                actionPayload: { type: ActionType.CLICK, elementId: ElementIdFactory.unsafe(1), thought: 'click' },
+                actionPayload: { type: ActionType.CLICK, ref: 'e1', thought: 'click' },
                 timestamp: '2026-01-01T00:00:00.000Z'
             }
         ];
@@ -445,7 +445,7 @@ describe('RunUseCase recovery flow', () => {
                 runId: 'recovery-run',
                 stepNumber: 1,
                 actionType: ActionType.CLICK,
-                actionPayload: { type: ActionType.CLICK, elementId: ElementIdFactory.unsafe(1), thought: 'click' },
+                actionPayload: { type: ActionType.CLICK, ref: 'e1', thought: 'click' },
                 timestamp: '2026-01-01T00:00:00.000Z'
             }
         ];

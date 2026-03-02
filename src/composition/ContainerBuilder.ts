@@ -50,7 +50,6 @@ import { AdkAgentRunner } from '@infrastructure/adk/AdkAgentRunner';
 // ── Perception ──
 import { PerceptionPipeline } from '@infrastructure/perception/PerceptionPipeline';
 import { VisionSensor } from '@infrastructure/perception/sensors/VisionSensor';
-import { DomSensor } from '@infrastructure/perception/sensors/DomSensor';
 import { AriaSensor } from '@infrastructure/perception/sensors/AriaSensor';
 
 // ── Observability ──
@@ -122,7 +121,6 @@ export class ContainerBuilder {
 
     registerPerception(): this {
         container.registerSingleton(VisionSensor);
-        container.registerSingleton(DomSensor);
         container.registerSingleton(AriaSensor);
         container.register('IPerceptionPipeline', { useClass: PerceptionPipeline });
         return this;

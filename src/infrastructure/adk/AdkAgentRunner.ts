@@ -33,7 +33,7 @@ export class AdkAgentRunner implements IAgentRunner {
         config: StepRunnerConfig,
         automation: IStructuredAutomation,
     ): AsyncGenerator<AgentRunnerEvent, StepExecutionResult, unknown> {
-        const { stepGoal, url, maxActions, maxElements, vision } = config;
+        const { stepGoal, url, maxActions, vision } = config;
 
         const llmConfig = this.llmConfigResolver.resolve();
         if (!llmConfig.apiKey) {
@@ -61,7 +61,7 @@ export class AdkAgentRunner implements IAgentRunner {
             perception: this.perception,
             perceptionSource,
             vision,
-            maxElements,
+            platform: config.platform,
             onCapture: async (capturedFrame) => {
                 try {
                     await this.storage.savePerceptionAssets(config.runId, actionCount, capturedFrame);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { UrlFactory, RunIdFactory, ElementIdFactory } from '@domain/value-objects/Brand';
+import { UrlFactory, RunIdFactory } from '@domain/value-objects/Brand';
 
 describe('Brand Factories', () => {
     describe('UrlFactory', () => {
@@ -37,31 +37,6 @@ describe('Brand Factories', () => {
         it('should create from string', () => {
             const id = RunIdFactory.fromString('test-id-123');
             expect(id).toBe('test-id-123');
-        });
-    });
-
-    describe('ElementIdFactory', () => {
-        it('should create valid element ID', () => {
-            const result = ElementIdFactory.create(42);
-            expect(result.isOk()).toBe(true);
-            if (result.isOk()) {
-                expect(result.value).toBe(42);
-            }
-        });
-
-        it('should reject negative ID', () => {
-            const result = ElementIdFactory.create(-1);
-            expect(result.isErr()).toBe(true);
-        });
-
-        it('should reject non-integer ID', () => {
-            const result = ElementIdFactory.create(3.14);
-            expect(result.isErr()).toBe(true);
-        });
-
-        it('should create unsafe element ID', () => {
-            const id = ElementIdFactory.unsafe(99);
-            expect(id).toBe(99);
         });
     });
 });

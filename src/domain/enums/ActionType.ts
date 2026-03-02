@@ -1,6 +1,9 @@
 export enum ActionType {
     CLICK = 'click',
     TYPE = 'type',
+    HOVER = 'hover',
+    SELECT_OPTION = 'selectOption',
+    DRAG_TO = 'dragTo',
     SCROLL = 'scroll',
     MOUSE_MOVE = 'mouse_move',
     MOUSE_CLICK_LEFT = 'mouse_click_left',

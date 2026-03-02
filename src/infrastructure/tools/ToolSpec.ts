@@ -18,6 +18,6 @@ export interface ToolDependencies {
     readonly perception: IPerceptionPipeline;
     readonly perceptionSource: IPerceptionSource;
     readonly vision: boolean;
-    readonly maxElements?: number;
+    readonly platform?: PlatformType | undefined;
     readonly onCapture?: (frame: PerceptionFrame) => void | Promise<void>;
 }

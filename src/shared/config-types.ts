@@ -22,12 +22,10 @@ export const DomiaConfigSchema = z.object({
 
     limits: z.object({
         maxSteps: z.number().default(20),
-        maxElements: z.number().int().min(10).max(200).default(50),
         delayBetweenSteps: z.number().default(1000),
         maxReplansPerRun: z.number().int().nonnegative().default(2),
     }).default({
         maxSteps: 20,
-        maxElements: 50,
         delayBetweenSteps: 1000,
         maxReplansPerRun: 2,
     }),
