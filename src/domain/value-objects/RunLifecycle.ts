@@ -1,6 +1,5 @@
 export type RunLifecycleState =
     | 'initialized'
-    | 'planning'
     | 'executing'
     | 'paused'
     | 'completed'
@@ -18,8 +17,7 @@ export type RunCheckpointReason =
     | 'terminal_cancelled';
 
 const RUN_LIFECYCLE_TRANSITIONS: Readonly<Record<RunLifecycleState, readonly RunLifecycleState[]>> = {
-    initialized: ['planning', 'failed', 'cancelled'],
-    planning: ['executing', 'failed', 'cancelled'],
+    initialized: ['executing', 'failed', 'cancelled'],
     executing: ['paused', 'completed', 'failed', 'cancelled'],
     paused: ['executing', 'failed', 'cancelled'],
     completed: [],

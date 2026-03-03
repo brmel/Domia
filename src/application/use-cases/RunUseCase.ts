@@ -149,7 +149,6 @@ export class RunUseCase {
             currentState = WorkflowState.transitionTo(currentState, 'thinking', { plan, executionGraph });
             yield { type: 'state_updated', state: currentState };
             await this.durability.checkpoint(runId, currentState, 'plan_ready');
-            runLifecycle = this.durability.transition(runId, runLifecycle, 'executing');
 
             while (true) {
                 const nextNode = ExecutionGraph.selectNextReadyNode(executionGraph);

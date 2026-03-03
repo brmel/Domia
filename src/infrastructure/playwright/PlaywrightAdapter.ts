@@ -354,7 +354,7 @@ export class PlaywrightAdapter implements IStructuredAutomation {
         });
 
         page.on('close', () => {
-            this.logger.warn('[PlaywrightAdapter] Active page closed');
+            this.logger.debug('[PlaywrightAdapter] Active page closed');
             if (this.page === page) {
                 this.page = null;
             }

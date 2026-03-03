@@ -58,6 +58,7 @@ export class AdkAgentRunner implements IAgentRunner {
         const toolTimers = new Map<string, number>();
         let lastToolResult: { name: string; result: Record<string, unknown>; durationMs: number } | null = null;
         let pendingYield: AgentRunnerEvent | null = null;
+        let lastObservedUrl: string = url;
 
         const flushPending = function* (): Generator<AgentRunnerEvent> {
             if (!pendingYield) return;
@@ -126,7 +127,11 @@ export class AdkAgentRunner implements IAgentRunner {
                 const durationMs = start ? Date.now() - start : 0;
                 toolTimers.delete(tool.name);
                 lastToolResult = { name: tool.name, result: response as Record<string, unknown>, durationMs };
-                this.logger.debug(`[AdkAgentRunner] Tool ${tool.name} completed in ${durationMs}ms`, { status: (response as Record<string, unknown>)?.['status'] });
+                const res = response as Record<string, unknown>;
+                if (tool.name === 'observe' && typeof res?.['currentUrl'] === 'string') {
+                    lastObservedUrl = res['currentUrl'] as string;
+                }
+                this.logger.debug(`[AdkAgentRunner] Tool ${tool.name} completed in ${durationMs}ms`, { status: res?.['status'] });
                 return undefined;
             },
         });
@@ -169,8 +174,8 @@ export class AdkAgentRunner implements IAgentRunner {
                                 timestamp: Date.now(),
                                 agentInput: {
                                     goal: stepGoal,
-                                    currentUrl: url,
-                                    promptPreview: `GOAL: ${stepGoal} | URL: ${url} | Action ${actionCount}/${maxActions}`,
+                                    currentUrl: lastObservedUrl,
+                                    promptPreview: `GOAL: ${stepGoal} | URL: ${lastObservedUrl} | Action ${actionCount}/${maxActions}`,
                                 },
                                 agentOutput: {
                                     thought,

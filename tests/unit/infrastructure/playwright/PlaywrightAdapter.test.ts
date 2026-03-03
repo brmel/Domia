@@ -85,6 +85,6 @@ describe('PlaywrightAdapter lifecycle recovery', () => {
         const activePage = adapter.getPage();
 
         expect(activePage).toBeNull();
-        expect(logger.warn).toHaveBeenCalledWith('[PlaywrightAdapter] Active page closed');
+        expect(logger.debug).toHaveBeenCalledWith('[PlaywrightAdapter] Active page closed');
     });
 });
