@@ -16,6 +16,7 @@ export class PlaywrightAdapter implements IStructuredAutomation {
 
     updateRefs(refs: RoleRefMap): void {
         this.refs = refs;
+        this.logger.debug(`[PlaywrightAdapter] Refs updated: ${Object.keys(refs).length} elements`);
     }
 
     launch(options: LaunchOptions): ResultAsync<void, NavigationError> {
@@ -239,10 +240,6 @@ export class PlaywrightAdapter implements IStructuredAutomation {
                             element.style.transition = originalTransition;
                         }, highlightMs);
                     }, TOOL_TIMEOUTS.HIGHLIGHT_DURATION_MS);
-
-                    if (this.page) {
-                        await this.page.waitForTimeout(500);
-                    }
                 })(),
                 (e) => new InteractionError(`Highlight failed: ${String(e)}`, ref)
             )
@@ -271,6 +268,7 @@ export class PlaywrightAdapter implements IStructuredAutomation {
     async waitForReady(timeout: number = 5000): Promise<void> {
         this.ensureRecoverablePage();
         if (!this.page) return;
+        const start = Date.now();
         this.logger.debug('[PlaywrightAdapter] Waiting for page ready');
         try {
             await this.page.waitForLoadState('load', { timeout });
@@ -282,7 +280,7 @@ export class PlaywrightAdapter implements IStructuredAutomation {
         } catch {
             this.logger.debug('[PlaywrightAdapter] Network idle timeout, proceeding');
         }
-        await this.page.waitForTimeout(500);
+        this.logger.debug(`[PlaywrightAdapter] Page ready in ${Date.now() - start}ms`);
     }
 
     async close(): Promise<void> {
@@ -318,11 +316,14 @@ export class PlaywrightAdapter implements IStructuredAutomation {
         }
         const entry = this.refs[ref];
         if (!entry) {
+            this.logger.warn(`[PlaywrightAdapter] resolveRef failed: unknown ref "${ref}" (available: ${Object.keys(this.refs).join(', ')})`);
             return errAsync(new InteractionError(`Unknown ref: ${ref}`, ref));
         }
-        const locator = entry.name
-            ? this.page.getByRole(entry.role as any, { name: entry.name, exact: true }).nth(entry.nth)
-            : this.page.getByRole(entry.role as any).nth(entry.nth);
+        const base = entry.name
+            ? this.page.getByRole(entry.role as any, { name: entry.name, exact: true })
+            : this.page.getByRole(entry.role as any);
+        const locator = entry.nth !== undefined ? base.nth(entry.nth) : base;
+        this.logger.debug(`[PlaywrightAdapter] Resolved ref "${ref}" → ${entry.role}${entry.name ? ` "${entry.name}"` : ''}${entry.nth !== undefined ? ` nth=${entry.nth}` : ''}`);
         return okAsync(locator);
     }
 

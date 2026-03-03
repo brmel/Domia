@@ -10,8 +10,6 @@ import { RunUseCase } from '@application/use-cases';
 import {
     WebDriverProvider,
     ElectronDriverProvider,
-    AndroidDriverProvider,
-    IosDriverProvider,
     AppDriverFactory,
 } from '@infrastructure/drivers';
 import { PlatformSessionFactory } from '@application/services/platform/PlatformSessionFactory';
@@ -22,16 +20,10 @@ import { InMemoryRunExecutionLaneService } from '@application/services/execution
 import { RunDurabilityService } from '@application/services/execution/RunDurabilityService';
 import { RunBudgetPolicyService } from '@application/services/execution/RunBudgetPolicyService';
 import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
-import { RecoveryEligibilityService } from '@application/services/execution/RecoveryEligibilityService';
-import { ManualRecoveryBootstrapService } from '@application/services/execution/ManualRecoveryBootstrapService';
-import { RecoveryReplayService } from '@application/services/execution/RecoveryReplayService';
 import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
-import { BranchRollbackService } from '@application/services/execution/BranchRollbackService';
 import { StepExecutionKernelService } from '@application/services/execution/StepExecutionKernelService';
 import { ObjectiveCompletionPolicyService } from '@application/services/execution/ObjectiveCompletionPolicyService';
-import { PlanningCoordinator } from '@application/services/execution/coordinators/PlanningCoordinator';
 import { RunCoordinator } from '@application/services/execution/coordinators/RunCoordinator';
-import { ReplanningCoordinator } from '@application/services/execution/coordinators/ReplanningCoordinator';
 import { ReadinessGateService } from '@application/services/hardening/ReadinessGateService';
 import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
 
@@ -57,7 +49,6 @@ import { FileSystemStorage } from '@infrastructure/storage/FileSystemStorage';
 import { TraceService } from '@infrastructure/services/TraceService';
 import { FileTraceExporter } from '@infrastructure/services/exporters/FileTraceExporter';
 import { DebugExporter } from '@infrastructure/services/exporters/DebugExporter';
-import { TrajectoryExportService } from '@infrastructure/services/exporters/TrajectoryExportService';
 import type { IStorageService } from '@domain/ports/IStorageService';
 
 export class ContainerBuilder {
@@ -88,15 +79,9 @@ export class ContainerBuilder {
         container.registerSingleton(RunDurabilityService);
         container.registerSingleton(RunBudgetPolicyService);
         container.registerSingleton(CheckpointCompactionService);
-        container.registerSingleton(RecoveryEligibilityService);
-        container.registerSingleton(ManualRecoveryBootstrapService);
-        container.registerSingleton(RecoveryReplayService);
         container.registerSingleton(ReplanningPolicyService);
-        container.registerSingleton(BranchRollbackService);
         container.registerSingleton(StepExecutionKernelService);
-        container.registerSingleton(PlanningCoordinator);
         container.registerSingleton(RunCoordinator);
-        container.registerSingleton(ReplanningCoordinator);
         container.registerSingleton(ReadinessGateService);
         container.registerSingleton(RuntimeReadinessPolicyService);
         container.registerSingleton(ObjectiveCompletionPolicyService);
@@ -130,7 +115,6 @@ export class ContainerBuilder {
         container.registerSingleton('IStorageService', FileSystemStorage);
         container.registerSingleton(TraceService);
         container.register('ITraceService', { useToken: TraceService });
-        container.registerSingleton(TrajectoryExportService);
 
         const traceService = container.resolve(TraceService);
         const storage = container.resolve<IStorageService>('IStorageService');
@@ -152,8 +136,6 @@ export class ContainerBuilder {
         const factory = container.resolve(AppDriverFactory);
         factory.registerProvider(container.resolve(WebDriverProvider));
         factory.registerProvider(container.resolve(ElectronDriverProvider));
-        factory.registerProvider(container.resolve(AndroidDriverProvider));
-        factory.registerProvider(container.resolve(IosDriverProvider));
         return this;
     }
 }

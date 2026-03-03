@@ -363,7 +363,7 @@ function VisionTab({ beforeScreenshots, currentScreenshots }: {
 
 function ContextTab({ dom, accessibility }: {
     dom: Record<string, unknown> | undefined;
-    accessibility: Record<string, unknown> | undefined;
+    accessibility: string | undefined;
 }): JSX.Element {
     if (!dom && !accessibility) {
         return <EmptyState icon="🌳" title="No context data" description="DOM and accessibility data were not captured for this step." />;
@@ -386,7 +386,7 @@ function ContextTab({ dom, accessibility }: {
                     <span className="text-[10px] font-mono bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-200">AX</span>
                 </div>
                 <div className="flex-1 overflow-auto p-4">
-                    {accessibility ? <JsonTreeView data={accessibility} name="ARIA" /> : <div className="text-gray-400 text-sm italic">No ARIA data</div>}
+                    {accessibility ? <pre className="text-xs font-mono text-gray-700 whitespace-pre-wrap">{accessibility}</pre> : <div className="text-gray-400 text-sm italic">No ARIA data</div>}
                 </div>
             </div>
         </div>
@@ -416,9 +416,37 @@ function RawTab({ trace, stepDetail, afterArtifacts }: {
             {toolCall && (
                 <CollapsibleSection title="Tool Call" badge={toolCall.name} badgeColor="green" defaultOpen>
                     <div className="grid gap-2">
+                        {toolCall.durationMs !== undefined && (
+                            <div className="flex items-start gap-3">
+                                <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-1 rounded shrink-0 min-w-25">
+                                    durationMs
+                                </span>
+                                <span className="text-sm text-gray-800 break-all font-mono">
+                                    {toolCall.durationMs}ms
+                                </span>
+                            </div>
+                        )}
                         {Object.entries(toolCall.input).map(([key, value]) => (
                             <div key={key} className="flex items-start gap-3">
                                 <span className="text-xs font-mono bg-green-50 text-green-700 px-2 py-1 rounded shrink-0 min-w-25">
+                                    {key}
+                                </span>
+                                <span className="text-sm text-gray-800 break-all font-mono">
+                                    {typeof value === 'string' ? value : JSON.stringify(value)}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </CollapsibleSection>
+            )}
+
+            {/* Tool Result */}
+            {toolCall?.result && Object.keys(toolCall.result).length > 0 && (
+                <CollapsibleSection title="Tool Result" badge={toolCall.name} badgeColor="blue" defaultOpen>
+                    <div className="grid gap-2">
+                        {Object.entries(toolCall.result).map(([key, value]) => (
+                            <div key={key} className="flex items-start gap-3">
+                                <span className="text-xs font-mono bg-blue-50 text-blue-700 px-2 py-1 rounded shrink-0 min-w-25">
                                     {key}
                                 </span>
                                 <span className="text-sm text-gray-800 break-all font-mono">
@@ -480,7 +508,7 @@ function RawTab({ trace, stepDetail, afterArtifacts }: {
                             <div>
                                 <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Accessibility Tree</div>
                                 <div className="max-h-60 overflow-auto rounded-lg border border-gray-100 bg-gray-50 p-2">
-                                    <JsonTreeView data={afterArtifacts.accessibility} name="ARIA" />
+                                    <pre className="text-xs font-mono text-gray-700 whitespace-pre-wrap">{afterArtifacts.accessibility}</pre>
                                 </div>
                             </div>
                         )}

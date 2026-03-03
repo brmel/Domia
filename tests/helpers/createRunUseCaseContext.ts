@@ -3,9 +3,6 @@ import { ok, okAsync } from 'neverthrow';
 import type { IStructuredAutomation, ILogger } from '@domain/ports';
 import { RunUseCase } from '@application/use-cases/RunUseCase';
 import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
-import { RecoveryEligibilityService } from '@application/services/execution/RecoveryEligibilityService';
-import { ManualRecoveryBootstrapService } from '@application/services/execution/ManualRecoveryBootstrapService';
-import { RecoveryReplayService } from '@application/services/execution/RecoveryReplayService';
 import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 import { StepExecutionKernelService } from '@application/services/execution/StepExecutionKernelService';
 
@@ -84,16 +81,6 @@ function createBudgetPolicyMock() {
     };
 }
 
-function createRecoveryReplayMock(): RecoveryReplayService {
-    return {
-        guardAction: vi.fn().mockReturnValue({ decision: 'replay', idempotencyKey: 'mock-key' }),
-        buildNodeReplayKey: vi.fn(({ runId, branchId, nodeId, actionSignature }: Record<string, string>) =>
-            `${runId}:${branchId}:${nodeId}:${actionSignature}`),
-        shouldExecute: vi.fn().mockResolvedValue(true),
-        markExecuted: vi.fn().mockResolvedValue(undefined),
-    } as unknown as RecoveryReplayService;
-}
-
 function createReadinessPolicyMock() {
     return { assess: vi.fn().mockReturnValue({ blocked: false, mode: 'observe' }) };
 }
@@ -115,7 +102,6 @@ export interface UseCaseContextOverrides {
     laneService?: Record<string, unknown>;
     durability?: Record<string, unknown>;
     budgetPolicy?: Record<string, unknown>;
-    replayService?: RecoveryReplayService;
     readinessPolicy?: Record<string, unknown>;
     logger?: ILogger;
 }
@@ -130,7 +116,6 @@ export interface UseCaseContext {
     releaseLane: ReturnType<typeof vi.fn>;
     durability: ReturnType<typeof createDurabilityMock>;
     budgetPolicy: ReturnType<typeof createBudgetPolicyMock>;
-    replayService: RecoveryReplayService;
     readinessPolicy: ReturnType<typeof createReadinessPolicyMock>;
     logger: ILogger;
 }
@@ -148,12 +133,9 @@ export function createRunUseCaseContext(overrides: UseCaseContextOverrides = {})
     const laneService = overrides.laneService ?? createLaneServiceMock(releaseLane);
     const durability = { ...createDurabilityMock(overrides.checkpointRecords), ...overrides.durability };
     const budgetPolicy = { ...createBudgetPolicyMock(), ...overrides.budgetPolicy };
-    const replayService = overrides.replayService ?? createRecoveryReplayMock();
     const readinessPolicy = { ...createReadinessPolicyMock(), ...overrides.readinessPolicy };
 
     const checkpointCompaction = new CheckpointCompactionService();
-    const recoveryEligibility = new RecoveryEligibilityService();
-    const recoveryBootstrap = new ManualRecoveryBootstrapService();
     const replanningPolicy = new ReplanningPolicyService(logger);
 
     const kernel = new StepExecutionKernelService(
@@ -171,14 +153,10 @@ export function createRunUseCaseContext(overrides: UseCaseContextOverrides = {})
         durability as unknown as never,
         budgetPolicy as unknown as never,
         checkpointCompaction as unknown as never,
-        recoveryEligibility as unknown as never,
-        recoveryBootstrap as unknown as never,
-        replayService as unknown as never,
         replanningPolicy as unknown as never,
         readinessPolicy as unknown as never,
         logger as unknown as never,
         kernel as unknown as never,
-        persistence as unknown as never,
     );
 
     return {
@@ -191,7 +169,6 @@ export function createRunUseCaseContext(overrides: UseCaseContextOverrides = {})
         releaseLane,
         durability,
         budgetPolicy,
-        replayService,
         readinessPolicy,
         logger,
     };

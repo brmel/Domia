@@ -12,31 +12,21 @@ import type { RunExecutionLaneService } from '../services/execution/RunExecution
 import { RunDurabilityService } from '../services/execution/RunDurabilityService';
 import { RunBudgetPolicyService } from '../services/execution/RunBudgetPolicyService';
 import { CheckpointCompactionService } from '../services/execution/CheckpointCompactionService';
-import { RecoveryEligibilityService } from '../services/execution/RecoveryEligibilityService';
-import { ManualRecoveryBootstrapService } from '../services/execution/ManualRecoveryBootstrapService';
-import { RecoveryReplayService } from '../services/execution/RecoveryReplayService';
 import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
 import { ObjectiveCompletionPolicyService } from '../services/execution/ObjectiveCompletionPolicyService';
 import { StepExecutionKernelService } from '../services/execution/StepExecutionKernelService';
 import type { StepExecutionResult } from '../services/execution/StepExecutor';
 
-import { BranchRollbackService } from '../services/execution/BranchRollbackService';
-import { PlanningCoordinator } from '../services/execution/coordinators/PlanningCoordinator';
 import { RunCoordinator } from '../services/execution/coordinators/RunCoordinator';
-import { ReplanningCoordinator } from '../services/execution/coordinators/ReplanningCoordinator';
-import {
-    resolveRecoveryContext as resolveRecoveryContextForRun,
-    replayRecoveryActions as replayRecoveryActionsForRun,
-    type RunRecoveryDependencies,
-    type RecoveryBootstrapContext
-} from '../services/execution/RunRecoveryOrchestration';
 import { RuntimeReadinessPolicyService } from '../services/hardening/RuntimeReadinessPolicyService';
 import { Plan, PlanItem } from '@domain/entities/Plan';
 import type { ILogger } from '../../domain/ports';
 import { PlatformSessionFactory } from '../services/platform/PlatformSessionFactory';
+import { nanoid } from 'nanoid';
 
 import type { RunLifecycleState } from '@domain/value-objects/RunLifecycle';
 import type { PlatformSession } from '../services/platform/PlatformSession';
+import type { ReplanningTrigger } from '../services/execution/ReplanningPolicyService';
 
 export interface RunExecutionContext {
     readonly session?: PlatformSession;
@@ -55,33 +45,13 @@ export class RunUseCase {
         @inject(RunDurabilityService) private readonly durability: RunDurabilityService,
         @inject(RunBudgetPolicyService) private readonly budgetPolicy: RunBudgetPolicyService,
         @inject(CheckpointCompactionService) private readonly checkpointCompaction: CheckpointCompactionService,
-        @inject(RecoveryEligibilityService) private readonly recoveryEligibility: RecoveryEligibilityService,
-        @inject(ManualRecoveryBootstrapService) private readonly recoveryBootstrap: ManualRecoveryBootstrapService,
-        @inject(RecoveryReplayService) private readonly recoveryReplay: RecoveryReplayService,
         @inject(ReplanningPolicyService) private readonly replanningPolicy: ReplanningPolicyService,
         @inject(RuntimeReadinessPolicyService) private readonly readinessPolicy: RuntimeReadinessPolicyService,
         @inject('ILogger') private logger: ILogger,
         @inject(StepExecutionKernelService) private readonly kernel: StepExecutionKernelService,
-        @inject('IRunRepository') private persistence: import('../../domain/ports').IRunRepository,
-        @inject(PlanningCoordinator) private readonly planningCoordinator: PlanningCoordinator = new PlanningCoordinator(),
         @inject(RunCoordinator) private readonly runCoordinator: RunCoordinator = new RunCoordinator(),
-        @inject(ReplanningCoordinator) private readonly replanningCoordinator: ReplanningCoordinator = new ReplanningCoordinator(),
-        @inject(BranchRollbackService) private readonly branchRollback: BranchRollbackService = new BranchRollbackService(),
         @inject(ObjectiveCompletionPolicyService) private readonly objectiveCompletionPolicy: ObjectiveCompletionPolicyService = new ObjectiveCompletionPolicyService()
     ) {}
-
-    private get recoveryDeps(): RunRecoveryDependencies {
-        return {
-            persistence: this.persistence,
-            durability: this.durability,
-            checkpointCompaction: this.checkpointCompaction,
-            branchRollback: this.branchRollback,
-            recoveryEligibility: this.recoveryEligibility,
-            recoveryBootstrap: this.recoveryBootstrap,
-            recoveryReplay: this.recoveryReplay,
-            logger: this.logger
-        };
-    }
 
     async *execute(
         input: RunInput,
@@ -110,7 +80,6 @@ export class RunUseCase {
         const budgetLimits = this.budgetPolicy.resolveLimits(input.options);
         const runStartMs = Date.now();
         let estimatedTokensUsed = 0;
-        const recoveryContext = await resolveRecoveryContextForRun(this.recoveryDeps, input);
 
         let automation: IStructuredAutomation;
         let disposeSession: (() => Promise<void>) | undefined;
@@ -135,19 +104,7 @@ export class RunUseCase {
             return;
         }
 
-        let currentState = recoveryContext?.state ?? WorkflowState.initial();
-        const recoveryTargetStepNumber = recoveryContext?.state.stepNumber ?? 0;
-
-        if (recoveryContext) {
-            currentState = {
-                ...currentState,
-                stepNumber: 0,
-                history: []
-            };
-        }
-
-        const resumedPlan = recoveryContext?.plan;
-        const startPlanIndex = recoveryContext?.startPlanIndex ?? 0;
+        let currentState = WorkflowState.initial();
 
         await this.durability.checkpoint(runId, currentState, 'run_initialized');
         yield { type: 'started', runId };
@@ -172,43 +129,22 @@ export class RunUseCase {
                 await automation.waitForReady();
             }
 
-            if (recoveryContext) {
-                const replayResult = yield* this.performRecoveryReplay(
-                    runId, recoveryContext, automation, controller, currentState, recoveryTargetStepNumber
-                );
-
-                if (replayResult.cancelled) return;
-                currentState = replayResult.state;
-            }
-
-            currentState = WorkflowState.transitionTo(currentState, 'planning');
+            currentState = WorkflowState.transitionTo(currentState, 'thinking');
             yield { type: 'state_updated', state: currentState };
             yield { type: 'thinking' };
-            runLifecycle = this.durability.transition(runId, runLifecycle, 'planning');
-            const plan: Plan = resumedPlan
-                ?? this.planningCoordinator.buildSingleStepPlan(
-                    input.prompt
-                );
+            runLifecycle = this.durability.transition(runId, runLifecycle, 'executing');
 
-            if (resumedPlan) {
-                this.logger.info('[RunUseCase] Recovery bootstrap reusing checkpoint plan', {
-                    runId,
-                    sourceRunId: recoveryContext?.sourceRunId,
-                    startPlanIndex,
-                    planItems: resumedPlan.items.length
-                });
-            }
+            const now = new Date();
+            const plan: Plan = {
+                id: nanoid(),
+                goal: input.prompt,
+                status: 'planning',
+                createdAt: now,
+                updatedAt: now,
+                items: [{ id: nanoid(), description: input.prompt, status: 'pending', type: 'app' }]
+            };
 
             let executionGraph = ExecutionGraph.fromPlan(plan);
-            if (startPlanIndex > 0) {
-                for (let completedIndex = 0; completedIndex < startPlanIndex; completedIndex++) {
-                    const completedItem = plan.items[completedIndex];
-                    if (!completedItem) {
-                        continue;
-                    }
-                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, completedItem.id, 'completed');
-                }
-            }
 
             currentState = WorkflowState.transitionTo(currentState, 'thinking', { plan, executionGraph });
             yield { type: 'state_updated', state: currentState };
@@ -366,7 +302,7 @@ export class RunUseCase {
     }, unknown> {
         const { result, runningItem, plan, updatedItems, itemIndex } = ctx;
         const errorMsg = result && !result.success ? `${result.code}: ${result.reason}` : 'unknown_error: Unknown error';
-        const replanningTrigger = result && !result.success ? this.replanningCoordinator.mapResultCodeToTrigger(result.code) : undefined;
+        const replanningTrigger = result && !result.success ? RunUseCase.mapFailureCodeToTrigger(result.code) : undefined;
         const replanningAssessment = this.replanningPolicy.assess({
             runId: ctx.runId,
             replanCount: ctx.replanCount,
@@ -480,85 +416,23 @@ export class RunUseCase {
         await this.logCheckpointCompactionSummary(runId);
     }
 
-    private async *performRecoveryReplay(
-        runId: RunId,
-        recoveryContext: RecoveryBootstrapContext,
-        automation: IStructuredAutomation,
-        controller: ExecutionController,
-        currentState: WorkflowState,
-        targetStepNumber: number
-    ): AsyncGenerator<RunOutput, { state: WorkflowState; cancelled: boolean }, unknown> {
-        yield this.buildRecoveryReplayEvent({
-            sourceRunId: recoveryContext.sourceRunId,
-            targetStepNumber,
-            replayedCount: 0,
-            status: 'started'
-        });
-
-        const replayOutcome = await replayRecoveryActionsForRun(this.recoveryDeps, {
-            runId,
-            sourceRunId: recoveryContext.sourceRunId,
-            sourceBranchId: recoveryContext.branchId,
-            automation,
-            controller,
-            state: currentState,
-            targetStepNumber
-        });
-
-        if (replayOutcome.type === 'ok' || replayOutcome.type === 'cancelled') {
-            yield this.buildRecoveryReplayEvent({
-                sourceRunId: recoveryContext.sourceRunId,
-                targetStepNumber,
-                replayedCount: replayOutcome.replayedCount,
-                status: replayOutcome.type === 'ok' ? 'completed' : 'cancelled'
-            });
-        } else {
-            yield this.buildRecoveryReplayEvent({
-                sourceRunId: recoveryContext.sourceRunId,
-                targetStepNumber,
-                replayedCount: replayOutcome.replayedCount,
-                status: replayOutcome.type,
-                reason: replayOutcome.reason
-            });
+    private static mapFailureCodeToTrigger(code: string): ReplanningTrigger | undefined {
+        switch (code) {
+            case 'loop_detected':
+                return 'loop_detected';
+            case 'action_execution_error':
+                return 'action_execution_error';
+            case 'assertion_fail':
+            case 'agent_fail':
+                return 'assertion_fail';
+            case 'max_actions_reached':
+                return 'max_actions_reached';
+            case 'perception_error':
+            case 'llm_error':
+                return undefined;
+            default:
+                return undefined;
         }
-
-        if (replayOutcome.type === 'blocked') {
-            throw new WorkflowError(`Recovery replay blocked: ${replayOutcome.reason}`);
-        }
-
-        if (replayOutcome.type === 'failed') {
-            throw new WorkflowError(`Recovery replay failed: ${replayOutcome.reason}`);
-        }
-
-        const updatedState = replayOutcome.state;
-        yield { type: 'state_updated', state: updatedState };
-
-        this.logger.info('[RunUseCase] Recovery replay completed', {
-            runId,
-            sourceRunId: recoveryContext.sourceRunId,
-            replayedCount: replayOutcome.replayedCount
-        });
-
-        return { state: updatedState, cancelled: replayOutcome.type === 'cancelled' };
-    }
-
-private buildRecoveryReplayEvent(params: {
-        sourceRunId: string;
-        targetStepNumber: number;
-        replayedCount: number;
-        status: 'started' | 'completed' | 'cancelled' | 'failed' | 'blocked';
-        reason?: string;
-    }): RunOutput {
-        return {
-            type: 'recovery_replay',
-            telemetry: {
-                sourceRunId: params.sourceRunId,
-                targetStepNumber: params.targetStepNumber,
-                replayedCount: params.replayedCount,
-                status: params.status,
-                ...(params.reason ? { reason: params.reason } : {})
-            }
-        };
     }
 
     private async applyControllerFlow(input: {

@@ -1,335 +1,127 @@
-# Auto-QA Implementation Roadmap
+# Domia — Roadmap
 
-A phased implementation plan leveraging open-source libraries to minimize boilerplate while maintaining clean architecture.
+> Updated after the Phase 20 simplification cleanup.
 
 ---
 
-## Dependencies
+## What was done (Phase 20)
 
-```json
-{
-  "dependencies": {
-    "neverthrow": "^7.0.0",
-    "tsyringe": "^4.8.0",
-    "reflect-metadata": "^0.2.0",
-    "@google/generative-ai": "^0.24.1",
-    "playwright": "^1.45.0",
-    "better-sqlite3": "^11.0.0",
-    "zustand": "^4.5.0",
-    "nanoid": "^5.0.0"
-  }
-}
+### Dead code removed (~870 LOC, 17 files deleted)
+
+| Category | Files deleted | LOC removed |
+|----------|-------------|-------------|
+| Recovery system (unreachable) | `RecoveryEligibilityService`, `ManualRecoveryBootstrapService`, `RecoveryReplayService`, `BranchRollbackService`, `RunRecoveryOrchestration` + 4 test files + `RunUseCase.recovery.test.ts` | ~600 |
+| Mobile driver stubs | `AndroidDriver`, `IosDriver`, `AndroidDriverProvider`, `IosDriverProvider` | ~100 |
+| TrajectoryExportService (never resolved) | `TrajectoryExportService` + test | ~100 |
+| Planning coordinators (inlined) | `PlanningCoordinator`, `ReplanningCoordinator` | ~64 |
+
+### Code simplified
+
+- **RunUseCase**: Removed recovery code paths, `recoveryDeps` getter, `performRecoveryReplay()`, `buildRecoveryReplayEvent()`. Planning inlined directly (single `nanoid()` + plan object). Failure-code-to-trigger mapping is now a private static method.
+- **ContainerBuilder**: 7 dead registrations removed. `initializePlatformProviders()` only registers web + electron.
+- **CLI**: Removed 5 mobile flags (`--app-package`, `--bundle-id`, `--appium-url`, `--device-serial`, `--device-udid`). Removed `recovery_replay` event handler.
+- **Validation**: Removed `recoveryMode` and `recoveryRunId` from `RunOptionsSchema`.
+- **UI**: Removed `recoveryReplay` from Zustand store, `RunStateView`, `RunTimelineView`, `RunPanel`, `useRunPanel`.
+- **Events**: Removed `RecoveryReplayEvent` from `RunEvent` union and `RecoveryReplayTelemetry` type.
+- **StepInspector**: Added `toolCall.result` and `toolCall.durationMs` as first-class UI elements in the Raw tab.
+
+### Result
+
+- **Clean compile** (TypeScript strict, `exactOptionalPropertyTypes`)
+- **72 / 72 tests passing** (34 tests removed with deleted files)
+- Source: ~13,500 LOC across 180 files
+
+---
+
+## Roadmap — Remaining Gaps
+
+### P0 — Near-term (next sprint)
+
+#### 1. Dynamic plugin / skill loading
+**Status**: Not started  
+**Effort**: Medium (2–3 days)  
+**Decision**: Implement a file-based plugin directory (`~/.domia/plugins/`) where each plugin exports a `ToolSpec[]` array. The existing `buildToolCatalog()` already works with `ToolSpec` objects; adding a dynamic loader that scans the plugin directory and merges specs into the catalog is straightforward.
+
+**Implementation sketch**:
+```
+src/infrastructure/plugins/
+  PluginLoader.ts        — scans directory, validates exports via Zod
+  PluginRegistry.ts      — singleton, merged into buildToolCatalog()
 ```
 
----
+- Plugin format: ESM module default-exporting `ToolSpec[]`
+- Validation: Zod schema for ToolSpec (already exists)
+- Registration: Called in `ContainerBuilder.registerPlugins()`
+- Platform filtering: Reuses existing `platformFilter` on ToolSpec
 
-## Phase 0: Foundation (Week 1)
+#### 2. UI component test coverage
+**Status**: Not started  
+**Effort**: Medium (2–3 days)  
+**Decision**: Add Vitest + @testing-library/react tests for critical UI components. Priority order:
+1. `RunPanel` — start/cancel flow
+2. `StepInspector` — tab switching, data rendering
+3. `WorkflowWorkspace` — step execution, DAG rendering
+4. `RunForm` — platform switching, validation
 
-**Goal**: Project scaffolding with strict TypeScript and DI configuration.
+Config: Add `vitest.component.config.ts` with jsdom environment.
 
-| Task | Command/Action |
-|------|----------------|
-| Scaffold project | `npm create @electron-vite/create@latest . -- --template react-ts` |
-| Install dependencies | See dependencies above |
-| Configure TypeScript | Enable `experimentalDecorators`, `emitDecoratorMetadata` |
-| Setup ESLint boundaries | Enforce layer import rules |
-| Configure tsyringe | Add `import 'reflect-metadata'` to entry |
+### P1 — Medium-term (next 2 sprints)
 
-**Deliverables**: Working Electron shell, layer directories created, DI container initialized.
+#### 3. Android / iOS drivers
+**Status**: Type system ready, stubs removed  
+**Effort**: High (1–2 weeks per platform)  
+**Decision**: The `PlatformConfig` types (`AndroidPlatformConfig`, `IosPlatformConfig`), validation schemas, and UI form components are **kept** as future extension points. When implementing:
+- Create `AndroidDriver` implementing `IAppDriver` using Appium WebDriver
+- Create `AndroidDriverProvider` implementing `IAppDriverProvider`
+- Register in `ContainerBuilder.initializePlatformProviders()`
+- Re-add CLI flags in `RunCommand.ts` and `platformUtils.ts`
+- The `AppDriverFactory` provider-registry pattern supports this with zero changes to the core
 
----
+#### 4. Automatic recovery (re-implementation)
+**Status**: Old system deleted (was unreachable)  
+**Effort**: Medium-High (3–5 days)  
+**Decision**: If recovery is needed, build it properly with:
+- A UI "Resume from checkpoint" button in the run history
+- A CLI `--resume-run <runId>` flag
+- A `RecoveryService` that reads checkpoints via `RunDurabilityService.getCheckpointRecords()` and replays
+- The checkpoint infrastructure (`RunDurabilityService`, `CheckpointCompactionService`) is still fully active and recording every step — no data loss from the cleanup
 
-## Phase 1: Domain Layer (Week 2)
+### P2 — Long-term
 
-**Goal**: Complete domain model with abstracted I/O ports.
-
-| Component | Implementation |
-|-----------|----------------|
-| **Branded Types** | `Url`, `ElementId`, `RunId` with validation |
-| **Entities** | `Run`, `Step` with discriminated union states |
-| **I/O Ports** | `IInputPort`, `IOutputPort` for abstracted app interface |
-| **Core Ports** | `IBrowserAutomation`, `ILLMProvider`, `ITestRunStorage` |
-| **Errors** | Typed domain errors extending base class |
-
-```typescript
-// Abstracted input - can change without affecting use cases
-export interface TestInput {
-  readonly url: string;
-  readonly prompt: string;
-}
-
-// Abstracted output - can change without affecting use cases
-export interface RunOutput {
-  readonly response: TestResponse;
-  readonly file: OutputFile;
-}
-
-export interface IInputPort {
-  parse(raw: unknown): Result<TestInput, InputValidationError>;
-}
-
-export interface IOutputPort {
-  format(run: Run): RunOutput;
+#### 5. Multi-step planning
+**Status**: Removed as dead code (was always single-step)  
+**Effort**: High (1–2 weeks)  
+**Decision**: When needed, introduce an `IPlanner` interface:
+```ts
+interface IPlanner {
+  plan(goal: string, context: PerceptionContext): Promise<Plan>;
 }
 ```
+The `ExecutionGraph` / `Plan` / `PlanItem` domain entities and the DAG execution loop in `RunUseCase` are fully functional and already iterate over multiple plan items. Only the planner itself (LLM-based decomposition) needs building.
 
-**Deliverables**: All domain types, zero external dependencies except neverthrow.
-
----
-
-## Phase 2: Browser Adapter (Week 3)
-
-**Goal**: Playwright adapter implementing `IBrowserAutomation`.
-
-| Method | Input | Output |
-|--------|-------|--------|
-| `launch()` | `LaunchOptions` | `ResultAsync<void, BrowserError>` |
-| `navigateTo()` | `Url` | `ResultAsync<void, NavigationError>` |
-| `click()` | `ElementId` | `ResultAsync<void, InteractionError>` |
-| `type()` | `ElementId`, `string` | `ResultAsync<void, InteractionError>` |
-| `snapshot()` | — | `ResultAsync<DOMSnapshot, SnapshotError>` |
-| `screenshot()` | — | `ResultAsync<Buffer, CaptureError>` |
-
-```typescript
-@injectable()
-export class PlaywrightAdapter implements IBrowserAutomation {
-  navigateTo(url: Url): ResultAsync<void, NavigationError> {
-    return ResultAsync.fromPromise(
-      this.page.goto(url),
-      (e) => new NavigationError(String(e))
-    ).map(() => undefined);
-  }
-}
-```
-
-**Deliverables**: Full browser control, DOM snapshot extraction, video recording.
+#### 6. Workflow templates & marketplace
+**Status**: Conceptual  
+**Effort**: High  
+**Decision**: The `WorkflowDefinitionService` + `WorkflowRunOrchestratorService` already support multi-step workflow definitions stored in SQLite. A template system would add:
+- Import/export of workflow YAML definitions
+- A UI for browsing/installing community workflows
+- Parameterization of workflow steps
 
 ---
 
-## Phase 3: LLM Adapter (Week 4)
+## Architecture health after cleanup
 
-**Goal**: Google Gemini adapter with tool calling support.
-
-| Provider | Package | Model Examples |
-|----------|---------|----------------|
-| Google | `@google/generative-ai` | gemini-2.0-flash |
-
-```typescript
-@injectable()
-export class GeminiAdapter implements ILLMProvider {
-  generateAction(context: LLMContext): ResultAsync<AgentAction, LLMError> {
-    return ResultAsync.fromPromise(
-      this.generateWithRetry(context),
-      (e) => new LLMError(String(e))
-    );
-  }
-}
-```
-
-**Deliverables**: Multi-provider LLM, streaming support, response parsing.
-
----
-
-## Phase 4: Storage & I/O Adapters (Week 5)
-
-**Goal**: Persistence and I/O port implementations.
-
-| Adapter | Port | Technology |
-|---------|------|------------|
-| `SQLiteAdapter` | `ITestRunStorage` | better-sqlite3 |
-| `FileSystemAdapter` | `IArtifactStorage` | Node.js fs |
-| `UIInputAdapter` | `IInputPort` | Parses React forms |
-| `FileOutputAdapter` | `IOutputPort` | Writes response + file |
-
-```typescript
-@injectable()
-export class UIInputAdapter implements IInputPort {
-  parse(raw: unknown): Result<TestInput, InputValidationError> {
-    const { url, prompt } = raw as Record<string, unknown>;
-    return Url.create(url as string)
-      .map(validUrl => ({ url: validUrl, prompt: prompt as string }));
-  }
-}
-
-@injectable()
-export class FileOutputAdapter implements IOutputPort {
-  format(run: Run): RunOutput {
-    return {
-      response: { success: run.status.type === 'passed', ... },
-      file: { path: this.artifactPath(run.id), type: 'video', ... }
-    };
-  }
-}
-```
-
-**Deliverables**: Full DI container, all ports implemented.
-
----
-
-## Phase 5: Application Layer (Week 6)
-
-**Goal**: Use cases with AsyncGenerator for streaming and cancellation.
-
-| Use Case | Pattern | Output |
-|----------|---------|--------|
-| `RunUseCase` | `AsyncGenerator` | Yields `RunEvent`, returns `RunOutput` |
-| `CancelTestUseCase` | `ResultAsync` | `ResultAsync<void, Error>` |
-| `GetRunQuery` | `ResultAsync` | `ResultAsync<RunOutput, Error>` |
-
-### Event-Driven Agent Loop
-
-```typescript
-@injectable()
-export class RunUseCase {
-  constructor(
-    @inject('IInputPort') private input: IInputPort,
-    @inject('IOutputPort') private output: IOutputPort,
-    @inject('IBrowserAutomation') private browser: IBrowserAutomation,
-    @inject('ILLMProvider') private llm: ILLMProvider
-  ) {}
-  
-  async *execute(
-    raw: unknown,
-    cancellation: CancellationToken
-  ): AsyncGenerator<RunEvent, RunOutput> {
-    
-    const parsed = this.input.parse(raw);
-    if (parsed.isErr()) {
-      yield { type: 'error', error: parsed.error };
-      return;
-    }
-    
-    yield { type: 'started', testRunId };
-    
-    while (state.status.type === 'running') {
-      // Cooperative cancellation check
-      if (cancellation.requested) {
-        yield { type: 'cancelled' };
-        return;
-      }
-      
-      // OBSERVE
-      yield { type: 'observing' };
-      const snapshotResult = await this.browser.snapshot();
-      if (snapshotResult.isErr()) {
-        yield { type: 'error', error: snapshotResult.error };
-        break;
-      }
-      
-      // THINK
-      yield { type: 'thinking' };
-      const actionResult = await this.llm.generateAction(context);
-      if (actionResult.isErr()) {
-        yield { type: 'error', error: actionResult.error };
-        break;
-      }
-      
-      // ACT
-      yield { type: 'acting', action: actionResult.value };
-      const actResult = await this.browser.perform(actionResult.value);
-      
-      yield { type: 'step_complete', step: currentStep };
-    }
-    
-    return this.output.format(state);
-  }
-}
-```
-
-### Key Patterns
-
-| Pattern | Purpose |
-|---------|---------|
-| `AsyncGenerator` | Yields events for UI, returns final result |
-| `CancellationToken` | Cooperative stop between steps |
-| `yield` before I/O | Real-time status updates |
-| `ResultAsync` internally | Error-safe port calls |
-
-**Deliverables**: Event-streaming agent loop, cooperative cancellation, real-time UI updates.
-
----
-
-## Phase 6: Presentation Layer (Weeks 7-8)
-
-**Goal**: Electron UI consuming use cases.
-
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| IPC Bridge | Electron IPC | Main ↔ Renderer |
-| State | zustand | `useRunStore` |
-| Forms | React | URL + Prompt input |
-| Results | React | Response + File display |
-
-```typescript
-// zustand store
-export const useRunStore = create<Store>((set) => ({
-  output: null,
-  isRunning: false,
-  runTest: async (url, prompt) => {
-    set({ isRunning: true });
-    const result = await window.api.runTest({ url, prompt });
-    set({ output: result, isRunning: false });
-  }
-}));
-```
-
-**Deliverables**: Full UI, live status updates, file downloads.
-
----
-
-## Phase 7: Polish (Week 9)
-
-**Goal**: Production-ready packaging.
-
-| Task | Tool |
-|------|------|
-| Installers | electron-builder |
-| Playwright binaries | Post-install setup |
-| Error handling | Toast notifications |
-| Auto-update | electron-updater |
-
-**Deliverables**: `.dmg` / `.exe` installers, smooth first-run experience.
-
----
-
-## Timeline
-
-```mermaid
-gantt
-    title Implementation Timeline
-    dateFormat YYYY-MM-DD
-    section Foundation
-    Phase 0 - Setup           :p0, 2026-02-03, 1w
-    section Core
-    Phase 1 - Domain          :p1, after p0, 1w
-    Phase 2 - Browser         :p2, after p1, 1w
-    Phase 3 - LLM             :p3, after p2, 1w
-    Phase 4 - Storage & I/O   :p4, after p3, 1w
-    Phase 5 - Application     :p5, after p4, 1w
-    section UI
-    Phase 6 - Presentation    :p6, after p5, 2w
-    Phase 7 - Polish          :p7, after p6, 1w
-```
-
----
-
-## Extending the System
-
-### Adding Input Fields
-
-1. Extend `TestInput` interface in domain
-2. Update `UIInputAdapter` to parse new field
-3. No changes to use cases
-
-### Adding Output Formats
-
-1. Extend `RunOutput` interface in domain
-2. Update `FileOutputAdapter` to generate new format
-3. No changes to use cases
-
-### Adding New Interface (CLI/API)
-
-1. Create new `IInputPort` implementation
-2. Create new `IOutputPort` implementation
-3. Register in DI container
-4. No changes to use cases
+| Subsystem | Status | Notes |
+|-----------|--------|-------|
+| Platform drivers (web, electron) | Active | Provider registry pattern, extensible |
+| Platform types (android, ios) | Types only | Config types + UI forms kept, no drivers |
+| Execution engine | Active | Budget, durability, replanning, completion policies |
+| Checkpoint system | Active | RunDurabilityService records every step |
+| Perception pipeline | Active | Vision + ARIA sensors, coordinate scaling |
+| Tool catalog | Active | 19 tools, 5 catalogs, platform filtering |
+| Workflow orchestration | Active | DAG execution, step governance, policies |
+| SQLite persistence | Active | 3 migrations, facade pattern |
+| Trace / observability | Active | TraceService + FileTraceExporter + DebugExporter |
+| Recovery system | Removed | Was unreachable; checkpoint data preserved for future |
+| Trajectory export | Removed | Was registered but never used |
+| Planning coordinator | Inlined | Single-step plan built directly in RunUseCase |

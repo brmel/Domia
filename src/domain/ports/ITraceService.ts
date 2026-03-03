@@ -22,6 +22,8 @@ export interface StepTrace {
     toolCall?: {
         name: string;
         input: Record<string, unknown>;
+        result?: Record<string, unknown>;
+        durationMs?: number;
     };
 }
 

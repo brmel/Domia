@@ -1,16 +1,15 @@
 import React from 'react';
 import { cn } from '../../utils';
-import type { RecoveryReplayTelemetry, ReplanningTelemetry } from '@application/dtos';
+import type { ReplanningTelemetry } from '@application/dtos';
 
 interface RunTimelineViewProps {
     statusLabel: string;
     actionTypes: string[];
     checkpoints: Array<{ id: string; reason: string; detail: string }>;
-    recoveryReplay: RecoveryReplayTelemetry | null;
     replanningEvents: ReplanningTelemetry[];
 }
 
-type TimelineLane = 'lifecycle' | 'action' | 'checkpoint' | 'recovery' | 'policy';
+type TimelineLane = 'lifecycle' | 'action' | 'checkpoint' | 'policy';
 
 interface TimelineEvent {
     id: string;
@@ -23,7 +22,6 @@ export function RunTimelineView({
     statusLabel,
     actionTypes,
     checkpoints,
-    recoveryReplay,
     replanningEvents
 }: RunTimelineViewProps): React.ReactElement {
     const events: TimelineEvent[] = [];
@@ -55,15 +53,6 @@ export function RunTimelineView({
                 detail: checkpoint.detail
             });
         });
-
-    if (recoveryReplay) {
-        events.push({
-            id: 'recovery-replay',
-            lane: 'recovery',
-            title: `Recovery replay: ${recoveryReplay.status}`,
-            detail: `replayed ${recoveryReplay.replayedCount}/${recoveryReplay.targetStepNumber}${recoveryReplay.reason ? ` · ${recoveryReplay.reason}` : ''}`
-        });
-    }
 
     replanningEvents.forEach((event, index) => {
         events.push({
@@ -103,8 +92,6 @@ function laneClass(lane: TimelineLane): string {
             return 'text-gray-700';
         case 'checkpoint':
             return 'text-indigo-700';
-        case 'recovery':
-            return 'text-amber-700';
         case 'policy':
             return 'text-purple-700';
         default: {

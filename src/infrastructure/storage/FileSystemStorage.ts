@@ -64,25 +64,17 @@ export class FileSystemStorage implements IStorageService {
         const filename = `${stepNumber}_trace.json`;
         const filePath = path.join(baseDir, filename);
 
-        let existing: { events?: unknown[]; [key: string]: unknown } = {};
+        let existing: Partial<StepTrace> = {};
         if (await fs.pathExists(filePath)) {
             const current = await fs.readJson(filePath);
             if (this.isRecord(current)) {
-                existing = current;
+                existing = current as Partial<StepTrace>;
             }
         }
 
-        const existingEvents = Array.isArray(existing.events) ? existing.events : [];
-        const materializedExisting: { [key: string]: unknown } = { ...existing };
-        delete materializedExisting['events'];
-
         await fs.writeJson(
             filePath,
-            {
-                ...materializedExisting,
-                ...trace,
-                events: [...existingEvents, { timestamp: Date.now(), ...trace }]
-            },
+            { ...existing, ...trace },
             { spaces: 2 }
         );
     }
@@ -120,9 +112,9 @@ export class FileSystemStorage implements IStorageService {
             artifacts.dom = (await fs.readJson(domPath)) as Record<string, unknown>;
         }
 
-        const ariaPath = path.join(baseDir, `${stepNumber}_aria.json`);
+        const ariaPath = path.join(baseDir, `${stepNumber}_aria.txt`);
         if (await fs.pathExists(ariaPath)) {
-            artifacts.accessibility = (await fs.readJson(ariaPath)) as Record<string, unknown>;
+            artifacts.accessibility = await fs.readFile(ariaPath, 'utf-8');
         }
 
         const tracePath = path.join(baseDir, `${stepNumber}_trace.json`);

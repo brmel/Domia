@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { container } from '../../src/composition-root';
 import { IPersistenceAdapter } from '../../src/domain/ports';
-import { TrajectoryExportService } from '../../src/infrastructure/services/exporters/TrajectoryExportService';
 import { t } from './shared';
 
 export const historyRouter = t.router({
@@ -49,22 +48,4 @@ export const historyRouter = t.router({
             const step = stepsResult.value.find(s => s.stepNumber === input.stepNumber);
             return step ?? null;
         }),
-    exportTrajectories: t.procedure
-        .input(z.object({
-            runIds: z.array(z.string().trim().min(1)).optional(),
-            workflowDefinitionId: z.string().trim().min(1).optional(),
-            from: z.string().datetime().optional(),
-            to: z.string().datetime().optional(),
-            includeChosenRejected: z.boolean().optional()
-        }).optional())
-        .mutation(async ({ input }) => {
-            const exportService = container.resolve(TrajectoryExportService);
-            return exportService.export({
-                ...(input?.runIds ? { runIds: input.runIds } : {}),
-                ...(input?.workflowDefinitionId ? { workflowDefinitionId: input.workflowDefinitionId } : {}),
-                ...(input?.from ? { from: input.from } : {}),
-                ...(input?.to ? { to: input.to } : {}),
-                ...(input?.includeChosenRejected !== undefined ? { includeChosenRejected: input.includeChosenRejected } : {})
-            });
-        })
 });

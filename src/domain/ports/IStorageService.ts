@@ -5,7 +5,7 @@ import type { StepTrace } from './ITraceService';
 export interface StepArtifacts {
     screenshots?: string[];
     dom?: Record<string, unknown>;
-    accessibility?: Record<string, unknown>;
+    accessibility?: string;
     trace?: Record<string, unknown> & Partial<StepTrace>;
 }
 

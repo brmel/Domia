@@ -15,7 +15,6 @@ export class AgentViewService {
     private isReady: boolean = false;
     private readyPromise: Promise<void> | null = null;
 
-    private readonly READINESS_STABILITY_DELAY_MS = 500;
     private readonly AGENT_VIEW_BOOT_URL = 'about:blank#domia-agent-view';
 
     constructor(@inject('ILogger') private logger: ILogger) { }
@@ -43,11 +42,9 @@ export class AgentViewService {
         this.readyPromise = new Promise<void>((resolve) => {
             if (this.view) {
                 this.view.webContents.once('did-finish-load', () => {
-                    setTimeout(() => {
-                        this.isReady = true;
-                        this.logger.debug(`[AgentViewService] WebContentsView ready after ${this.READINESS_STABILITY_DELAY_MS}ms stability delay`);
-                        resolve();
-                    }, this.READINESS_STABILITY_DELAY_MS);
+                    this.isReady = true;
+                    this.logger.debug('[AgentViewService] WebContentsView ready (did-finish-load)');
+                    resolve();
                 });
             }
         });

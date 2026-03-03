@@ -55,6 +55,30 @@ export class AdkAgentRunner implements IAgentRunner {
         const viewport = await automation.getViewportSize();
 
         let actionCount = 0;
+        const toolTimers = new Map<string, number>();
+        let lastToolResult: { name: string; result: Record<string, unknown>; durationMs: number } | null = null;
+        let pendingYield: AgentRunnerEvent | null = null;
+
+        const flushPending = function* (): Generator<AgentRunnerEvent> {
+            if (!pendingYield) return;
+            if (lastToolResult) {
+                yield {
+                    ...pendingYield,
+                    trace: {
+                        ...pendingYield.trace,
+                        toolCall: {
+                            ...pendingYield.trace.toolCall!,
+                            result: lastToolResult.result,
+                            durationMs: lastToolResult.durationMs,
+                        },
+                    },
+                };
+                lastToolResult = null;
+            } else {
+                yield pendingYield;
+            }
+            pendingYield = null;
+        };
 
         const { tools, catalog } = createAdkTools({
             automation,
@@ -94,6 +118,15 @@ export class AdkAgentRunner implements IAgentRunner {
                     this.logger.warn(`[AdkAgentRunner] Loop detected: ${sig}`);
                     return { status: 'error', error: loopGuard.getWarning(tool.name) };
                 }
+                toolTimers.set(tool.name, Date.now());
+                return undefined;
+            },
+            afterToolCallback: ({ tool, response }) => {
+                const start = toolTimers.get(tool.name);
+                const durationMs = start ? Date.now() - start : 0;
+                toolTimers.delete(tool.name);
+                lastToolResult = { name: tool.name, result: response as Record<string, unknown>, durationMs };
+                this.logger.debug(`[AdkAgentRunner] Tool ${tool.name} completed in ${durationMs}ms`, { status: (response as Record<string, unknown>)?.['status'] });
                 return undefined;
             },
         });
@@ -117,6 +150,10 @@ export class AdkAgentRunner implements IAgentRunner {
                     const thought = extractThought(event);
 
                     for (const fc of functionCalls) {
+                        // Flush previous pending action — its tool has now executed
+                        // and afterToolCallback has set lastToolResult
+                        yield* flushPending();
+
                         const action = actionMapper.map(fc.name!, fc.args as Record<string, unknown>, thought);
                         actionCount++;
 
@@ -124,7 +161,7 @@ export class AdkAgentRunner implements IAgentRunner {
 
                         const { thought: _t, ...actionWithoutThought } = action as unknown as Record<string, unknown>;
 
-                        yield {
+                        const actionEvent: AgentRunnerEvent = {
                             type: 'action',
                             action,
                             actionIndex: actionCount,
@@ -147,25 +184,34 @@ export class AdkAgentRunner implements IAgentRunner {
                             },
                         };
 
+                        // Terminal actions: yield immediately (no tool execution follows)
                         if (action.type === ActionType.PASS) {
+                            yield actionEvent;
                             return { success: true, terminal: 'pass' };
                         }
                         if (action.type === ActionType.FAIL) {
+                            yield actionEvent;
                             return {
                                 success: false, terminal: 'fail', code: 'agent_fail',
                                 reason: (action as { reason: string }).reason,
                             };
                         }
                         if (actionCount >= maxActions) {
+                            yield actionEvent;
                             return {
                                 success: false, terminal: 'max_actions', code: 'max_actions_reached',
                                 reason: `Max actions (${maxActions}) reached for step: ${stepGoal}`,
                             };
                         }
+
+                        // Non-terminal: defer until tool result is available
+                        pendingYield = actionEvent;
                     }
                 }
 
                 if (isFinalResponse(event)) {
+                    yield* flushPending();
+
                     const text = stringifyContent(event);
                     this.logger.info(`[AdkAgentRunner] Final response: ${text.slice(0, 200)}`);
                     if (actionCount === 0) {
@@ -177,6 +223,9 @@ export class AdkAgentRunner implements IAgentRunner {
                     break;
                 }
             }
+
+            // Flush any remaining pending action after the loop ends
+            yield* flushPending();
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             this.logger.error(`[AdkAgentRunner] Agent error: ${message}`);

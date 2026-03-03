@@ -51,7 +51,6 @@ export function RunPanel(): ReactElement {
                                 status={vm.status}
                                 history={vm.history}
                                 currentAction={vm.currentAction}
-                                recoveryReplay={vm.recoveryReplay}
                                 summary={vm.summary}
                                 errorMessage={vm.errorMessage}
                                 actionOverrideJson={vm.actionOverrideJson}
@@ -68,7 +67,6 @@ export function RunPanel(): ReactElement {
                                 statusLabel={vm.status}
                                 actionTypes={vm.history.map(action => action.type)}
                                 checkpoints={vm.checkpointRecords}
-                                recoveryReplay={vm.recoveryReplay}
                                 replanningEvents={vm.replanningEvents}
                             />
                         )}

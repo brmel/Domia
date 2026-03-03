@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { RunEvent } from '@domain/events';
 import type { AgentAction, RunId } from '@domain/value-objects';
 import type { Plan } from '@domain/entities/Plan';
-import type { RecoveryReplayTelemetry, ReplanningTelemetry } from '@application/dtos';
+import type { ReplanningTelemetry } from '@application/dtos';
 import { RunState } from '@domain/enums/RunState';
 import type { UIPlatformType } from '../config/platformRegistry';
 import type { PlatformFieldValue } from '../config/platformRegistry';
@@ -27,7 +27,6 @@ export interface RunStoreState {
     selectedPlatform: UIPlatformType;
     platformData: PlatformFieldValue;
 
-    recoveryReplay: RecoveryReplayTelemetry | null;
     replanningEvents: ReplanningTelemetry[];
 }
 
@@ -59,7 +58,6 @@ const initialState: RunStoreState = {
     prompt: 'verify that brahim is smiling',
     selectedPlatform: 'web',
     platformData: { url: 'https://ibraverse.ca' },
-    recoveryReplay: null,
     replanningEvents: [],
 };
 
@@ -97,7 +95,6 @@ export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
                     success: null,
                     summary: null,
                     errorMessage: null,
-                    recoveryReplay: null,
                     replanningEvents: [],
                 });
                 break;
@@ -116,10 +113,6 @@ export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
                     plan: event.state.plan || state.plan,
                     currentAction: null
                 }));
-                break;
-
-            case 'recovery_replay':
-                set({ recoveryReplay: event.telemetry });
                 break;
 
             case 'replanning':

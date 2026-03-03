@@ -1,11 +1,3 @@
-export interface RecoveryReplayTelemetry {
-    sourceRunId: string;
-    targetStepNumber: number;
-    replayedCount: number;
-    status: 'started' | 'completed' | 'cancelled' | 'blocked' | 'failed';
-    reason?: string;
-}
-
 export interface ReplanningTelemetry {
     runId: string;
     trigger?: 'loop_detected' | 'action_execution_error' | 'assertion_fail' | 'max_actions_reached';

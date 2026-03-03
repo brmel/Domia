@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react';
 import { RunState } from '@domain/enums/RunState';
 import type { AgentAction } from '@domain/value-objects';
-import type { RecoveryReplayTelemetry } from '@application/dtos';
 import { InfoCard } from '../ui/InfoCard';
 import { SectionBlock } from '../ui/SectionBlock';
 import { Button } from '../ui/Button';
@@ -10,7 +9,6 @@ interface RunStateViewProps {
     status: RunState;
     history: AgentAction[];
     currentAction: AgentAction | null;
-    recoveryReplay: RecoveryReplayTelemetry | null;
     summary: string | null;
     errorMessage: string | null;
     actionOverrideJson: string;
@@ -25,7 +23,6 @@ export function RunStateView({
     status,
     history,
     currentAction,
-    recoveryReplay,
     summary,
     errorMessage,
     actionOverrideJson,
@@ -40,13 +37,6 @@ export function RunStateView({
             <InfoCard label="Run Status" value={status} />
             <InfoCard label="History Length" value={`${history.length} action(s)`} />
             <InfoCard label="Current Action" value={currentAction?.type ?? 'None'} />
-            <InfoCard
-                label="Recovery Replay"
-                value={recoveryReplay
-                    ? `${recoveryReplay.status} (${recoveryReplay.replayedCount}/${recoveryReplay.targetStepNumber})`
-                    : 'Not active'}
-                detail={recoveryReplay?.reason}
-            />
             <InfoCard
                 label="Terminal Summary"
                 value={<span className="font-normal text-gray-800 line-clamp-4 whitespace-pre-wrap">{summary || errorMessage || 'Not available yet'}</span>}

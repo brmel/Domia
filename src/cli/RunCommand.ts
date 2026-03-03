@@ -22,11 +22,6 @@ export class RunCommand {
             .option('--executable-path <path>', 'Path to Electron executable')
             .option('--launch-args <args>', 'Launch arguments for Electron (comma-separated)')
             .option('--window-title <title>', 'Target window title (Electron)')
-            .option('--app-package <package>', 'Android app package (e.g. com.example.app)')
-            .option('--bundle-id <id>', 'iOS bundle identifier (e.g. com.example.App)')
-            .option('--appium-url <url>', 'Appium server URL (default: http://localhost:4723)')
-            .option('--device-serial <serial>', 'Android device serial (adb devices)')
-            .option('--device-udid <udid>', 'iOS device UDID')
             .option('-p, --prompt <prompt>', 'Goal or instruction for the agent')
             .option('-s, --steps <steps>', 'Max steps', '10')
             .option('-H, --no-headless', 'Run in headful mode (visible window)', false)
@@ -54,11 +49,6 @@ export class RunCommand {
                     executablePath,
                     launchArgs,
                     windowTitle,
-                    appPackage,
-                    bundleId,
-                    appiumUrl,
-                    deviceSerial,
-                    deviceUdid,
                     model,
                     apiKey
                 } = options;
@@ -204,11 +194,6 @@ export class RunCommand {
                         executablePath,
                         launchArgs,
                         windowTitle,
-                        appPackage,
-                        bundleId,
-                        appiumUrl,
-                        deviceSerial,
-                        deviceUdid,
                     });
 
                     const input = {
@@ -246,14 +231,6 @@ export class RunCommand {
                                 const reason = event.telemetry.reason;
                                 const trigger = event.telemetry.trigger ?? 'unspecified';
                                 console.log(chalk.yellow(`[Replanning] status=${status} trigger=${trigger} reason=${reason}`));
-                                break;
-                            }
-                            case 'recovery_replay': {
-                                console.log(
-                                    chalk.magenta(
-                                        `[Recovery] status=${event.telemetry.status} sourceRun=${event.telemetry.sourceRunId} replayed=${event.telemetry.replayedCount}`
-                                    )
-                                );
                                 break;
                             }
                             case 'state_updated': {

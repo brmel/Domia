@@ -8,8 +8,7 @@ const checks = [
     {
         file: 'src/application/use-cases/RunUseCase.ts',
         required: [
-            "type: 'replanning'",
-            "type: 'recovery_replay'"
+            "type: 'replanning'"
         ]
     },
     {

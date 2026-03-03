@@ -6,7 +6,7 @@ import { RunState } from '@domain/enums/RunState';
 export function useRunPanel() {
     const {
         status, currentAction, plan, history, success, summary,
-        errorMessage, handleEvent, runId, recoveryReplay, replanningEvents,
+        errorMessage, handleEvent, runId, replanningEvents,
     } = useRunStore();
     const { open } = useStepInspectorStore();
 
@@ -126,7 +126,6 @@ export function useRunPanel() {
         summary,
         errorMessage,
         runId,
-        recoveryReplay,
         replanningEvents,
         rightRailTab,
         setRightRailTab,

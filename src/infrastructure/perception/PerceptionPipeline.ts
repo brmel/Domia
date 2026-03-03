@@ -23,7 +23,8 @@ export class PerceptionPipeline implements IPerceptionPipeline {
         source: IPerceptionSource,
         options: import('@domain/ports/IPerceptionPipeline').PerceptionOptions = { vision: true, aria: true }
     ): ResultAsync<PerceptionFrame, SnapshotError> {
-        this.logger.info(`[PerceptionPipeline] Starting capture sequence (Options: ${JSON.stringify(options)})`);
+        const start = Date.now();
+        this.logger.info(`[PerceptionPipeline] Starting capture (vision=${!!options.vision}, aria=${options.aria !== false})`);
 
         if (!source) {
             return ResultAsync.fromPromise(
@@ -44,6 +45,8 @@ export class PerceptionPipeline implements IPerceptionPipeline {
         ).map(({ vision, ariaText, title }) => {
             const { snapshot, refs } = buildRoleSnapshot(ariaText);
             const viewport = source.getViewportSize() ?? { width: 0, height: 0 };
+            const refCount = Object.keys(refs).length;
+            this.logger.info(`[PerceptionPipeline] Capture complete in ${Date.now() - start}ms: ${refCount} refs, url=${source.getUrl()}`);
 
             const frame: PerceptionFrame = {
                 id: uuidv4(),

@@ -1,22 +1,10 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
 import { ActionType } from '@domain/enums/ActionType';
-import { PlanningCoordinator } from '@application/services/execution/coordinators/PlanningCoordinator';
 import { RunCoordinator } from '@application/services/execution/coordinators/RunCoordinator';
-import { ReplanningCoordinator } from '@application/services/execution/coordinators/ReplanningCoordinator';
 import { WorkflowState } from '@domain/value-objects/WorkflowState';
 
 describe('Execution coordinators', () => {
-    it('builds a single-step plan from a prompt', () => {
-        const coordinator = new PlanningCoordinator();
-        const plan = coordinator.buildSingleStepPlan('base goal');
-
-        expect(plan.goal).toBe('base goal');
-        expect(plan.items).toHaveLength(1);
-        expect(plan.items[0]?.description).toBe('base goal');
-        expect(plan.items[0]?.status).toBe('pending');
-    });
-
     it('resolves bootstrap URL and lane key deterministically', () => {
         const coordinator = new RunCoordinator();
         const input = {
@@ -49,16 +37,6 @@ describe('Execution coordinators', () => {
 
         expect(options.vision).toBe(false);
         expect(options.maxActions).toBe(10);
-    });
-
-    it('maps replanning triggers', () => {
-        const coordinator = new ReplanningCoordinator();
-        expect(coordinator.mapResultCodeToTrigger('loop_detected')).toBe('loop_detected');
-        expect(coordinator.mapResultCodeToTrigger('assertion_fail')).toBe('assertion_fail');
-        expect(coordinator.mapResultCodeToTrigger('agent_fail')).toBe('assertion_fail');
-        expect(coordinator.mapResultCodeToTrigger('max_actions_reached')).toBe('max_actions_reached');
-        expect(coordinator.mapResultCodeToTrigger('perception_error')).toBeUndefined();
-        expect(coordinator.mapResultCodeToTrigger('llm_error')).toBeUndefined();
     });
 
     it('applies terminal state transitions via WorkflowState', () => {

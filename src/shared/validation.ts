@@ -22,8 +22,6 @@ export const RunOptionsSchema = z.object({
   debug: z.boolean().optional(),
   vision: z.boolean().optional(),
   debugScreenshots: z.boolean().optional(),
-  recoveryMode: z.enum(['observe', 'manual-only', 'auto-safe']).optional(),
-  recoveryRunId: z.string().trim().min(1).optional(),
   readinessMode: z.enum(['observe', 'soft-enforce']).optional(),
   readinessProfile: z.enum(['dev', 'staging', 'production']).optional()
 });
