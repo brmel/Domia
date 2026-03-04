@@ -7,7 +7,7 @@ export type PromptKey =
     | 'targetingMouseOnly';
 
 export type ToolDescriptionKey =
-    | 'observe' | 'extract' | 'wait'
+    | 'observe' | 'extract' | 'wait' | 'waitForCondition'
     | 'click' | 'type' | 'hover' | 'selectOption' | 'dragTo' | 'pressKey'
     | 'mouse_move' | 'mouse_click_left' | 'mouse_click_right'
     | 'mouse_double_click' | 'mouse_drag' | 'mouse_scroll'

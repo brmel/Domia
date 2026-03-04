@@ -204,7 +204,8 @@ export class RunUseCase {
                         budgetLimits,
                         runStartMs,
                         estimatedTokensUsed,
-                    }
+                    },
+                    controller
                 );
 
                 const kernelResult = yield* stepKernel;

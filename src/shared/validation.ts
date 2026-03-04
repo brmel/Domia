@@ -23,7 +23,10 @@ export const RunOptionsSchema = z.object({
   vision: z.boolean().optional(),
   debugScreenshots: z.boolean().optional(),
   readinessMode: z.enum(['observe', 'soft-enforce']).optional(),
-  readinessProfile: z.enum(['dev', 'staging', 'production']).optional()
+  readinessProfile: z.enum(['dev', 'staging', 'production']).optional(),
+  recording: z.boolean().optional(),
+  recordingMaxDurationMs: z.number().int().min(10).max(5000).optional(),
+  recordingIntervalMs: z.number().int().min(10).max(1000).optional(),
 });
 
 export const RunInputSchema = z.object({

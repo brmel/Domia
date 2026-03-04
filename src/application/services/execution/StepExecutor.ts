@@ -32,10 +32,19 @@ export class StepExecutor {
     ): AsyncGenerator<AgentActionEvent, StepExecutionResult, unknown> {
         await this.trace.startTrace(runId);
 
-        const gen = this.agentRunner.executeStep(
-            { runId, stepGoal, url, maxActions: options.maxActions, vision: options.vision, platform: options.platform as import('@domain/types/PlatformConfig').PlatformType | undefined },
-            automation,
-        );
+        const rec = options['recording'] as { enabled: boolean; maxDurationMs?: number; intervalMs?: number } | undefined;
+        const config: import('@domain/ports/IAgentRunner').StepRunnerConfig = {
+            runId,
+            stepGoal,
+            url,
+            maxActions: options.maxActions,
+            vision: options.vision,
+            platform: options.platform as import('@domain/types/PlatformConfig').PlatformType | undefined,
+        };
+        if (rec) {
+            (config as { recording: typeof rec }).recording = rec;
+        }
+        const gen = this.agentRunner.executeStep(config, automation);
 
         let next = await gen.next();
         while (!next.done) {

@@ -16,6 +16,7 @@ export enum ActionType {
     EXTRACT = 'extract',
     NAVIGATE = 'navigate',
     OBSERVE = 'observe',
+    WAIT_FOR_CONDITION = 'waitForCondition',
     PASS = 'pass',
     FAIL = 'fail'
 }

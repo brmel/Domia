@@ -5,6 +5,7 @@ import { ConfigService } from '../config/ConfigService';
 import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 
 import type { StepTrace } from '@domain/ports/ITraceService';
+import type { ActionRecordingData } from '@domain/types/ActionRecordingTypes';
 import { IStorageService, StepArtifacts } from '@domain/ports/IStorageService';
 
 @injectable()
@@ -123,6 +124,32 @@ export class FileSystemStorage implements IStorageService {
         }
 
         return artifacts;
+    }
+
+    async saveActionRecording(runId: string, actionIndex: number, recording: ActionRecordingData): Promise<void> {
+        const config = this.configService.get();
+        const baseDir = path.resolve(config.paths.artifactsDir, runId, 'recordings');
+        await fs.ensureDir(baseDir);
+
+        // Save each frame as a numbered JPEG
+        const frameWrites = recording.frames.map(async (frame, index) => {
+            const filename = `${actionIndex}_${String(index).padStart(3, '0')}_${frame.offsetMs}ms.jpg`;
+            const filePath = path.join(baseDir, filename);
+            await fs.writeFile(filePath, frame.screenshot);
+            return filePath;
+        });
+
+        const framePaths = await Promise.all(frameWrites);
+
+        // Save recording metadata
+        const metadataPath = path.join(baseDir, `${actionIndex}_meta.json`);
+        await fs.writeJson(metadataPath, {
+            toolName: recording.toolName,
+            startedAt: recording.startedAt,
+            durationMs: recording.durationMs,
+            frameCount: recording.frames.length,
+            framePaths,
+        }, { spaces: 2 });
     }
 
     private isRecord(value: unknown): value is Record<string, unknown> {

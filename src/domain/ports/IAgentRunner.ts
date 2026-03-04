@@ -36,6 +36,11 @@ export interface StepRunnerConfig {
     readonly maxActions: number;
     readonly vision: boolean;
     readonly platform?: import('../types/PlatformConfig').PlatformType | undefined;
+    readonly recording?: {
+        readonly enabled: boolean;
+        readonly maxDurationMs?: number;
+        readonly intervalMs?: number;
+    };
 }
 
 export interface IAgentRunner {

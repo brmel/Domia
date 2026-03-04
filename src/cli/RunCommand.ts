@@ -36,6 +36,9 @@ export class RunCommand {
             .option('--debug', 'Enable debug logging', false)
             .option('-V, --vision', 'Enable Vision LLM', false)
             .option('-S, --screenshots', 'Enable Debug Screenshots', false)
+            .option('--recording', 'Record rapid screenshots during actions for replay', false)
+            .option('--recording-max-duration <ms>', 'Max recording duration per action in ms (default 100)', parseInt)
+            .option('--recording-interval <ms>', 'Screenshot interval during recording in ms (default 25)', parseInt)
             .option('--plugin-dir <dir>', 'Plugin directory (default: ~/.domia/plugins)')
             .action(async (options) => {
                 console.log(chalk.cyan(figlet.textSync('Domia Agent', { horizontalLayout: 'full' })));
@@ -51,6 +54,9 @@ export class RunCommand {
                     debug,
                     vision,
                     screenshots,
+                    recording,
+                    recordingMaxDuration,
+                    recordingInterval,
                     cdpUrl,
                     executablePath,
                     launchArgs,
@@ -230,6 +236,9 @@ export class RunCommand {
                             debug: !!debug,
                             vision: !!vision,
                             debugScreenshots: !!screenshots,
+                            recording: !!recording,
+                            ...(recordingMaxDuration !== undefined ? { recordingMaxDurationMs: recordingMaxDuration as number } : {}),
+                            ...(recordingInterval !== undefined ? { recordingIntervalMs: recordingInterval as number } : {}),
                         },
                     };
 

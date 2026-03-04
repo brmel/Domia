@@ -10,6 +10,11 @@ export interface StepExecutionOptions {
     vision: boolean;
     maxActions: number;
     platform?: PlatformType | undefined;
+    recording?: {
+        enabled: boolean;
+        maxDurationMs?: number;
+        intervalMs?: number;
+    };
 }
 
 @injectable()
@@ -28,10 +33,21 @@ export class RunCoordinator {
     }
 
     buildExecutionOptions(options?: RunOptions, platform?: PlatformType): StepExecutionOptions {
-        return {
+        const base: StepExecutionOptions = {
             vision: options?.vision ?? true,
             maxActions: options?.maxSteps ?? 20,
             platform,
         };
+        if (options?.recording) {
+            const rec: StepExecutionOptions['recording'] = { enabled: true };
+            if (options.recordingMaxDurationMs !== undefined) {
+                (rec as { maxDurationMs: number }).maxDurationMs = options.recordingMaxDurationMs;
+            }
+            if (options.recordingIntervalMs !== undefined) {
+                (rec as { intervalMs: number }).intervalMs = options.recordingIntervalMs;
+            }
+            return { ...base, recording: rec };
+        }
+        return base;
     }
 }

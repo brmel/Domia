@@ -105,6 +105,28 @@ export class AdkAgentRunner implements IAgentRunner {
                     this.logger.warn(`[AdkAgentRunner] Failed to save perception assets for action ${actionCount}`);
                 }
             },
+            ...(config.recording?.enabled
+                ? {
+                    recording: {
+                        enabled: true as const,
+                        ...(config.recording.maxDurationMs !== undefined || config.recording.intervalMs !== undefined
+                            ? {
+                                options: {
+                                    ...(config.recording.maxDurationMs !== undefined ? { maxDurationMs: config.recording.maxDurationMs } : {}),
+                                    ...(config.recording.intervalMs !== undefined ? { intervalMs: config.recording.intervalMs } : {}),
+                                },
+                            }
+                            : {}),
+                    },
+                }
+                : {}),
+            onRecording: async (recording) => {
+                try {
+                    await this.storage.saveActionRecording(config.runId, actionCount, recording);
+                } catch {
+                    this.logger.warn(`[AdkAgentRunner] Failed to save action recording for action ${actionCount}`);
+                }
+            },
         }, this.pluginRegistry.getAllTools(), this.promptService);
 
         const actionMapper = new ActionMapper(catalog);

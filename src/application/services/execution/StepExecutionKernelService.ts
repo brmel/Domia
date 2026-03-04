@@ -3,12 +3,14 @@ import type { IStructuredAutomation } from '@domain/ports';
 import type { Step } from '@domain/ports';
 import { WorkflowError } from '@domain/errors';
 import { WorkflowState } from '@domain/value-objects';
+import { RunState } from '@domain/enums/RunState';
 import { RunDurabilityService } from './RunDurabilityService';
 import { RunBudgetPolicyService, type RunBudgetLimits } from './RunBudgetPolicyService';
 import { StepExecutor, type StepExecutionResult } from './StepExecutor';
 import type { StepExecutionOptions } from './coordinators/RunCoordinator';
 import type { RunOutput } from '../../dtos';
 import type { IRunRepository } from '@domain/ports/IRunRepository';
+import type { ExecutionController } from '../../controllers/ExecutionController';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface KernelRuntime {
@@ -39,7 +41,8 @@ export class StepExecutionKernelService {
         url: string,
         currentState: WorkflowState,
         executionOptions: StepExecutionOptions,
-        runtime: KernelRuntime
+        runtime: KernelRuntime,
+        controller?: ExecutionController
     ): AsyncGenerator<RunOutput, KernelResult, unknown> {
         let estimatedTokensUsed = runtime.estimatedTokensUsed;
 
@@ -52,6 +55,7 @@ export class StepExecutionKernelService {
                 vision: executionOptions.vision,
                 maxActions: executionOptions.maxActions,
                 platform: executionOptions.platform,
+                recording: executionOptions.recording,
             },
         );
 
@@ -93,6 +97,22 @@ export class StepExecutionKernelService {
                         runStartMs: runtime.runStartMs,
                         estimatedTokensUsed
                     }));
+
+                    // Mid-step pause: check if controller is paused between individual actions
+                    if (controller && controller.state === RunState.PAUSED) {
+                        await controller.waitForResume();
+                        // After resume, check if the run was cancelled while paused
+                        if (controller.isStopped()) {
+                            return {
+                                state: currentState,
+                                result: {
+                                    success: false, terminal: 'error', code: 'agent_fail',
+                                    reason: 'Run cancelled while paused mid-step.',
+                                },
+                                estimatedTokensUsed,
+                            };
+                        }
+                    }
 
                     yield { type: 'acting', action };
                 }

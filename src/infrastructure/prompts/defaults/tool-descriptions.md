@@ -12,6 +12,9 @@ Extract the visible text content of an element for assertion or verification. Re
 ## wait
 Pause execution for a specified duration. Use to let animations, transitions, AJAX calls, or debounced UI updates complete. Input: { durationMs?: number (default 1000) }. Output: { status: "success" } or { status: "error", error: string }.
 
+## waitForCondition
+Poll the page until a text pattern appears in the ARIA snapshot or a timeout is reached. This is a LONG-RUNNING operation that counts as a single action — do NOT call it again while it is pending. Use it when the system under test performs a slow operation (file upload, server job, payment processing, etc.) and you need to wait for a specific UI indicator before continuing. Input: { pattern: string, isRegex?: boolean (default false), timeoutMs?: number (default 30000, max 300000), pollIntervalMs?: number (default 2000) }. Output: { status: "matched", matchedText: string, elapsedMs: number, polls: number } or { status: "timeout", elapsedMs, polls, lastSnapshot (first 500 chars) }.
+
 ## click
 Click an element by its ref from the ARIA snapshot. Input: { ref: string }. Output: { status: "success", navigatedUrl: string } or { status: "error", error: string }.
 

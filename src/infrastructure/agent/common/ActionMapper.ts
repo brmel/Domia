@@ -6,6 +6,7 @@ const TOOL_DEFAULTS: Readonly<Record<string, Record<string, unknown>>> = {
     type: { submit: false },
     mouse_scroll: { deltaX: 0 },
     wait: { durationMs: 1000 },
+    waitForCondition: { timeoutMs: 30000, pollIntervalMs: 2000 },
     pass: { summary: 'Task completed successfully' },
     fail: { reason: 'Unknown failure' },
 };

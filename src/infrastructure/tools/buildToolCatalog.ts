@@ -1,11 +1,33 @@
 import type { ToolDependencies, ToolSpec } from './ToolSpec';
 import type { IPromptService } from '@domain/ports/IPromptService';
 import { PostActionCaptureMiddleware } from './PostActionCaptureMiddleware';
+import { ActionRecordingService } from '../recording/ActionRecordingService';
 import { createInteractionTools } from './catalog/interaction.tools';
 import { createMouseTools } from './catalog/mouse.tools';
 import { createNavigationTools } from './catalog/navigation.tools';
 import { createObservationTools } from './catalog/observation.tools';
 import { createTerminalTools } from './catalog/terminal.tools';
+import { createPollingTools } from './catalog/polling.tools';
+import { ActionType } from '@domain/enums/ActionType';
+
+/**
+ * ActionTypes that represent user interactions (clicks, typing, etc.).
+ * These are the tools whose execution should be recorded when recording is enabled.
+ */
+const RECORDABLE_ACTION_TYPES: ReadonlySet<ActionType> = new Set([
+    ActionType.CLICK,
+    ActionType.TYPE,
+    ActionType.HOVER,
+    ActionType.SELECT_OPTION,
+    ActionType.DRAG_TO,
+    ActionType.PRESS_KEY,
+    ActionType.NAVIGATE,
+    ActionType.SCROLL,
+    ActionType.MOUSE_CLICK_LEFT,
+    ActionType.MOUSE_CLICK_RIGHT,
+    ActionType.MOUSE_DOUBLE_CLICK,
+    ActionType.MOUSE_DRAG,
+]);
 
 export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] = [], promptService?: IPromptService): ToolSpec[] {
     const middleware = new PostActionCaptureMiddleware(
@@ -21,12 +43,40 @@ export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] 
         ...createMouseTools(deps.automation),
         ...createNavigationTools(deps.automation),
         ...createObservationTools(deps.automation, middleware),
+        ...createPollingTools(middleware),
         ...createTerminalTools(),
         ...extraTools,
     ];
 
     const platform = deps.platform;
-    const filtered = raw.filter((spec) => !platform || !spec.platforms?.length || spec.platforms.includes(platform));
+    let filtered = raw.filter((spec) => !platform || !spec.platforms?.length || spec.platforms.includes(platform));
+
+    // Wrap recordable tools with the ActionRecordingService when recording is enabled
+    if (deps.recording?.enabled) {
+        const recorder = new ActionRecordingService(deps.perceptionSource);
+        const recordingOptions = deps.recording.options;
+
+        filtered = filtered.map((spec) => {
+            if (!RECORDABLE_ACTION_TYPES.has(spec.actionType)) return spec;
+
+            return {
+                ...spec,
+                execute: async (args: Record<string, unknown>) => {
+                    const { result, recording } = await recorder.record(
+                        spec.name,
+                        () => Promise.resolve(spec.execute(args)),
+                        recordingOptions,
+                    );
+
+                    if (deps.onRecording) {
+                        try { await deps.onRecording(recording); } catch { /* non-fatal */ }
+                    }
+
+                    return result;
+                },
+            };
+        });
+    }
 
     if (!promptService) return filtered;
 

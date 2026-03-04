@@ -5,6 +5,9 @@ import { RunUseCase } from '@application/use-cases/RunUseCase';
 import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
 import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 import { StepExecutionKernelService } from '@application/services/execution/StepExecutionKernelService';
+import { RunBudgetPolicyService } from '@application/services/execution/RunBudgetPolicyService';
+import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
+import { ReadinessGateService } from '@application/services/hardening/ReadinessGateService';
 
 
 
@@ -72,17 +75,22 @@ function createDurabilityMock(checkpointRecords: readonly unknown[] = []) {
     };
 }
 
-function createBudgetPolicyMock() {
-    return {
-        resolveLimits: vi.fn().mockReturnValue({}),
-        assess: vi.fn().mockReturnValue({ status: 'ok', exceeded: [] }),
-        evaluate: vi.fn().mockReturnValue({ status: 'ok', exceeded: [] }),
-        formatExceededMessage: vi.fn().mockReturnValue('Run budget exceeded'),
-    };
+function createBudgetPolicyReal(logger: ILogger): RunBudgetPolicyService {
+    return new RunBudgetPolicyService(logger);
 }
 
-function createReadinessPolicyMock() {
-    return { assess: vi.fn().mockReturnValue({ blocked: false, mode: 'observe' }) };
+function createReadinessPolicyReal(logger: ILogger): RuntimeReadinessPolicyService {
+    const configService = {
+        get: () => ({
+            ai: { apiKey: 'test-key', model: 'test-model' },
+            readiness: { mode: 'observe' },
+        }),
+    };
+    return new RuntimeReadinessPolicyService(
+        new ReadinessGateService(),
+        configService as never,
+        logger,
+    );
 }
 
 function createLoggerMock(): ILogger {
@@ -101,7 +109,9 @@ export interface UseCaseContextOverrides {
     sessionFactory?: Record<string, unknown>;
     laneService?: Record<string, unknown>;
     durability?: Record<string, unknown>;
+    /** Pass a mock to override; omit to use real RunBudgetPolicyService */
     budgetPolicy?: Record<string, unknown>;
+    /** Pass a mock to override; omit to use real RuntimeReadinessPolicyService */
     readinessPolicy?: Record<string, unknown>;
     logger?: ILogger;
 }
@@ -115,8 +125,8 @@ export interface UseCaseContext {
     browser: IStructuredAutomation;
     releaseLane: ReturnType<typeof vi.fn>;
     durability: ReturnType<typeof createDurabilityMock>;
-    budgetPolicy: ReturnType<typeof createBudgetPolicyMock>;
-    readinessPolicy: ReturnType<typeof createReadinessPolicyMock>;
+    budgetPolicy: RunBudgetPolicyService | Record<string, unknown>;
+    readinessPolicy: RuntimeReadinessPolicyService | Record<string, unknown>;
     logger: ILogger;
 }
 
@@ -132,8 +142,8 @@ export function createRunUseCaseContext(overrides: UseCaseContextOverrides = {})
     const sessionFactory = overrides.sessionFactory ?? createSessionFactoryMock(browser);
     const laneService = overrides.laneService ?? createLaneServiceMock(releaseLane);
     const durability = { ...createDurabilityMock(overrides.checkpointRecords), ...overrides.durability };
-    const budgetPolicy = { ...createBudgetPolicyMock(), ...overrides.budgetPolicy };
-    const readinessPolicy = { ...createReadinessPolicyMock(), ...overrides.readinessPolicy };
+    const budgetPolicy = overrides.budgetPolicy ?? createBudgetPolicyReal(logger);
+    const readinessPolicy = overrides.readinessPolicy ?? createReadinessPolicyReal(logger);
 
     const checkpointCompaction = new CheckpointCompactionService();
     const replanningPolicy = new ReplanningPolicyService(logger);
