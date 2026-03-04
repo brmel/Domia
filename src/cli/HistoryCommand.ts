@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { container } from 'tsyringe';
 import chalk from 'chalk';
 import { IPersistenceAdapter } from '../domain/ports';
+import type { IStorageService } from '../domain/ports/IStorageService';
 import inquirer from 'inquirer';
 
 export class HistoryCommand {
@@ -79,6 +80,103 @@ export class HistoryCommand {
                     if (thought) {
                         console.log(chalk.dim(`    Thought: ${thought}`));
                     }
+                });
+            });
+
+        history.command('step <runId> <stepNumber>')
+            .description('Show detailed step information (params, trace, ARIA, thought)')
+            .action(async (runId: string, stepNumberStr: string) => {
+                const stepNumber = parseInt(stepNumberStr, 10);
+                if (!Number.isFinite(stepNumber) || stepNumber < 1) {
+                    console.error(chalk.red('Invalid step number.'));
+                    return;
+                }
+
+                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+                const stepsResult = await persistence.getSteps(runId);
+
+                if (stepsResult.isErr()) {
+                    console.error(chalk.red('Error:', stepsResult.error.message));
+                    return;
+                }
+
+                const step = stepsResult.value.find(s => s.stepNumber === stepNumber);
+                if (!step) {
+                    console.error(chalk.red(`Step ${stepNumber} not found in run ${runId}.`));
+                    return;
+                }
+
+                console.log(chalk.bold(`\nStep ${step.stepNumber}: ${chalk.cyan(step.actionType)}`));
+                console.log('--------------------------------------------------');
+                console.log(`Timestamp: ${step.timestamp}`);
+
+                const payload = step.actionPayload;
+                if ('thought' in payload && payload.thought) {
+                    console.log(`Thought: ${chalk.dim(String(payload.thought))}`);
+                }
+
+                const params: Record<string, unknown> = {};
+                for (const [key, value] of Object.entries(payload)) {
+                    if (key !== 'type' && key !== 'thought') params[key] = value;
+                }
+                if (Object.keys(params).length > 0) {
+                    console.log(`Params: ${JSON.stringify(params, null, 2)}`);
+                }
+
+                const storage = container.resolve<IStorageService>('IStorageService');
+                const artifacts = await storage.getStepArtifacts(runId, stepNumber);
+
+                if (artifacts.accessibility) {
+                    console.log(chalk.bold('\nAccessibility Tree:'));
+                    console.log(chalk.gray(artifacts.accessibility));
+                }
+
+                if (artifacts.trace) {
+                    const trace = artifacts.trace;
+                    if (trace.agentInput?.llmLatencyMs) {
+                        console.log(`LLM Latency: ${trace.agentInput.llmLatencyMs}ms`);
+                    }
+                    if (trace.toolCall) {
+                        console.log(chalk.bold('\nTool Call:'));
+                        console.log(chalk.gray(JSON.stringify(trace.toolCall, null, 2)));
+                    }
+                    if (trace['toolResult']) {
+                        console.log(chalk.bold('\nTool Result:'));
+                        console.log(chalk.gray(JSON.stringify(trace['toolResult'], null, 2)));
+                    }
+                }
+
+                if (artifacts.screenshots?.length) {
+                    console.log(chalk.bold(`\nScreenshots: ${artifacts.screenshots.length} file(s)`));
+                    artifacts.screenshots.forEach(path => console.log(chalk.dim(`  ${path}`)));
+                }
+            });
+
+        history.command('checkpoints <runId>')
+            .description('Show checkpoint records for a run')
+            .action(async (runId: string) => {
+                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+                const result = await persistence.getCheckpointRecords(runId);
+
+                if (result.isErr()) {
+                    console.error(chalk.red('Error:', result.error.message));
+                    return;
+                }
+
+                const records = result.value;
+                if (records.length === 0) {
+                    console.log(chalk.gray('No checkpoints found.'));
+                    return;
+                }
+
+                console.log(chalk.bold(`\nCheckpoints for ${runId} (${records.length}):`));
+                console.log('--------------------------------------------------');
+                records.forEach((record, index) => {
+                    const color = record.reason === 'terminal_success' ? chalk.green
+                        : record.reason === 'terminal_failure' ? chalk.red
+                        : chalk.cyan;
+                    console.log(`[${index + 1}] ${color(record.reason)} — step ${record.state.stepNumber} (${record.state.status})`);
+                    console.log(chalk.dim(`    ${record.createdAt}`));
                 });
             });
 

@@ -1,7 +1,7 @@
 import { ResultAsync } from 'neverthrow';
-import { IAppDriver, AppCapabilities } from '../../domain/ports/IAppDriver';
+import { IAppDriver, AppCapabilities } from '@domain/ports/IAppDriver';
 import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
-import type { ILogger } from '../../domain/ports';
+import type { ILogger } from '@domain/ports';
 
 export class WebDriver implements IAppDriver {
     constructor(

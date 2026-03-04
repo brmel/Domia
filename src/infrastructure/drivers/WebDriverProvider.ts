@@ -4,6 +4,7 @@ import type { IAppDriver } from '@domain/ports/IAppDriver';
 import type { ILogger } from '@domain/ports';
 import { WebDriver } from './WebDriver';
 import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
+import { BrowserPool } from '../playwright/BrowserPool';
 
 @injectable()
 export class WebDriverProvider implements IAppDriverProvider {
@@ -11,6 +12,7 @@ export class WebDriverProvider implements IAppDriverProvider {
 
     constructor(
         @inject('ILogger') private readonly logger: ILogger,
+        @inject(BrowserPool) private readonly pool: BrowserPool,
     ) {}
 
     async createDriver(config: AppDriverCreateConfig): Promise<IAppDriver> {
@@ -18,7 +20,7 @@ export class WebDriverProvider implements IAppDriverProvider {
             throw new Error('[WebDriverProvider] Invalid platform config');
         }
 
-        const adapter = new PlaywrightAdapter(this.logger);
+        const adapter = new PlaywrightAdapter(this.logger, this.pool);
         const driver = new WebDriver(adapter, this.logger);
         const connectResult = await driver.connect({
             headless: config.options?.headless ?? true,

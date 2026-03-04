@@ -8,7 +8,7 @@ import { canStart, canPause, canResume, canStop, isAgentRunning } from '../../ut
 import { PlatformSelector } from '../platform/PlatformSelector';
 import { platformRegistry, type PlatformFieldValue, type UIPlatformType } from '../../config/platformRegistry';
 import { buildPlatformConfig } from '../../utils/buildPlatformConfig';
-import type { WebPlatformConfig, ElectronPlatformConfig, AndroidPlatformConfig, IosPlatformConfig } from '../../../domain/types/PlatformConfig';
+import type { WebPlatformConfig, ElectronPlatformConfig, AndroidPlatformConfig, IosPlatformConfig } from '@domain/types/PlatformConfig';
 
 interface RunFormProps {
     onOpenHistory: () => void;
@@ -34,8 +34,6 @@ export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): R
         onError: () => {
             setStatus(RunState.FAILED);
         },
-        onSuccess: () => {
-        }
     });
 
     const { data: config } = trpc.settings.get.useQuery();

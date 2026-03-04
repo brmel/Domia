@@ -1,13 +1,13 @@
 import { injectable, inject } from 'tsyringe';
-import type { IStructuredAutomation } from '../../domain/ports';
-import { ExecutionGraph, UrlFactory, WorkflowState } from '../../domain/value-objects';
-import type { WorkflowExecutionGraph } from '../../domain/value-objects/ExecutionGraph';
-import type { RunId } from '../../domain/value-objects/Brand';
+import type { IStructuredAutomation } from '@domain/ports';
+import { ExecutionGraph, UrlFactory, WorkflowState } from '@domain/value-objects';
+import type { WorkflowExecutionGraph } from '@domain/value-objects/ExecutionGraph';
+import type { RunId } from '@domain/value-objects/Brand';
 import { ExecutionController } from '../controllers/ExecutionController';
-import { WorkflowError } from '../../domain/errors';
+import { WorkflowError } from '@domain/errors';
 import { RunLifecycleManager } from '../services/RunLifecycleManager';
 import { RunInput, RunOutput } from '../dtos';
-import { RunState } from '../../domain/enums/RunState';
+import { RunState } from '@domain/enums/RunState';
 import type { RunExecutionLaneService } from '../services/execution/RunExecutionLaneService';
 import { RunDurabilityService } from '../services/execution/RunDurabilityService';
 import { RunBudgetPolicyService } from '../services/execution/RunBudgetPolicyService';
@@ -20,7 +20,7 @@ import type { StepExecutionResult } from '../services/execution/StepExecutor';
 import { RunCoordinator } from '../services/execution/coordinators/RunCoordinator';
 import { RuntimeReadinessPolicyService } from '../services/hardening/RuntimeReadinessPolicyService';
 import { Plan, PlanItem } from '@domain/entities/Plan';
-import type { ILogger } from '../../domain/ports';
+import type { ILogger } from '@domain/ports';
 import { PlatformSessionFactory } from '../services/platform/PlatformSessionFactory';
 import { nanoid } from 'nanoid';
 
@@ -39,7 +39,7 @@ export interface RunExecutionContext {
 export class RunUseCase {
     constructor(
         @inject(RunLifecycleManager) private lifecycleManager: RunLifecycleManager,
-        @inject('ITraceService') private trace: import('../../domain/ports/ITraceService').ITraceService,
+        @inject('ITraceService') private trace: import('@domain/ports/ITraceService').ITraceService,
         @inject(PlatformSessionFactory) private readonly sessionFactory: PlatformSessionFactory,
         @inject('IRunExecutionLaneService') private readonly laneService: RunExecutionLaneService,
         @inject(RunDurabilityService) private readonly durability: RunDurabilityService,
@@ -120,8 +120,6 @@ export class RunUseCase {
             const urlResult = UrlFactory.create(url);
             if (urlResult.isErr()) throw new WorkflowError(`Invalid URL: ${urlResult.error.message}`);
 
-            yield { type: 'thinking' };
-
             if (shouldNavigate) {
                 const navResult = await automation.navigateTo(urlResult.value);
                 if (navResult.isErr()) throw new WorkflowError(`Navigation failed: ${navResult.error.message}`);
@@ -131,14 +129,13 @@ export class RunUseCase {
 
             currentState = WorkflowState.transitionTo(currentState, 'thinking');
             yield { type: 'state_updated', state: currentState };
-            yield { type: 'thinking' };
             runLifecycle = this.durability.transition(runId, runLifecycle, 'executing');
 
             const now = new Date();
             const plan: Plan = {
                 id: nanoid(),
                 goal: input.prompt,
-                status: 'planning',
+                status: 'executing',
                 createdAt: now,
                 updatedAt: now,
                 items: [{ id: nanoid(), description: input.prompt, status: 'pending', type: 'app' }]

@@ -15,3 +15,4 @@ export * from './ITraceService';
 export * from './ITraceExporter';
 export * from './ISensor';
 export * from './IPerceptionSource';
+export * from './IPromptService';

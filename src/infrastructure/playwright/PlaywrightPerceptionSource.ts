@@ -33,11 +33,7 @@ export class PlaywrightPerceptionSource implements IPerceptionSource {
     }
 
     async waitForContentReady(timeout = 5000): Promise<void> {
-        try {
-            await this.page.waitForLoadState('domcontentloaded', { timeout });
-        } catch {
-            // Timeout is expected for slow pages; we proceed regardless.
-        }
+        await this.page.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
     }
 
     getViewportSize(): { width: number; height: number } | null {

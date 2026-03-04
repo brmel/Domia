@@ -1,5 +1,5 @@
-import type { IStructuredAutomation } from '../../../domain/ports';
-import type { IAppDriver } from '../../../domain/ports/IAppDriver';
+import type { IStructuredAutomation } from '@domain/ports';
+import type { IAppDriver } from '@domain/ports/IAppDriver';
 
 export interface PlatformSession {
     readonly executionUrl: string;

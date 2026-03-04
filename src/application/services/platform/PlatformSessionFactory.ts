@@ -1,8 +1,8 @@
 import { inject, injectable } from 'tsyringe';
 import type { RunInput } from '../../dtos';
-import type { ILogger, IStructuredAutomation } from '../../../domain/ports';
-import { WorkflowError } from '../../../domain/errors';
-import type { IAppDriverFactory, AppDriverCreateOptions } from '../../../domain/ports/IAppDriverFactory';
+import type { ILogger, IStructuredAutomation } from '@domain/ports';
+import { WorkflowError } from '@domain/errors';
+import type { IAppDriverFactory, AppDriverCreateOptions } from '@domain/ports/IAppDriverFactory';
 import type { PlatformSession } from './PlatformSession';
 import { resolveUrlFromConfig } from './platformUrlUtils';
 

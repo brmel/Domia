@@ -41,7 +41,8 @@
     "src/**/*.tsx",
     "electron/**/*.ts",
     "scripts/**/*.ts",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "tests/**/*.tsx"
   ],
   "exclude": [
     "src/_future/**",

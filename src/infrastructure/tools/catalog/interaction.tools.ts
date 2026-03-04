@@ -7,7 +7,7 @@ export function createInteractionTools(automation: IStructuredAutomation): ToolS
     return [
         {
             name: 'click',
-            description: 'Click an element by its ref from the ARIA snapshot. Input: { ref: string }. Output: { status: "success" } or { status: "error", error: string }.',
+            description: 'Click an element by its ref from the ARIA snapshot. Input: { ref: string }. Output: { status: "success", navigatedUrl: string } or { status: "error", error: string }.',
             actionType: ActionType.CLICK,
             platforms: ['web', 'electron'] as const,
             parameters: z.object({
@@ -16,7 +16,7 @@ export function createInteractionTools(automation: IStructuredAutomation): ToolS
             execute: async (args) => {
                 const result = await automation.click(args['ref'] as string);
                 if (result.isErr()) return { status: 'error', error: result.error.message };
-                return { status: 'success' };
+                return { status: 'success', navigatedUrl: automation.getCurrentUrl() ?? '' };
             },
         },
         {

@@ -6,37 +6,21 @@ import type { ReplanningTelemetry } from '../types/RunTelemetry';
 
 export type RunEvent =
     | StartedEvent
-    | ThinkingEvent
+    | ThinkingChunkEvent
     | ActingEvent
     | StateUpdatedEvent
-    | ScreenshotEvent
     | ErrorEvent
-    | CancelledEvent
-    | ResumedEvent
-    | PausedEvent
     | CompletedEvent
-    | PlanningEvent
     | ReplanningEvent;
 
-interface PlanningEvent {
-    readonly type: 'planning';
+interface ThinkingChunkEvent {
+    readonly type: 'thinking_chunk';
+    readonly text: string;
 }
 
 interface StartedEvent {
     readonly type: 'started';
     readonly runId: RunId;
-}
-
-interface PausedEvent {
-    readonly type: 'paused';
-}
-
-interface ResumedEvent {
-    readonly type: 'resumed';
-}
-
-interface ThinkingEvent {
-    readonly type: 'thinking';
 }
 
 interface ActingEvent {
@@ -49,18 +33,9 @@ interface StateUpdatedEvent {
     readonly state: WorkflowState;
 }
 
-interface ScreenshotEvent {
-    readonly type: 'screenshot';
-    readonly data: string; // base64 encoded
-}
-
 interface ErrorEvent {
     readonly type: 'error';
     readonly error: DomainError;
-}
-
-interface CancelledEvent {
-    readonly type: 'cancelled';
 }
 
 interface CompletedEvent {

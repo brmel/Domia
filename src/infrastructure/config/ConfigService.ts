@@ -2,9 +2,9 @@ import { cosmiconfigSync } from 'cosmiconfig';
 import { injectable } from 'tsyringe';
 import fs from 'fs-extra';
 import path from 'path';
-import { DomiaConfigSchema, type DomiaConfig } from '../../shared/config-types';
+import { DomiaConfigSchema, type DomiaConfig } from '@shared/config-types';
 
-import { IConfigService } from '../../domain/ports/IConfigService';
+import { IConfigService } from '@domain/ports/IConfigService';
 
 @injectable()
 export class ConfigService implements IConfigService {
@@ -48,6 +48,9 @@ export class ConfigService implements IConfigService {
             viewport: { ...this.config.viewport, ...updates.viewport },
             paths: { ...this.config.paths, ...updates.paths },
             limits: { ...this.config.limits, ...updates.limits },
+            promptOverrides: updates.promptOverrides !== undefined
+                ? updates.promptOverrides
+                : this.config.promptOverrides,
         };
 
         this.save();

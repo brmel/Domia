@@ -17,12 +17,17 @@ export type StepExecutionResult =
           readonly reason: string;
       };
 
-export interface AgentRunnerEvent {
-    readonly type: 'action';
-    readonly action: AgentAction;
-    readonly actionIndex: number;
-    readonly trace: Partial<StepTrace>;
-}
+export type AgentRunnerEvent =
+    | {
+          readonly type: 'action';
+          readonly action: AgentAction;
+          readonly actionIndex: number;
+          readonly trace: Partial<StepTrace>;
+      }
+    | {
+          readonly type: 'thinking_chunk';
+          readonly text: string;
+      };
 
 export interface StepRunnerConfig {
     readonly runId: string;

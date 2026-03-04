@@ -1,14 +1,4 @@
-import type { Command } from 'commander';
 import type { PlatformConfig } from '../domain/types/PlatformConfig';
-
-export function addPlatformOptions(cmd: Command): Command {
-    return cmd
-        .option('-u, --url <url>', 'Target URL for web platform')
-        .option('--cdp-url <cdpUrl>', 'CDP URL for Electron (e.g., http://localhost:9222)')
-        .option('--executable-path <path>', 'Path to Electron executable')
-        .option('--launch-args <args>', 'Launch arguments for Electron (comma-separated)')
-        .option('--window-title <title>', 'Target window title (Electron)');
-}
 
 export function buildPlatformConfig(
     options: {
@@ -17,10 +7,15 @@ export function buildPlatformConfig(
         executablePath?: string;
         launchArgs?: string;
         windowTitle?: string;
+        appPackage?: string;
+        bundleId?: string;
+        appiumUrl?: string;
+        deviceSerial?: string;
+        deviceUdid?: string;
     },
     defaultPlatformConfig?: PlatformConfig,
 ): PlatformConfig {
-    const { url, cdpUrl, executablePath, launchArgs, windowTitle } = options;
+    const { url, cdpUrl, executablePath, launchArgs, windowTitle, appPackage, bundleId, appiumUrl, deviceSerial, deviceUdid } = options;
 
     if (url) {
         return { platform: 'web', url };
@@ -49,9 +44,27 @@ export function buildPlatformConfig(
         };
     }
 
+    if (appPackage) {
+        return {
+            platform: 'android',
+            appPackage,
+            ...(appiumUrl ? { appiumUrl } : {}),
+            ...(deviceSerial ? { deviceSerial } : {}),
+        };
+    }
+
+    if (bundleId) {
+        return {
+            platform: 'ios',
+            bundleId,
+            ...(appiumUrl ? { appiumUrl } : {}),
+            ...(deviceUdid ? { deviceUdid } : {}),
+        };
+    }
+
     if (defaultPlatformConfig) {
         return defaultPlatformConfig;
     }
 
-    throw new Error('Must provide one of --url, --cdp-url, or --executable-path.');
+    throw new Error('Must provide one of --url, --cdp-url, --executable-path, --app-package, or --bundle-id.');
 }

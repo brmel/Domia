@@ -9,6 +9,7 @@ import { ContainerBuilder } from '../composition/ContainerBuilder';
 import { RunCommand } from './RunCommand';
 import { HistoryCommand } from './HistoryCommand';
 import { WorkflowCommand } from './WorkflowCommand';
+import { SettingsCommand } from './SettingsCommand';
 
 registerCoreServices();
 const cliBuilder = new ContainerBuilder();
@@ -25,6 +26,7 @@ console.log(chalk.cyan(figlet.textSync('Domia', { horizontalLayout: 'full' })));
 RunCommand.register(program);
 HistoryCommand.register(program);
 WorkflowCommand.register(program);
+SettingsCommand.register(program);
 
 program.parse(process.argv);
 

@@ -12,7 +12,6 @@ import type { StepArtifacts } from '@domain/ports/IStorageService';
 import type { Step } from '@domain/ports/IPersistenceAdapter';
 import type { StepTrace } from '@domain/ports/ITraceService';
 
-/** Shared query options — refetch on window focus, retry once, never cache empty results forever. */
 const QUERY_OPTS = { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } as const;
 
 export function StepInspector(): JSX.Element | null {
@@ -21,19 +20,16 @@ export function StepInspector(): JSX.Element | null {
 
     const enabled = isOpen && !!runId && stepNumber !== null;
 
-    // Current step artifacts (screenshots, DOM, trace)
     const artifactsQuery = trpc.history.getStepArtifacts.useQuery(
         { runId: runId!, stepNumber: stepNumber! },
         { enabled, ...QUERY_OPTS }
     );
 
-    // Previous step artifacts (for before/after comparison)
     const prevArtifactsQuery = trpc.history.getStepArtifacts.useQuery(
         { runId: runId!, stepNumber: Math.max((stepNumber ?? 1) - 1, 0) },
         { enabled: enabled && (stepNumber ?? 0) > 1, ...QUERY_OPTS }
     );
 
-    // Step metadata (action type, payload, assets map)
     const stepDetailQuery = trpc.history.getStepDetail.useQuery(
         { runId: runId!, stepNumber: stepNumber! },
         { enabled, ...QUERY_OPTS }
@@ -136,10 +132,6 @@ export function StepInspector(): JSX.Element | null {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Tab container
-// ---------------------------------------------------------------------------
-
 interface InspectorContentProps {
     beforeArtifacts: StepArtifacts;
     afterArtifacts: StepArtifacts;
@@ -149,7 +141,7 @@ interface InspectorContentProps {
 function InspectorContent({ beforeArtifacts, afterArtifacts, stepDetail }: InspectorContentProps): JSX.Element {
     const [activeTab, setActiveTab] = useState<'summary' | 'vision' | 'context' | 'raw'>('summary');
 
-    const trace = (afterArtifacts.trace ?? undefined) as (Record<string, unknown> & Partial<StepTrace>) | undefined;
+    const trace = afterArtifacts.trace as (Record<string, unknown> & Partial<StepTrace>) | undefined;
 
     const tabs = [
         { id: 'summary', label: 'Summary', icon: '⚡' },
@@ -211,10 +203,6 @@ function InspectorContent({ beforeArtifacts, afterArtifacts, stepDetail }: Inspe
     );
 }
 
-// ---------------------------------------------------------------------------
-// 1. Summary — action type, thought, typed params, thumbnail
-// ---------------------------------------------------------------------------
-
 function SummaryTab({ stepDetail, beforeScreenshot }: {
     stepDetail: Step | undefined;
     beforeScreenshot: string | undefined;
@@ -226,7 +214,6 @@ function SummaryTab({ stepDetail, beforeScreenshot }: {
     const { actionType, actionPayload, timestamp } = stepDetail;
     const thought = getThought(actionPayload);
 
-    // Clean params — exclude 'type' and 'thought' (shown separately)
     const params: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(actionPayload)) {
         if (key !== 'type' && key !== 'thought') {
@@ -295,10 +282,6 @@ function SummaryTab({ stepDetail, beforeScreenshot }: {
     );
 }
 
-// ---------------------------------------------------------------------------
-// 2. Vision — before/after screenshots
-// ---------------------------------------------------------------------------
-
 function VisionTab({ beforeScreenshots, currentScreenshots }: {
     beforeScreenshots: string[] | undefined;
     currentScreenshots: string[] | undefined;
@@ -357,10 +340,6 @@ function VisionTab({ beforeScreenshots, currentScreenshots }: {
     );
 }
 
-// ---------------------------------------------------------------------------
-// 3. Context — DOM + ARIA the agent saw BEFORE acting (step N-1)
-// ---------------------------------------------------------------------------
-
 function ContextTab({ dom, accessibility }: {
     dom: Record<string, unknown> | undefined;
     accessibility: string | undefined;
@@ -392,10 +371,6 @@ function ContextTab({ dom, accessibility }: {
         </div>
     );
 }
-
-// ---------------------------------------------------------------------------
-// 4. Raw — all debug data in collapsible sections, no duplication
-// ---------------------------------------------------------------------------
 
 function RawTab({ trace, stepDetail, afterArtifacts }: {
     trace: (Record<string, unknown> & Partial<StepTrace>) | undefined;
@@ -473,6 +448,9 @@ function RawTab({ trace, stepDetail, afterArtifacts }: {
                     <div className="grid gap-2 text-sm">
                         <div><span className="font-bold text-gray-500">Goal:</span> {trace.agentInput.goal}</div>
                         <div><span className="font-bold text-gray-500">URL:</span> {trace.agentInput.currentUrl}</div>
+                        {trace.agentInput.llmLatencyMs !== undefined && (
+                            <div><span className="font-bold text-gray-500">LLM Latency:</span> {trace.agentInput.llmLatencyMs}ms</div>
+                        )}
                         {trace.agentInput.promptPreview && (
                             <pre className="text-xs text-gray-600 font-mono whitespace-pre-wrap bg-gray-50 rounded p-2 mt-1">
                                 {trace.agentInput.promptPreview}
@@ -540,8 +518,4 @@ function RawTab({ trace, stepDetail, afterArtifacts }: {
         </div>
     );
 }
-
-// ---------------------------------------------------------------------------
-// Shared UI primitives
-// ---------------------------------------------------------------------------
 

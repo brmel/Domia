@@ -1,6 +1,7 @@
 import { trpc } from '../../trpc';
-import type { DomiaConfig } from '../../../shared/config-types';
+import type { DomiaConfig } from '@shared/config-types';
 import { Button } from '../ui/Button';
+import { PromptEditor } from '../settings/PromptEditor';
 
 interface SettingsSidebarProps {
     onClose: () => void;
@@ -34,7 +35,7 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
         if (!config) return;
         handleUpdate({
             ...config,
-            headless: enabled // boolean, no nested spread needed
+            headless: enabled
         });
     };
 
@@ -104,6 +105,9 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
                     </div>
                 </section>
 
+                <section>
+                    <PromptEditor disabled={disabled} />
+                </section>
 
             </div>
 

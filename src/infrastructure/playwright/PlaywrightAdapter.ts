@@ -1,18 +1,22 @@
 import { ResultAsync, okAsync, errAsync } from 'neverthrow';
-import { chromium, Browser, Page, Locator } from 'playwright';
+import { type Browser, type Page, type Locator } from 'playwright';
 import type { IStructuredAutomation, LaunchOptions, ILogger, IPerceptionSource } from '@domain/ports';
 import type { Url } from '@domain/value-objects';
 import type { RoleRefMap } from '@domain/value-objects/RoleRef';
 import { NavigationError, InteractionError } from '@domain/errors';
 import { TOOL_TIMEOUTS, SCROLL_CONSTANTS, AGENT_VIEW_CONFIG } from '@domain/constants/PlatformConstants';
 import { PlaywrightPerceptionSource } from './PlaywrightPerceptionSource';
+import type { BrowserPool } from './BrowserPool';
 
 export class PlaywrightAdapter implements IStructuredAutomation {
     private browser: Browser | null = null;
     private page: Page | null = null;
     private refs: RoleRefMap = {};
+    private pool: BrowserPool | null = null;
 
-    constructor(private readonly logger: ILogger) { }
+    constructor(private readonly logger: ILogger, pool?: BrowserPool) {
+        this.pool = pool ?? null;
+    }
 
     updateRefs(refs: RoleRefMap): void {
         this.refs = refs;
@@ -29,15 +33,15 @@ export class PlaywrightAdapter implements IStructuredAutomation {
     private async doLaunch(options: LaunchOptions): Promise<void> {
         this.logger.debug('[PlaywrightAdapter] Starting browser launch');
 
-        if (!options.headless) {
-            this.logger.debug('[PlaywrightAdapter] Adapting view for headless: false');
+        if (this.pool) {
+            this.browser = await this.pool.acquire(options.headless);
+        } else {
+            const { chromium } = await import('playwright');
+            this.browser = await chromium.launch({
+                headless: options.headless,
+                args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
         }
-
-        this.logger.info('[PlaywrightAdapter] Launching standalone browser');
-        this.browser = await chromium.launch({
-            headless: options.headless,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
         const context = await this.browser.newContext({
             ignoreHTTPSErrors: true
         });
@@ -256,6 +260,11 @@ export class PlaywrightAdapter implements IStructuredAutomation {
         ).map(text => text ?? '');
     }
 
+    getCurrentUrl(): string | null {
+        this.ensureRecoverablePage();
+        return this.page?.url() ?? null;
+    }
+
     async getViewportSize(): Promise<{ width: number; height: number }> {
         this.ensureRecoverablePage();
         if (!this.page) {
@@ -286,10 +295,12 @@ export class PlaywrightAdapter implements IStructuredAutomation {
     async close(): Promise<void> {
         this.logger.debug('[PlaywrightAdapter] Closing browser context');
 
-        if (this.browser) {
+        if (this.pool) {
+            this.pool.release();
+        } else if (this.browser) {
             await this.browser.close();
-            this.browser = null;
         }
+        this.browser = null;
         this.page = null;
     }
 
@@ -319,9 +330,10 @@ export class PlaywrightAdapter implements IStructuredAutomation {
             this.logger.warn(`[PlaywrightAdapter] resolveRef failed: unknown ref "${ref}" (available: ${Object.keys(this.refs).join(', ')})`);
             return errAsync(new InteractionError(`Unknown ref: ${ref}`, ref));
         }
+        type AriaRole = Parameters<Page['getByRole']>[0];
         const base = entry.name
-            ? this.page.getByRole(entry.role as any, { name: entry.name, exact: true })
-            : this.page.getByRole(entry.role as any);
+            ? this.page.getByRole(entry.role as AriaRole, { name: entry.name, exact: true })
+            : this.page.getByRole(entry.role as AriaRole);
         const locator = entry.nth !== undefined ? base.nth(entry.nth) : base;
         this.logger.debug(`[PlaywrightAdapter] Resolved ref "${ref}" → ${entry.role}${entry.name ? ` "${entry.name}"` : ''}${entry.nth !== undefined ? ` nth=${entry.nth}` : ''}`);
         return okAsync(locator);

@@ -1,6 +1,6 @@
 import { FormInput } from '../ui/FormInput';
 import type { FieldRenderProps } from '../../config/platformRegistry';
-import type { IosPlatformConfig } from '../../../domain/types/PlatformConfig';
+import type { IosPlatformConfig } from '@domain/types/PlatformConfig';
 
 export function IosPlatformFields({ value, onChange, errors, disabled }: FieldRenderProps): React.ReactElement {
   const iosValue = value as Omit<IosPlatformConfig, 'platform'>;

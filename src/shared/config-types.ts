@@ -29,6 +29,11 @@ export const DomiaConfigSchema = z.object({
         delayBetweenSteps: 1000,
         maxReplansPerRun: 2,
     }),
+
+    promptOverrides: z.object({
+        prompts: z.record(z.string()).optional(),
+        toolDescriptions: z.record(z.string()).optional(),
+    }).optional(),
 });
 
 export type DomiaConfig = z.infer<typeof DomiaConfigSchema>;

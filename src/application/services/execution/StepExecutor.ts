@@ -5,10 +5,9 @@ import type { AgentAction } from '@domain/value-objects';
 
 export type { StepExecutionResult } from '@domain/ports/IAgentRunner';
 
-export interface AgentActionEvent {
-    readonly type: 'action';
-    readonly action: AgentAction;
-}
+export type AgentActionEvent =
+    | { readonly type: 'action'; readonly action: AgentAction }
+    | { readonly type: 'thinking_chunk'; readonly text: string };
 
 @injectable()
 export class StepExecutor {
@@ -42,13 +41,16 @@ export class StepExecutor {
         while (!next.done) {
             const event = next.value;
 
-            try {
-                await this.storage.saveStepTrace(runId, event.actionIndex, event.trace);
-            } catch {
-                this.logger.warn(`[StepExecutor] Failed to save step trace for action ${event.actionIndex}`);
+            if (event.type === 'thinking_chunk') {
+                yield { type: 'thinking_chunk', text: event.text };
+            } else {
+                try {
+                    await this.storage.saveStepTrace(runId, event.actionIndex, event.trace);
+                } catch {
+                    this.logger.warn(`[StepExecutor] Failed to save step trace for action ${event.actionIndex}`);
+                }
+                yield { type: 'action', action: event.action };
             }
-
-            yield { type: 'action', action: event.action };
 
             next = await gen.next();
         }

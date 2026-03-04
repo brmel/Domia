@@ -22,6 +22,11 @@ export class RunCommand {
             .option('--executable-path <path>', 'Path to Electron executable')
             .option('--launch-args <args>', 'Launch arguments for Electron (comma-separated)')
             .option('--window-title <title>', 'Target window title (Electron)')
+            .option('--app-package <package>', 'Android app package (e.g., com.example.app)')
+            .option('--bundle-id <id>', 'iOS bundle identifier (e.g., com.example.App)')
+            .option('--appium-url <url>', 'Appium server URL (default: http://localhost:4723)')
+            .option('--device-serial <serial>', 'Android device serial for adb')
+            .option('--device-udid <udid>', 'iOS device UDID for Xcode')
             .option('-p, --prompt <prompt>', 'Goal or instruction for the agent')
             .option('-s, --steps <steps>', 'Max steps', '10')
             .option('-H, --no-headless', 'Run in headful mode (visible window)', false)
@@ -31,6 +36,7 @@ export class RunCommand {
             .option('--debug', 'Enable debug logging', false)
             .option('-V, --vision', 'Enable Vision LLM', false)
             .option('-S, --screenshots', 'Enable Debug Screenshots', false)
+            .option('--plugin-dir <dir>', 'Plugin directory (default: ~/.domia/plugins)')
             .action(async (options) => {
                 console.log(chalk.cyan(figlet.textSync('Domia Agent', { horizontalLayout: 'full' })));
 
@@ -49,8 +55,14 @@ export class RunCommand {
                     executablePath,
                     launchArgs,
                     windowTitle,
+                    appPackage,
+                    bundleId,
+                    appiumUrl,
+                    deviceSerial,
+                    deviceUdid,
                     model,
-                    apiKey
+                    apiKey,
+                    pluginDir
                 } = options;
 
                 const { headless } = options;
@@ -86,14 +98,19 @@ export class RunCommand {
                     console.log(chalk.gray('[Verbose Mode Enabled: Saving artifacts]'));
                 }
 
-                if ((!url && !cdpUrl && !executablePath) || !prompt) {
+                {
+                    const { ContainerBuilder: CB } = await import('../composition/ContainerBuilder');
+                    await new CB().loadPlugins(pluginDir as string | undefined);
+                }
+
+                if ((!url && !cdpUrl && !executablePath && !appPackage && !bundleId) || !prompt) {
                     const answers = await inquirer.prompt([
                         {
                             type: 'input',
                             name: 'url',
                             message: 'Target URL:',
                             default: 'https://ibraverse.ca',
-                            when: !url && !cdpUrl && !executablePath,
+                            when: !url && !cdpUrl && !executablePath && !appPackage && !bundleId,
                         },
                         {
                             type: 'input',
@@ -194,7 +211,14 @@ export class RunCommand {
                         executablePath,
                         launchArgs,
                         windowTitle,
+                        appPackage,
+                        bundleId,
+                        appiumUrl,
+                        deviceSerial,
+                        deviceUdid,
                     });
+
+                    const platformLabel = url || cdpUrl || executablePath || appPackage || bundleId;
 
                     const input = {
                         platformConfig,
@@ -209,7 +233,7 @@ export class RunCommand {
                         },
                     };
 
-                    spinner.succeed(`Starting session on ${chalk.green(url || cdpUrl || executablePath)}`);
+                    spinner.succeed(`Starting session on ${chalk.green(platformLabel)}`);
                     console.log(chalk.gray(`Goal: ${prompt}\n`));
 
                     setupInteractiveControls();
@@ -226,6 +250,9 @@ export class RunCommand {
                                 console.log(chalk.cyan(`  [Action] ${a.type}`) + (thought ? chalk.dim(` — ${thought}`) : ''));
                                 break;
                             }
+                            case 'thinking_chunk':
+                                process.stdout.write(chalk.gray(event.text));
+                                break;
                             case 'replanning': {
                                 const status = event.telemetry.status;
                                 const reason = event.telemetry.reason;
@@ -236,9 +263,20 @@ export class RunCommand {
                             case 'state_updated': {
                                 const state = event.state;
                                 if (state.plan) {
-                                    const activeItem = state.plan.items.find(i => i.status === 'active');
+                                    const items = state.plan.items;
+                                    const activeItem = items.find(i => i.status === 'active');
                                     if (activeItem) {
                                         spinner.text = `Executing: ${activeItem.description}`;
+                                    }
+                                    if (verbose) {
+                                        console.log(chalk.bold('\n  Plan:'));
+                                        items.forEach((item, idx) => {
+                                            const icon = item.status === 'completed' ? chalk.green('✔')
+                                                : item.status === 'active' ? chalk.cyan('▸')
+                                                : item.status === 'failed' ? chalk.red('✘')
+                                                : chalk.gray('○');
+                                            console.log(`    ${icon} ${idx + 1}. ${item.description}${item.error ? chalk.red(` (${item.error})`) : ''}`);
+                                        });
                                     }
                                 }
                                 break;

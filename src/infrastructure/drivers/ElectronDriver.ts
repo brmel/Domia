@@ -1,11 +1,11 @@
 import { ResultAsync } from 'neverthrow';
 import { spawn, ChildProcess } from 'child_process';
 import { chromium, Browser } from 'playwright';
-import { IAppDriver, AppCapabilities } from '../../domain/ports/IAppDriver';
-import type { ILogger, IStructuredAutomation } from '../../domain/ports';
-import { NavigationError } from '../../domain/errors';
-import { CDP_CONSTANTS } from '../../domain/constants/PlatformConstants';
-import { CDPValidator } from '../../domain/validators/CDPValidator';
+import { IAppDriver, AppCapabilities } from '@domain/ports/IAppDriver';
+import type { ILogger, IStructuredAutomation } from '@domain/ports';
+import { NavigationError } from '@domain/errors';
+import { CDP_CONSTANTS } from '@domain/constants/PlatformConstants';
+import { CDPValidator } from '@domain/validators/CDPValidator';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
 import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';

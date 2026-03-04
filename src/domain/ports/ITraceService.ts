@@ -11,8 +11,8 @@ export interface StepTrace {
     agentInput?: {
         goal: string;
         currentUrl: string;
-        promptPreview: string; // Truncated for large prompts
-        fullPrompt?: unknown; // Only populated in ultra-verbose
+        promptPreview: string;
+        llmLatencyMs?: number;
     };
     agentOutput?: {
         thought: string;

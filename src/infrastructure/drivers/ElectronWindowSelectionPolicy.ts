@@ -1,5 +1,5 @@
 import { inject, injectable } from 'tsyringe';
-import type { ILogger } from '../../domain/ports';
+import type { ILogger } from '@domain/ports';
 import type { ElectronWindowManager, ElectronWindow } from './ElectronWindowManager';
 
 @injectable()

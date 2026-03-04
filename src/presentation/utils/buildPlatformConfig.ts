@@ -1,4 +1,4 @@
-import type { PlatformConfig, WebPlatformConfig, ElectronPlatformConfig, AndroidPlatformConfig, IosPlatformConfig } from '../../domain/types/PlatformConfig';
+import type { PlatformConfig, WebPlatformConfig, ElectronPlatformConfig, AndroidPlatformConfig, IosPlatformConfig } from '@domain/types/PlatformConfig';
 import type { PlatformFieldValue, UIPlatformType } from '../config/platformRegistry';
 
 export function buildPlatformConfig(

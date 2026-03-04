@@ -8,10 +8,6 @@ export class AriaSensor implements ISensor<string> {
 
     async capture(source: IPerceptionSource): Promise<string> {
         await source.waitForContentReady(5000);
-        try {
-            return await source.getAriaSnapshot();
-        } catch {
-            return '';
-        }
+        return source.getAriaSnapshot().catch(() => '');
     }
 }

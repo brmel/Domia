@@ -1,9 +1,14 @@
+import type { IPromptService } from '@domain/ports/IPromptService';
+import { interpolate } from '@infrastructure/prompts/PromptService';
+
 export class AgentLoopGuard {
     private readonly history: string[] = [];
     private readonly threshold: number;
+    private readonly promptService: IPromptService;
 
-    constructor(threshold = 3) {
+    constructor(threshold = 3, promptService: IPromptService) {
         this.threshold = threshold;
+        this.promptService = promptService;
     }
 
     record(toolName: string, args: Record<string, unknown>): void {
@@ -17,7 +22,8 @@ export class AgentLoopGuard {
     }
 
     getWarning(toolName: string): string {
-        return `LOOP DETECTED: You have called ${toolName} with the same arguments ${this.threshold} times. The page state has not changed. Choose a DIFFERENT action or call 'fail' if the goal cannot be achieved.`;
+        const template = this.promptService.getPrompt('loopWarning');
+        return interpolate(template, { toolName, threshold: this.threshold });
     }
 
     reset(): void {

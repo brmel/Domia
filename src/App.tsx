@@ -1,5 +1,5 @@
 import { useRunStore } from './presentation/stores';
-import { canInteract } from './presentation/utils/agentStateUtils';
+import { canStart } from './presentation/utils/agentStateUtils';
 
 import { useEffect, useState } from 'react';
 import { AppSectionPlaceholder } from './presentation/components/layout/AppSectionPlaceholder';
@@ -27,7 +27,7 @@ function App(): JSX.Element {
     const [activeSidebar, setActiveSidebar] = useState<'config' | 'history' | 'settings_debug'>('config');
     const [activeSection, setActiveSection] = useState<AppSection>('runs');
     const { status } = useRunStore();
-    const isInteractionDisabled = !canInteract(status);
+    const isInteractionDisabled = !canStart(status);
 
     useEffect(() => {
         if (

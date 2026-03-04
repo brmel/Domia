@@ -1,20 +1,14 @@
 import { container } from 'tsyringe';
-
-// ── Core ──
 import { ConfigService } from '@infrastructure/config/ConfigService';
 import { SQLiteAdapter } from '@infrastructure/persistence/SQLiteAdapter';
 import { ConsoleLogger } from '@infrastructure/logger/ConsoleLogger';
 import { RunUseCase } from '@application/use-cases';
-
-// ── Platform ──
 import {
     WebDriverProvider,
     ElectronDriverProvider,
     AppDriverFactory,
 } from '@infrastructure/drivers';
 import { PlatformSessionFactory } from '@application/services/platform/PlatformSessionFactory';
-
-// ── Runtime / Execution ──
 import { RunLifecycleManager } from '@application/services/RunLifecycleManager';
 import { InMemoryRunExecutionLaneService } from '@application/services/execution/RunExecutionLaneService';
 import { RunDurabilityService } from '@application/services/execution/RunDurabilityService';
@@ -26,25 +20,21 @@ import { ObjectiveCompletionPolicyService } from '@application/services/executio
 import { RunCoordinator } from '@application/services/execution/coordinators/RunCoordinator';
 import { ReadinessGateService } from '@application/services/hardening/ReadinessGateService';
 import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
-
-// ── Workflow ──
 import { WorkflowDefinitionService } from '@application/services/workflow/WorkflowDefinitionService';
 import { WorkflowRunOrchestratorService } from '@application/services/workflow/WorkflowRunOrchestratorService';
 import { WorkflowStepGovernanceService } from '@application/services/workflow/WorkflowStepGovernanceService';
 import { WorkflowStepRunnerService } from '@application/services/workflow/WorkflowStepRunnerService';
 import { WorkflowStepPolicyService } from '@application/services/workflow/WorkflowStepPolicyService';
 import { PlatformCapabilityNegotiationService } from '@application/services/platform/PlatformCapabilityNegotiationService';
-
-// ── LLM ──
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
 import { AdkAgentRunner } from '@infrastructure/adk/AdkAgentRunner';
-
-// ── Perception ──
 import { PerceptionPipeline } from '@infrastructure/perception/PerceptionPipeline';
 import { VisionSensor } from '@infrastructure/perception/sensors/VisionSensor';
 import { AriaSensor } from '@infrastructure/perception/sensors/AriaSensor';
-
-// ── Observability ──
+import { BrowserPool } from '@infrastructure/playwright/BrowserPool';
+import { PluginRegistry } from '@infrastructure/plugins/PluginRegistry';
+import { PluginLoader } from '@infrastructure/plugins/PluginLoader';
+import { PromptService } from '@infrastructure/prompts/PromptService';
 import { FileSystemStorage } from '@infrastructure/storage/FileSystemStorage';
 import { TraceService } from '@infrastructure/services/TraceService';
 import { FileTraceExporter } from '@infrastructure/services/exporters/FileTraceExporter';
@@ -64,6 +54,7 @@ export class ContainerBuilder {
     }
 
     registerPlatform(): this {
+        container.registerSingleton(BrowserPool);
         container.registerSingleton(PlatformSessionFactory);
         container.registerSingleton(WebDriverProvider);
         container.registerSingleton(ElectronDriverProvider);
@@ -100,6 +91,10 @@ export class ContainerBuilder {
 
     registerLlm(): this {
         container.registerSingleton(LlmRuntimeConfigResolver);
+        container.registerSingleton(PluginRegistry);
+        container.registerSingleton(PluginLoader);
+        container.registerSingleton(PromptService);
+        container.register('IPromptService', { useToken: PromptService });
         container.registerSingleton('IAgentRunner', AdkAgentRunner);
         return this;
     }
@@ -136,6 +131,12 @@ export class ContainerBuilder {
         const factory = container.resolve(AppDriverFactory);
         factory.registerProvider(container.resolve(WebDriverProvider));
         factory.registerProvider(container.resolve(ElectronDriverProvider));
+        return this;
+    }
+
+    async loadPlugins(pluginDir?: string): Promise<this> {
+        const loader = container.resolve(PluginLoader);
+        await loader.loadAll(pluginDir);
         return this;
     }
 }

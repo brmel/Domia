@@ -1,9 +1,5 @@
 import { RunState } from '@domain/enums/RunState';
 
-export const canInteract = (status: RunState): boolean => {
-    return status === RunState.IDLE || status === RunState.COMPLETED || status === RunState.FAILED || status === RunState.CANCELLED;
-};
-
 export const isAgentRunning = (status: RunState): boolean => {
     return status === RunState.RUNNING || status === RunState.PAUSED;
 };

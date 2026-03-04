@@ -12,7 +12,6 @@ export interface RunStoreState {
     status: RunState;
     runId: RunId | null;
 
-    currentPhase: 'planning' | 'executing' | 'verifying' | null;
     currentAction: AgentAction | null;
     plan: Plan | null;
 
@@ -47,7 +46,6 @@ type TestRunStore = RunStoreState & TestRunActions;
 const initialState: RunStoreState = {
     status: RunState.IDLE,
     runId: null,
-    currentPhase: null,
     currentAction: null,
     plan: null,
     success: null,
@@ -91,7 +89,6 @@ export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
                     history: [],
                     plan: null,
                     currentAction: null,
-                    currentPhase: null,
                     success: null,
                     summary: null,
                     errorMessage: null,
@@ -99,12 +96,11 @@ export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
                 });
                 break;
 
-            case 'thinking':
-                set({ currentPhase: 'executing' });
+            case 'thinking_chunk':
                 break;
 
             case 'acting':
-                set({ currentPhase: 'executing', currentAction: event.action });
+                set({ currentAction: event.action });
                 break;
 
             case 'state_updated':
@@ -124,7 +120,6 @@ export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
                     status: RunState.COMPLETED,
                     success: event.success,
                     summary: event.summary,
-                    currentPhase: null,
                     currentAction: null,
                 });
                 break;
@@ -133,7 +128,6 @@ export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
                 set({
                     status: RunState.FAILED,
                     errorMessage: event.error.message,
-                    currentPhase: null,
                 });
                 break;
         }

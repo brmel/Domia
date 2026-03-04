@@ -9,7 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { VisionSensor } from './sensors/VisionSensor';
 import { AriaSensor } from './sensors/AriaSensor';
 import { buildRoleSnapshot } from './RoleRefResolver';
-import { VisualContext } from '../../domain/value-objects/VisualContext';
+import { VisualContext } from '@domain/value-objects/VisualContext';
 
 @injectable()
 export class PerceptionPipeline implements IPerceptionPipeline {

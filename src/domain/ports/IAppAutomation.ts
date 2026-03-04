@@ -25,6 +25,7 @@ export interface IAppAutomation {
     mouseScroll(deltaX: number, deltaY: number): ResultAsync<void, InteractionError>;
     wait(durationMs: number): ResultAsync<void, InteractionError>;
 
+    getCurrentUrl(): string | null;
     getViewportSize(): Promise<{ width: number; height: number }>;
     waitForReady(timeout?: number): Promise<void>;
     close(): Promise<void>;

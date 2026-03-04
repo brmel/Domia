@@ -1,6 +1,6 @@
 import { FormInput } from '../ui/FormInput';
 import type { FieldRenderProps } from '../../config/platformRegistry';
-import type { AndroidPlatformConfig } from '../../../domain/types/PlatformConfig';
+import type { AndroidPlatformConfig } from '@domain/types/PlatformConfig';
 
 export function AndroidPlatformFields({ value, onChange, errors, disabled }: FieldRenderProps): React.ReactElement {
   const androidValue = value as Omit<AndroidPlatformConfig, 'platform'>;

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
-import { RunState } from '../../domain/enums/RunState';
-import type { AgentAction } from '../../domain/value-objects';
+import { RunState } from '@domain/enums/RunState';
+import type { AgentAction } from '@domain/value-objects';
 
 export class ExecutionController extends EventEmitter {
     private _state: RunState = RunState.IDLE;

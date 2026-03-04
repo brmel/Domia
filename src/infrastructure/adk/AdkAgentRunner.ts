@@ -3,12 +3,15 @@ import { LlmAgent, Gemini, Runner, InMemorySessionService, getFunctionCalls, isF
 import type { Content, Part } from '@google/genai';
 import type { IStructuredAutomation, IPerceptionPipeline, ILogger, IStorageService } from '@domain/ports';
 import type { IAgentRunner, AgentRunnerEvent, StepExecutionResult, StepRunnerConfig } from '@domain/ports/IAgentRunner';
+import type { IPromptService } from '@domain/ports/IPromptService';
 import { ActionType } from '@domain/enums/ActionType';
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
 import { createAdkTools } from './AdkToolFactory';
 import { ActionMapper } from '../agent/common/ActionMapper';
 import { AgentLoopGuard } from '../agent/common/AgentLoopGuard';
 import { buildAgentInstruction } from '../agent/common/AgentInstructionBuilder';
+import { interpolate } from '../prompts/PromptService';
+import { PluginRegistry } from '../plugins/PluginRegistry';
 
 const APP_NAME = 'domia';
 
@@ -27,6 +30,8 @@ export class AdkAgentRunner implements IAgentRunner {
         @inject('IStorageService') private readonly storage: IStorageService,
         @inject('ILogger') private readonly logger: ILogger,
         @inject(LlmRuntimeConfigResolver) private readonly llmConfigResolver: LlmRuntimeConfigResolver,
+        @inject(PluginRegistry) private readonly pluginRegistry: PluginRegistry,
+        @inject('IPromptService') private readonly promptService: IPromptService,
     ) {}
 
     async *executeStep(
@@ -59,9 +64,15 @@ export class AdkAgentRunner implements IAgentRunner {
         let lastToolResult: { name: string; result: Record<string, unknown>; durationMs: number } | null = null;
         let pendingYield: AgentRunnerEvent | null = null;
         let lastObservedUrl: string = url;
+        let llmTurnStartMs = Date.now();
 
         const flushPending = function* (): Generator<AgentRunnerEvent> {
             if (!pendingYield) return;
+            if (pendingYield.type !== 'action') {
+                yield pendingYield;
+                pendingYield = null;
+                return;
+            }
             if (lastToolResult) {
                 yield {
                     ...pendingYield,
@@ -94,15 +105,22 @@ export class AdkAgentRunner implements IAgentRunner {
                     this.logger.warn(`[AdkAgentRunner] Failed to save perception assets for action ${actionCount}`);
                 }
             },
-        });
+        }, this.pluginRegistry.getAllTools(), this.promptService);
 
         const actionMapper = new ActionMapper(catalog);
-        const loopGuard = new AgentLoopGuard();
-        const instruction = buildAgentInstruction(catalog);
+        const loopGuard = new AgentLoopGuard(3, this.promptService);
+        const instruction = buildAgentInstruction(catalog, this.promptService);
 
-        const textPart: Part = {
-            text: `GOAL: ${stepGoal}\n\nVIEWPORT: ${viewport.width}x${viewport.height} pixels\n\nCURRENT PAGE URL: ${url}\n\nMAX ACTIONS REMAINING: ${maxActions}\n\nCall observe to see the current page state, then work toward the goal. Call exactly one tool per turn.`,
-        };
+        const stepGoalTemplate = this.promptService.getPrompt('stepGoal');
+        const stepGoalText = interpolate(stepGoalTemplate, {
+            stepGoal,
+            viewportWidth: viewport.width,
+            viewportHeight: viewport.height,
+            url,
+            maxActions,
+        });
+
+        const textPart: Part = { text: stepGoalText };
 
         const initialMessage: Content = { role: 'user', parts: [textPart] };
 
@@ -128,8 +146,10 @@ export class AdkAgentRunner implements IAgentRunner {
                 toolTimers.delete(tool.name);
                 lastToolResult = { name: tool.name, result: response as Record<string, unknown>, durationMs };
                 const res = response as Record<string, unknown>;
-                if (tool.name === 'observe' && typeof res?.['currentUrl'] === 'string') {
+                if (typeof res?.['currentUrl'] === 'string') {
                     lastObservedUrl = res['currentUrl'] as string;
+                } else if (typeof res?.['navigatedUrl'] === 'string') {
+                    lastObservedUrl = res['navigatedUrl'] as string;
                 }
                 this.logger.debug(`[AdkAgentRunner] Tool ${tool.name} completed in ${durationMs}ms`, { status: res?.['status'] });
                 return undefined;
@@ -143,6 +163,8 @@ export class AdkAgentRunner implements IAgentRunner {
         });
 
         try {
+            llmTurnStartMs = Date.now();
+
             for await (const event of runner.runAsync({
                 userId: session.userId,
                 sessionId: session.id,
@@ -150,13 +172,17 @@ export class AdkAgentRunner implements IAgentRunner {
                 runConfig: { maxLlmCalls: maxActions + 2 },
             })) {
                 const functionCalls = getFunctionCalls(event);
+                const thought = extractThought(event);
+
+                if (thought && !functionCalls?.length && !isFinalResponse(event)) {
+                    yield { type: 'thinking_chunk', text: thought };
+                }
 
                 if (functionCalls?.length) {
-                    const thought = extractThought(event);
+                    const llmLatencyMs = Date.now() - llmTurnStartMs;
+                    this.logger.info(`[AdkAgentRunner] LLM responded in ${llmLatencyMs}ms`);
 
                     for (const fc of functionCalls) {
-                        // Flush previous pending action — its tool has now executed
-                        // and afterToolCallback has set lastToolResult
                         yield* flushPending();
 
                         const action = actionMapper.map(fc.name!, fc.args as Record<string, unknown>, thought);
@@ -176,6 +202,7 @@ export class AdkAgentRunner implements IAgentRunner {
                                     goal: stepGoal,
                                     currentUrl: lastObservedUrl,
                                     promptPreview: `GOAL: ${stepGoal} | URL: ${lastObservedUrl} | Action ${actionCount}/${maxActions}`,
+                                    llmLatencyMs,
                                 },
                                 agentOutput: {
                                     thought,
@@ -189,7 +216,6 @@ export class AdkAgentRunner implements IAgentRunner {
                             },
                         };
 
-                        // Terminal actions: yield immediately (no tool execution follows)
                         if (action.type === ActionType.PASS) {
                             yield actionEvent;
                             return { success: true, terminal: 'pass' };
@@ -209,9 +235,10 @@ export class AdkAgentRunner implements IAgentRunner {
                             };
                         }
 
-                        // Non-terminal: defer until tool result is available
                         pendingYield = actionEvent;
                     }
+
+                    llmTurnStartMs = Date.now();
                 }
 
                 if (isFinalResponse(event)) {
@@ -229,7 +256,6 @@ export class AdkAgentRunner implements IAgentRunner {
                 }
             }
 
-            // Flush any remaining pending action after the loop ends
             yield* flushPending();
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
