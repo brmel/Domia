@@ -19,7 +19,8 @@ export type AgentAction =
     | NavigateAction
     | ObserveAction
     | PassAction
-    | FailAction;
+    | FailAction
+    | ShellExecAction;
 
 interface ClickAction {
     readonly type: ActionType.CLICK;
@@ -150,4 +151,12 @@ interface FailAction {
     readonly type: ActionType.FAIL;
     readonly reason: string;
     readonly thought?: string;
+}
+
+interface ShellExecAction {
+    readonly type: ActionType.SHELL_EXEC;
+    readonly command: string;
+    readonly cwd?: string;
+    readonly timeoutMs?: number;
+    readonly thought: string;
 }

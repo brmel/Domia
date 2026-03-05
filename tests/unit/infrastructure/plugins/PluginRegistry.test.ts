@@ -34,7 +34,6 @@ describe('PluginRegistry', () => {
         const manifest = fakeManifest('my-plugin', ['customTool']);
         registry.register(manifest, builtIns);
 
-        expect(registry.getPluginCount()).toBe(1);
         expect(registry.getAllTools()).toHaveLength(1);
         expect(registry.getAllTools()[0]!.name).toBe('customTool');
     });
@@ -43,7 +42,6 @@ describe('PluginRegistry', () => {
         registry.register(fakeManifest('p1', ['a']), builtIns);
         registry.register(fakeManifest('p2', ['b', 'c']), builtIns);
 
-        expect(registry.getPluginCount()).toBe(2);
         expect(registry.getAllTools()).toHaveLength(3);
     });
 
@@ -62,16 +60,7 @@ describe('PluginRegistry', () => {
         );
     });
 
-    it('clear empties all plugins', () => {
-        registry.register(fakeManifest('p1', ['x']), builtIns);
-        registry.clear();
-
-        expect(registry.getPluginCount()).toBe(0);
-        expect(registry.getAllTools()).toEqual([]);
-    });
-
     it('returns empty array when no plugins registered', () => {
         expect(registry.getAllTools()).toEqual([]);
-        expect(registry.getPluginCount()).toBe(0);
     });
 });

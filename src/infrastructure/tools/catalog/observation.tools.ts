@@ -4,6 +4,7 @@ import { ActionType } from '@domain/enums/ActionType';
 import type { ToolSpec } from '../ToolSpec';
 import type { PostActionCaptureMiddleware } from '../PostActionCaptureMiddleware';
 import { MAX_EXTRACT_TEXT_LENGTH, DEFAULT_WAIT_DURATION_MS } from '@shared/defaults';
+import { WEB_ELECTRON_PLATFORMS, unwrapResult, toolError, toolSuccess } from '../toolResult';
 
 export function createObservationTools(
     automation: IStructuredAutomation,
@@ -25,17 +26,17 @@ export function createObservationTools(
         },
         {
             name: 'extract',
-            description: 'Extract the visible text content of an element for assertion or verification. Returns up to 400 characters of whitespace-normalized text. Input: { ref: string }. Output: { status: "success", extractedText: string } or { status: "error", error: string }.',
+            description: `Extract the visible text content of an element for assertion or verification. Returns up to ${MAX_EXTRACT_TEXT_LENGTH} characters of whitespace-normalized text. Input: { ref: string }. Output: { status: "success", extractedText: string } or { status: "error", error: string }.`,
             actionType: ActionType.EXTRACT,
-            platforms: ['web', 'electron'] as const,
+            platforms: WEB_ELECTRON_PLATFORMS,
             parameters: z.object({
                 ref: z.string().describe('Element ref from the ARIA snapshot (e.g. "e3").'),
             }),
             execute: async (args) => {
                 const result = await automation.extractText(args['ref'] as string);
-                if (result.isErr()) return { status: 'error', error: result.error.message };
+                if (result.isErr()) return toolError(result.error.message);
                 const text = result.value.replace(/\s+/g, ' ').trim().slice(0, MAX_EXTRACT_TEXT_LENGTH);
-                return { status: 'success', extractedText: text || '(empty)' };
+                return toolSuccess({ extractedText: text || '(empty)' });
             },
         },
         {
@@ -47,9 +48,7 @@ export function createObservationTools(
             }),
             execute: async (args) => {
                 const ms = typeof args['durationMs'] === 'number' ? (args['durationMs'] as number) : DEFAULT_WAIT_DURATION_MS;
-                const result = await automation.wait(ms);
-                if (result.isErr()) return { status: 'error', error: result.error.message };
-                return { status: 'success' };
+                return unwrapResult(await automation.wait(ms));
             },
         },
     ];

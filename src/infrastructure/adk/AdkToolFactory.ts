@@ -6,16 +6,10 @@ import type { IPromptService } from '@domain/ports/IPromptService';
 /**
  * Convert a ToolSpec to an ADK FunctionTool (or LongRunningFunctionTool).
  *
- * ADK accepts Zod schemas directly via its internal `zodObjectToSchema` and calls
- * `execute(parsedArgs)` with the validated object — matching our ToolSpec contract.
- *
- * NOTE: ADK bundles its own copy of Zod. The private `_cached` property differs
- * between our Zod and ADK's Zod, so a structural-cast through `unknown` is
- * required to bridge the two Zod instances.  At runtime the schemas are 100 %
- * compatible — ADK's `zodObjectToSchema()` handles them identically.
+ * ADK bundles its own Zod; a structural cast through `unknown` bridges
+ * the two instances (schemas are 100% compatible at runtime).
  */
 function toFunctionTool(spec: ToolSpec): FunctionTool {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const opts = {
         name: spec.name,
         description: spec.description,

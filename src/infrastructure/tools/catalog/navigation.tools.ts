@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import type { IAppAutomation } from '@domain/ports';
 import { ActionType } from '@domain/enums/ActionType';
+import { UrlFactory } from '@domain/value-objects';
 import type { ToolSpec } from '../ToolSpec';
+import { unwrapResult, toolError } from '../toolResult';
 
 export function createNavigationTools(automation: IAppAutomation): ToolSpec[] {
     return [
@@ -12,11 +14,9 @@ export function createNavigationTools(automation: IAppAutomation): ToolSpec[] {
             parameters: z.object({
                 direction: z.enum(['up', 'down']).describe('Scroll direction: "up" or "down".'),
             }),
-            execute: async (args) => {
-                const result = await automation.scroll(args['direction'] as 'up' | 'down');
-                if (result.isErr()) return { status: 'error', error: result.error.message };
-                return { status: 'success' };
-            },
+            execute: async (args) => unwrapResult(
+                await automation.scroll(args['direction'] as 'up' | 'down'),
+            ),
         },
         {
             name: 'navigate',
@@ -26,12 +26,10 @@ export function createNavigationTools(automation: IAppAutomation): ToolSpec[] {
                 url: z.string().describe('Absolute URL to navigate to (must include protocol, e.g. https://example.com).'),
             }),
             execute: async (args) => {
-                const { UrlFactory } = await import('@domain/value-objects');
                 const urlVO = UrlFactory.create(args['url'] as string);
-                if (urlVO.isErr()) return { status: 'error', error: `Invalid URL: ${urlVO.error.message}` };
+                if (urlVO.isErr()) return toolError(`Invalid URL: ${urlVO.error.message}`);
                 const result = await automation.navigateTo(urlVO.value);
-                if (result.isErr()) return { status: 'error', error: result.error.message };
-                return { status: 'success' };
+                return unwrapResult(result);
             },
         },
     ];

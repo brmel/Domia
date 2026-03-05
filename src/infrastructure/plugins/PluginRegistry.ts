@@ -32,12 +32,4 @@ export class PluginRegistry {
         }
         return tools;
     }
-
-    getPluginCount(): number {
-        return this.plugins.size;
-    }
-
-    clear(): void {
-        this.plugins.clear();
-    }
 }

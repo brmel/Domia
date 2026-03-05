@@ -20,5 +20,6 @@ export enum ActionType {
     START_RECORDING = 'startRecording',
     STOP_AND_REVIEW_RECORDING = 'stopAndReviewRecording',
     PASS = 'pass',
-    FAIL = 'fail'
+    FAIL = 'fail',
+    SHELL_EXEC = 'shell_exec'
 }

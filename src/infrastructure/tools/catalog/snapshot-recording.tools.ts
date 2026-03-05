@@ -3,6 +3,7 @@ import { ActionType } from '@domain/enums/ActionType';
 import type { ToolSpec } from '../ToolSpec';
 import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 import { MAX_MUTATION_LOG_ENTRIES, MAX_RECORDING_UNIQUE_VALUES, RECORDING_TIMELINE_ENTRIES } from '@shared/defaults';
+import { errorMsg } from '../toolResult';
 
 /**
  * JavaScript injected into the page to start the MutationObserver.
@@ -188,7 +189,7 @@ export function createSnapshotRecordingTools(
                     const result = await perceptionSource.evaluateScript(INJECT_OBSERVER_SCRIPT) as Record<string, unknown>;
                     return result;
                 } catch (e) {
-                    return { status: 'error', error: `Failed to inject recording observer: ${e instanceof Error ? e.message : String(e)}` };
+                    return { status: 'error', error: `Failed to inject recording observer: ${errorMsg(e)}` };
                 }
             },
         },
@@ -215,7 +216,7 @@ export function createSnapshotRecordingTools(
 
                     return analyzeLog(log, durationMs) as unknown as Record<string, unknown>;
                 } catch (e) {
-                    return { status: 'error', error: `Failed to retrieve recording: ${e instanceof Error ? e.message : String(e)}` };
+                    return { status: 'error', error: `Failed to retrieve recording: ${errorMsg(e)}` };
                 }
             },
         },

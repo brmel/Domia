@@ -68,3 +68,11 @@ export const MAX_RECORDING_DURATION_MS = 5000;
 
 /** Maximum allowed recording interval (ms) — validation bound. */
 export const MAX_RECORDING_INTERVAL_MS = 1000;
+
+// ── Shell tool ───────────────────────────────────────────────────────
+
+/** Default timeout for shell_exec commands (ms). */
+export const DEFAULT_SHELL_TIMEOUT_MS = 30_000;
+
+/** Max characters of stdout/stderr returned to the agent. */
+export const MAX_SHELL_OUTPUT_LENGTH = 4096;

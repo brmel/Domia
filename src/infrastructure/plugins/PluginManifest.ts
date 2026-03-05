@@ -26,18 +26,13 @@ export function validatePluginManifest(raw: unknown): PluginManifest {
     const parsed = PluginManifestSchema.parse(raw);
     return {
         name: parsed.name,
-        tools: parsed.tools.map((t) => {
-            const spec: ToolSpec = {
-                name: t.name,
-                description: t.description,
-                actionType: t.actionType as ActionType,
-                parameters: t.parameters as z.ZodObject<z.ZodRawShape>,
-                execute: t.execute as ToolSpec['execute'],
-            };
-            if (t.platforms) {
-                (spec as { platforms: readonly PlatformType[] }).platforms = t.platforms as PlatformType[];
-            }
-            return spec;
-        }),
+        tools: parsed.tools.map((t): ToolSpec => ({
+            name: t.name,
+            description: t.description,
+            actionType: t.actionType as ActionType,
+            parameters: t.parameters as z.ZodObject<z.ZodRawShape>,
+            execute: t.execute as ToolSpec['execute'],
+            ...(t.platforms ? { platforms: t.platforms as PlatformType[] } : {}),
+        })),
     };
 }

@@ -121,6 +121,6 @@ export function createPollingTools(
                     lastSnapshot: lastSnapshot.slice(0, POLL_TIMEOUT_SNAPSHOT_CHARS),
                 };
             },
-        } as ToolSpec & { isLongRunning?: boolean },
+        } satisfies ToolSpec,
     ];
 }

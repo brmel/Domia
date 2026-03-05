@@ -2,6 +2,7 @@ import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 import type { IStructuredAutomation } from '@domain/ports/IAppAutomation';
 import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import type { IPerceptionPipeline } from '@domain/ports';
+import { toolError, TOOL_SUCCESS } from './toolResult';
 
 export class PostActionCaptureMiddleware {
     constructor(
@@ -21,7 +22,7 @@ export class PostActionCaptureMiddleware {
         const frameResult = await this.perception.capture(this.perceptionSource, { aria: true, vision: useVision });
 
         if (frameResult.isErr()) {
-            return { status: 'error', error: `Perception capture failed: ${frameResult.error.message}` };
+            return toolError(`Perception capture failed: ${frameResult.error.message}`);
         }
 
         const frame = frameResult.value;
@@ -33,7 +34,7 @@ export class PostActionCaptureMiddleware {
 
         const refCount = Object.keys(frame.semantic.refs).length;
         const result: Record<string, unknown> = {
-            status: 'success',
+            status: TOOL_SUCCESS,
             currentUrl: frame.metadata.url,
             pageTitle: frame.metadata.title,
             elementCount: refCount,

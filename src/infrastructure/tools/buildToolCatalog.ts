@@ -9,12 +9,9 @@ import { createObservationTools } from './catalog/observation.tools';
 import { createTerminalTools } from './catalog/terminal.tools';
 import { createPollingTools } from './catalog/polling.tools';
 import { createSnapshotRecordingTools } from './catalog/snapshot-recording.tools';
+import { createShellTools } from './catalog/shell.tools';
 import { ActionType } from '@domain/enums/ActionType';
 
-/**
- * ActionTypes that represent user interactions (clicks, typing, etc.).
- * These are the tools whose execution should be recorded when recording is enabled.
- */
 const RECORDABLE_ACTION_TYPES: ReadonlySet<ActionType> = new Set([
     ActionType.CLICK,
     ActionType.TYPE,
@@ -47,13 +44,13 @@ export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] 
         ...createPollingTools(middleware),
         ...createSnapshotRecordingTools(deps.perceptionSource),
         ...createTerminalTools(),
+        ...(deps.shellExecutor ? createShellTools(deps.shellExecutor) : []),
         ...extraTools,
     ];
 
     const platform = deps.platform;
     let filtered = raw.filter((spec) => !platform || !spec.platforms?.length || spec.platforms.includes(platform));
 
-    // Wrap recordable tools with the ActionRecordingService when recording is enabled
     if (deps.recording?.enabled) {
         const recorder = new ActionRecordingService(deps.perceptionSource);
         const recordingOptions = deps.recording.options;

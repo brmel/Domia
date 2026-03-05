@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { IAppAutomation } from '@domain/ports';
 import { ActionType } from '@domain/enums/ActionType';
 import type { ToolSpec } from '../ToolSpec';
+import { unwrapResult } from '../toolResult';
 
 export function createMouseTools(automation: IAppAutomation): ToolSpec[] {
     return [
@@ -13,11 +14,9 @@ export function createMouseTools(automation: IAppAutomation): ToolSpec[] {
                 x: z.number().describe('Viewport X coordinate in pixels.'),
                 y: z.number().describe('Viewport Y coordinate in pixels.'),
             }),
-            execute: async (args) => {
-                const result = await automation.mouseMove(args['x'] as number, args['y'] as number);
-                if (result.isErr()) return { status: 'error', error: result.error.message };
-                return { status: 'success' };
-            },
+            execute: async (args) => unwrapResult(
+                await automation.mouseMove(args['x'] as number, args['y'] as number),
+            ),
         },
         {
             name: 'mouse_click_left',
@@ -27,11 +26,9 @@ export function createMouseTools(automation: IAppAutomation): ToolSpec[] {
                 x: z.number().describe('Viewport X coordinate in pixels.'),
                 y: z.number().describe('Viewport Y coordinate in pixels.'),
             }),
-            execute: async (args) => {
-                const result = await automation.mouseClick(args['x'] as number, args['y'] as number, 'left');
-                if (result.isErr()) return { status: 'error', error: result.error.message };
-                return { status: 'success' };
-            },
+            execute: async (args) => unwrapResult(
+                await automation.mouseClick(args['x'] as number, args['y'] as number, 'left'),
+            ),
         },
         {
             name: 'mouse_click_right',
@@ -41,11 +38,9 @@ export function createMouseTools(automation: IAppAutomation): ToolSpec[] {
                 x: z.number().describe('Viewport X coordinate in pixels.'),
                 y: z.number().describe('Viewport Y coordinate in pixels.'),
             }),
-            execute: async (args) => {
-                const result = await automation.mouseClick(args['x'] as number, args['y'] as number, 'right');
-                if (result.isErr()) return { status: 'error', error: result.error.message };
-                return { status: 'success' };
-            },
+            execute: async (args) => unwrapResult(
+                await automation.mouseClick(args['x'] as number, args['y'] as number, 'right'),
+            ),
         },
         {
             name: 'mouse_double_click',
@@ -55,11 +50,9 @@ export function createMouseTools(automation: IAppAutomation): ToolSpec[] {
                 x: z.number().describe('Viewport X coordinate in pixels.'),
                 y: z.number().describe('Viewport Y coordinate in pixels.'),
             }),
-            execute: async (args) => {
-                const result = await automation.mouseDoubleClick(args['x'] as number, args['y'] as number);
-                if (result.isErr()) return { status: 'error', error: result.error.message };
-                return { status: 'success' };
-            },
+            execute: async (args) => unwrapResult(
+                await automation.mouseDoubleClick(args['x'] as number, args['y'] as number),
+            ),
         },
         {
             name: 'mouse_drag',
@@ -72,15 +65,13 @@ export function createMouseTools(automation: IAppAutomation): ToolSpec[] {
                 toY: z.number().describe('Destination Y coordinate in viewport pixels.'),
                 steps: z.number().int().min(1).max(100).optional().describe('Intermediate move steps. More steps = smoother drag. Default: 10.'),
             }),
-            execute: async (args) => {
-                const result = await automation.mouseDrag(
+            execute: async (args) => unwrapResult(
+                await automation.mouseDrag(
                     args['fromX'] as number, args['fromY'] as number,
                     args['toX'] as number, args['toY'] as number,
                     args['steps'] as number | undefined,
-                );
-                if (result.isErr()) return { status: 'error', error: result.error.message };
-                return { status: 'success' };
-            },
+                ),
+            ),
         },
         {
             name: 'mouse_scroll',
@@ -90,11 +81,9 @@ export function createMouseTools(automation: IAppAutomation): ToolSpec[] {
                 deltaX: z.number().optional().describe('Horizontal scroll delta in pixels. Positive = right. Default 0.'),
                 deltaY: z.number().describe('Vertical scroll delta in pixels. Positive = down, negative = up.'),
             }),
-            execute: async (args) => {
-                const result = await automation.mouseScroll((args['deltaX'] as number) ?? 0, args['deltaY'] as number);
-                if (result.isErr()) return { status: 'error', error: result.error.message };
-                return { status: 'success' };
-            },
+            execute: async (args) => unwrapResult(
+                await automation.mouseScroll((args['deltaX'] as number) ?? 0, args['deltaY'] as number),
+            ),
         },
     ];
 }

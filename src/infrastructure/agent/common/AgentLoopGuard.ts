@@ -26,8 +26,4 @@ export class AgentLoopGuard {
         const template = this.promptService.getPrompt('loopWarning');
         return interpolate(template, { toolName, threshold: this.threshold });
     }
-
-    reset(): void {
-        this.history.length = 0;
-    }
 }

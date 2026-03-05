@@ -34,6 +34,7 @@ import { AriaSensor } from '@infrastructure/perception/sensors/AriaSensor';
 import { BrowserPool } from '@infrastructure/playwright/BrowserPool';
 import { PluginRegistry } from '@infrastructure/plugins/PluginRegistry';
 import { PluginLoader } from '@infrastructure/plugins/PluginLoader';
+import { ShellExecutor } from '@infrastructure/shell/ShellExecutor';
 import { PromptService } from '@infrastructure/prompts/PromptService';
 import { FileSystemStorage } from '@infrastructure/storage/FileSystemStorage';
 import { TraceService } from '@infrastructure/services/TraceService';
@@ -93,6 +94,7 @@ export class ContainerBuilder {
         container.registerSingleton(LlmRuntimeConfigResolver);
         container.registerSingleton(PluginRegistry);
         container.registerSingleton(PluginLoader);
+        container.registerSingleton(ShellExecutor);
         container.registerSingleton(PromptService);
         container.register('IPromptService', { useToken: PromptService });
         container.registerSingleton('IAgentRunner', AdkAgentRunner);

@@ -12,6 +12,7 @@ import { AgentLoopGuard } from '../agent/common/AgentLoopGuard';
 import { buildAgentInstruction } from '../agent/common/AgentInstructionBuilder';
 import { interpolate } from '../prompts/PromptService';
 import { PluginRegistry } from '../plugins/PluginRegistry';
+import { ShellExecutor } from '../shell/ShellExecutor';
 import { DEFAULT_LLM_MODEL, LLM_CALL_BUDGET_OFFSET, DEFAULT_LOOP_GUARD_THRESHOLD, FINAL_RESPONSE_LOG_CHARS, TOOL_TIME_LOG_THRESHOLD_MS } from '@shared/defaults';
 
 const APP_NAME = 'domia';
@@ -33,6 +34,7 @@ export class AdkAgentRunner implements IAgentRunner {
         @inject(LlmRuntimeConfigResolver) private readonly llmConfigResolver: LlmRuntimeConfigResolver,
         @inject(PluginRegistry) private readonly pluginRegistry: PluginRegistry,
         @inject('IPromptService') private readonly promptService: IPromptService,
+        @inject(ShellExecutor) private readonly shellExecutor: ShellExecutor,
     ) {}
 
     async *executeStep(
@@ -99,6 +101,7 @@ export class AdkAgentRunner implements IAgentRunner {
             perceptionSource,
             vision,
             platform: config.platform,
+            shellExecutor: this.shellExecutor,
             onCapture: async (capturedFrame) => {
                 try {
                     await this.storage.savePerceptionAssets(config.runId, actionCount, capturedFrame);
