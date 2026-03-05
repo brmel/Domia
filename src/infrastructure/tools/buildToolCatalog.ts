@@ -10,6 +10,7 @@ import { createTerminalTools } from './catalog/terminal.tools';
 import { createPollingTools } from './catalog/polling.tools';
 import { createSnapshotRecordingTools } from './catalog/snapshot-recording.tools';
 import { createShellTools } from './catalog/shell.tools';
+import { createElectronTools } from './catalog/electron.tools';
 import { ActionType } from '@domain/enums/ActionType';
 
 const RECORDABLE_ACTION_TYPES: ReadonlySet<ActionType> = new Set([
@@ -45,6 +46,7 @@ export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] 
         ...createSnapshotRecordingTools(deps.perceptionSource),
         ...createTerminalTools(),
         ...(deps.shellExecutor ? createShellTools(deps.shellExecutor) : []),
+        ...(deps.windowManager ? createElectronTools(deps.windowManager, deps.automation) : []),
         ...extraTools,
     ];
 

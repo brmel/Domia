@@ -21,6 +21,7 @@ export interface ElectronExecutableConnection {
   type: 'executable';
   executablePath: string;
   launchArgs?: string[];
+  cdpPort?: number;
   windowTitle?: string;
 }
 
@@ -31,6 +32,7 @@ export type ElectronConnection =
 export interface ElectronPlatformConfig extends BasePlatformConfig {
   platform: 'electron';
   connection: ElectronConnection;
+  startUrl?: string;
 }
 
 export interface AndroidPlatformConfig extends BasePlatformConfig {

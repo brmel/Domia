@@ -11,8 +11,10 @@ import {
 
 @injectable()
 export class ElectronWindowSelectionPolicy {
+    private static readonly TAG = '[ElectronWindowSelectionPolicy]';
+
     constructor(
-        @inject('ILogger') private readonly logger: ILogger
+        @inject('ILogger') private readonly logger: ILogger,
     ) {}
 
     async selectTargetWindow(windowManager: ElectronWindowManager, requestedTitle?: string): Promise<void> {
@@ -28,7 +30,7 @@ export class ElectronWindowSelectionPolicy {
             if (result.isOk()) {
                 targetWindow = result.value;
             } else {
-                this.logger.warn(`[ElectronWindowSelectionPolicy] Window title filter '${requestedTitle}' did not match any window. Falling back to heuristic selection.`);
+                this.logger.warn(`${ElectronWindowSelectionPolicy.TAG} Window title filter '${requestedTitle}' did not match any window. Falling back to heuristic.`);
             }
         }
 
@@ -49,12 +51,12 @@ export class ElectronWindowSelectionPolicy {
 
         const setActiveResult = windowManager.setActiveWindow(targetWindow.id);
         if (setActiveResult.isErr()) {
-            this.logger.warn(`[ElectronWindowSelectionPolicy] Failed to set active window '${targetWindow.id}': ${setActiveResult.error.message}`);
+            this.logger.warn(`${ElectronWindowSelectionPolicy.TAG} Failed to set active window '${targetWindow.id}': ${setActiveResult.error.message}`);
             return;
         }
 
         await targetWindow.page.bringToFront().catch(() => undefined);
-        this.logger.info(`[ElectronWindowSelectionPolicy] Selected target window '${targetWindow.title}' (${targetWindow.id})`);
+        this.logger.info(`${ElectronWindowSelectionPolicy.TAG} Selected window '${targetWindow.title}' (${targetWindow.id})`);
     }
 
     private scoreWindow(title: string, url: string): number {

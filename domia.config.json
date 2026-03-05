@@ -2,7 +2,7 @@
   "headless": true,
   "viewport": {
     "width": 1280,
-    "height": 800
+    "height": 720
   },
   "ai": {
     "provider": "google",
@@ -18,5 +18,10 @@
     "maxSteps": 20,
     "delayBetweenSteps": 1000,
     "maxReplansPerRun": 2
+  },
+  "plugins": {
+    "shell": {
+      "enabled": true
+    }
   }
 }

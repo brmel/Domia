@@ -45,6 +45,12 @@ export const DomiaConfigSchema = z.object({
         prompts: z.record(z.string()).optional(),
         toolDescriptions: z.record(z.string()).optional(),
     }).optional(),
+
+    plugins: z.object({
+        shell: z.object({
+            enabled: z.boolean().default(false),
+        }).default({ enabled: false }),
+    }).default({ shell: { enabled: false } }),
 });
 
 export type DomiaConfig = z.infer<typeof DomiaConfigSchema>;

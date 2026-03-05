@@ -68,7 +68,7 @@ export class ReplanningPolicyService {
             return;
         }
 
-        this.logger.warn('[ReplanningPolicyService] Replanning approved (active mode)', {
+        this.logger.info('[ReplanningPolicyService] Replanning approved (active mode)', {
             runId: input.runId,
             trigger: input.trigger,
             replanCount: input.replanCount,

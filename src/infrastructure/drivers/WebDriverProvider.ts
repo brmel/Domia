@@ -22,15 +22,22 @@ export class WebDriverProvider implements IAppDriverProvider {
 
         const adapter = new PlaywrightAdapter(this.logger, this.pool);
         const driver = new WebDriver(adapter, this.logger);
-        const connectResult = await driver.connect({
-            headless: config.options?.headless ?? true,
-        });
+
+        // When running inside the Electron desktop app, always keep the browser
+        // headless so Playwright does not open a foreign window. The live view
+        // displays screenshot frames streamed from the agent instead.
+        const runningInElectron = Boolean(
+            typeof process !== 'undefined' && process.versions && process.versions['electron']
+        );
+        const headless = runningInElectron ? true : (config.options?.headless ?? true);
+
+        const connectResult = await driver.connect({ headless });
 
         if (connectResult.isErr()) {
             throw new Error(`[WebDriverProvider] Connection failed: ${connectResult.error.message}`);
         }
 
-        this.logger.info(`[WebDriverProvider] Connected to: ${config.platformConfig.url}`);
+        this.logger.info(`[WebDriverProvider] Connected to: ${config.platformConfig.url}${runningInElectron ? ' (headless, in-app mode)' : ''}`);
         return driver;
     }
 }

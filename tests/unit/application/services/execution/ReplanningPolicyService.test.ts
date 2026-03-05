@@ -1,14 +1,10 @@
 import 'reflect-metadata';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
+import { createMockLogger } from '../../../../helpers/createMockLogger';
 
-function createService(maxReplansPerRun?: number): { service: ReplanningPolicyService; logger: { debug: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> } } {
-    const logger = {
-        debug: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn()
-    };
+function createService(maxReplansPerRun?: number): { service: ReplanningPolicyService; logger: ReturnType<typeof createMockLogger> } {
+    const logger = createMockLogger();
 
     const configService = maxReplansPerRun === undefined
         ? undefined
@@ -70,7 +66,7 @@ describe('ReplanningPolicyService', () => {
         expect(assessment.reason).toContain('budget exhausted');
     });
 
-    it('logs warning when replanning is approved', () => {
+    it('logs info when replanning is approved', () => {
         const { service, logger } = createService();
 
         service.logIfSuggested({
@@ -79,6 +75,6 @@ describe('ReplanningPolicyService', () => {
             trigger: 'assertion_fail'
         });
 
-        expect(logger.warn).toHaveBeenCalledTimes(1);
+        expect(logger.info).toHaveBeenCalledTimes(1);
     });
 });

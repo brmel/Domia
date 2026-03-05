@@ -1,52 +1,55 @@
 import { ResultAsync, errAsync } from 'neverthrow';
-import { spawn, ChildProcess } from 'child_process';
-import { chromium, Browser } from 'playwright';
+import { Browser } from 'playwright';
+import type { ChildProcess } from 'child_process';
 import { IAppDriver, AppCapabilities } from '@domain/ports/IAppDriver';
 import type { ILogger, IStructuredAutomation } from '@domain/ports';
 import { NavigationError } from '@domain/errors';
 import { CDP_CONSTANTS } from '@domain/constants/PlatformConstants';
-import { CDP_DEFAULT_PORT } from '@shared/defaults';
 import { CDPValidator } from '@domain/validators/CDPValidator';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
+import { ElectronCDPConnector } from './ElectronCDPConnector';
+import { ElectronProcessLauncher } from './ElectronProcessLauncher';
 import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
-import { retryAsync } from '@shared/reliability/retry';
-import { RETRY_PROFILES, isTransientElectronConnectError } from '@shared/reliability/retryProfiles';
 
 export interface ElectronConnectionConfig {
     readonly cdpUrl?: string;
     readonly executablePath?: string;
-    readonly launchArgs?: string[];
+    readonly launchArgs?: readonly string[];
+    readonly cdpPort?: number;
     readonly connectionTimeout?: number;
     readonly waitForWindow?: boolean;
     readonly windowTitle?: string;
 }
 
 export class ElectronDriver implements IAppDriver {
+    private static readonly TAG = '[ElectronDriver]';
+
     private browser: Browser | null = null;
     private appProcess: ChildProcess | null = null;
-    private readonly windowManager: ElectronWindowManager;
+    private adapter: PlaywrightAdapter | null = null;
+    readonly windowManager: ElectronWindowManager;
+    private readonly cdpConnector: ElectronCDPConnector;
+    private readonly processLauncher: ElectronProcessLauncher;
 
     constructor(
         private readonly windowSelectionPolicy: ElectronWindowSelectionPolicy,
-        private readonly logger: ILogger
+        private readonly logger: ILogger,
     ) {
         this.windowManager = new ElectronWindowManager(logger);
+        this.cdpConnector = new ElectronCDPConnector(logger);
+        this.processLauncher = new ElectronProcessLauncher(this.cdpConnector, logger);
     }
 
     connect(config?: ElectronConnectionConfig): ResultAsync<void, NavigationError | Error> {
-        if(config?.executablePath) {
+        if (config?.executablePath) {
             return ResultAsync.fromPromise(
                 this.doLaunch(config),
-                (error) => {
-                    const message = error instanceof Error ? error.message : String(error);
-                    return new NavigationError(`ElectronDriver launch failed: ${message}`);
-                }
+                (e) => new NavigationError(`ElectronDriver launch failed: ${e instanceof Error ? e.message : String(e)}`),
             );
         }
-        
-        const cdpUrl = config?.cdpUrl || CDP_CONSTANTS.DEFAULT_URL;
-        
+
+        const cdpUrl = config?.cdpUrl ?? CDP_CONSTANTS.DEFAULT_URL;
         const validation = CDPValidator.validateCDPUrl(cdpUrl);
         if (validation.isErr()) {
             return errAsync(new NavigationError(`Invalid CDP configuration: ${validation.error.message}`));
@@ -54,146 +57,65 @@ export class ElectronDriver implements IAppDriver {
 
         return ResultAsync.fromPromise(
             this.doConnect({ ...config, cdpUrl: validation.value }),
-            (error) => {
-                const message = error instanceof Error ? error.message : String(error);
-                return new NavigationError(`ElectronDriver connection failed: ${message}`);
-            }
+            (e) => new NavigationError(`ElectronDriver connection failed: ${e instanceof Error ? e.message : String(e)}`),
         );
     }
 
     private async doConnect(config: ElectronConnectionConfig): Promise<void> {
-        this.logger.info(`[ElectronDriver] Connecting to CDP: ${config.cdpUrl}`);
-
-        try {
-            this.browser = await retryAsync(
-                async () => chromium.connectOverCDP(config.cdpUrl!, {
-                    timeout: config.connectionTimeout || CDP_CONSTANTS.CONNECTION_TIMEOUT_MS
-                }),
-                {
-                    ...RETRY_PROFILES.electronCdpConnect,
-                    shouldRetry: (error) => isTransientElectronConnectError(error),
-                    onRetry: (info) => {
-                        const message = info.error instanceof Error ? info.error.message : String(info.error);
-                        this.logger.warn(
-                            `[ElectronDriver] Retry ${info.attempt}/${info.maxAttempts - 1} CDP connect after error: ${message}`
-                        );
-                    }
-                }
-            );
-
-            this.logger.debug('[ElectronDriver] CDP connection established');
-            await this.discoverWindows();
-
-            if (config.waitForWindow !== false && this.windowManager.getWindowCount() === 0) {
-                await this.waitForWindow(CDP_CONSTANTS.WINDOW_WAIT_TIMEOUT_MS);
-            }
-
-            await this.windowSelectionPolicy.selectTargetWindow(this.windowManager, config.windowTitle);
-
-            this.logger.info(`[ElectronDriver] Connected with ${this.windowManager.getWindowCount()} window(s)`);
-        } catch (error) {
-            this.logger.error('[ElectronDriver] Connection error:', error);
-            throw error;
-        }
+        this.browser = await this.cdpConnector.connect(
+            config.cdpUrl!,
+            config.connectionTimeout,
+        );
+        await this.initializeWindows(config);
+        this.logger.info(`${ElectronDriver.TAG} Connected with ${this.windowManager.getWindowCount()} window(s)`);
     }
-    
+
     private async doLaunch(config: ElectronConnectionConfig): Promise<void> {
-        this.logger.info(`[ElectronDriver] Launching Electron app: ${config.executablePath}`);
-        this.logger.info(`[ElectronDriver] Env Port: ${process.env['ELECTRON_REMOTE_DEBUGGING_PORT']}`);
+        const result = await this.processLauncher.launch({
+            executablePath: config.executablePath!,
+            ...(config.launchArgs ? { launchArgs: [...config.launchArgs] } : {}),
+            ...(config.cdpPort !== undefined ? { cdpPort: config.cdpPort } : {}),
+            ...(config.connectionTimeout !== undefined ? { connectionTimeout: config.connectionTimeout } : {}),
+        });
+        this.browser = result.browser;
+        this.appProcess = result.process;
+        await this.initializeWindows(config);
+        this.logger.info(`${ElectronDriver.TAG} Launched with ${this.windowManager.getWindowCount()} window(s)`);
+    }
 
-        try {
-            const port = process.env['ELECTRON_REMOTE_DEBUGGING_PORT'];
+    private async initializeWindows(config: ElectronConnectionConfig): Promise<void> {
+        await this.discoverWindows();
 
-            if (port) {
-                this.logger.info(`[ElectronDriver] Spawning process manually with port ${port}`);
-
-                const env = { ...process.env };
-                delete env['ELECTRON_RUN_AS_NODE'];
-                delete env['NODE_OPTIONS'];
-
-                this.appProcess = spawn(config.executablePath!, config.launchArgs || [], {
-                    env, 
-                    detached: false,
-                    stdio: 'pipe'
-                });
-
-                this.logger.info(`[ElectronDriver] Process spawned with PID: ${this.appProcess.pid}`);
-
-                this.appProcess.stdout?.on('data', (data) => {
-                    this.logger.info(`[Electron App] ${data.toString()}`);
-                });
-                
-                this.appProcess.stderr?.on('data', (data) => {
-                    this.logger.warn(`[Electron App Err] ${data.toString()}`);
-                });
-
-                const cdpUrl = `http://127.0.0.1:${port}`;
-                try {
-                    this.browser = await retryAsync(
-                        async () => chromium.connectOverCDP(cdpUrl, {
-                            timeout: config.connectionTimeout || CDP_CONSTANTS.CONNECTION_TIMEOUT_MS
-                        }),
-                        {
-                            ...RETRY_PROFILES.electronExecutableConnect,
-                            shouldRetry: (error) => isTransientElectronConnectError(error),
-                            onRetry: (info) => {
-                                const message = info.error instanceof Error ? info.error.message : String(info.error);
-                                this.logger.debug(
-                                    `[ElectronDriver] Waiting for executable CDP (${info.attempt}/${info.maxAttempts - 1}): ${message}`
-                                );
-                            }
-                        }
-                    );
-                } catch (error) {
-                    const message = error instanceof Error ? error.message : String(error);
-                    throw new Error(`Failed to connect to manually spawned Electron app after retries: ${message}`);
-                }
-            } else {
-                const defaultArgs = [`--remote-debugging-port=${CDP_DEFAULT_PORT}`];
-
-                const args = [
-                    ...(config.launchArgs || []),
-                    ...(config.launchArgs?.some(a => a.includes('remote-debugging-port')) ? [] : defaultArgs)
-                ];
-
-                this.browser = await chromium.launch({
-                    executablePath: config.executablePath!,
-                    args,
-                    timeout: config.connectionTimeout || CDP_CONSTANTS.CONNECTION_TIMEOUT_MS,
-                    ignoreDefaultArgs: true
-                });
-            }
-
-            this.logger.debug('[ElectronDriver] App launched successfully');
-            await this.discoverWindows();
-
-            if (config.waitForWindow !== false && this.windowManager.getWindowCount() === 0) {
-                await this.waitForWindow(CDP_CONSTANTS.WINDOW_WAIT_TIMEOUT_MS);
-            }
-
-            await this.windowSelectionPolicy.selectTargetWindow(this.windowManager, config.windowTitle);
-
-            this.logger.info(`[ElectronDriver] Launched with ${this.windowManager.getWindowCount()} window(s)`);
-        } catch (error) {
-            this.logger.error('[ElectronDriver] Launch error:', error);
-            throw error;
+        if (config.waitForWindow !== false && this.windowManager.getWindowCount() === 0) {
+            await this.waitForWindow(CDP_CONSTANTS.WINDOW_WAIT_TIMEOUT_MS);
         }
+
+        await this.windowSelectionPolicy.selectTargetWindow(this.windowManager, config.windowTitle);
+        this.buildAdapter();
+    }
+
+    private buildAdapter(): void {
+        const win = this.windowManager.getActiveWindow();
+        if (!win) return;
+
+        this.adapter = new PlaywrightAdapter(this.logger);
+        this.adapter.setAttachedPage(win.page);
     }
 
     async disconnect(): Promise<void> {
-        this.logger.info('[ElectronDriver] Disconnecting from Electron app');
-
-        this.windowManager.clear();
+        this.logger.info(`${ElectronDriver.TAG} Disconnecting`);
+        this.adapter = null;
+        this.windowManager.reset();
 
         if (this.browser) {
-            await this.browser.close().catch(err => {
-                this.logger.warn(`[ElectronDriver] Error closing browser: ${err}`);
+            await this.browser.close().catch((e) => {
+                this.logger.warn(`${ElectronDriver.TAG} Error closing browser: ${e}`);
             });
             this.browser = null;
         }
 
         if (this.appProcess) {
-            this.logger.info('[ElectronDriver] Killing spawned app process');
+            this.logger.debug(`${ElectronDriver.TAG} Killing spawned process`);
             this.appProcess.kill();
             this.appProcess = null;
         }
@@ -205,54 +127,72 @@ export class ElectronDriver implements IAppDriver {
             supportsDOM: true,
             supportsVision: true,
             supportsMultiWindow: true,
-            supportsNativeInteraction: true // Electron has native menus, dialogs, etc.
+            supportsNativeInteraction: true,
         };
+    }
+
+    getAutomation(): IStructuredAutomation {
+        if (this.adapter) return this.adapter;
+
+        const win = this.windowManager.getActiveWindow();
+        if (!win) {
+            throw new Error(`${ElectronDriver.TAG} No active window available`);
+        }
+
+        this.adapter = new PlaywrightAdapter(this.logger);
+        this.adapter.setAttachedPage(win.page);
+        return this.adapter;
+    }
+
+    switchToWindow(windowId: string): void {
+        const result = this.windowManager.setActiveWindow(windowId);
+        if (result.isErr()) {
+            throw new Error(`${ElectronDriver.TAG} ${result.error.message}`);
+        }
+
+        const win = this.windowManager.getActiveWindow();
+        if (!win) {
+            throw new Error(`${ElectronDriver.TAG} Window ${windowId} not found after switch`);
+        }
+
+        this.adapter = new PlaywrightAdapter(this.logger);
+        this.adapter.setAttachedPage(win.page);
+        this.logger.info(`${ElectronDriver.TAG} Switched to window: ${windowId}`);
+    }
+
+    async refreshWindows(): Promise<void> {
+        await this.discoverWindows();
     }
 
     private async discoverWindows(): Promise<void> {
         if (!this.browser) {
-            throw new Error('[ElectronDriver] Browser not connected');
+            throw new Error(`${ElectronDriver.TAG} Browser not connected`);
         }
 
-        this.windowManager.clear();
+        this.windowManager.reset();
 
-        const contexts = this.browser.contexts();
-
-        for (const context of contexts) {
-            const pages = context.pages();
-
-            for (const page of pages) {
+        for (const context of this.browser.contexts()) {
+            for (const page of context.pages()) {
                 const result = await this.windowManager.registerWindow(page);
                 if (result.isErr()) {
-                    this.logger.warn(`[ElectronDriver] Failed to register window: ${result.error.message}`);
+                    this.logger.warn(`${ElectronDriver.TAG} Failed to register window: ${result.error.message}`);
                 }
             }
         }
 
-        this.logger.debug(`[ElectronDriver] Discovered ${this.windowManager.getWindowCount()} window(s)`);
+        this.logger.debug(`${ElectronDriver.TAG} Discovered ${this.windowManager.getWindowCount()} window(s)`);
     }
 
     private async waitForWindow(timeoutMs: number): Promise<void> {
         const startTime = Date.now();
 
         while (this.windowManager.getWindowCount() === 0 && Date.now() - startTime < timeoutMs) {
-            await new Promise(resolve => setTimeout(resolve, CDP_CONSTANTS.WINDOW_POLL_INTERVAL_MS));
+            await new Promise((resolve) => setTimeout(resolve, CDP_CONSTANTS.WINDOW_POLL_INTERVAL_MS));
             await this.discoverWindows();
         }
 
         if (this.windowManager.getWindowCount() === 0) {
-            throw new Error('[ElectronDriver] Timeout waiting for window');
+            throw new Error(`${ElectronDriver.TAG} Timeout waiting for window`);
         }
-    }
-
-    getAutomation(): IStructuredAutomation {
-        const win = this.windowManager.getActiveWindow();
-        if (!win) {
-             throw new Error('[ElectronDriver] No active window available for browser automation.');
-        }
-
-        const adapter = new PlaywrightAdapter(this.logger);
-        adapter.setAttachedPage(win.page);
-        return adapter;
     }
 }

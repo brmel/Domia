@@ -10,6 +10,7 @@ function createLogger(): ILogger {
         info: vi.fn(),
         warn: vi.fn(),
         error: vi.fn(),
+        setLevel: vi.fn(),
     };
 }
 

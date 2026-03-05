@@ -30,6 +30,7 @@ export interface PlatformDefinition<T extends BasePlatformConfig> {
   label: string;
   description: string;
   icon: string;
+  available?: boolean;
   
   renderFields: React.ComponentType<FieldRenderProps>;
   
@@ -67,6 +68,7 @@ export const platformRegistry: Record<UIPlatformType, PlatformDefinition<BasePla
     label: 'Android',
     description: 'Automate Android apps via Appium',
     icon: '📱',
+    available: false,
     renderFields: AndroidPlatformFields,
     defaultValues: {
       appPackage: '',
@@ -78,6 +80,7 @@ export const platformRegistry: Record<UIPlatformType, PlatformDefinition<BasePla
     label: 'iOS',
     description: 'Automate iOS apps via Appium',
     icon: '🍎',
+    available: false,
     renderFields: IosPlatformFields,
     defaultValues: {
       bundleId: '',

@@ -9,8 +9,10 @@ import readline from 'readline';
 import { RunUseCase } from '../application/use-cases';
 import { ExecutionController } from '../application/controllers/ExecutionController';
 import { RunState } from '../domain/enums/RunState';
+import { LogLevel } from '../domain/enums/LogLevel';
 import { configureVerboseTracing } from '../composition/ContainerBuilder';
 import { buildPlatformConfig } from './platformUtils';
+import type { ILogger } from '../domain/ports';
 import {
     CLI_DEFAULT_STEPS,
     CLI_DEFAULT_URL,
@@ -19,15 +21,37 @@ import {
     DEFAULT_RECORDING_INTERVAL_MS,
 } from '../shared/defaults';
 
+const LOG_LEVEL_CHOICES = ['error', 'warn', 'info', 'debug'] as const;
+type LogLevelChoice = typeof LOG_LEVEL_CHOICES[number];
+
+function parseLogLevel(value: string): LogLevelChoice {
+    const lower = value.toLowerCase() as LogLevelChoice;
+    if (!LOG_LEVEL_CHOICES.includes(lower)) {
+        throw new Error(`Invalid log level: ${value}. Must be one of: ${LOG_LEVEL_CHOICES.join(', ')}`);
+    }
+    return lower;
+}
+
+function toLogLevelEnum(level: LogLevelChoice): LogLevel {
+    const map: Record<LogLevelChoice, LogLevel> = {
+        error: LogLevel.ERROR,
+        warn: LogLevel.WARN,
+        info: LogLevel.INFO,
+        debug: LogLevel.DEBUG,
+    };
+    return map[level];
+}
+
 export class RunCommand {
     static register(program: Command): void {
         program
             .command('run')
             .description('Start an autonomous agent session')
             .option('-u, --url <url>', 'Target URL (Web platform)')
+            .option('--platform <platform>', 'Platform type: web, electron, android, ios')
             .option('--cdp-url <cdpUrl>', 'CDP URL for Electron (e.g., http://localhost:9222)')
             .option('--executable-path <path>', 'Path to Electron executable')
-            .option('--launch-args <args>', 'Launch arguments for Electron (comma-separated)')
+            .option('--launch-args <args...>', 'Launch arguments for Electron (space-separated)')
             .option('--window-title <title>', 'Target window title (Electron)')
             .option('--app-package <package>', 'Android app package (e.g., com.example.app)')
             .option('--bundle-id <id>', 'iOS bundle identifier (e.g., com.example.App)')
@@ -39,6 +63,7 @@ export class RunCommand {
             .option('-H, --no-headless', 'Run in headful mode (visible window)', false)
             .option('--model <model>', 'LLM model name (e.g., gemini-2.0-flash)')
             .option('--api-key <key>', 'LLM API key override for this run')
+            .option('--log-level <level>', 'Log level: error, warn, info, debug', 'info')
             .option('--verbose', 'Enable verbose artifact export', false)
             .option('--debug', 'Enable debug logging', false)
             .option('-V, --vision', 'Enable Vision LLM', false)
@@ -75,7 +100,9 @@ export class RunCommand {
                     deviceUdid,
                     model,
                     apiKey,
-                    pluginDir
+                    pluginDir,
+                    logLevel: logLevelRaw,
+                    platform: platformFlag,
                 } = options;
 
                 const { headless } = options;
@@ -99,6 +126,10 @@ export class RunCommand {
                     console.log(chalk.gray(`[LLM] provider=google model=${resolvedModel}`));
                 }
 
+                const effectiveLogLevel = debug ? 'debug' as LogLevelChoice : parseLogLevel(logLevelRaw as string);
+                const logger = container.resolve<ILogger>('ILogger');
+                logger.setLevel(toLogLevelEnum(effectiveLogLevel));
+
                 if (debug) {
                     const debugModule = await import('debug');
                     debugModule.default.enable('domia:*');
@@ -116,14 +147,21 @@ export class RunCommand {
                     await new CB().loadPlugins(pluginDir as string | undefined);
                 }
 
-                if ((!url && !cdpUrl && !executablePath && !appPackage && !bundleId) || !prompt) {
+                if ((!url && !cdpUrl && !executablePath && !appPackage && !bundleId && !platformFlag) || !prompt) {
                     const answers = await inquirer.prompt([
+                        {
+                            type: 'list',
+                            name: 'platformChoice',
+                            message: 'Select platform:',
+                            choices: ['web', 'electron (CDP)', 'electron (executable)'],
+                            when: !url && !cdpUrl && !executablePath && !appPackage && !bundleId && !platformFlag,
+                        },
                         {
                             type: 'input',
                             name: 'url',
                             message: 'Target URL:',
                             default: CLI_DEFAULT_URL,
-                            when: !url && !cdpUrl && !executablePath && !appPackage && !bundleId,
+                            when: (ans: Record<string, unknown>) => !url && !cdpUrl && !executablePath && !appPackage && !bundleId && (!platformFlag || platformFlag === 'web') && (ans['platformChoice'] === 'web' || !ans['platformChoice']),
                         },
                         {
                             type: 'input',
@@ -139,9 +177,9 @@ export class RunCommand {
                             when: !steps,
                         }
                     ]);
-                    url = url || answers.url;
-                    prompt = prompt || answers.prompt;
-                    steps = steps || answers.steps;
+                    url = url || answers['url'];
+                    prompt = prompt || answers['prompt'];
+                    steps = steps || answers['steps'];
                 }
 
                 const spinner = ora('Initializing Agent...').start();
@@ -220,6 +258,7 @@ export class RunCommand {
 
                     const platformConfig = buildPlatformConfig({
                         url,
+                        platform: platformFlag,
                         cdpUrl,
                         executablePath,
                         launchArgs,

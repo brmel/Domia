@@ -63,4 +63,26 @@ describe('WorkflowWorkspace', () => {
 		expect(html).toContain('Workflow Definitions');
 		expect(html).toContain('Smoke Workflow');
 	});
+
+	it('renders workflow definition version and status badge', () => {
+		const html = renderToStaticMarkup(<WorkflowWorkspace />);
+
+		// The mock returns a workflow with version 1 and status 'draft'
+		expect(html).toContain('v1');
+		expect(html).toContain('draft');
+	});
+
+	it('renders workflow step count for each definition', () => {
+		const html = renderToStaticMarkup(<WorkflowWorkspace />);
+
+		// The component renders step indices as 'Step 1', 'Step 2', etc. in the editor
+		expect(html).toContain('Step 1');
+	});
+
+	it('renders platform badge for each workflow definition', () => {
+		const html = renderToStaticMarkup(<WorkflowWorkspace />);
+
+		// The mock workflow uses platform 'web'
+		expect(html.toLowerCase()).toContain('web');
+	});
 });

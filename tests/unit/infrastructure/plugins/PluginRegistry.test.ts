@@ -6,7 +6,7 @@ import type { PluginManifest } from '@infrastructure/plugins/PluginManifest';
 import { z } from 'zod';
 
 function createLogger(): ILogger {
-    return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), setLevel: vi.fn() };
 }
 
 function fakeManifest(name: string, toolNames: string[]): PluginManifest {

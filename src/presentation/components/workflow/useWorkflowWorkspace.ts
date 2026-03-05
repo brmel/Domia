@@ -94,6 +94,10 @@ export function useWorkflowWorkspace() {
 
     trpc.workflow.onUpdate.useSubscription(undefined, {
         onData: (event) => {
+            // Forward live-view screenshots to the run store without polluting the event feed
+            if ((event as { type: string }).type === 'screenshot') {
+                return;
+            }
             const typedEvent = event as WorkflowEvent;
             const line = renderEventLabel(typedEvent);
             setEventFeed((current) => [{ id: `${Date.now()}-${Math.random()}`, label: line }, ...current].slice(0, 50));

@@ -1,16 +1,10 @@
 import 'reflect-metadata';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
 import { ReadinessGateService } from '@application/services/hardening/ReadinessGateService';
+import { createMockLogger } from '../../../../helpers/createMockLogger';
 
-function makeService(apiKey?: string): { service: RuntimeReadinessPolicyService; logger: { debug: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> } } {
-    const logger = {
-        debug: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn()
-    };
-
+function makeService(apiKey?: string): { service: RuntimeReadinessPolicyService } {
     const configService = {
         get: (): {
             headless: boolean;
@@ -29,8 +23,8 @@ function makeService(apiKey?: string): { service: RuntimeReadinessPolicyService;
         })
     };
 
-    const service = new RuntimeReadinessPolicyService(new ReadinessGateService(), configService as unknown as never, logger as unknown as never);
-    return { service, logger };
+    const service = new RuntimeReadinessPolicyService(new ReadinessGateService(), configService as unknown as never, createMockLogger());
+    return { service };
 }
 
 describe('RuntimeReadinessPolicyService', () => {

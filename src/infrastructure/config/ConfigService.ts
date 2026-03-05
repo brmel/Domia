@@ -52,6 +52,13 @@ export class ConfigService implements IConfigService {
             promptOverrides: updates.promptOverrides !== undefined
                 ? updates.promptOverrides
                 : this.config.promptOverrides,
+            plugins: updates.plugins !== undefined
+                ? {
+                    ...this.config.plugins,
+                    ...updates.plugins,
+                    shell: { ...this.config.plugins.shell, ...updates.plugins.shell },
+                }
+                : this.config.plugins,
         };
 
         this.save();

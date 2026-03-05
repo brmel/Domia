@@ -6,6 +6,7 @@ import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import type { ActionRecordingData } from '@domain/types/ActionRecordingTypes';
 import type { ActionRecordingOptions } from '../recording/ActionRecordingService';
 import type { ShellExecutor } from '../shell/ShellExecutor';
+import type { ElectronWindowManager } from '../drivers/ElectronWindowManager';
 
 export interface ToolSpec {
     readonly name: string;
@@ -32,4 +33,5 @@ export interface ToolDependencies {
     readonly recording?: RecordingConfig;
     readonly onRecording?: (recording: ActionRecordingData) => void | Promise<void>;
     readonly shellExecutor?: ShellExecutor;
+    readonly windowManager?: ElectronWindowManager;
 }

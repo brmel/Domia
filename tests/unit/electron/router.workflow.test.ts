@@ -5,6 +5,7 @@ import { container } from '../../../src/composition-root';
 import { appRouter } from '../../../electron/router';
 import { WorkflowRunOrchestratorService } from '@application/services/workflow/WorkflowRunOrchestratorService';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
+import { createMockLogger } from '../../helpers/createMockLogger';
 
 function createInMemoryPersistence() {
     const definitions = new Map<string, WorkflowDefinition>();
@@ -64,7 +65,7 @@ describe('workflow router', () => {
 
         container.registerInstance('IPersistenceAdapter', persistence as never);
         container.registerInstance('IWorkflowRepository', persistence as never);
-        container.registerInstance('ILogger', { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as never);
+        container.registerInstance('ILogger', createMockLogger());
 
         const caller = appRouter.createCaller({} as never);
         const details = await caller.workflow.getRunDetails({ workflowRunId: 'wr-1' });
@@ -77,7 +78,7 @@ describe('workflow router', () => {
         const persistence = createInMemoryPersistence();
         container.registerInstance('IPersistenceAdapter', persistence as never);
         container.registerInstance('IWorkflowRepository', persistence as never);
-        container.registerInstance('ILogger', { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } as never);
+        container.registerInstance('ILogger', createMockLogger());
 
         const caller = appRouter.createCaller({} as never);
 

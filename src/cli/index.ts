@@ -10,6 +10,7 @@ import { RunCommand } from './RunCommand';
 import { HistoryCommand } from './HistoryCommand';
 import { WorkflowCommand } from './WorkflowCommand';
 import { SettingsCommand } from './SettingsCommand';
+import { InspectCommand } from './InspectCommand';
 
 registerCoreServices();
 const cliBuilder = new ContainerBuilder();
@@ -27,6 +28,7 @@ RunCommand.register(program);
 HistoryCommand.register(program);
 WorkflowCommand.register(program);
 SettingsCommand.register(program);
+InspectCommand.register(program);
 
 program.parse(process.argv);
 

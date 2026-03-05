@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { okAsync } from 'neverthrow';
 import { RunDurabilityService } from '@application/services/execution/RunDurabilityService';
+import { createMockLogger } from '../../../../helpers/createMockLogger';
 
 describe('RunDurabilityService', () => {
     it('skips duplicate checkpoints with identical signatures', async () => {
@@ -9,14 +10,7 @@ describe('RunDurabilityService', () => {
             saveCheckpoint: vi.fn(() => okAsync(undefined))
         };
 
-        const logger = {
-            info: vi.fn(),
-            warn: vi.fn(),
-            debug: vi.fn(),
-            error: vi.fn()
-        };
-
-        const service = new RunDurabilityService(persistence as unknown as never, logger as unknown as never);
+        const service = new RunDurabilityService(persistence as unknown as never, createMockLogger());
         const state = {
             stepNumber: 1,
             status: 'thinking',

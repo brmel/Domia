@@ -1,35 +1,28 @@
 import { injectable, inject } from 'tsyringe';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import type { IConfigService } from '@domain/ports/IConfigService';
 import type {
     IPromptService,
     PromptKey,
     PromptOverrides,
 } from '@domain/ports/IPromptService';
+import {
+    DEFAULT_SYSTEM_INSTRUCTION,
+    DEFAULT_STEP_GOAL,
+    DEFAULT_LOOP_WARNING,
+    DEFAULT_TARGETING_BOTH,
+    DEFAULT_TARGETING_REF_ONLY,
+    DEFAULT_TARGETING_MOUSE_ONLY,
+    DEFAULT_TOOL_DESCRIPTIONS,
+} from './promptDefaults';
 
-const __filename_esm = typeof __filename !== 'undefined' ? __filename : fileURLToPath(import.meta.url);
-const __dirname_esm = typeof __dirname !== 'undefined' ? __dirname : path.dirname(__filename_esm);
-
-const DEFAULTS_DIR = path.resolve(__dirname_esm, 'defaults');
-
-const PROMPT_FILES: Record<PromptKey, string> = {
-    systemInstruction: 'system-instruction.md',
-    stepGoal: 'step-goal.md',
-    loopWarning: 'loop-warning.md',
-    targetingBoth: 'targeting-both.md',
-    targetingRefOnly: 'targeting-ref-only.md',
-    targetingMouseOnly: 'targeting-mouse-only.md',
+const INLINE_DEFAULTS: Record<PromptKey, string> = {
+    systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
+    stepGoal: DEFAULT_STEP_GOAL,
+    loopWarning: DEFAULT_LOOP_WARNING,
+    targetingBoth: DEFAULT_TARGETING_BOTH,
+    targetingRefOnly: DEFAULT_TARGETING_REF_ONLY,
+    targetingMouseOnly: DEFAULT_TARGETING_MOUSE_ONLY,
 };
-
-function loadFile(filename: string): string {
-    try {
-        return fs.readFileSync(path.join(DEFAULTS_DIR, filename), 'utf-8').trim();
-    } catch {
-        return '';
-    }
-}
 
 function parseToolDescriptions(content: string): Record<string, string> {
     const result: Record<string, string> = {};
@@ -56,13 +49,8 @@ export class PromptService implements IPromptService {
     constructor(
         @inject('IConfigService') private readonly configService: IConfigService,
     ) {
-        this.defaultPrompts = {} as Record<PromptKey, string>;
-        for (const [key, file] of Object.entries(PROMPT_FILES)) {
-            this.defaultPrompts[key as PromptKey] = loadFile(file);
-        }
-
-        const toolDescContent = loadFile('tool-descriptions.md');
-        this.defaultToolDescriptions = parseToolDescriptions(toolDescContent);
+        this.defaultPrompts = { ...INLINE_DEFAULTS };
+        this.defaultToolDescriptions = parseToolDescriptions(DEFAULT_TOOL_DESCRIPTIONS);
 
         const config = this.configService.get();
         const overrides = (config as unknown as { promptOverrides?: PromptOverrides }).promptOverrides;

@@ -94,7 +94,7 @@ function createReadinessPolicyReal(logger: ILogger): RuntimeReadinessPolicyServi
 }
 
 function createLoggerMock(): ILogger {
-    return { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() };
+    return { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn(), setLevel: vi.fn() };
 }
 
 

@@ -27,6 +27,9 @@ export interface RunStoreState {
     platformData: PlatformFieldValue;
 
     replanningEvents: ReplanningTelemetry[];
+
+    /** Latest screenshot frame from the agent (base64 PNG), for the live view. */
+    liveScreenshot: string | null;
 }
 
 interface TestRunActions {
@@ -37,6 +40,7 @@ interface TestRunActions {
     setSelectedPlatform: (platform: UIPlatformType) => void;
     setPlatformData: (data: PlatformFieldValue) => void;
     setStatus: (status: RunState) => void;
+    setLiveScreenshot: (data: string | null) => void;
 
     handleEvent: (event: RunEvent) => void;
 }
@@ -57,6 +61,7 @@ const initialState: RunStoreState = {
     selectedPlatform: 'web',
     platformData: { url: 'https://ibraverse.ca' },
     replanningEvents: [],
+    liveScreenshot: null,
 };
 
 export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
@@ -79,6 +84,7 @@ export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
             : {})
     }),
     setStatus: (status: RunState): void => set({ status }),
+    setLiveScreenshot: (liveScreenshot: string | null): void => set({ liveScreenshot }),
 
     handleEvent: (event: RunEvent): void => {
         switch (event.type) {
@@ -93,6 +99,7 @@ export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
                     summary: null,
                     errorMessage: null,
                     replanningEvents: [],
+                    liveScreenshot: null,
                 });
                 break;
 

@@ -16,6 +16,7 @@ export interface StepExecutionOptions {
         maxDurationMs?: number;
         intervalMs?: number;
     };
+    extras?: Readonly<Record<string, unknown>>;
 }
 
 @injectable()

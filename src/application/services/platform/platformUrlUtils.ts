@@ -9,6 +9,7 @@ export function resolveUrlFromConfig(config: PlatformConfig): string {
         case 'web':
             return config.url;
         case 'electron':
+            if (config.startUrl) return config.startUrl;
             return config.connection.type === 'cdp'
                 ? config.connection.cdpUrl
                 : 'electron://app';

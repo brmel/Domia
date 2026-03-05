@@ -6,5 +6,6 @@ export interface PlatformSession {
     readonly shouldNavigate: boolean;
     readonly automation: IStructuredAutomation;
     readonly driver?: IAppDriver;
+    readonly extras?: Readonly<Record<string, unknown>>;
     dispose(): Promise<void>;
 }

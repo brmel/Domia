@@ -27,6 +27,11 @@ export type AgentRunnerEvent =
     | {
           readonly type: 'thinking_chunk';
           readonly text: string;
+      }
+    | {
+          /** Base64-encoded PNG for the live view UI stream. */
+          readonly type: 'screenshot';
+          readonly data: string;
       };
 
 export interface StepRunnerConfig {
@@ -41,6 +46,7 @@ export interface StepRunnerConfig {
         readonly maxDurationMs?: number;
         readonly intervalMs?: number;
     };
+    readonly extras?: Readonly<Record<string, unknown>>;
 }
 
 export interface IAgentRunner {

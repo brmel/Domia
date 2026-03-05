@@ -85,12 +85,14 @@ export class RunUseCase {
         let disposeSession: (() => Promise<void>) | undefined;
         let shouldNavigate = true;
         let ownsSession = false;
+        let sessionExtras: Readonly<Record<string, unknown>> | undefined;
         
         try {
             const session = runContext?.session ?? await this.sessionFactory.createSession(input);
             automation = session.automation;
             disposeSession = session.dispose;
             shouldNavigate = runContext?.shouldNavigate ?? session.shouldNavigate;
+            sessionExtras = session.extras;
             ownsSession = runContext?.session
                 ? (runContext.disposeSessionOnComplete ?? false)
                 : true;
@@ -191,7 +193,10 @@ export class RunUseCase {
                 });
                 yield { type: 'state_updated', state: currentState };
 
-                const executionOptions = this.runCoordinator.buildExecutionOptions(input.options, input.platformConfig.platform);
+                const executionOptions = {
+                    ...this.runCoordinator.buildExecutionOptions(input.options, input.platformConfig.platform),
+                    ...(sessionExtras ? { extras: sessionExtras } : {}),
+                };
 
                 const stepKernel = this.kernel.execute(
                     runId,
@@ -307,7 +312,7 @@ export class RunUseCase {
         });
 
         if (replanningAssessment.shouldReplan) {
-            this.logger.warn('[ReplanningPolicyService] Replanning approved (active mode)', {
+            this.logger.info('[ReplanningPolicyService] Replanning approved (active mode)', {
                 runId: ctx.runId,
                 trigger: replanningTrigger,
                 replanCount: ctx.replanCount,
@@ -343,7 +348,7 @@ export class RunUseCase {
         const newReplanCount = ctx.replanCount + 1;
         const newConsecutiveFailures = ctx.consecutiveStepFailures + 1;
 
-        this.logger.warn('[RunUseCase] Step failed verification', {
+        this.logger.info('[RunUseCase] Step failed verification', {
             runId: ctx.runId,
             error: errorMsg,
             planItemId: runningItem.id,

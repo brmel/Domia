@@ -5,6 +5,7 @@ import { WorkflowError } from '@domain/errors';
 import type { IAppDriverFactory, AppDriverCreateOptions } from '@domain/ports/IAppDriverFactory';
 import type { PlatformSession } from './PlatformSession';
 import { resolveUrlFromConfig } from './platformUrlUtils';
+import { ElectronDriver } from '@infrastructure/drivers/ElectronDriver';
 
 @injectable()
 export class PlatformSessionFactory {
@@ -40,13 +41,20 @@ export class PlatformSessionFactory {
         }
 
         const executionUrl = resolveUrlFromConfig(input.platformConfig);
-        const shouldNavigate = platformConfig.platform === 'web';
+        const shouldNavigate = platformConfig.platform === 'web'
+            || (platformConfig.platform === 'electron' && 'startUrl' in platformConfig && !!platformConfig.startUrl);
+
+        const extras: Record<string, unknown> = {};
+        if (driver instanceof ElectronDriver) {
+            extras['windowManager'] = driver.windowManager;
+        }
 
         return {
             executionUrl,
             shouldNavigate,
             automation,
             driver,
+            extras,
             dispose: async (): Promise<void> => {
                 await driver.disconnect().catch((err): void => {
                     this.logger.warn(`[PlatformSessionFactory] Error disconnecting driver: ${String(err)}`);

@@ -13,6 +13,8 @@ import { buildAgentInstruction } from '../agent/common/AgentInstructionBuilder';
 import { interpolate } from '../prompts/PromptService';
 import { PluginRegistry } from '../plugins/PluginRegistry';
 import { ShellExecutor } from '../shell/ShellExecutor';
+import type { IConfigService } from '@domain/ports/IConfigService';
+import type { ElectronWindowManager } from '../drivers/ElectronWindowManager';
 import { DEFAULT_LLM_MODEL, LLM_CALL_BUDGET_OFFSET, DEFAULT_LOOP_GUARD_THRESHOLD, FINAL_RESPONSE_LOG_CHARS, TOOL_TIME_LOG_THRESHOLD_MS } from '@shared/defaults';
 
 const APP_NAME = 'domia';
@@ -35,6 +37,7 @@ export class AdkAgentRunner implements IAgentRunner {
         @inject(PluginRegistry) private readonly pluginRegistry: PluginRegistry,
         @inject('IPromptService') private readonly promptService: IPromptService,
         @inject(ShellExecutor) private readonly shellExecutor: ShellExecutor,
+        @inject('IConfigService') private readonly configService: IConfigService,
     ) {}
 
     async *executeStep(
@@ -69,6 +72,16 @@ export class AdkAgentRunner implements IAgentRunner {
         let lastObservedUrl: string = url;
         let llmTurnStartMs = Date.now();
 
+        // Live-view screenshot streaming
+        let latestScreenshot: string | null = null;
+        let screenshotPromise: Promise<void> | null = null;
+
+        const captureScreenshotForView = (): void => {
+            screenshotPromise = perceptionSource.captureScreenshot()
+                .then(buf => { latestScreenshot = buf.toString('base64'); })
+                .catch(() => {});
+        };
+
         const flushPending = function* (): Generator<AgentRunnerEvent> {
             if (!pendingYield) return;
             if (pendingYield.type !== 'action') {
@@ -95,13 +108,16 @@ export class AdkAgentRunner implements IAgentRunner {
             pendingYield = null;
         };
 
+        const windowManager = config.extras?.['windowManager'] as ElectronWindowManager | undefined;
+
         const { tools, catalog } = createAdkTools({
             automation,
             perception: this.perception,
             perceptionSource,
             vision,
             platform: config.platform,
-            shellExecutor: this.shellExecutor,
+            ...(this.configService.get().plugins.shell.enabled ? { shellExecutor: this.shellExecutor } : {}),
+            ...(windowManager ? { windowManager } : {}),
             onCapture: async (capturedFrame) => {
                 try {
                     await this.storage.savePerceptionAssets(config.runId, actionCount, capturedFrame);
@@ -178,6 +194,8 @@ export class AdkAgentRunner implements IAgentRunner {
                     lastObservedUrl = res['navigatedUrl'] as string;
                 }
                 this.logger.debug(`[AdkAgentRunner] Tool ${tool.name} completed in ${durationMs}ms`, { status: res?.['status'] });
+                // Capture a screenshot after every tool execution for the live view
+                captureScreenshotForView();
                 return undefined;
             },
         });
@@ -215,6 +233,13 @@ export class AdkAgentRunner implements IAgentRunner {
                         this.logger.info(`[AdkAgentRunner] LLM responded in ${llmLatencyMs}ms (tool: ${prevToolMs}ms, round-trip: ${roundTripMs}ms)`);
                     } else {
                         this.logger.info(`[AdkAgentRunner] LLM responded in ${llmLatencyMs}ms`);
+                    }
+
+                    // Flush screenshot from the previous tool before processing next actions
+                    if (screenshotPromise) { await screenshotPromise; screenshotPromise = null; }
+                    if (latestScreenshot) {
+                        yield { type: 'screenshot', data: latestScreenshot };
+                        latestScreenshot = null;
                     }
 
                     for (const fc of functionCalls) {

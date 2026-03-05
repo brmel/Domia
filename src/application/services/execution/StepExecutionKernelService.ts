@@ -56,6 +56,7 @@ export class StepExecutionKernelService {
                 maxActions: executionOptions.maxActions,
                 platform: executionOptions.platform,
                 recording: executionOptions.recording,
+                extras: executionOptions.extras,
             },
         );
 
@@ -71,6 +72,8 @@ export class StepExecutionKernelService {
             while (!next.done) {
                 if (next.value.type === 'thinking_chunk') {
                     yield { type: 'thinking_chunk', text: next.value.text } as RunOutput;
+                } else if (next.value.type === 'screenshot') {
+                    yield { type: 'screenshot', data: next.value.data } as RunOutput;
                 } else if (next.value.type === 'action') {
                     const action = next.value.action;
 

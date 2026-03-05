@@ -1,14 +1,10 @@
 import 'reflect-metadata';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { RunBudgetPolicyService } from '@application/services/execution/RunBudgetPolicyService';
+import { createMockLogger } from '../../../../helpers/createMockLogger';
 
-function createService(): { service: RunBudgetPolicyService; logger: { debug: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> } } {
-    const logger = {
-        debug: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn()
-    };
+function createService(): { service: RunBudgetPolicyService; logger: ReturnType<typeof createMockLogger> } {
+    const logger = createMockLogger();
 
     return {
         service: new RunBudgetPolicyService(logger),

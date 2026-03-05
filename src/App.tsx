@@ -7,6 +7,7 @@ import { SegmentedControl } from './presentation/components/ui/SegmentedControl'
 import { RunsWorkspace } from './presentation/components/layout/RunsWorkspace';
 import { ComposeWorkspace } from './presentation/components/layout/ComposeWorkspace';
 import { WorkflowWorkspace } from './presentation/components/workflow/WorkflowWorkspace';
+import { PluginsWorkspace } from './presentation/components/layout/PluginsWorkspace';
 import { StepInspector } from './presentation/components/run/StepInspector';
 import { RunState } from '@domain/enums/RunState';
 
@@ -17,7 +18,7 @@ const SECTION_TABS: ReadonlyArray<{ id: AppSection; label: string }> = [
     { id: 'compose', label: 'Compose' },
     { id: 'workflow', label: 'Workflow' },
     { id: 'skills', label: 'Skills · Not available' },
-    { id: 'plugins', label: 'Plugins · Not available' },
+    { id: 'plugins', label: 'Plugins' },
     { id: 'governance', label: 'Governance · Not available' },
     { id: 'observability', label: 'Observability · Not available' }
 ];
@@ -69,18 +70,7 @@ function App(): JSX.Element {
         }
 
         if (section === 'plugins') {
-            return (
-                <AppSectionPlaceholder
-                    title="Plugins"
-                    unavailable
-                    description="Capability-first operations across SSH, filesystem, and device connectors with policy controls."
-                    nextSteps={[
-                        'Add plugin catalog with trust and capability matrix.',
-                        'Add policy decision visibility per invocation.',
-                        'Add runtime controls for rate limit and kill switch.'
-                    ]}
-                />
-            );
+            return <PluginsWorkspace />;
         }
 
         if (section === 'governance') {

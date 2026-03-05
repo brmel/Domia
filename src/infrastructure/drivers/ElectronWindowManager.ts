@@ -18,11 +18,13 @@ export interface WindowSelector {
 }
 
 export class ElectronWindowManager {
-    private windows: Map<string, ElectronWindow> = new Map();
+    private static readonly TAG = '[ElectronWindowManager]';
+
+    private windows = new Map<string, ElectronWindow>();
     private activeWindowId: string | null = null;
     private windowIdCounter = 0;
 
-    constructor(private readonly logger: ILogger) { }
+    constructor(private readonly logger: ILogger) {}
 
     async registerWindow(page: Page): Promise<Result<string, Error>> {
         try {
@@ -30,64 +32,27 @@ export class ElectronWindowManager {
             const title = await page.title().catch(() => 'Untitled');
             const url = page.url();
 
-            this.windows.set(windowId, {
-                id: windowId,
-                page,
-                title,
-                url
-            });
+            this.windows.set(windowId, { id: windowId, page, title, url });
 
             if (!this.activeWindowId) {
                 this.activeWindowId = windowId;
             }
 
-            this.logger.debug(`[WindowManager] Registered window: ${windowId} - ${title}`);
-
+            this.logger.debug(`${ElectronWindowManager.TAG} Registered: ${windowId} — ${title}`);
             return ok(windowId);
         } catch (error) {
             return err(new Error(`Failed to register window: ${error}`));
         }
     }
 
-    unregisterWindow(windowId: string): Result<void, ValidationError> {
-        const validation = CDPValidator.validateWindowId(windowId);
-        if (validation.isErr()) {
-            return err(validation.error);
-        }
-
-        if (!this.windows.has(windowId)) {
-            return err(new ValidationError(
-                `Window ${windowId} not found`,
-                'windowId',
-            ));
-        }
-
-        this.windows.delete(windowId);
-
-        if (this.activeWindowId === windowId) {
-            const keys = Array.from(this.windows.keys());
-            this.activeWindowId = keys.length > 0 ? keys[0]! : null;
-        }
-
-        this.logger.debug(`[WindowManager] Unregistered window: ${windowId}`);
-
-        return ok(undefined);
-    }
-
     getWindow(windowId: string): Result<ElectronWindow, ValidationError> {
         const validation = CDPValidator.validateWindowId(windowId);
-        if (validation.isErr()) {
-            return err(validation.error);
-        }
+        if (validation.isErr()) return err(validation.error);
 
         const window = this.windows.get(windowId);
         if (!window) {
-            return err(new ValidationError(
-                `Window ${windowId} not found`,
-                'windowId',
-            ));
+            return err(new ValidationError(`Window ${windowId} not found`, 'windowId'));
         }
-
         return ok(window);
     }
 
@@ -100,48 +65,35 @@ export class ElectronWindowManager {
             }
             return null;
         }
-
-        return this.windows.get(this.activeWindowId) || null;
+        return this.windows.get(this.activeWindowId) ?? null;
     }
 
     setActiveWindow(windowId: string): Result<void, ValidationError> {
         const validation = CDPValidator.validateWindowId(windowId);
-        if (validation.isErr()) {
-            return err(validation.error);
-        }
+        if (validation.isErr()) return err(validation.error);
 
         if (!this.windows.has(windowId)) {
-            return err(new ValidationError(
-                `Window ${windowId} not found`,
-                'windowId',
-            ));
+            return err(new ValidationError(`Window ${windowId} not found`, 'windowId'));
         }
 
         this.activeWindowId = windowId;
-        this.logger.debug(`[WindowManager] Active window set to: ${windowId}`);
-
+        this.logger.debug(`${ElectronWindowManager.TAG} Active window: ${windowId}`);
         return ok(undefined);
     }
 
     findWindow(selector: WindowSelector): Result<ElectronWindow, Error> {
-        if (selector.windowId) {
-            return this.getWindow(selector.windowId);
-        }
+        if (selector.windowId) return this.getWindow(selector.windowId);
 
         const windows = Array.from(this.windows.values());
 
         if (selector.title) {
-            const window = windows.find(w => w.title.includes(selector.title!));
-            if (window) {
-                return ok(window);
-            }
+            const w = windows.find((win) => win.title.includes(selector.title!));
+            if (w) return ok(w);
         }
 
         if (selector.url) {
-            const window = windows.find(w => w.url.includes(selector.url!));
-            if (window) {
-                return ok(window);
-            }
+            const w = windows.find((win) => win.url.includes(selector.url!));
+            if (w) return ok(w);
         }
 
         return err(new Error('No window found matching criteria'));
@@ -155,11 +107,11 @@ export class ElectronWindowManager {
         return this.windows.size;
     }
 
-    clear(): void {
+    reset(): void {
         this.windows.clear();
         this.activeWindowId = null;
         this.windowIdCounter = 0;
-        this.logger.debug('[WindowManager] Cleared all windows');
+        this.logger.debug(`${ElectronWindowManager.TAG} Reset`);
     }
 
     private generateWindowId(): string {

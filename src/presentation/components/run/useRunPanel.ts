@@ -6,7 +6,7 @@ import { RunState } from '@domain/enums/RunState';
 export function useRunPanel() {
     const {
         status, currentAction, plan, history, success, summary,
-        errorMessage, handleEvent, runId, replanningEvents,
+        errorMessage, handleEvent, runId, replanningEvents, setLiveScreenshot,
     } = useRunStore();
     const { open } = useStepInspectorStore();
 
@@ -27,6 +27,10 @@ export function useRunPanel() {
 
     trpc.run.onUpdate.useSubscription(undefined, {
         onData: (event) => {
+            if (event.type === 'screenshot') {
+                setLiveScreenshot(event.data);
+                return;
+            }
             handleEvent(event as Parameters<typeof handleEvent>[0]);
         },
         enabled: typeof window !== 'undefined' && 'electronTRPC' in window,

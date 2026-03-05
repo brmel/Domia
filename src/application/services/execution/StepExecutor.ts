@@ -8,7 +8,8 @@ export type { StepExecutionResult } from '@domain/ports/IAgentRunner';
 
 export type AgentActionEvent =
     | { readonly type: 'action'; readonly action: AgentAction }
-    | { readonly type: 'thinking_chunk'; readonly text: string };
+    | { readonly type: 'thinking_chunk'; readonly text: string }
+    | { readonly type: 'screenshot'; readonly data: string };
 
 @injectable()
 export class StepExecutor {
@@ -34,6 +35,7 @@ export class StepExecutor {
         await this.trace.startTrace(runId);
 
         const rec = options['recording'] as { enabled: boolean; maxDurationMs?: number; intervalMs?: number } | undefined;
+        const extras = options['extras'] as Readonly<Record<string, unknown>> | undefined;
         const config: import('@domain/ports/IAgentRunner').StepRunnerConfig = {
             runId,
             stepGoal,
@@ -41,6 +43,7 @@ export class StepExecutor {
             maxActions: options.maxActions,
             vision: options.vision,
             platform: options.platform as import('@domain/types/PlatformConfig').PlatformType | undefined,
+            ...(extras ? { extras } : {}),
         };
         if (rec) {
             (config as { recording: typeof rec }).recording = rec;
@@ -53,6 +56,8 @@ export class StepExecutor {
 
             if (event.type === 'thinking_chunk') {
                 yield { type: 'thinking_chunk', text: event.text };
+            } else if (event.type === 'screenshot') {
+                yield { type: 'screenshot', data: event.data };
             } else {
                 try {
                     await this.storage.saveStepTrace(runId, event.actionIndex, event.trace);

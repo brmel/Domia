@@ -13,7 +13,7 @@ import { BrowserPool } from '@infrastructure/playwright/BrowserPool';
 import { chromium } from 'playwright';
 
 function createLogger(): ILogger {
-    return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), setLevel: vi.fn() };
 }
 
 function mockBrowser(connected = true): Browser {

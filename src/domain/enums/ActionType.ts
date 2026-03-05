@@ -21,5 +21,7 @@ export enum ActionType {
     STOP_AND_REVIEW_RECORDING = 'stopAndReviewRecording',
     PASS = 'pass',
     FAIL = 'fail',
-    SHELL_EXEC = 'shell_exec'
+    SHELL_EXEC = 'shell_exec',
+    LIST_WINDOWS = 'list_windows',
+    SWITCH_WINDOW = 'switch_window',
 }

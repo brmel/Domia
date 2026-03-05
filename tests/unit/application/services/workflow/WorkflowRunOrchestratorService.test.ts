@@ -7,6 +7,7 @@ import type { WorkflowDefinition } from '@domain/entities/Workflow';
 import { RunState } from '@domain/enums/RunState';
 import { WorkflowStepPolicyService } from '@application/services/workflow/WorkflowStepPolicyService';
 import { PlatformCapabilityNegotiationService } from '@application/services/platform/PlatformCapabilityNegotiationService';
+import { createMockLogger } from '../../../../helpers/createMockLogger';
 
 describe('WorkflowRunOrchestratorService', () => {
     const definition: WorkflowDefinition = {
@@ -52,7 +53,7 @@ describe('WorkflowRunOrchestratorService', () => {
 
         const service = new WorkflowRunOrchestratorService(
             persistence as unknown as never,
-            { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as never,
+            createMockLogger(),
             new WorkflowStepPolicyService(),
             {
                 assess: vi.fn().mockReturnValue(
@@ -148,7 +149,7 @@ describe('WorkflowRunOrchestratorService', () => {
 
         const service = new WorkflowRunOrchestratorService(
             persistence as unknown as never,
-            { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as never,
+            createMockLogger(),
             new WorkflowStepPolicyService(),
             {
                 assess: vi.fn().mockReturnValue({ allowed: true })

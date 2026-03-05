@@ -20,7 +20,9 @@ export type AgentAction =
     | ObserveAction
     | PassAction
     | FailAction
-    | ShellExecAction;
+    | ShellExecAction
+    | ListWindowsAction
+    | SwitchWindowAction;
 
 interface ClickAction {
     readonly type: ActionType.CLICK;
@@ -158,5 +160,16 @@ interface ShellExecAction {
     readonly command: string;
     readonly cwd?: string;
     readonly timeoutMs?: number;
+    readonly thought: string;
+}
+
+interface ListWindowsAction {
+    readonly type: ActionType.LIST_WINDOWS;
+    readonly thought: string;
+}
+
+interface SwitchWindowAction {
+    readonly type: ActionType.SWITCH_WINDOW;
+    readonly windowId: string;
     readonly thought: string;
 }
