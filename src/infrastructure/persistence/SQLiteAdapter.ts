@@ -19,6 +19,7 @@ import { initializeSchema } from './SQLiteMigrationManager';
 import { SQLiteRunRepository } from './SQLiteRunRepository';
 import { SQLiteCheckpointRepository } from './SQLiteCheckpointRepository';
 import { SQLiteWorkflowRepository } from './SQLiteWorkflowRepository';
+import { DEFAULT_RUNS_QUERY_LIMIT, DEFAULT_WORKFLOWS_QUERY_LIMIT } from '@shared/defaults';
 
 export { SQLITE_MIGRATION_IDS } from './SQLiteMigrationManager';
 
@@ -59,7 +60,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         return this.runs.saveStep(step);
     }
 
-    getRuns(limit: number = 50): ResultAsync<Run[], PersistenceError> {
+    getRuns(limit: number = DEFAULT_RUNS_QUERY_LIMIT): ResultAsync<Run[], PersistenceError> {
         return this.runs.getRuns(limit);
     }
 
@@ -104,7 +105,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         return this.workflows.getWorkflowDefinition(id);
     }
 
-    getWorkflowDefinitions(limit: number = 100): ResultAsync<WorkflowDefinition[], PersistenceError> {
+    getWorkflowDefinitions(limit: number = DEFAULT_WORKFLOWS_QUERY_LIMIT): ResultAsync<WorkflowDefinition[], PersistenceError> {
         return this.workflows.getWorkflowDefinitions(limit);
     }
 
@@ -120,7 +121,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         return this.workflows.getWorkflowRun(id);
     }
 
-    getWorkflowRuns(limit: number = 100): ResultAsync<WorkflowRunRecord[], PersistenceError> {
+    getWorkflowRuns(limit: number = DEFAULT_WORKFLOWS_QUERY_LIMIT): ResultAsync<WorkflowRunRecord[], PersistenceError> {
         return this.workflows.getWorkflowRuns(limit);
     }
 

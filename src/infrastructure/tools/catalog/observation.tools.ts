@@ -3,6 +3,7 @@ import type { IStructuredAutomation } from '@domain/ports';
 import { ActionType } from '@domain/enums/ActionType';
 import type { ToolSpec } from '../ToolSpec';
 import type { PostActionCaptureMiddleware } from '../PostActionCaptureMiddleware';
+import { MAX_EXTRACT_TEXT_LENGTH, DEFAULT_WAIT_DURATION_MS } from '@shared/defaults';
 
 export function createObservationTools(
     automation: IStructuredAutomation,
@@ -33,7 +34,7 @@ export function createObservationTools(
             execute: async (args) => {
                 const result = await automation.extractText(args['ref'] as string);
                 if (result.isErr()) return { status: 'error', error: result.error.message };
-                const text = result.value.replace(/\s+/g, ' ').trim().slice(0, 400);
+                const text = result.value.replace(/\s+/g, ' ').trim().slice(0, MAX_EXTRACT_TEXT_LENGTH);
                 return { status: 'success', extractedText: text || '(empty)' };
             },
         },
@@ -45,7 +46,7 @@ export function createObservationTools(
                 durationMs: z.number().optional().describe('Milliseconds to pause. Default 1000.'),
             }),
             execute: async (args) => {
-                const ms = typeof args['durationMs'] === 'number' ? (args['durationMs'] as number) : 1000;
+                const ms = typeof args['durationMs'] === 'number' ? (args['durationMs'] as number) : DEFAULT_WAIT_DURATION_MS;
                 const result = await automation.wait(ms);
                 if (result.isErr()) return { status: 'error', error: result.error.message };
                 return { status: 'success' };

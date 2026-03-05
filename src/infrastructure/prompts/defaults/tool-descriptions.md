@@ -13,7 +13,7 @@ Extract the visible text content of an element for assertion or verification. Re
 Pause execution for a specified duration. Use to let animations, transitions, AJAX calls, or debounced UI updates complete. Input: { durationMs?: number (default 1000) }. Output: { status: "success" } or { status: "error", error: string }.
 
 ## waitForCondition
-Poll the page until a text pattern appears in the ARIA snapshot or a timeout is reached. This is a LONG-RUNNING operation that counts as a single action — do NOT call it again while it is pending. Use it when the system under test performs a slow operation (file upload, server job, payment processing, etc.) and you need to wait for a specific UI indicator before continuing. Input: { pattern: string, isRegex?: boolean (default false), timeoutMs?: number (default 30000, max 300000), pollIntervalMs?: number (default 2000) }. Output: { status: "matched", matchedText: string, elapsedMs: number, polls: number } or { status: "timeout", elapsedMs, polls, lastSnapshot (first 500 chars) }.
+Poll the page repeatedly until a text pattern appears in the ARIA snapshot, or a timeout is reached. Counts as a single action regardless of how many polls it takes. Prefer this over manual observe-wait-observe loops whenever you need to wait for the page to reach a specific state — it is more efficient and avoids burning your action budget. Typical situations: waiting for a background process to finish, a status to change, a counter to complete, a loading indicator to disappear, or a confirmation message to appear. Input: { pattern: string, isRegex?: boolean (default false), timeoutMs?: number (default 30000, max 600000), pollIntervalMs?: number (default 2000) }. Output: { status: "matched", matchedText, elapsedMs, polls } or { status: "timeout", elapsedMs, polls, lastSnapshot (first 500 chars) }.
 
 ## click
 Click an element by its ref from the ARIA snapshot. Input: { ref: string }. Output: { status: "success", navigatedUrl: string } or { status: "error", error: string }.
@@ -56,6 +56,12 @@ Scroll the viewport by one page-height in the given direction. Use to reveal off
 
 ## navigate
 Navigate to an absolute URL. Waits for the page to load then captures DOM and optional screenshot. Input: { url: string }. URL must include protocol (e.g. https://example.com). Output: { status: "success" } with updated page state, or { status: "error", error: string }.
+
+## startRecording
+Start recording all DOM text mutations on the current page at browser speed. Once active, every text addition and removal is captured — including changes that last less than 1 ms and would never be visible in a discrete observe snapshot. Call this BEFORE triggering an action whose UI effects you need to verify but that may complete too fast to observe (e.g., rapid counters, progress sequences, transient toasts, flash messages). After the activity finishes, call stopAndReviewRecording to get a structured summary of everything that changed. Input: {} (no parameters). Output: { status: "started" } or { status: "reset", message: string } if already recording.
+
+## stopAndReviewRecording
+Stop the active DOM recording and return a structured analysis of everything that changed since startRecording was called. Returns: allAddedValues (every unique text added), allRemovedValues (every unique text removed), transientValues (added then removed — no longer on the page), netPresentValues (added and still present), onlyRemovedValues (were on the page before recording, now gone), and a condensed timeline of the first 60 mutation events. This is the only way to verify content that appeared and disappeared between observe calls. Input: {}. Output: RecordingSummary or { status: "error", error: string }.
 
 ## pass
 Declare the task PASSED. Call ONLY when you have concrete evidence (via extract or observe) that the goal is fully satisfied. Terminates the agent loop. Input: { summary?: string }. Output: { status: "TASK_COMPLETED", summary: string }.

@@ -11,6 +11,13 @@ import { ExecutionController } from '../application/controllers/ExecutionControl
 import { RunState } from '../domain/enums/RunState';
 import { configureVerboseTracing } from '../composition/ContainerBuilder';
 import { buildPlatformConfig } from './platformUtils';
+import {
+    CLI_DEFAULT_STEPS,
+    CLI_DEFAULT_URL,
+    DEFAULT_APPIUM_URL,
+    DEFAULT_RECORDING_MAX_DURATION_MS,
+    DEFAULT_RECORDING_INTERVAL_MS,
+} from '../shared/defaults';
 
 export class RunCommand {
     static register(program: Command): void {
@@ -24,11 +31,11 @@ export class RunCommand {
             .option('--window-title <title>', 'Target window title (Electron)')
             .option('--app-package <package>', 'Android app package (e.g., com.example.app)')
             .option('--bundle-id <id>', 'iOS bundle identifier (e.g., com.example.App)')
-            .option('--appium-url <url>', 'Appium server URL (default: http://localhost:4723)')
+            .option('--appium-url <url>', `Appium server URL (default: ${DEFAULT_APPIUM_URL})`)
             .option('--device-serial <serial>', 'Android device serial for adb')
             .option('--device-udid <udid>', 'iOS device UDID for Xcode')
             .option('-p, --prompt <prompt>', 'Goal or instruction for the agent')
-            .option('-s, --steps <steps>', 'Max steps', '10')
+            .option('-s, --steps <steps>', 'Max steps', String(CLI_DEFAULT_STEPS))
             .option('-H, --no-headless', 'Run in headful mode (visible window)', false)
             .option('--model <model>', 'LLM model name (e.g., gemini-2.0-flash)')
             .option('--api-key <key>', 'LLM API key override for this run')
@@ -37,8 +44,8 @@ export class RunCommand {
             .option('-V, --vision', 'Enable Vision LLM', false)
             .option('-S, --screenshots', 'Enable Debug Screenshots', false)
             .option('--recording', 'Record rapid screenshots during actions for replay', false)
-            .option('--recording-max-duration <ms>', 'Max recording duration per action in ms (default 100)', parseInt)
-            .option('--recording-interval <ms>', 'Screenshot interval during recording in ms (default 25)', parseInt)
+            .option('--recording-max-duration <ms>', `Max recording duration per action in ms (default ${DEFAULT_RECORDING_MAX_DURATION_MS})`, parseInt)
+            .option('--recording-interval <ms>', `Screenshot interval during recording in ms (default ${DEFAULT_RECORDING_INTERVAL_MS})`, parseInt)
             .option('--plugin-dir <dir>', 'Plugin directory (default: ~/.domia/plugins)')
             .action(async (options) => {
                 console.log(chalk.cyan(figlet.textSync('Domia Agent', { horizontalLayout: 'full' })));
@@ -115,7 +122,7 @@ export class RunCommand {
                             type: 'input',
                             name: 'url',
                             message: 'Target URL:',
-                            default: 'https://ibraverse.ca',
+                            default: CLI_DEFAULT_URL,
                             when: !url && !cdpUrl && !executablePath && !appPackage && !bundleId,
                         },
                         {
@@ -128,7 +135,7 @@ export class RunCommand {
                             type: 'number',
                             name: 'steps',
                             message: 'Max steps:',
-                            default: 10,
+                            default: CLI_DEFAULT_STEPS,
                             when: !steps,
                         }
                     ]);

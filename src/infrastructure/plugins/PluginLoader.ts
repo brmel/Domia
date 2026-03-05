@@ -1,12 +1,10 @@
 import { injectable, inject } from 'tsyringe';
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 import type { ILogger } from '@domain/ports';
 import { PluginRegistry } from './PluginRegistry';
 import { validatePluginManifest } from './PluginManifest';
-
-const DEFAULT_PLUGIN_DIR = path.join(os.homedir(), '.domia', 'plugins');
+import { DEFAULT_PLUGIN_DIR } from '@shared/defaults';
 
 @injectable()
 export class PluginLoader {

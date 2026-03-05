@@ -52,6 +52,7 @@ function createStubPerceptionSource(): IPerceptionSource {
     return {
         captureScreenshot: vi.fn(async () => Buffer.from('fake')),
         captureAriaSnapshot: vi.fn(async () => '<snapshot>'),
+        evaluateScript: vi.fn(async () => ({})),
     } as unknown as IPerceptionSource;
 }
 
@@ -71,6 +72,7 @@ const ALL_TOOL_NAMES = [
     'mouse_move', 'mouse_click_left', 'mouse_click_right', 'mouse_double_click', 'mouse_drag', 'mouse_scroll',
     'scroll', 'navigate',
     'observe', 'extract', 'wait', 'waitForCondition',
+    'startRecording', 'stopAndReviewRecording',
     'pass', 'fail',
 ];
 

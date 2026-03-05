@@ -2,6 +2,7 @@ import { injectable, inject } from 'tsyringe';
 import type { IStructuredAutomation, ITraceService, IStorageService, ILogger } from '@domain/ports';
 import type { IAgentRunner, StepExecutionResult } from '@domain/ports/IAgentRunner';
 import type { AgentAction } from '@domain/value-objects';
+import { DEFAULT_MAX_ACTIONS } from '@shared/defaults';
 
 export type { StepExecutionResult } from '@domain/ports/IAgentRunner';
 
@@ -28,7 +29,7 @@ export class StepExecutor {
             maxActions: number;
             platform?: import('@domain/types/PlatformConfig').PlatformType | undefined;
             [key: string]: unknown;
-        } = { vision: true, maxActions: 20 },
+        } = { vision: true, maxActions: DEFAULT_MAX_ACTIONS },
     ): AsyncGenerator<AgentActionEvent, StepExecutionResult, unknown> {
         await this.trace.startTrace(runId);
 

@@ -8,6 +8,7 @@ import { createNavigationTools } from './catalog/navigation.tools';
 import { createObservationTools } from './catalog/observation.tools';
 import { createTerminalTools } from './catalog/terminal.tools';
 import { createPollingTools } from './catalog/polling.tools';
+import { createSnapshotRecordingTools } from './catalog/snapshot-recording.tools';
 import { ActionType } from '@domain/enums/ActionType';
 
 /**
@@ -44,6 +45,7 @@ export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] 
         ...createNavigationTools(deps.automation),
         ...createObservationTools(deps.automation, middleware),
         ...createPollingTools(middleware),
+        ...createSnapshotRecordingTools(deps.perceptionSource),
         ...createTerminalTools(),
         ...extraTools,
     ];

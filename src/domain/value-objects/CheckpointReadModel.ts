@@ -24,11 +24,3 @@ export interface CompactedCheckpointView {
     readonly latest: CheckpointRecord | null;
     readonly compacted: readonly CheckpointRecord[];
 }
-
-export interface RecoveryReadModel {
-    readonly runId: string;
-    readonly canResume: boolean;
-    readonly lastStableStepNumber: number;
-    readonly suggestedStartStep: number;
-    readonly reason: string;
-}

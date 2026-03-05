@@ -11,6 +11,7 @@ import {
     CreateWorkflowInputSchema,
     UpdateWorkflowInputSchema
 } from '../shared/validation/workflow';
+import { CLI_DEFAULT_LIST_LIMIT } from '../shared/defaults';
 import { buildPlatformConfig } from './platformUtils';
 
 interface WorkflowStepFileRecord {
@@ -28,11 +29,11 @@ export class WorkflowCommand {
         workflow
             .command('list')
             .description('List workflow definitions')
-            .option('-l, --limit <limit>', 'Number of workflow definitions to show', '20')
+            .option('-l, --limit <limit>', 'Number of workflow definitions to show', String(CLI_DEFAULT_LIST_LIMIT))
             .action(async (options) => {
                 const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
                 const limit = parseInt(String(options.limit), 10);
-                const result = await persistence.getWorkflowDefinitions(Number.isFinite(limit) ? limit : 20);
+                const result = await persistence.getWorkflowDefinitions(Number.isFinite(limit) ? limit : CLI_DEFAULT_LIST_LIMIT);
 
                 if (result.isErr()) {
                     console.error(chalk.red(`Failed to list workflows: ${result.error.message}`));
@@ -262,11 +263,11 @@ export class WorkflowCommand {
         workflow
             .command('runs')
             .description('List workflow runs')
-            .option('-l, --limit <limit>', 'Number of workflow runs to show', '20')
+            .option('-l, --limit <limit>', 'Number of workflow runs to show', String(CLI_DEFAULT_LIST_LIMIT))
             .action(async (options) => {
                 const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
                 const limit = parseInt(String(options.limit), 10);
-                const result = await persistence.getWorkflowRuns(Number.isFinite(limit) ? limit : 20);
+                const result = await persistence.getWorkflowRuns(Number.isFinite(limit) ? limit : CLI_DEFAULT_LIST_LIMIT);
 
                 if (result.isErr()) {
                     console.error(chalk.red(`Failed to list workflow runs: ${result.error.message}`));

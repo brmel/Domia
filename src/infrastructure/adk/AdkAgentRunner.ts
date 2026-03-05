@@ -12,6 +12,7 @@ import { AgentLoopGuard } from '../agent/common/AgentLoopGuard';
 import { buildAgentInstruction } from '../agent/common/AgentInstructionBuilder';
 import { interpolate } from '../prompts/PromptService';
 import { PluginRegistry } from '../plugins/PluginRegistry';
+import { DEFAULT_LLM_MODEL, LLM_CALL_BUDGET_OFFSET, DEFAULT_LOOP_GUARD_THRESHOLD, FINAL_RESPONSE_LOG_CHARS, TOOL_TIME_LOG_THRESHOLD_MS } from '@shared/defaults';
 
 const APP_NAME = 'domia';
 
@@ -47,7 +48,7 @@ export class AdkAgentRunner implements IAgentRunner {
                 reason: 'No API key configured. Set GOOGLE_API_KEY, GEMINI_API_KEY, or DOMIA_LLM_API_KEY.',
             };
         }
-        const model = llmConfig.model || 'gemini-2.0-flash';
+        const model = llmConfig.model || DEFAULT_LLM_MODEL;
 
         const perceptionSource = automation.getPerceptionSource();
         if (!perceptionSource) {
@@ -130,7 +131,7 @@ export class AdkAgentRunner implements IAgentRunner {
         }, this.pluginRegistry.getAllTools(), this.promptService);
 
         const actionMapper = new ActionMapper(catalog);
-        const loopGuard = new AgentLoopGuard(3, this.promptService);
+        const loopGuard = new AgentLoopGuard(DEFAULT_LOOP_GUARD_THRESHOLD, this.promptService);
         const instruction = buildAgentInstruction(catalog, this.promptService);
 
         const stepGoalTemplate = this.promptService.getPrompt('stepGoal');
@@ -191,7 +192,7 @@ export class AdkAgentRunner implements IAgentRunner {
                 userId: session.userId,
                 sessionId: session.id,
                 newMessage: initialMessage,
-                runConfig: { maxLlmCalls: maxActions + 2 },
+                runConfig: { maxLlmCalls: maxActions + LLM_CALL_BUDGET_OFFSET },
             })) {
                 const functionCalls = getFunctionCalls(event);
                 const thought = extractThought(event);
@@ -201,8 +202,17 @@ export class AdkAgentRunner implements IAgentRunner {
                 }
 
                 if (functionCalls?.length) {
-                    const llmLatencyMs = Date.now() - llmTurnStartMs;
-                    this.logger.info(`[AdkAgentRunner] LLM responded in ${llmLatencyMs}ms`);
+                    const roundTripMs = Date.now() - llmTurnStartMs;
+                    // Subtract the previous tool's execution time to get actual LLM latency.
+                    // afterToolCallback already set lastToolResult before this event arrived.
+                    // Cast needed: TS control-flow can't see the callback mutation.
+                    const prevToolMs = (lastToolResult as { durationMs: number } | null)?.durationMs ?? 0;
+                    const llmLatencyMs = Math.max(0, roundTripMs - prevToolMs);
+                    if (prevToolMs > TOOL_TIME_LOG_THRESHOLD_MS) {
+                        this.logger.info(`[AdkAgentRunner] LLM responded in ${llmLatencyMs}ms (tool: ${prevToolMs}ms, round-trip: ${roundTripMs}ms)`);
+                    } else {
+                        this.logger.info(`[AdkAgentRunner] LLM responded in ${llmLatencyMs}ms`);
+                    }
 
                     for (const fc of functionCalls) {
                         yield* flushPending();
@@ -261,13 +271,19 @@ export class AdkAgentRunner implements IAgentRunner {
                     }
 
                     llmTurnStartMs = Date.now();
+
+                    // When the LLM returns function calls alongside text, the ADK
+                    // still needs to execute the tools and feed results back to the
+                    // model.  Treating the event as "final" here would short-circuit
+                    // the ADK loop, so we skip the isFinalResponse check.
+                    continue;
                 }
 
                 if (isFinalResponse(event)) {
                     yield* flushPending();
 
                     const text = stringifyContent(event);
-                    this.logger.info(`[AdkAgentRunner] Final response: ${text.slice(0, 200)}`);
+                    this.logger.info(`[AdkAgentRunner] Final response: ${text.slice(0, FINAL_RESPONSE_LOG_CHARS)}`);
                     if (actionCount === 0) {
                         return {
                             success: false, terminal: 'fail', code: 'agent_fail',

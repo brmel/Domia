@@ -2,21 +2,14 @@ import { z } from 'zod';
 import { ActionType } from '@domain/enums/ActionType';
 import type { ToolSpec } from '../ToolSpec';
 import type { PostActionCaptureMiddleware } from '../PostActionCaptureMiddleware';
-
-/**
- * Maximum total polling duration (5 minutes).
- * Prevents a single waitForCondition call from consuming
- * the entire run budget.
- */
-const MAX_POLL_DURATION_MS = 5 * 60 * 1000;
-
-/**
- * Sensible bounds for the poll interval.
- */
-const MIN_POLL_INTERVAL_MS = 200;
-const MAX_POLL_INTERVAL_MS = 30_000;
-const DEFAULT_POLL_INTERVAL_MS = 2_000;
-const DEFAULT_TIMEOUT_MS = 30_000;
+import {
+    MAX_POLL_DURATION_MS,
+    MIN_POLL_INTERVAL_MS,
+    MAX_POLL_INTERVAL_MS,
+    DEFAULT_POLL_INTERVAL_MS,
+    DEFAULT_POLL_TIMEOUT_MS,
+    POLL_TIMEOUT_SNAPSHOT_CHARS,
+} from '@shared/defaults';
 
 /**
  * Creates the polling tool catalog.
@@ -34,11 +27,13 @@ export function createPollingTools(
         {
             name: 'waitForCondition',
             description:
-                'Poll the page until a text pattern appears in the ARIA snapshot or a timeout is reached. ' +
-                'This is a LONG-RUNNING operation that counts as a single action — do NOT call it again while it is pending. ' +
-                'Use it when the system under test performs a slow operation (file upload, server job, payment processing, etc.) ' +
-                'and you need to wait for a specific UI indicator before continuing. ' +
-                'Input: { pattern: string, isRegex?: boolean, timeoutMs?: number (default 30 000, max 300 000), pollIntervalMs?: number (default 2 000) }. ' +
+                'Poll the page repeatedly until a text pattern appears in the ARIA snapshot, or a timeout is reached. ' +
+                'Counts as a single action regardless of how many polls it takes. ' +
+                'Prefer this over manual observe-wait-observe loops whenever you need to wait for the page to reach a specific state — ' +
+                'it is more efficient and avoids burning your action budget. ' +
+                'Typical situations: waiting for a background process to finish, a status to change, a counter to complete, ' +
+                'a loading indicator to disappear, or a confirmation message to appear. ' +
+                'Input: { pattern: string, isRegex?: boolean, timeoutMs?: number (default 30 000, max 600 000), pollIntervalMs?: number (default 2 000) }. ' +
                 'Output: { status: "matched", matchedText: string, elapsedMs: number, polls: number } or ' +
                 '{ status: "timeout", elapsedMs: number, polls: number, lastSnapshot: string (first 500 chars) }.',
             actionType: ActionType.WAIT_FOR_CONDITION,
@@ -53,7 +48,7 @@ export function createPollingTools(
                     'If true, treat `pattern` as a JavaScript regex (case-insensitive). Default false (plain text includes-check).'
                 ),
                 timeoutMs: z.number().int().min(1000).max(MAX_POLL_DURATION_MS).optional().describe(
-                    `Max milliseconds to poll before giving up. Default ${DEFAULT_TIMEOUT_MS}, max ${MAX_POLL_DURATION_MS}.`
+                    `Max milliseconds to poll before giving up. Default ${DEFAULT_POLL_TIMEOUT_MS}, max ${MAX_POLL_DURATION_MS}.`
                 ),
                 pollIntervalMs: z.number().int().min(MIN_POLL_INTERVAL_MS).max(MAX_POLL_INTERVAL_MS).optional().describe(
                     `Milliseconds between each poll. Default ${DEFAULT_POLL_INTERVAL_MS}.`
@@ -63,7 +58,7 @@ export function createPollingTools(
                 const pattern = args['pattern'] as string;
                 const isRegex = (args['isRegex'] as boolean | undefined) ?? false;
                 const timeoutMs = Math.min(
-                    (args['timeoutMs'] as number | undefined) ?? DEFAULT_TIMEOUT_MS,
+                    (args['timeoutMs'] as number | undefined) ?? DEFAULT_POLL_TIMEOUT_MS,
                     MAX_POLL_DURATION_MS,
                 );
                 const pollIntervalMs = Math.max(
@@ -123,7 +118,7 @@ export function createPollingTools(
                     status: 'timeout',
                     elapsedMs: Date.now() - startMs,
                     polls,
-                    lastSnapshot: lastSnapshot.slice(0, 500),
+                    lastSnapshot: lastSnapshot.slice(0, POLL_TIMEOUT_SNAPSHOT_CHARS),
                 };
             },
         } as ToolSpec & { isLongRunning?: boolean },

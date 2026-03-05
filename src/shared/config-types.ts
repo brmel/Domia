@@ -1,33 +1,44 @@
 import { z } from 'zod';
+import {
+    DEFAULT_LLM_MODEL,
+    DEFAULT_LLM_PROVIDER,
+    DEFAULT_MAX_ACTIONS,
+    DEFAULT_DELAY_BETWEEN_STEPS_MS,
+    DEFAULT_MAX_REPLANS_PER_RUN,
+    DEFAULT_VIEWPORT_WIDTH,
+    DEFAULT_VIEWPORT_HEIGHT,
+    DEFAULT_ARTIFACTS_DIR,
+    DEFAULT_DATABASE_PATH,
+} from '@shared/defaults';
 
 export const DomiaConfigSchema = z.object({
     headless: z.boolean().default(true),
     viewport: z.object({
-        width: z.number().default(1280),
-        height: z.number().default(800),
-    }).default({ width: 1280, height: 800 }),
+        width: z.number().default(DEFAULT_VIEWPORT_WIDTH),
+        height: z.number().default(DEFAULT_VIEWPORT_HEIGHT),
+    }).default({ width: DEFAULT_VIEWPORT_WIDTH, height: DEFAULT_VIEWPORT_HEIGHT }),
 
     ai: z.object({
-        provider: z.literal('google').default('google'),
-        model: z.string().default('gemini-2.0-flash'),
+        provider: z.literal(DEFAULT_LLM_PROVIDER).default(DEFAULT_LLM_PROVIDER),
+        model: z.string().default(DEFAULT_LLM_MODEL),
         apiKey: z.string().optional(),
         visionEnabled: z.boolean().default(false),
         debugScreenshots: z.boolean().default(false),
-    }).default({ provider: 'google', model: 'gemini-2.0-flash', visionEnabled: false, debugScreenshots: false }),
+    }).default({ provider: DEFAULT_LLM_PROVIDER, model: DEFAULT_LLM_MODEL, visionEnabled: false, debugScreenshots: false }),
 
     paths: z.object({
-        artifactsDir: z.string().default('./artifacts'),
-        databasePath: z.string().default('./domia.db'),
-    }).default({ artifactsDir: './artifacts', databasePath: './domia.db' }),
+        artifactsDir: z.string().default(DEFAULT_ARTIFACTS_DIR),
+        databasePath: z.string().default(DEFAULT_DATABASE_PATH),
+    }).default({ artifactsDir: DEFAULT_ARTIFACTS_DIR, databasePath: DEFAULT_DATABASE_PATH }),
 
     limits: z.object({
-        maxSteps: z.number().default(20),
-        delayBetweenSteps: z.number().default(1000),
-        maxReplansPerRun: z.number().int().nonnegative().default(2),
+        maxSteps: z.number().default(DEFAULT_MAX_ACTIONS),
+        delayBetweenSteps: z.number().default(DEFAULT_DELAY_BETWEEN_STEPS_MS),
+        maxReplansPerRun: z.number().int().nonnegative().default(DEFAULT_MAX_REPLANS_PER_RUN),
     }).default({
-        maxSteps: 20,
-        delayBetweenSteps: 1000,
-        maxReplansPerRun: 2,
+        maxSteps: DEFAULT_MAX_ACTIONS,
+        delayBetweenSteps: DEFAULT_DELAY_BETWEEN_STEPS_MS,
+        maxReplansPerRun: DEFAULT_MAX_REPLANS_PER_RUN,
     }),
 
     promptOverrides: z.object({

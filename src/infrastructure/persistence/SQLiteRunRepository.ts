@@ -5,27 +5,27 @@ import { Run, RunStatus } from '@domain/entities/Run';
 import { RunId, Url } from '@domain/value-objects';
 import { PersistenceError } from '@domain/errors';
 import type { DatabaseSchema, RunTable, StepTable } from './DatabaseSchema';
+import { DEFAULT_RUNS_QUERY_LIMIT } from '@shared/defaults';
+import { dbOp } from './dbOp';
+
+/** Extract summary and durationMs from a RunStatus discriminated union. */
+function extractStatusFields(status: RunStatus): { summary: string | null; durationMs: number | null } {
+    switch (status.type) {
+        case 'passed':    return { summary: status.summary, durationMs: status.duration };
+        case 'failed':    return { summary: status.error,   durationMs: status.duration };
+        case 'cancelled': return { summary: status.reason,  durationMs: null };
+        default:          return { summary: null,           durationMs: null };
+    }
+}
 
 export class SQLiteRunRepository {
     constructor(private readonly db: Kysely<DatabaseSchema>) {}
 
     saveRun(run: Run): ResultAsync<void, PersistenceError> {
-        let summary: string | null = null;
-        let durationMs: number | null = null;
-
-        if (run.status.type === 'passed') {
-            summary = run.status.summary;
-            durationMs = run.status.duration;
-        } else if (run.status.type === 'failed') {
-            summary = run.status.error;
-            durationMs = run.status.duration;
-        } else if (run.status.type === 'cancelled') {
-            summary = run.status.reason;
-        }
-
+        const { summary, durationMs } = extractStatusFields(run.status);
         const startedAt = run.startedAt ? run.startedAt.toISOString() : run.createdAt.toISOString();
 
-        return ResultAsync.fromPromise(
+        return dbOp(
             this.db.insertInto('runs')
                 .values({
                     id: run.id,
@@ -38,7 +38,7 @@ export class SQLiteRunRepository {
                     summary: summary
                 })
                 .execute(),
-            (e) => new PersistenceError(`Failed to save run: ${e}`)
+            'save run'
         ).map(() => undefined);
     }
 
@@ -47,15 +47,9 @@ export class SQLiteRunRepository {
 
         if (updates.status) {
             values.status = updates.status.type;
-            if (updates.status.type === 'passed') {
-                values.summary = updates.status.summary;
-                values.duration_ms = updates.status.duration;
-            } else if (updates.status.type === 'failed') {
-                values.summary = updates.status.error;
-                values.duration_ms = updates.status.duration;
-            } else if (updates.status.type === 'cancelled') {
-                values.summary = updates.status.reason;
-            }
+            const { summary, durationMs } = extractStatusFields(updates.status);
+            values.summary = summary;
+            values.duration_ms = durationMs;
         }
 
         if (updates.startedAt) values.started_at = updates.startedAt.toISOString();
@@ -64,17 +58,17 @@ export class SQLiteRunRepository {
             values.completed_at = new Date().toISOString();
         }
 
-        return ResultAsync.fromPromise(
+        return dbOp(
             this.db.updateTable('runs')
                 .set(values)
                 .where('id', '=', id)
                 .execute(),
-            (e) => new PersistenceError(`Failed to update run: ${e}`)
+            'update run'
         ).map(() => undefined);
     }
 
     saveStep(step: Step): ResultAsync<void, PersistenceError> {
-        return ResultAsync.fromPromise(
+        return dbOp(
             this.db.insertInto('steps')
                 .values({
                     id: step.id,
@@ -86,44 +80,44 @@ export class SQLiteRunRepository {
                     timestamp: step.timestamp
                 })
                 .execute(),
-            (e) => new PersistenceError(`Failed to save step: ${e}`)
+            'save step'
         ).map(() => undefined);
     }
 
-    getRuns(limit: number = 50): ResultAsync<Run[], PersistenceError> {
-        return ResultAsync.fromPromise(
+    getRuns(limit: number = DEFAULT_RUNS_QUERY_LIMIT): ResultAsync<Run[], PersistenceError> {
+        return dbOp(
             this.db.selectFrom('runs')
                 .selectAll()
                 .orderBy('started_at', 'desc')
                 .limit(limit)
                 .execute(),
-            (e) => new PersistenceError(`Failed to get runs: ${e}`)
+            'get runs'
         ).map(rows => rows.map(row => this.mapToRun(row)));
     }
 
     getRun(id: string): ResultAsync<Run | null, PersistenceError> {
-        return ResultAsync.fromPromise(
+        return dbOp(
             this.db.selectFrom('runs')
                 .selectAll()
                 .where('id', '=', id)
                 .executeTakeFirst(),
-            (e) => new PersistenceError(`Failed to get run: ${e}`)
+            'get run'
         ).map(row => row ? this.mapToRun(row) : null);
     }
 
     getSteps(runId: string): ResultAsync<Step[], PersistenceError> {
-        return ResultAsync.fromPromise(
+        return dbOp(
             this.db.selectFrom('steps')
                 .selectAll()
                 .where('run_id', '=', runId)
                 .orderBy('step_number', 'asc')
                 .execute(),
-            (e) => new PersistenceError(`Failed to get steps: ${e}`)
+            'get steps'
         ).map(rows => rows.map(row => this.mapToStep(row)));
     }
 
     clearHistory(db: Kysely<DatabaseSchema>): ResultAsync<void, PersistenceError> {
-        return ResultAsync.fromPromise(
+        return dbOp(
             (async (): Promise<void> => {
                 await db.deleteFrom('steps').execute();
                 await db.deleteFrom('logs').execute();
@@ -134,7 +128,7 @@ export class SQLiteRunRepository {
                 await db.deleteFrom('workflow_definitions').execute();
                 await db.deleteFrom('runs').execute();
             })(),
-            (e) => new PersistenceError(`Failed to clear history: ${e}`)
+            'clear history'
         ).map(() => undefined);
     }
 

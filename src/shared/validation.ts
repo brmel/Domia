@@ -3,6 +3,11 @@ import { WebConfigSchema } from './validation/platforms/web';
 import { ElectronConfigSchema } from './validation/platforms/electron';
 import { AndroidConfigSchema } from './validation/platforms/android';
 import { IosConfigSchema } from './validation/platforms/ios';
+import {
+    MIN_RECORDING_DURATION_MS,
+    MAX_RECORDING_DURATION_MS,
+    MAX_RECORDING_INTERVAL_MS,
+} from '@shared/defaults';
 
 export const PlatformConfigSchema = z.discriminatedUnion('platform', [
   WebConfigSchema,
@@ -25,8 +30,8 @@ export const RunOptionsSchema = z.object({
   readinessMode: z.enum(['observe', 'soft-enforce']).optional(),
   readinessProfile: z.enum(['dev', 'staging', 'production']).optional(),
   recording: z.boolean().optional(),
-  recordingMaxDurationMs: z.number().int().min(10).max(5000).optional(),
-  recordingIntervalMs: z.number().int().min(10).max(1000).optional(),
+  recordingMaxDurationMs: z.number().int().min(MIN_RECORDING_DURATION_MS).max(MAX_RECORDING_DURATION_MS).optional(),
+  recordingIntervalMs: z.number().int().min(MIN_RECORDING_DURATION_MS).max(MAX_RECORDING_INTERVAL_MS).optional(),
 });
 
 export const RunInputSchema = z.object({

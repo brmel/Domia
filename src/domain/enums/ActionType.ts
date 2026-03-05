@@ -17,6 +17,8 @@ export enum ActionType {
     NAVIGATE = 'navigate',
     OBSERVE = 'observe',
     WAIT_FOR_CONDITION = 'waitForCondition',
+    START_RECORDING = 'startRecording',
+    STOP_AND_REVIEW_RECORDING = 'stopAndReviewRecording',
     PASS = 'pass',
     FAIL = 'fail'
 }

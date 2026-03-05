@@ -1,5 +1,6 @@
 import type { Page } from 'playwright';
 import type { IPerceptionSource, ScreenshotOptions } from '@domain/ports/IPerceptionSource';
+import { DEFAULT_SCREENSHOT_QUALITY, CONTENT_READY_TIMEOUT_MS } from '@shared/defaults';
 
 export class PlaywrightPerceptionSource implements IPerceptionSource {
     constructor(private readonly page: Page) {}
@@ -16,7 +17,7 @@ export class PlaywrightPerceptionSource implements IPerceptionSource {
         return this.page.screenshot({
             ...(options?.fullPage !== undefined ? { fullPage: options.fullPage } : {}),
             type: options?.type ?? 'jpeg',
-            quality: options?.quality ?? 60,
+            quality: options?.quality ?? DEFAULT_SCREENSHOT_QUALITY,
         });
     }
 
@@ -32,7 +33,7 @@ export class PlaywrightPerceptionSource implements IPerceptionSource {
         }
     }
 
-    async waitForContentReady(timeout = 5000): Promise<void> {
+    async waitForContentReady(timeout = CONTENT_READY_TIMEOUT_MS): Promise<void> {
         await this.page.waitForLoadState('domcontentloaded', { timeout }).catch(() => {});
     }
 

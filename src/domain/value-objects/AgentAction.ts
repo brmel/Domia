@@ -151,5 +151,3 @@ interface FailAction {
     readonly reason: string;
     readonly thought?: string;
 }
-
-

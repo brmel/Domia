@@ -4,6 +4,9 @@ import chalk from 'chalk';
 import type { IConfigService } from '../domain/ports/IConfigService';
 import type { IPromptService } from '../domain/ports/IPromptService';
 
+const getConfig = () => container.resolve<IConfigService>('IConfigService');
+const getPrompts = () => container.resolve<IPromptService>('IPromptService');
+
 export class SettingsCommand {
     static register(program: Command): void {
         const settings = program.command('settings').description('View and update persistent settings');
@@ -11,8 +14,7 @@ export class SettingsCommand {
         settings.command('get')
             .description('Show current settings')
             .action(() => {
-                const configService = container.resolve<IConfigService>('IConfigService');
-                const config = configService.get();
+                const config = getConfig().get();
 
                 console.log(chalk.bold('\nCurrent Settings:'));
                 console.log('--------------------------------------------------');
@@ -32,7 +34,7 @@ export class SettingsCommand {
         settings.command('set <key> <value>')
             .description('Update a setting (headless, maxSteps, model, vision, screenshots)')
             .action((key: string, value: string) => {
-                const configService = container.resolve<IConfigService>('IConfigService');
+                const configService = getConfig();
 
                 const config = configService.get();
 
@@ -66,7 +68,7 @@ export class SettingsCommand {
         prompts.command('list')
             .description('List all prompt templates and their override status')
             .action(() => {
-                const promptService = container.resolve<IPromptService>('IPromptService');
+                const promptService = getPrompts();
                 const allPrompts = promptService.getAllPrompts();
                 const allTools = promptService.getAllToolDescriptions();
                 const overrides = promptService.getOverrides();
@@ -97,7 +99,7 @@ export class SettingsCommand {
         prompts.command('get <key>')
             .description('Show the full text of a prompt or tool description')
             .action((key: string) => {
-                const promptService = container.resolve<IPromptService>('IPromptService');
+                const promptService = getPrompts();
                 const allPrompts = promptService.getAllPrompts();
                 const allTools = promptService.getAllToolDescriptions();
 
@@ -117,7 +119,7 @@ export class SettingsCommand {
         prompts.command('set <key> <value>')
             .description('Override a prompt or tool description')
             .action((key: string, value: string) => {
-                const promptService = container.resolve<IPromptService>('IPromptService');
+                const promptService = getPrompts();
                 const allPrompts = promptService.getAllPrompts();
                 const allTools = promptService.getAllToolDescriptions();
 
@@ -135,7 +137,7 @@ export class SettingsCommand {
         prompts.command('reset [key]')
             .description('Reset a prompt to default, or reset all if no key given')
             .action((key?: string) => {
-                const promptService = container.resolve<IPromptService>('IPromptService');
+                const promptService = getPrompts();
 
                 if (!key) {
                     promptService.resetAll();

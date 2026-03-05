@@ -5,6 +5,7 @@ import path from 'path';
 import { DomiaConfigSchema, type DomiaConfig } from '@shared/config-types';
 
 import { IConfigService } from '@domain/ports/IConfigService';
+import { CONFIG_FILE_NAME } from '@shared/defaults';
 
 @injectable()
 export class ConfigService implements IConfigService {
@@ -26,7 +27,7 @@ export class ConfigService implements IConfigService {
             loadedConfig = result.config;
             this.configPath = result.filepath;
         } else {
-            this.configPath = path.resolve(process.cwd(), 'domia.config.json');
+            this.configPath = path.resolve(process.cwd(), CONFIG_FILE_NAME);
         }
 
         const parsedFile = DomiaConfigSchema.parse(loadedConfig);

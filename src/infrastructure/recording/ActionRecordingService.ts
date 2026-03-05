@@ -1,4 +1,9 @@
 import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
+import {
+    DEFAULT_RECORDING_MAX_DURATION_MS,
+    DEFAULT_RECORDING_INTERVAL_MS,
+    DEFAULT_RECORDING_QUALITY,
+} from '@shared/defaults';
 
 /**
  * A single frame in an action recording.
@@ -47,9 +52,9 @@ export interface ActionRecordingOptions {
 }
 
 const DEFAULT_OPTIONS: Required<ActionRecordingOptions> = {
-    maxDurationMs: 100,
-    intervalMs: 25,
-    quality: 40,
+    maxDurationMs: DEFAULT_RECORDING_MAX_DURATION_MS,
+    intervalMs: DEFAULT_RECORDING_INTERVAL_MS,
+    quality: DEFAULT_RECORDING_QUALITY,
 };
 
 /**

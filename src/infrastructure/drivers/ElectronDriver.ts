@@ -1,10 +1,11 @@
-import { ResultAsync } from 'neverthrow';
+import { ResultAsync, errAsync } from 'neverthrow';
 import { spawn, ChildProcess } from 'child_process';
 import { chromium, Browser } from 'playwright';
 import { IAppDriver, AppCapabilities } from '@domain/ports/IAppDriver';
 import type { ILogger, IStructuredAutomation } from '@domain/ports';
 import { NavigationError } from '@domain/errors';
 import { CDP_CONSTANTS } from '@domain/constants/PlatformConstants';
+import { CDP_DEFAULT_PORT } from '@shared/defaults';
 import { CDPValidator } from '@domain/validators/CDPValidator';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
@@ -48,10 +49,7 @@ export class ElectronDriver implements IAppDriver {
         
         const validation = CDPValidator.validateCDPUrl(cdpUrl);
         if (validation.isErr()) {
-            return ResultAsync.fromPromise(
-                Promise.reject(validation.error),
-                (e) => new NavigationError(`Invalid CDP configuration: ${e}`)
-            );
+            return errAsync(new NavigationError(`Invalid CDP configuration: ${validation.error.message}`));
         }
 
         return ResultAsync.fromPromise(
@@ -133,7 +131,7 @@ export class ElectronDriver implements IAppDriver {
                 try {
                     this.browser = await retryAsync(
                         async () => chromium.connectOverCDP(cdpUrl, {
-                            timeout: config.connectionTimeout || 5000
+                            timeout: config.connectionTimeout || CDP_CONSTANTS.CONNECTION_TIMEOUT_MS
                         }),
                         {
                             ...RETRY_PROFILES.electronExecutableConnect,
@@ -151,7 +149,7 @@ export class ElectronDriver implements IAppDriver {
                     throw new Error(`Failed to connect to manually spawned Electron app after retries: ${message}`);
                 }
             } else {
-                const defaultArgs = ['--remote-debugging-port=9222'];
+                const defaultArgs = [`--remote-debugging-port=${CDP_DEFAULT_PORT}`];
 
                 const args = [
                     ...(config.launchArgs || []),

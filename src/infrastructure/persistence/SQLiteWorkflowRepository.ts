@@ -5,6 +5,8 @@ import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } fro
 import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
 import { PersistenceError } from '@domain/errors';
 import type { DatabaseSchema, WorkflowDefinitionTable, WorkflowRunTable, WorkflowStepRunTable } from './DatabaseSchema';
+import { DEFAULT_WORKFLOWS_QUERY_LIMIT } from '@shared/defaults';
+import { dbOp } from './dbOp';
 
 export class SQLiteWorkflowRepository {
     constructor(
@@ -13,7 +15,7 @@ export class SQLiteWorkflowRepository {
     ) {}
 
     saveWorkflowDefinition(definition: WorkflowDefinition): ResultAsync<void, PersistenceError> {
-        return ResultAsync.fromPromise(
+        return dbOp(
             this.db.insertInto('workflow_definitions')
                 .values({
                     id: definition.id,
@@ -36,33 +38,33 @@ export class SQLiteWorkflowRepository {
                     updated_at: definition.updatedAt
                 }))
                 .execute(),
-            (e) => new PersistenceError(`Failed to save workflow definition: ${e}`)
+            'save workflow definition'
         ).map(() => undefined);
     }
 
     getWorkflowDefinition(id: string): ResultAsync<WorkflowDefinition | null, PersistenceError> {
-        return ResultAsync.fromPromise(
+        return dbOp(
             this.db.selectFrom('workflow_definitions')
                 .selectAll()
                 .where('id', '=', id)
                 .executeTakeFirst(),
-            (e) => new PersistenceError(`Failed to get workflow definition: ${e}`)
+            'get workflow definition'
         ).map(row => row ? this.mapToWorkflowDefinition(row) : null);
     }
 
-    getWorkflowDefinitions(limit: number = 100): ResultAsync<WorkflowDefinition[], PersistenceError> {
-        return ResultAsync.fromPromise(
+    getWorkflowDefinitions(limit: number = DEFAULT_WORKFLOWS_QUERY_LIMIT): ResultAsync<WorkflowDefinition[], PersistenceError> {
+        return dbOp(
             this.db.selectFrom('workflow_definitions')
                 .selectAll()
                 .orderBy('updated_at', 'desc')
                 .limit(limit)
                 .execute(),
-            (e) => new PersistenceError(`Failed to get workflow definitions: ${e}`)
+            'get workflow definitions'
         ).map(rows => rows.map(row => this.mapToWorkflowDefinition(row)));
     }
 
     saveWorkflowRun(run: WorkflowRunRecord): ResultAsync<void, PersistenceError> {
-        return ResultAsync.fromPromise(
+        return dbOp(
             this.db.insertInto('workflow_runs')
                 .values({
                     id: run.id,
@@ -74,12 +76,12 @@ export class SQLiteWorkflowRepository {
                     completed_at: run.completedAt ?? null
                 })
                 .execute(),
-            (e) => new PersistenceError(`Failed to save workflow run: ${e}`)
+            'save workflow run'
         ).map(() => undefined);
     }
 
     updateWorkflowRun(id: string, updates: Partial<WorkflowRunRecord>): ResultAsync<void, PersistenceError> {
-        return ResultAsync.fromPromise(
+        return dbOp(
             this.db.updateTable('workflow_runs')
                 .set({
                     ...(updates.workflowDefinitionId !== undefined ? { workflow_definition_id: updates.workflowDefinitionId } : {}),
@@ -91,33 +93,33 @@ export class SQLiteWorkflowRepository {
                 })
                 .where('id', '=', id)
                 .execute(),
-            (e) => new PersistenceError(`Failed to update workflow run: ${e}`)
+            'update workflow run'
         ).map(() => undefined);
     }
 
     getWorkflowRun(id: string): ResultAsync<WorkflowRunRecord | null, PersistenceError> {
-        return ResultAsync.fromPromise(
+        return dbOp(
             this.db.selectFrom('workflow_runs')
                 .selectAll()
                 .where('id', '=', id)
                 .executeTakeFirst(),
-            (e) => new PersistenceError(`Failed to get workflow run: ${e}`)
+            'get workflow run'
         ).map(row => row ? this.mapToWorkflowRun(row) : null);
     }
 
-    getWorkflowRuns(limit: number = 100): ResultAsync<WorkflowRunRecord[], PersistenceError> {
-        return ResultAsync.fromPromise(
+    getWorkflowRuns(limit: number = DEFAULT_WORKFLOWS_QUERY_LIMIT): ResultAsync<WorkflowRunRecord[], PersistenceError> {
+        return dbOp(
             this.db.selectFrom('workflow_runs')
                 .selectAll()
                 .orderBy('started_at', 'desc')
                 .limit(limit)
                 .execute(),
-            (e) => new PersistenceError(`Failed to get workflow runs: ${e}`)
+            'get workflow runs'
         ).map(rows => rows.map(row => this.mapToWorkflowRun(row)));
     }
 
     saveWorkflowStepRun(stepRun: WorkflowStepRunRecord): ResultAsync<void, PersistenceError> {
-        return ResultAsync.fromPromise(
+        return dbOp(
             this.db.insertInto('workflow_step_runs')
                 .values({
                     id: stepRun.id,
@@ -131,12 +133,12 @@ export class SQLiteWorkflowRepository {
                     completed_at: stepRun.completedAt ?? null
                 })
                 .execute(),
-            (e) => new PersistenceError(`Failed to save workflow step run: ${e}`)
+            'save workflow step run'
         ).map(() => undefined);
     }
 
     updateWorkflowStepRun(id: string, updates: Partial<WorkflowStepRunRecord>): ResultAsync<void, PersistenceError> {
-        return ResultAsync.fromPromise(
+        return dbOp(
             this.db.updateTable('workflow_step_runs')
                 .set({
                     ...(updates.workflowRunId !== undefined ? { workflow_run_id: updates.workflowRunId } : {}),
@@ -150,23 +152,23 @@ export class SQLiteWorkflowRepository {
                 })
                 .where('id', '=', id)
                 .execute(),
-            (e) => new PersistenceError(`Failed to update workflow step run: ${e}`)
+            'update workflow step run'
         ).map(() => undefined);
     }
 
     getWorkflowStepRuns(workflowRunId: string): ResultAsync<WorkflowStepRunRecord[], PersistenceError> {
-        return ResultAsync.fromPromise(
+        return dbOp(
             this.db.selectFrom('workflow_step_runs')
                 .selectAll()
                 .where('workflow_run_id', '=', workflowRunId)
                 .orderBy('step_index', 'asc')
                 .execute(),
-            (e) => new PersistenceError(`Failed to get workflow step runs: ${e}`)
+            'get workflow step runs'
         ).map(rows => rows.map(row => this.mapToWorkflowStepRun(row)));
     }
 
     commitAtomicWorkflowTransition(input: AtomicWorkflowTransitionInput): ResultAsync<void, PersistenceError> {
-        return ResultAsync.fromPromise(
+        return dbOp(
             Promise.resolve().then(() => {
                 const tx = this.database.transaction((payload: AtomicWorkflowTransitionInput) => {
                     const workflowStepSetClauses: string[] = ['status = @step_status'];
@@ -215,7 +217,7 @@ export class SQLiteWorkflowRepository {
 
                 tx(input);
             }),
-            (e) => new PersistenceError(`Failed to commit atomic workflow transition: ${e}`)
+            'commit atomic workflow transition'
         ).map(() => undefined);
     }
 

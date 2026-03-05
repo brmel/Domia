@@ -1,5 +1,4 @@
 import type { RoleRef, RoleRefMap } from '@domain/value-objects/RoleRef';
-export type { RoleRef, RoleRefMap };
 
 const INTERACTIVE_ROLES = new Set([
     'button', 'link', 'textbox', 'checkbox', 'radio', 'combobox',
@@ -34,11 +33,19 @@ export function buildRoleSnapshot(
 
     const result: string[] = [];
 
-    for (const line of lines) {
-        const depth = getIndentLevel(line);
+    for (const rawLine of lines) {
+        const depth = getIndentLevel(rawLine);
         if (maxDepth !== undefined && depth > maxDepth) continue;
 
-        const match = line.match(/^(\s*-\s*)(\w+)(?:\s+"([^"]*)")?(.*)$/);
+        // Playwright YAML-escapes lines containing special chars with single
+        // quotes, e.g.  - 'heading "Page: Home" [level=1]'.  Unwrap them.
+        let line = rawLine;
+        const sqMatch = rawLine.match(/^(\s*-\s*)'(.+)'$/);
+        if (sqMatch) line = `${sqMatch[1]}${sqMatch[2]}`;
+
+        // Match both `role "name"` and `role: "name"` (Playwright uses the
+        // colon form for roles with text content, e.g. `listitem: "1"`).
+        const match = line.match(/^(\s*-\s*)(\w+)(?::?\s+"([^"]*)")?(.*)$/);
         if (!match) {
             result.push(line);
             continue;

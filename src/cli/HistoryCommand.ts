@@ -4,7 +4,11 @@ import { container } from 'tsyringe';
 import chalk from 'chalk';
 import { IPersistenceAdapter } from '../domain/ports';
 import type { IStorageService } from '../domain/ports/IStorageService';
+import { CLI_DEFAULT_LIST_LIMIT } from '../shared/defaults';
 import inquirer from 'inquirer';
+
+const getPersistence = () => container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+const getStorage = () => container.resolve<IStorageService>('IStorageService');
 
 export class HistoryCommand {
     static register(program: Command): void {
@@ -13,10 +17,9 @@ export class HistoryCommand {
 
         history.command('list')
             .description('List recent runs')
-            .option('-l, --limit <limit>', 'Number of runs to show', '20')
+            .option('-l, --limit <limit>', 'Number of runs to show', String(CLI_DEFAULT_LIST_LIMIT))
             .action(async (options) => {
-                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-                const result = await persistence.getRuns(parseInt(options.limit));
+                const result = await getPersistence().getRuns(parseInt(options.limit));
 
                 if (result.isErr()) {
                     console.error(chalk.red('Failed to fetch history:', result.error.message));
@@ -43,7 +46,7 @@ export class HistoryCommand {
         history.command('show <id>')
             .description('Show details of a specific run')
             .action(async (id) => {
-                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
+                const persistence = getPersistence();
                 const runResult = await persistence.getRun(id);
 
                 if (runResult.isErr()) {
@@ -92,8 +95,7 @@ export class HistoryCommand {
                     return;
                 }
 
-                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-                const stepsResult = await persistence.getSteps(runId);
+                const stepsResult = await getPersistence().getSteps(runId);
 
                 if (stepsResult.isErr()) {
                     console.error(chalk.red('Error:', stepsResult.error.message));
@@ -123,8 +125,7 @@ export class HistoryCommand {
                     console.log(`Params: ${JSON.stringify(params, null, 2)}`);
                 }
 
-                const storage = container.resolve<IStorageService>('IStorageService');
-                const artifacts = await storage.getStepArtifacts(runId, stepNumber);
+                const artifacts = await getStorage().getStepArtifacts(runId, stepNumber);
 
                 if (artifacts.accessibility) {
                     console.log(chalk.bold('\nAccessibility Tree:'));
@@ -155,8 +156,7 @@ export class HistoryCommand {
         history.command('checkpoints <runId>')
             .description('Show checkpoint records for a run')
             .action(async (runId: string) => {
-                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-                const result = await persistence.getCheckpointRecords(runId);
+                const result = await getPersistence().getCheckpointRecords(runId);
 
                 if (result.isErr()) {
                     console.error(chalk.red('Error:', result.error.message));
@@ -194,8 +194,7 @@ export class HistoryCommand {
                     if (!confirm) return;
                 }
 
-                const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-                const result = await persistence.clearHistory();
+                const result = await getPersistence().clearHistory();
 
                 if (result.isErr()) {
                     console.error(chalk.red('Failed to clear history:', result.error.message));

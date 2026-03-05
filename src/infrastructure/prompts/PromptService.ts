@@ -1,6 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import type { IConfigService } from '@domain/ports/IConfigService';
 import type {
     IPromptService,
@@ -8,7 +9,10 @@ import type {
     PromptOverrides,
 } from '@domain/ports/IPromptService';
 
-const DEFAULTS_DIR = path.resolve(__dirname, 'defaults');
+const __filename_esm = typeof __filename !== 'undefined' ? __filename : fileURLToPath(import.meta.url);
+const __dirname_esm = typeof __dirname !== 'undefined' ? __dirname : path.dirname(__filename_esm);
+
+const DEFAULTS_DIR = path.resolve(__dirname_esm, 'defaults');
 
 const PROMPT_FILES: Record<PromptKey, string> = {
     systemInstruction: 'system-instruction.md',

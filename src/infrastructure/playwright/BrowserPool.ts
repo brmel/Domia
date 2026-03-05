@@ -1,9 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { chromium, type Browser } from 'playwright';
 import type { ILogger } from '@domain/ports';
-
-const IDLE_TIMEOUT_MS = 60_000;
-const LAUNCH_ARGS = ['--no-sandbox', '--disable-setuid-sandbox'];
+import { BROWSER_IDLE_TIMEOUT_MS, CHROMIUM_LAUNCH_ARGS } from '@shared/defaults';
 
 @injectable()
 export class BrowserPool {
@@ -27,7 +25,7 @@ export class BrowserPool {
         }
 
         this.logger.info('[BrowserPool] Launching new browser');
-        this.browser = await chromium.launch({ headless, args: LAUNCH_ARGS });
+        this.browser = await chromium.launch({ headless, args: [...CHROMIUM_LAUNCH_ARGS] });
         this.lastHeadless = headless;
 
         this.browser.on('disconnected', () => {
@@ -44,7 +42,7 @@ export class BrowserPool {
         this.clearIdleTimer();
         this.idleTimer = setTimeout(() => {
             void this.close();
-        }, IDLE_TIMEOUT_MS);
+        }, BROWSER_IDLE_TIMEOUT_MS);
     }
 
     async close(): Promise<void> {

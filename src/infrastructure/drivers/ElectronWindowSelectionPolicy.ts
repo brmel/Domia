@@ -1,6 +1,13 @@
 import { inject, injectable } from 'tsyringe';
 import type { ILogger } from '@domain/ports';
 import type { ElectronWindowManager, ElectronWindow } from './ElectronWindowManager';
+import {
+    WINDOW_SCORE_DEVTOOLS_PENALTY,
+    WINDOW_SCORE_BLANK_PENALTY,
+    WINDOW_SCORE_PROTOCOL_BONUS as WINDOW_SCORE_HTTP_BONUS,
+    WINDOW_SCORE_TITLE_BONUS,
+    WINDOW_SCORE_DOMIA_BONUS as WINDOW_SCORE_APP_NAME_BONUS,
+} from '@shared/defaults';
 
 @injectable()
 export class ElectronWindowSelectionPolicy {
@@ -57,23 +64,23 @@ export class ElectronWindowSelectionPolicy {
         let score = 0;
 
         if (normalizedUrl.startsWith('devtools://') || normalizedUrl.startsWith('chrome-extension://')) {
-            score -= 100;
+            score -= WINDOW_SCORE_DEVTOOLS_PENALTY;
         }
 
         if (normalizedUrl === 'about:blank' || normalizedUrl.startsWith('chrome://')) {
-            score -= 20;
+            score -= WINDOW_SCORE_BLANK_PENALTY;
         }
 
         if (normalizedUrl.startsWith('file://') || normalizedUrl.startsWith('http://') || normalizedUrl.startsWith('https://')) {
-            score += 10;
+            score += WINDOW_SCORE_HTTP_BONUS;
         }
 
         if (normalizedTitle && normalizedTitle !== 'untitled') {
-            score += 5;
+            score += WINDOW_SCORE_TITLE_BONUS;
         }
 
         if (normalizedTitle.includes('domia') || normalizedTitle.includes('agent')) {
-            score += 10;
+            score += WINDOW_SCORE_APP_NAME_BONUS;
         }
 
         return score;

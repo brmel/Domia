@@ -6,7 +6,6 @@ export type {
 	CheckpointRecord,
 	CheckpointCompactionPolicy,
 	CompactedCheckpointView,
-	RecoveryReadModel
 } from './CheckpointReadModel';
 export type {
 	WorkflowExecutionGraph,

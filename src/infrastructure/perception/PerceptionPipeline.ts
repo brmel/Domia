@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import { ResultAsync } from 'neverthrow';
+import { ResultAsync, errAsync } from 'neverthrow';
 import { IPerceptionPipeline } from '@domain/ports/IPerceptionPipeline';
 import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 import type { ILogger } from '@domain/ports';
@@ -27,10 +27,7 @@ export class PerceptionPipeline implements IPerceptionPipeline {
         this.logger.info(`[PerceptionPipeline] Starting capture (vision=${!!options.vision}, aria=${options.aria !== false})`);
 
         if (!source) {
-            return ResultAsync.fromPromise(
-                Promise.reject(new Error('No perception source provided.')),
-                e => new SnapshotError(`Sensor capture failed: ${String(e)}`)
-            );
+            return errAsync(new SnapshotError('No perception source provided.'));
         }
 
         const capturePromise = Promise.all([

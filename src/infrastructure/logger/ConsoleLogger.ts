@@ -1,9 +1,10 @@
 import { injectable } from 'tsyringe';
 import { ILogger } from '@domain/ports/ILogger';
+import { MAX_LOG_CONTEXT_LENGTH } from '@shared/defaults';
 
 @injectable()
 export class ConsoleLogger implements ILogger {
-    private static readonly MAX_CONTEXT_LENGTH = 4096;
+    private static readonly MAX_CONTEXT_LENGTH = MAX_LOG_CONTEXT_LENGTH;
 
     private formatMessage(level: string, message: string): string {
         const timestamp = new Date().toISOString();

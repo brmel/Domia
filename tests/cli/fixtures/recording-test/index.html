@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Recording Integration Test Fixture</title>
+  </head>
+  <body>
+    <h1>Recording Test</h1>
+    <button id="start-btn" onclick="startCounting()">Start</button>
+    <div id="status">Idle</div>
+    <div id="output" role="list" aria-label="Numbers"></div>
+
+    <script>
+      const outputEl = document.getElementById('output');
+      const statusEl = document.getElementById('status');
+
+      // Configurable via URL params: count, interval, skip, mode
+      const params = new URLSearchParams(location.search);
+      const COUNT    = parseInt(params.get('count') || '10', 10);
+      const INTERVAL = parseInt(params.get('interval') || '50', 10);
+      const SKIP     = parseInt(params.get('skip') || '0', 10);
+      const MODE     = params.get('mode') || 'replace'; // 'replace' or 'accumulate'
+
+      function startCounting() {
+        statusEl.textContent = 'Counting...';
+        let current = 0;
+        const timer = setInterval(() => {
+          current++;
+          if (current > COUNT) {
+            clearInterval(timer);
+            outputEl.innerHTML = '';
+            statusEl.textContent = 'Complete';
+            return;
+          }
+          if (current === SKIP) return;
+          if (MODE === 'replace') outputEl.innerHTML = '';
+          const span = document.createElement('span');
+          span.setAttribute('role', 'listitem');
+          span.textContent = String(current);
+          outputEl.appendChild(span);
+          statusEl.textContent = 'Counting... (' + current + '/' + COUNT + ')';
+        }, INTERVAL);
+      }
+    </script>
+  </body>
+</html>

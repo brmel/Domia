@@ -1,3 +1,5 @@
+import { DEFAULT_RETRY_ATTEMPTS, DEFAULT_RETRY_MIN_DELAY_MS, DEFAULT_RETRY_MAX_DELAY_MS } from '@shared/defaults';
+
 type RetryInfo = {
     attempt: number;
     maxAttempts: number;
@@ -17,9 +19,9 @@ export type RetryOptions = {
 };
 
 const DEFAULT_RETRY_OPTIONS: Required<Pick<RetryOptions, 'attempts' | 'minDelayMs' | 'maxDelayMs' | 'jitter'>> = {
-    attempts: 3,
-    minDelayMs: 300,
-    maxDelayMs: 30_000,
+    attempts: DEFAULT_RETRY_ATTEMPTS,
+    minDelayMs: DEFAULT_RETRY_MIN_DELAY_MS,
+    maxDelayMs: DEFAULT_RETRY_MAX_DELAY_MS,
     jitter: 0,
 };
 

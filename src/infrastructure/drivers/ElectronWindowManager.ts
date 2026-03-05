@@ -59,7 +59,6 @@ export class ElectronWindowManager {
             return err(new ValidationError(
                 `Window ${windowId} not found`,
                 'windowId',
-                windowId
             ));
         }
 
@@ -86,7 +85,6 @@ export class ElectronWindowManager {
             return err(new ValidationError(
                 `Window ${windowId} not found`,
                 'windowId',
-                windowId
             ));
         }
 
@@ -116,7 +114,6 @@ export class ElectronWindowManager {
             return err(new ValidationError(
                 `Window ${windowId} not found`,
                 'windowId',
-                windowId
             ));
         }
 

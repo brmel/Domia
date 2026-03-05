@@ -23,7 +23,6 @@ RULES:
 8. For goals that validate multiple required items, gather explicit evidence for each required item before passing.
 9. If the same interaction repeats without producing new evidence, switch to a different action type.
 10. After performing an action, call observe to see the updated page state before deciding the next step.
-11. When the system under test performs a slow operation (file upload, server job, payment processing), use waitForCondition to poll for the expected UI change instead of repeatedly calling observe and wait.
 
 Think step by step. Choose exactly one tool call per turn.
 When the goal is confirmed, call 'pass'. When blocked after multiple attempts, call 'fail' with a concrete reason.

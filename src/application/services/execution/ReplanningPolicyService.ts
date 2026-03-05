@@ -1,5 +1,6 @@
 import { inject, injectable } from 'tsyringe';
 import type { ILogger, IConfigService } from '@domain/ports';
+import { DEFAULT_MAX_REPLANS_PER_RUN } from '@shared/defaults';
 
 export type ReplanningTrigger = 'loop_detected' | 'action_execution_error' | 'assertion_fail' | 'max_actions_reached';
 
@@ -19,8 +20,6 @@ export interface ReplanningAssessment {
     readonly shouldReplan: boolean;
     readonly reason: string;
 }
-
-const DEFAULT_MAX_REPLANS_PER_RUN = 2;
 
 @injectable()
 export class ReplanningPolicyService {

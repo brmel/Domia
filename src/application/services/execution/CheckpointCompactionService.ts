@@ -4,10 +4,11 @@ import type {
     CheckpointRecord,
     CompactedCheckpointView
 } from '@domain/value-objects/CheckpointReadModel';
+import { CHECKPOINT_KEEP_EVERY_NTH, CHECKPOINT_MAX_RECENT } from '@shared/defaults';
 
 const DEFAULT_POLICY: CheckpointCompactionPolicy = {
-    keepEveryNth: 5,
-    maxRecent: 20
+    keepEveryNth: CHECKPOINT_KEEP_EVERY_NTH,
+    maxRecent: CHECKPOINT_MAX_RECENT
 };
 
 @injectable()

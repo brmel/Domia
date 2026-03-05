@@ -5,6 +5,7 @@ import type { RunOptions } from '@shared/validation';
 import { resolveUrlFromConfig, resolveLaneKeyFromConfig } from '@application/services/platform/platformUrlUtils';
 
 import type { PlatformType } from '@domain/types/PlatformConfig';
+import { DEFAULT_MAX_ACTIONS } from '@shared/defaults';
 
 export interface StepExecutionOptions {
     vision: boolean;
@@ -35,7 +36,7 @@ export class RunCoordinator {
     buildExecutionOptions(options?: RunOptions, platform?: PlatformType): StepExecutionOptions {
         const base: StepExecutionOptions = {
             vision: options?.vision ?? true,
-            maxActions: options?.maxSteps ?? 20,
+            maxActions: options?.maxSteps ?? DEFAULT_MAX_ACTIONS,
             platform,
         };
         if (options?.recording) {

@@ -2,6 +2,7 @@ import { BrowserWindow, WebContentsView, Rectangle, app } from 'electron';
 import { singleton, inject } from 'tsyringe';
 import type { ILogger } from '@domain/ports';
 import { ConfigurationError } from '@domain/errors';
+import { ELECTRON_DEBUG_PORT } from '@shared/defaults';
 
 interface CDPVersion {
     webSocketDebuggerUrl?: string;
@@ -169,7 +170,7 @@ export class AgentViewService {
     }
 
     private async getBrowserEndpoint(): Promise<string> {
-        const port = process.env['ELECTRON_REMOTE_DEBUGGING_PORT'] || '21223';
+        const port = process.env['ELECTRON_REMOTE_DEBUGGING_PORT'] || ELECTRON_DEBUG_PORT;
         this.logger.debug(`[AgentViewService] Getting browser endpoint from port ${port}`);
 
         const response = await fetch(`http://127.0.0.1:${port}/json/version`);

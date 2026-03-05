@@ -1,6 +1,7 @@
 import { inject, injectable } from 'tsyringe';
 import type { ILogger } from '@domain/ports';
 import type { RunInput } from '@application/dtos';
+import { DEFAULT_MAX_ACTIONS, DEFAULT_MAX_DURATION_MS, DEFAULT_MAX_ESTIMATED_TOKENS } from '@shared/defaults';
 
 export type RunBudgetDimension = 'actions' | 'duration' | 'tokens';
 
@@ -22,9 +23,9 @@ export interface RunBudgetAssessment {
 }
 
 const DEFAULT_LIMITS: RunBudgetLimits = {
-    maxActions: 20,
-    maxDurationMs: 15 * 60 * 1000,
-    maxEstimatedTokens: 120_000
+    maxActions: DEFAULT_MAX_ACTIONS,
+    maxDurationMs: DEFAULT_MAX_DURATION_MS,
+    maxEstimatedTokens: DEFAULT_MAX_ESTIMATED_TOKENS
 };
 
 @injectable()

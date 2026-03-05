@@ -11,6 +11,7 @@ import { appRouter } from './router';
 import { AgentViewService } from '../src/infrastructure/electron/AgentViewService';
 import { ElectronViewHost } from '../src/infrastructure/view/ElectronViewHost';
 import { ContainerBuilder } from '../src/composition/ContainerBuilder';
+import { ELECTRON_DEBUG_PORT, AGENT_VIEW_WIDTH, AGENT_VIEW_HEIGHT } from '../src/shared/defaults';
 
 const log = createDebug('domia:electron:main');
 
@@ -34,7 +35,7 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   : RENDERER_DIST;
 
 // Allow port configuration via env var (useful for testing)
-const debugPort = process.env['ELECTRON_REMOTE_DEBUGGING_PORT'] || '21223';
+const debugPort = process.env['ELECTRON_REMOTE_DEBUGGING_PORT'] || ELECTRON_DEBUG_PORT;
 app.commandLine.appendSwitch('remote-debugging-port', debugPort);
 app.commandLine.appendSwitch('ignore-certificate-errors');
 
@@ -42,8 +43,8 @@ let win: BrowserWindow | null;
 
 function createWindow(): void {
   win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: AGENT_VIEW_WIDTH,
+    height: AGENT_VIEW_HEIGHT,
     icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
