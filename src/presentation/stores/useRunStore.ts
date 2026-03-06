@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { RunEvent } from '@domain/events';
+import type { RunOutput } from '@application/dtos';
 import type { AgentAction, RunId } from '@domain/value-objects';
 import type { Plan } from '@domain/entities/Plan';
 import type { ReplanningTelemetry } from '@application/dtos';
@@ -21,31 +21,28 @@ export interface RunStoreState {
 
     history: AgentAction[];
 
-    url: string;
     prompt: string;
     selectedPlatform: UIPlatformType;
     platformData: PlatformFieldValue;
 
     replanningEvents: ReplanningTelemetry[];
 
-    /** Latest screenshot frame from the agent (base64 PNG), for the live view. */
     liveScreenshot: string | null;
 }
 
-interface TestRunActions {
+interface RunStoreActions {
     reset: () => void;
 
-    setUrl: (url: string) => void;
     setPrompt: (prompt: string) => void;
     setSelectedPlatform: (platform: UIPlatformType) => void;
     setPlatformData: (data: PlatformFieldValue) => void;
     setStatus: (status: RunState) => void;
     setLiveScreenshot: (data: string | null) => void;
 
-    handleEvent: (event: RunEvent) => void;
+    handleRunOutput: (event: RunOutput) => void;
 }
 
-type TestRunStore = RunStoreState & TestRunActions;
+type RunStore = RunStoreState & RunStoreActions;
 
 const initialState: RunStoreState = {
     status: RunState.IDLE,
@@ -56,7 +53,6 @@ const initialState: RunStoreState = {
     summary: null,
     errorMessage: null,
     history: [],
-    url: 'https://ibraverse.ca',
     prompt: 'verify that brahim is smiling',
     selectedPlatform: 'web',
     platformData: { url: 'https://ibraverse.ca' },
@@ -64,29 +60,18 @@ const initialState: RunStoreState = {
     liveScreenshot: null,
 };
 
-export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
+export const useRunStore = create<RunStore>()(persist((set) => ({
     ...initialState,
 
     reset: (): void => set(initialState),
 
-    setUrl: (url: string): void => set((state) => ({
-        url,
-        platformData: state.selectedPlatform === 'web'
-            ? { ...(state.platformData as { url?: string }), url }
-            : state.platformData
-    })),
     setPrompt: (prompt: string): void => set({ prompt }),
     setSelectedPlatform: (selectedPlatform: UIPlatformType): void => set({ selectedPlatform }),
-    setPlatformData: (platformData: PlatformFieldValue): void => set({
-        platformData,
-        ...(get().selectedPlatform === 'web' && 'url' in platformData && typeof platformData.url === 'string'
-            ? { url: platformData.url }
-            : {})
-    }),
+    setPlatformData: (platformData: PlatformFieldValue): void => set({ platformData }),
     setStatus: (status: RunState): void => set({ status }),
     setLiveScreenshot: (liveScreenshot: string | null): void => set({ liveScreenshot }),
 
-    handleEvent: (event: RunEvent): void => {
+    handleRunOutput: (event: RunOutput): void => {
         switch (event.type) {
             case 'started':
                 set({
@@ -126,7 +111,7 @@ export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
                 set({
                     status: RunState.COMPLETED,
                     success: event.success,
-                    summary: event.summary,
+                    summary: event.summary ?? null,
                     currentAction: null,
                 });
                 break;
@@ -146,12 +131,15 @@ export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
                     errorMessage: event.error.message,
                 });
                 break;
+
+            case 'screenshot':
+                set({ liveScreenshot: event.data });
+                break;
         }
     },
 }), {
     name: 'domia-compose-draft-v1',
     partialize: (state): Partial<RunStoreState> => ({
-        url: state.url,
         prompt: state.prompt,
         selectedPlatform: state.selectedPlatform,
         platformData: state.platformData,

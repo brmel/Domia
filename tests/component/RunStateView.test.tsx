@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { RunStateView } from '@presentation/components/run/RunStateView';
 import { RunState } from '@domain/enums/RunState';
@@ -9,12 +9,6 @@ const defaults = {
     currentAction: null,
     summary: null,
     errorMessage: null,
-    actionOverrideJson: '',
-    setActionOverrideJson: vi.fn(),
-    actionOverrideError: null,
-    setActionOverrideError: vi.fn(),
-    overrideIsPending: false,
-    onQueueOverride: vi.fn(),
 };
 
 describe('RunStateView', () => {
@@ -41,16 +35,5 @@ describe('RunStateView', () => {
     it('renders error message when failed', () => {
         render(<RunStateView {...defaults} status={RunState.FAILED} errorMessage="Timeout occurred" />);
         expect(screen.getByText('Timeout occurred')).toBeInTheDocument();
-    });
-
-    it('disables override textarea when not running', () => {
-        render(<RunStateView {...defaults} status={RunState.IDLE} />);
-        const textarea = screen.getByPlaceholderText(/Operator override/i);
-        expect(textarea).toBeDisabled();
-    });
-
-    it('renders override error message', () => {
-        render(<RunStateView {...defaults} actionOverrideError="Invalid JSON: unexpected token" />);
-        expect(screen.getByText('Invalid JSON: unexpected token')).toBeInTheDocument();
     });
 });

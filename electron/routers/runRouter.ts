@@ -7,22 +7,22 @@ import { observable } from '@trpc/server/observable';
 import { RunInput } from '../../src/application/dtos';
 import { configureVerboseTracing } from '../../src/composition/ContainerBuilder';
 import { RunInputSchema } from '../../src/shared/validation';
-import { AgentActionSchema } from '../../src/shared/validation/agentAction';
-import type { AgentAction } from '../../src/domain/value-objects';
 import { RuntimeReadinessPolicyService } from '../../src/application/services/hardening/RuntimeReadinessPolicyService';
 import type { RunOutput } from '../../src/application/dtos';
 import debug from 'debug';
-import { t, eventEmitter, testControllerState } from './shared';
+import { t, eventEmitter, activeRunState } from './shared';
 
 export const runRouter = t.router({
     run: t.procedure
         .input(RunInputSchema)
         .mutation(async ({ input }: { input: z.infer<typeof RunInputSchema> }) => {
-            const useCase = container.resolve<RunUseCase>('RunUseCase');
-            if (testControllerState.current) {
-                testControllerState.current.stop();
+            const useCase = container.resolve(RunUseCase);
+            if (activeRunState.current) {
+                activeRunState.current.stop();
             }
-            testControllerState.current = new ExecutionController();
+            activeRunState.current = new ExecutionController();
+            activeRunState.executionToken += 1;
+            const executionToken = activeRunState.executionToken;
 
             if (input.options?.debug) {
                 debug.enable('domia:*');
@@ -32,62 +32,53 @@ export const runRouter = t.router({
                 configureVerboseTracing();
             }
 
-            try {
-                const generator = useCase.execute(input as RunInput, testControllerState.current);
+            const generator = useCase.execute(input as RunInput, activeRunState.current);
 
-                (async () => {
-                    for await (const event of generator) {
-                        eventEmitter.emit('test:update', event);
-                    }
-                })().catch(err => {
-                    eventEmitter.emit('test:update', {
-                        type: 'error',
-                        error: { name: 'Error', message: String(err), code: 'UNKNOWN' }
-                    });
-                }).finally(() => {
-                    testControllerState.current = null;
+            (async () => {
+                for await (const event of generator) {
+                    if (executionToken !== activeRunState.executionToken) break;
+                    eventEmitter.emit('test:update', event);
+                }
+            })().catch(err => {
+                if (executionToken !== activeRunState.executionToken) return;
+                eventEmitter.emit('test:update', {
+                    type: 'error',
+                    error: { name: 'Error', message: String(err), code: 'UNKNOWN' }
                 });
+            }).finally(() => {
+                if (executionToken === activeRunState.executionToken) {
+                    activeRunState.current = null;
+                }
+            });
 
-                return { success: true };
-            } catch (error) {
-                return { success: false, error: String(error) };
-            }
+            return { success: true };
         }),
 
     cancel: t.procedure.mutation(() => {
-        if (testControllerState.current) {
-            testControllerState.current.stop();
+        if (activeRunState.current) {
+            activeRunState.current.stop();
+            activeRunState.executionToken += 1;
+            activeRunState.current = null;
             return { success: true };
         }
-        return { success: false, message: 'No running' };
+        return { success: false, message: 'No run in progress' };
     }),
 
     pause: t.procedure.mutation(() => {
-        if (testControllerState.current) {
-            testControllerState.current.pause();
+        if (activeRunState.current) {
+            activeRunState.current.pause();
             return { success: true };
         }
-        return { success: false, message: 'No running' };
+        return { success: false, message: 'No run in progress' };
     }),
 
     resume: t.procedure.mutation(() => {
-        if (testControllerState.current) {
-            testControllerState.current.resume();
+        if (activeRunState.current) {
+            activeRunState.current.resume();
             return { success: true };
         }
-        return { success: false, message: 'No running' };
+        return { success: false, message: 'No run in progress' };
     }),
-
-    overrideAction: t.procedure
-        .input(z.object({ action: AgentActionSchema }))
-        .mutation(({ input }) => {
-            if (!testControllerState.current) {
-                return { success: false, message: 'No running' };
-            }
-
-            testControllerState.current.queueActionOverride(input.action as unknown as AgentAction);
-            return { success: true };
-        }),
 
     onUpdate: t.procedure.subscription(() => {
         return observable<RunOutput>((emit) => {

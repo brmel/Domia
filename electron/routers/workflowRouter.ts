@@ -19,35 +19,7 @@ import { RunInputSchema } from '../../src/shared/validation';
 import { t, eventEmitter, workflowControllerState } from './shared';
 
 function toPlatformConfig(value: z.infer<typeof RunInputSchema.shape.platformConfig>): PlatformConfig {
-    if (value.platform === 'web') {
-        return {
-            platform: 'web',
-            url: value.url
-        };
-    }
-
-    // At this point, only electron platform remains (android/ios are not in the Zod schema for this router)
-    const connection = (value as unknown as { connection: { type: string; cdpUrl: string; executablePath: string; windowTitle?: string; launchArgs?: string[] } }).connection;
-    if (connection.type === 'cdp') {
-        return {
-            platform: 'electron',
-            connection: {
-                type: 'cdp',
-                cdpUrl: connection.cdpUrl,
-                ...(connection.windowTitle ? { windowTitle: connection.windowTitle } : {})
-            }
-        };
-    }
-
-    return {
-        platform: 'electron',
-        connection: {
-            type: 'executable',
-            executablePath: connection.executablePath,
-            ...(connection.launchArgs ? { launchArgs: connection.launchArgs } : {}),
-            ...(connection.windowTitle ? { windowTitle: connection.windowTitle } : {})
-        }
-    };
+    return value as PlatformConfig;
 }
 
 export const workflowRouter = t.router({

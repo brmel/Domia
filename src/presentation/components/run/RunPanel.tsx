@@ -53,12 +53,6 @@ export function RunPanel(): ReactElement {
                                 currentAction={vm.currentAction}
                                 summary={vm.summary}
                                 errorMessage={vm.errorMessage}
-                                actionOverrideJson={vm.actionOverrideJson}
-                                setActionOverrideJson={vm.setActionOverrideJson}
-                                actionOverrideError={vm.actionOverrideError}
-                                setActionOverrideError={vm.setActionOverrideError}
-                                overrideIsPending={vm.overrideActionMutation.isPending}
-                                onQueueOverride={vm.handleQueueActionOverride}
                             />
                         )}
 

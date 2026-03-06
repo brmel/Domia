@@ -83,6 +83,10 @@ export class StepExecutionKernelService {
                 } else if (next.value.type === 'action') {
                     const action = next.value.action;
 
+                    yield { type: 'acting', action };
+
+                    if (controller?.isStopped()) return cancelResult('Run cancelled by user.');
+
                     const step: Step = {
                         id: uuidv4(),
                         runId,
@@ -98,10 +102,7 @@ export class StepExecutionKernelService {
                     }
 
                     currentState = WorkflowState.applyAction(currentState, action);
-                    estimatedTokensUsed += Math.ceil(JSON.stringify(action).length / 4);
                     yield await emitStateUpdate();
-
-                    if (controller?.isStopped()) return cancelResult('Run cancelled by user.');
 
                     this.throwIfBudgetExceeded(runId, runtime.budgetLimits, this.buildBudgetSnapshot({
                         actionsTaken: currentState.stepNumber,
@@ -113,8 +114,6 @@ export class StepExecutionKernelService {
                         await controller.waitForResume();
                         if (controller.isStopped()) return cancelResult('Run cancelled while paused mid-step.');
                     }
-
-                    yield { type: 'acting', action };
                 }
 
                 next = await iterator.next();

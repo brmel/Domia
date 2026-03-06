@@ -5,12 +5,11 @@ import { ExecutionController } from '../../src/application/controllers/Execution
 export const t = initTRPC.create({ isServer: true });
 export const eventEmitter = new EventEmitter();
 
-/** Mutable singleton state for the active test controller. */
-export const testControllerState = {
+export const activeRunState = {
     current: null as ExecutionController | null,
+    executionToken: 0,
 };
 
-/** Mutable singleton state for the active workflow controller. */
 export const workflowControllerState = {
     current: null as ExecutionController | null,
     executionToken: 0,

@@ -8,7 +8,6 @@ import { canStart, canPause, canResume, canStop, isAgentRunning } from '../../ut
 import { PlatformSelector } from '../platform/PlatformSelector';
 import { platformRegistry, type PlatformFieldValue, type UIPlatformType } from '../../config/platformRegistry';
 import { buildPlatformConfig } from '../../utils/buildPlatformConfig';
-import type { WebPlatformConfig, ElectronPlatformConfig, AndroidPlatformConfig, IosPlatformConfig } from '@domain/types/PlatformConfig';
 
 interface RunFormProps {
     onOpenHistory: () => void;
@@ -31,9 +30,19 @@ export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): R
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
     const runMutation = trpc.run.run.useMutation({
-        onError: () => {
-            setStatus(RunState.FAILED);
-        },
+        onError: () => setStatus(RunState.FAILED),
+    });
+
+    const cancelMutation = trpc.run.cancel.useMutation({
+        onError: () => setStatus(RunState.IDLE),
+    });
+
+    const pauseMutation = trpc.run.pause.useMutation({
+        onError: () => setStatus(RunState.RUNNING),
+    });
+
+    const resumeMutation = trpc.run.resume.useMutation({
+        onError: () => setStatus(RunState.PAUSED),
     });
 
     const { data: config } = trpc.settings.get.useQuery();
@@ -70,142 +79,54 @@ export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): R
 
     const handlePlatformChange = (newPlatform: UIPlatformType): void => {
         setSelectedPlatform(newPlatform);
-        const definition = platformRegistry[newPlatform];
-        setPlatformData(definition.defaultValues);
+        setPlatformData(platformRegistry[newPlatform].defaultValues);
         setFieldErrors({});
     };
 
     const handleFieldChange = (newData: PlatformFieldValue): void => {
         setPlatformData(newData);
-        if (Object.keys(fieldErrors).length > 0) {
-            setFieldErrors({});
-        }
-    };
-
-    const validatePlatformData = (platform: UIPlatformType, data: PlatformFieldValue): Record<string, string> => {
-        const nextErrors: Record<string, string> = {};
-
-        switch (platform) {
-            case 'web': {
-                const webData = data as Omit<WebPlatformConfig, 'platform'>;
-                const rawUrl = (webData.url || '').trim();
-                if (!rawUrl) {
-                    nextErrors['url'] = 'URL is required';
-                    return nextErrors;
-                }
-                try {
-                    new URL(rawUrl);
-                } catch {
-                    nextErrors['url'] = 'Enter a valid URL (https://...)';
-                }
-                return nextErrors;
-            }
-            case 'electron': {
-                const electronData = data as Omit<ElectronPlatformConfig, 'platform'>;
-                const connection = electronData.connection;
-                if (!connection) {
-                    nextErrors['connection.type'] = 'Connection is required';
-                    return nextErrors;
-                }
-                if (connection.type === 'cdp') {
-                    const cdpUrl = (connection.cdpUrl || '').trim();
-                    if (!cdpUrl) {
-                        nextErrors['connection.cdpUrl'] = 'CDP URL is required';
-                        return nextErrors;
-                    }
-                    try {
-                        new URL(cdpUrl);
-                    } catch {
-                        nextErrors['connection.cdpUrl'] = 'Enter a valid CDP URL';
-                    }
-                    return nextErrors;
-                }
-                const executablePath = (connection.executablePath || '').trim();
-                if (!executablePath) {
-                    nextErrors['connection.executablePath'] = 'Executable path is required';
-                }
-                return nextErrors;
-            }
-            case 'android': {
-                const androidData = data as Omit<AndroidPlatformConfig, 'platform'>;
-                if (!(androidData.appPackage || '').trim()) {
-                    nextErrors['appPackage'] = 'App package is required (e.g. com.example.app)';
-                }
-                if (androidData.appiumUrl) {
-                    try { new URL(androidData.appiumUrl); } catch {
-                        nextErrors['appiumUrl'] = 'Enter a valid Appium URL';
-                    }
-                }
-                return nextErrors;
-            }
-            case 'ios': {
-                const iosData = data as Omit<IosPlatformConfig, 'platform'>;
-                if (!(iosData.bundleId || '').trim()) {
-                    nextErrors['bundleId'] = 'Bundle ID is required (e.g. com.example.App)';
-                }
-                if (iosData.appiumUrl) {
-                    try { new URL(iosData.appiumUrl); } catch {
-                        nextErrors['appiumUrl'] = 'Enter a valid Appium URL';
-                    }
-                }
-                return nextErrors;
-            }
-        }
+        if (Object.keys(fieldErrors).length > 0) setFieldErrors({});
     };
 
     const onSubmit = (e: React.FormEvent): void => {
         e.preventDefault();
 
-        const validationErrors = validatePlatformData(selectedPlatform, platformData);
-        if (Object.keys(validationErrors).length > 0) {
-            setFieldErrors(validationErrors);
+        const errors = platformRegistry[selectedPlatform].validate(platformData);
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
             return;
         }
         setFieldErrors({});
-        
-        if (!canStart(status) || !prompt.trim()) {
-            return;
-        }
+
+        if (!canStart(status) || !prompt.trim()) return;
 
         const platformConfig = buildPlatformConfig(selectedPlatform, platformData);
 
         setStatus(RunState.RUNNING);
-        
-        const finalData = {
+        runMutation.mutate({
             platformConfig,
             prompt,
             options: {
                 maxSteps: 20,
-                headless: false,
-                verbose: true,
-                debug: false,
                 vision: config?.ai?.visionEnabled ?? true,
                 debugScreenshots: config?.ai?.debugScreenshots ?? false,
             }
-        };
-        
-        runMutation.mutate(finalData);
+        });
     };
 
-    const stopMutation = trpc.run.cancel.useMutation({});
-
-    const pauseMutation = trpc.run.pause.useMutation({});
-
-    const resumeMutation = trpc.run.resume.useMutation({});
-
     const handleStop = (): void => {
-        stopMutation.mutate();
         setStatus(RunState.CANCELLED);
+        cancelMutation.mutate();
     };
 
     const handlePause = (): void => {
-        pauseMutation.mutate();
         setStatus(RunState.PAUSED);
+        pauseMutation.mutate();
     };
 
     const handleResume = (): void => {
-        resumeMutation.mutate();
         setStatus(RunState.RUNNING);
+        resumeMutation.mutate();
     };
 
     const canSubmit = prompt.trim().length > 0 && !isRunning;
@@ -217,19 +138,13 @@ export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): R
     const handleVisionToggle = (enabled: boolean): void => {
         updateAiSettings({
             visionEnabled: enabled,
-            debugScreenshots: enabled ? true : screenshotsEnabled
+            debugScreenshots: enabled ? true : screenshotsEnabled,
         });
     };
 
     const handleScreenshotsToggle = (enabled: boolean): void => {
-        if (!enabled && visionEnabled) {
-            return;
-        }
-
-        updateAiSettings({
-            debugScreenshots: enabled,
-            visionEnabled: enabled ? visionEnabled : false
-        });
+        if (!enabled && visionEnabled) return;
+        updateAiSettings({ debugScreenshots: enabled });
     };
 
     return (
@@ -280,17 +195,17 @@ export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): R
                     {isAgentRunning(status) && (
                         <div className="grid grid-cols-2 gap-3">
                             {canPause(status) ? (
-                                <Button variant="secondary" onClick={handlePause}>
+                                <Button variant="secondary" onClick={handlePause} disabled={pauseMutation.isPending}>
                                     Pause
                                 </Button>
                             ) : canResume(status) ? (
-                                <Button variant="primary" onClick={handleResume}>
+                                <Button variant="primary" onClick={handleResume} disabled={resumeMutation.isPending}>
                                     Resume
                                 </Button>
                             ) : null}
 
                             {canStop(status) && (
-                                <Button variant="danger" onClick={handleStop}>
+                                <Button variant="danger" onClick={handleStop} disabled={cancelMutation.isPending}>
                                     Stop
                                 </Button>
                             )}

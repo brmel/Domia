@@ -42,7 +42,7 @@ interface ErrorEvent {
 interface CompletedEvent {
     readonly type: 'completed';
     readonly success: boolean;
-    readonly summary: string;
+    readonly summary?: string;
 }
 
 interface CancelledEvent {

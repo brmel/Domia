@@ -1,21 +1,21 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
 import { ExecutionController } from '@application/controllers/ExecutionController';
-import { ActionType } from '@domain/enums/ActionType';
 
 describe('ExecutionController', () => {
-    it('queues and consumes action overrides exactly once', () => {
+    it('can be instantiated', () => {
         const controller = new ExecutionController();
-        const action = {
-            type: ActionType.MOUSE_CLICK_LEFT as const,
-            x: 10,
-            y: 20,
-            thought: 'override action'
-        };
+        expect(controller).toBeInstanceOf(ExecutionController);
+    });
 
-        controller.queueActionOverride(action);
+    it('is initially not stopped', () => {
+        const controller = new ExecutionController();
+        expect(controller.isStopped()).toBe(false);
+    });
 
-        expect(controller.consumeActionOverride()).toEqual(action);
-        expect(controller.consumeActionOverride()).toBeUndefined();
+    it('stop() marks it as stopped', () => {
+        const controller = new ExecutionController();
+        controller.stop();
+        expect(controller.isStopped()).toBe(true);
     });
 });
