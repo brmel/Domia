@@ -95,6 +95,18 @@ export class StepExecutionKernelService {
                     estimatedTokensUsed += Math.ceil(JSON.stringify(action).length / 4);
                     yield await emitStateUpdate();
 
+                    // Abort the step immediately when the operator requests a stop.
+                    if (controller?.isStopped()) {
+                        return {
+                            state: currentState,
+                            result: {
+                                success: false, terminal: 'error', code: 'user_cancelled',
+                                reason: 'Run cancelled by user.',
+                            },
+                            estimatedTokensUsed,
+                        };
+                    }
+
                     this.throwIfBudgetExceeded(runId, runtime.budgetLimits, this.buildBudgetSnapshot({
                         actionsTaken: currentState.stepNumber,
                         runStartMs: runtime.runStartMs,

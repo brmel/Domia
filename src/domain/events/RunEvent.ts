@@ -11,6 +11,7 @@ export type RunEvent =
     | StateUpdatedEvent
     | ErrorEvent
     | CompletedEvent
+    | CancelledEvent
     | ReplanningEvent;
 
 interface ThinkingChunkEvent {
@@ -42,6 +43,11 @@ interface CompletedEvent {
     readonly type: 'completed';
     readonly success: boolean;
     readonly summary: string;
+}
+
+interface CancelledEvent {
+    readonly type: 'cancelled';
+    readonly summary?: string;
 }
 
 interface ReplanningEvent {

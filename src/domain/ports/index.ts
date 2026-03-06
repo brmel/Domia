@@ -3,7 +3,6 @@ export * from './IAppAutomation';
 export * from './IAppDriver';
 export * from './IAppDriverFactory';
 export * from './ILogger';
-export type { IViewHost, ViewOptions } from './IViewHost';
 export * from './IPersistenceAdapter';
 export * from './IRunRepository';
 export * from './ICheckpointRepository';

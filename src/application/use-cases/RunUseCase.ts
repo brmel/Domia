@@ -218,6 +218,12 @@ export class RunUseCase {
                 estimatedTokensUsed = kernelResult.estimatedTokensUsed;
                 const { result } = kernelResult;
 
+                // If the controller was stopped during the step, exit immediately before
+                // replanning/failure processing — finalizeExecution will emit 'cancelled'.
+                if (controller.isStopped()) {
+                    break;
+                }
+
                 if (result && result.success) {
                     const successItem = PlanItem.complete(runningItem);
                     const successItems = [...updatedItems];
@@ -400,8 +406,8 @@ export class RunUseCase {
             currentState = WorkflowState.applyTerminal(currentState, 'idle', 'cancelled');
             runLifecycle = this.durability.transition(runId, runLifecycle, 'cancelled');
             await this.durability.checkpoint(runId, currentState, 'terminal_cancelled');
-            yield { type: 'completed', success: false, summary: "Cancelled by user." };
-            await this.lifecycleManager.finalizeRun(runId, false, "Cancelled by user.");
+            yield { type: 'cancelled', summary: 'Cancelled by user.' };
+            await this.lifecycleManager.finalizeRun(runId, false, 'Cancelled by user.');
         } else if (completed) {
             currentState = WorkflowState.applyTerminal(
                 currentState,

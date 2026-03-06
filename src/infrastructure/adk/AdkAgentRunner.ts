@@ -1,6 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { LlmAgent, Gemini, Runner, InMemorySessionService, getFunctionCalls, isFinalResponse, stringifyContent } from '@google/adk';
 import type { Content, Part } from '@google/genai';
+import { FunctionCallingConfigMode } from '@google/genai';
 import type { IStructuredAutomation, IPerceptionPipeline, ILogger, IStorageService } from '@domain/ports';
 import type { IAgentRunner, AgentRunnerEvent, StepExecutionResult, StepRunnerConfig } from '@domain/ports/IAgentRunner';
 import type { IPromptService } from '@domain/ports/IPromptService';
@@ -10,7 +11,7 @@ import { createAdkTools } from './AdkToolFactory';
 import { ActionMapper } from '../agent/common/ActionMapper';
 import { AgentLoopGuard } from '../agent/common/AgentLoopGuard';
 import { buildAgentInstruction } from '../agent/common/AgentInstructionBuilder';
-import { interpolate } from '../prompts/PromptService';
+import { interpolate } from '../prompts/interpolate';
 import { PluginRegistry } from '../plugins/PluginRegistry';
 import { ShellExecutor } from '../shell/ShellExecutor';
 import type { IConfigService } from '@domain/ports/IConfigService';
@@ -171,13 +172,21 @@ export class AdkAgentRunner implements IAgentRunner {
             model: new Gemini({ model, apiKey: llmConfig.apiKey }),
             instruction,
             tools,
-            generateContentConfig: { temperature: 0 },
+            generateContentConfig: {
+                temperature: 0,
+                // Force the model to ALWAYS call a tool — text-only responses are not allowed.
+                // Without this, the model can skip observe and return empty text on ambiguous goals.
+                toolConfig: {
+                    functionCallingConfig: { mode: FunctionCallingConfigMode.ANY },
+                },
+            },
             beforeToolCallback: ({ tool, args }) => {
                 const sig = `${tool.name}:${JSON.stringify(args)}`;
                 loopGuard.record(tool.name, args as Record<string, unknown>);
                 if (loopGuard.isLoop()) {
+                    const warning = loopGuard.recordViolation(tool.name);
                     this.logger.warn(`[AdkAgentRunner] Loop detected: ${sig}`);
-                    return { status: 'error', error: loopGuard.getWarning(tool.name) };
+                    return { status: 'error', error: warning };
                 }
                 toolTimers.set(tool.name, Date.now());
                 return undefined;
@@ -223,6 +232,16 @@ export class AdkAgentRunner implements IAgentRunner {
                 }
 
                 if (functionCalls?.length) {
+                    // Terminate if the loop guard signalled irrecoverable looping
+                    if (loopGuard.shouldTerminate()) {
+                        yield* flushPending();
+                        this.logger.warn(`[AdkAgentRunner] Step terminated: agent ignored loop warnings. Last call: ${loopGuard.getLastLoopingArg()}`);
+                        return {
+                            success: false, terminal: 'fail', code: 'agent_fail',
+                            reason: `Agent stuck in a loop (${loopGuard.getLastLoopingArg()}) and ignored repeated warnings.`,
+                        };
+                    }
+
                     const roundTripMs = Date.now() - llmTurnStartMs;
                     // Subtract the previous tool's execution time to get actual LLM latency.
                     // afterToolCallback already set lastToolResult before this event arrived.

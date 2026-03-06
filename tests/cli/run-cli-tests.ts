@@ -17,7 +17,8 @@ function printUsage() {
     console.log('  npm run test:cli -- electron  # Electron only');
     console.log('  npm run test:cli -- counter   # Fast + Slow counter scenarios');
     console.log('  npm run test:cli -- recording # Recording tools scenario');
-    console.log('  npm run test:cli -- all       # Web + Electron + Counter + Recording\n');
+    console.log('  npm run test:cli -- shell     # Shell capability gate (enabled vs disabled)');
+    console.log('  npm run test:cli -- all       # Web + Electron + Counter + Recording + Shell\n');
 }
 
 async function runTest(testFile: string, testName: string): Promise<boolean> {
@@ -74,6 +75,11 @@ async function runTests() {
     if (platform === 'recording' || platform === 'all') {
         const recordingPassed = await runTest('tests/cli/recording-scenario-test.ts', 'Recording Tools Scenario');
         results.push({ name: 'Recording Tools', passed: recordingPassed });
+    }
+
+    if (platform === 'shell' || platform === 'all') {
+        const shellPassed = await runTest('tests/cli/shell-capability-test.ts', 'Shell Capability Gate');
+        results.push({ name: 'Shell Capability', passed: shellPassed });
     }
     
     console.log(chalk.cyan('\nSummary:'));

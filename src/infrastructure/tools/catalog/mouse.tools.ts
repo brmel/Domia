@@ -5,7 +5,7 @@ import type { ToolSpec } from '../ToolSpec';
 import { unwrapResult } from '../toolResult';
 
 export function createMouseTools(automation: IAppAutomation): ToolSpec[] {
-    return [
+    return ([
         {
             name: 'mouse_move',
             description: 'Move the mouse pointer to absolute viewport coordinates without clicking. Use for hover effects, tooltips, dropdown previews, or positioning before another mouse action. Returns { status: "success" } on success or { status: "error", error: string } on failure.',
@@ -85,5 +85,5 @@ export function createMouseTools(automation: IAppAutomation): ToolSpec[] {
                 await automation.mouseScroll((args['deltaX'] as number) ?? 0, args['deltaY'] as number),
             ),
         },
-    ];
+    ] as ToolSpec[]).map(spec => ({ ...spec, category: 'mouse' as const }));
 }

@@ -9,9 +9,6 @@ export const LiveViewContainer: React.FC = () => {
     const { status, liveScreenshot } = useRunStore();
     const isRunning = status === 'running';
 
-    // When a screenshot is available, show it instead of the native WebContentsView
-    const hasScreenshot = Boolean(liveScreenshot);
-
     useEffect(() => {
         isRunningRef.current = isRunning;
     }, [isRunning]);
@@ -30,8 +27,7 @@ export const LiveViewContainer: React.FC = () => {
             const rect = container.getBoundingClientRect();
             const isVisible = isVisibleRef.current;
 
-            // If we have a screenshot, hide the native view — the img overlay handles display
-            if (hasScreenshot || !isVisible) {
+            if (!isVisible) {
                 window.electron?.agentView?.hide();
                 return;
             }
@@ -44,23 +40,15 @@ export const LiveViewContainer: React.FC = () => {
             const width = Math.max(0, Math.min(Math.round(rect.width), Math.max(0, viewportWidth - x)));
             const height = Math.max(0, Math.min(Math.round(rect.height), Math.max(0, viewportHeight - y)));
 
-            const bounds = {
-                x,
-                y,
-                width,
-                height
-            };
+            const bounds = { x, y, width, height };
 
             if (bounds.width > 0 && bounds.height > 0) {
-                const running = isRunningRef.current;
-                if (running) {
+                if (isRunningRef.current) {
                     window.electron?.agentView?.resize(bounds);
                     window.electron?.agentView?.show(bounds);
                 } else {
                     window.electron?.agentView?.hide();
                 }
-            } else {
-                // Invalid bounds — skip resize
             }
         };
 
@@ -75,7 +63,6 @@ export const LiveViewContainer: React.FC = () => {
         };
 
         performUpdateRef.current = performUpdate;
-
         performUpdate();
 
         const observer = new ResizeObserver(updateBounds);
@@ -102,16 +89,15 @@ export const LiveViewContainer: React.FC = () => {
             window.removeEventListener('scroll', updateBounds, true);
             performUpdateRef.current = null;
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hasScreenshot]);
+    }, []);
 
     useEffect(() => {
-        if (isRunning && !hasScreenshot) {
+        if (isRunning) {
             performUpdateRef.current?.();
         } else {
             window.electron?.agentView?.hide();
         }
-    }, [isRunning, hasScreenshot]);
+    }, [isRunning]);
 
     useEffect(() => {
         return (): void => {
@@ -125,16 +111,23 @@ export const LiveViewContainer: React.FC = () => {
             className={`w-full h-full min-h-0 relative ${isRunning ? 'z-10' : 'z-0 opacity-0 pointer-events-none'}`}
             style={{ minHeight: '100px' }}
         >
-            {/* Screenshot stream — shown when a screenshot is available (web mode or vision-enabled runs) */}
-            {liveScreenshot && (
-                <img
-                    src={`data:image/png;base64,${liveScreenshot}`}
-                    alt="Live agent view"
-                    className="absolute inset-0 w-full h-full object-contain bg-black"
-                    style={{ imageRendering: 'auto' }}
-                />
+            {/* Screenshot stream overlay — shown while a run is active */}
+            {isRunning && (
+                liveScreenshot ? (
+                    <img
+                        src={`data:image/png;base64,${liveScreenshot}`}
+                        alt="Agent live view"
+                        className="absolute inset-0 w-full h-full object-contain rounded-sm"
+                        style={{ imageRendering: 'auto' }}
+                    />
+                ) : (
+                    /* Placeholder shown before the first screenshot arrives */
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/80 rounded-sm gap-3">
+                        <div className="w-6 h-6 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" />
+                        <span className="text-xs text-white/40 tracking-widest uppercase">Loading&hellip;</span>
+                    </div>
+                )
             )}
-            {/* When no screenshot and running without vision, this div acts as the WCV placeholder */}
         </div>
     );
 };

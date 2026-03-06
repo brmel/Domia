@@ -1,1 +1,0 @@
-- Target elements by ref from the ARIA snapshot (e.g. ref: "e3").

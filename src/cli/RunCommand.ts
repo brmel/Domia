@@ -72,6 +72,7 @@ export class RunCommand {
             .option('--recording-max-duration <ms>', `Max recording duration per action in ms (default ${DEFAULT_RECORDING_MAX_DURATION_MS})`, parseInt)
             .option('--recording-interval <ms>', `Screenshot interval during recording in ms (default ${DEFAULT_RECORDING_INTERVAL_MS})`, parseInt)
             .option('--plugin-dir <dir>', 'Plugin directory (default: ~/.domia/plugins)')
+            .option('--no-shell', 'Disable the shell_exec plugin for this run')
             .action(async (options) => {
                 console.log(chalk.cyan(figlet.textSync('Domia Agent', { horizontalLayout: 'full' })));
 
@@ -103,6 +104,7 @@ export class RunCommand {
                     pluginDir,
                     logLevel: logLevelRaw,
                     platform: platformFlag,
+                    shell: shellEnabled,
                 } = options;
 
                 const { headless } = options;
@@ -120,7 +122,15 @@ export class RunCommand {
                         debugScreenshots: !!screenshots
                     }
                 };
-                configService.update(updates);
+                // All CLI per-run overrides are transient — they must not be written back to domia.config.json
+                configService.updateTransient(updates);
+
+                // Per-run flags: these must not be written back to domia.config.json
+                // --no-shell disables the shell_exec tool for this run only
+                if (shellEnabled === false) {
+                    configService.updateTransient({ plugins: { shell: { enabled: false } } });
+                    console.log(chalk.gray('[Shell plugin disabled for this run]'));
+                }
 
                 if (model) {
                     console.log(chalk.gray(`[LLM] provider=google model=${resolvedModel}`));

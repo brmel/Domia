@@ -24,5 +24,6 @@ export type RunOutput =
     | { type: 'state_updated'; state: import('@domain/value-objects').WorkflowState }
     | { type: 'replanning'; telemetry: ReplanningTelemetry }
     | { type: 'completed'; success: boolean; summary?: string }
+    | { type: 'cancelled'; summary?: string }
     | { type: 'error'; error: WorkflowError | Error }
     | { type: 'screenshot'; data: string };

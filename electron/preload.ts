@@ -11,6 +11,7 @@ process.once('loaded', async () => {
       show: (bounds: { x: number; y: number; width: number; height: number }) =>
         ipcRenderer.send('agent-view:show', bounds),
       hide: () => ipcRenderer.send('agent-view:hide'),
+      navigateTo: (url: string) => ipcRenderer.send('agent-view:navigate', url),
     }
   });
 });

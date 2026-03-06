@@ -164,6 +164,20 @@ export class AgentViewService {
         }
     }
 
+    navigateTo(url: string): void {
+        if (!this.view) {
+            this.logger.warn('[AgentViewService] navigateTo() ignored - view not initialized');
+            return;
+        }
+        this.logger.debug(`[AgentViewService] Navigating live view to: ${url}`);
+        this.view.webContents.loadURL(url).catch((err: Error) => {
+            // ERR_ABORTED means our new navigation cancelled a previous one — not a real failure
+            if (!err.message.includes('ERR_ABORTED')) {
+                this.logger.warn(`[AgentViewService] navigateTo failed: ${err.message}`);
+            }
+        });
+    }
+
     async getCDPWebSocketURL(): Promise<string> {
         await this.waitUntilReady();
         return this.getBrowserEndpoint();

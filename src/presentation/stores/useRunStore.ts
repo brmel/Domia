@@ -131,6 +131,15 @@ export const useRunStore = create<TestRunStore>()(persist((set, get) => ({
                 });
                 break;
 
+            case 'cancelled':
+                set({
+                    status: RunState.CANCELLED,
+                    success: false,
+                    summary: event.summary ?? null,
+                    currentAction: null,
+                });
+                break;
+
             case 'error':
                 set({
                     status: RunState.FAILED,

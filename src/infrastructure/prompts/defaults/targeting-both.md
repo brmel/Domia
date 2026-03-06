@@ -1,3 +1,0 @@
-- Ref-based tools (click, type, hover, selectOption, dragTo, extract): target elements by ref from the ARIA snapshot. Preferred — most robust.
-- Coordinate tools (mouse_click_left, mouse_move, mouse_drag, etc.): target by viewport pixel coordinates. Use ONLY for elements without refs — canvas, SVG, images, custom widgets.
-- Always prefer ref-based tools when a ref is available.

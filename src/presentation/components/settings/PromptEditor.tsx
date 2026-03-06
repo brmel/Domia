@@ -4,12 +4,32 @@ import { Button } from '../ui/Button';
 import { CollapsibleSection } from '../ui/CollapsibleSection';
 
 const PROMPT_LABELS: Record<string, string> = {
+    // Core
     systemInstruction: 'System Instruction',
     stepGoal: 'Step Goal Template',
     loopWarning: 'Loop Warning',
+    // Targeting
     targetingBoth: 'Targeting (Ref + Mouse)',
     targetingRefOnly: 'Targeting (Ref Only)',
     targetingMouseOnly: 'Targeting (Mouse Only)',
+    // Shell
+    shellCapabilityNote: 'Shell Capability Note',
+    shellAvailableRule: 'Shell Rule — Available',
+    shellUnavailableRule: 'Shell Rule — Unavailable',
+};
+
+/** Groups control the display order in the Agent Prompts section. */
+const PROMPT_GROUPS: Array<{ title: string; keys: string[] }> = [
+    { title: 'Core', keys: ['systemInstruction', 'stepGoal', 'loopWarning'] },
+    { title: 'Targeting', keys: ['targetingBoth', 'targetingRefOnly', 'targetingMouseOnly'] },
+    { title: 'Shell', keys: ['shellCapabilityNote', 'shellAvailableRule', 'shellUnavailableRule'] },
+];
+
+/** Shows available interpolation variables as a hint while editing. */
+const PROMPT_VARIABLES: Record<string, string> = {
+    systemInstruction: '{{toolNames}}  {{targetingSection}}  {{shellSection}}  {{shellExecRule}}',
+    stepGoal: '{{stepGoal}}  {{viewportWidth}}  {{viewportHeight}}  {{url}}  {{maxActions}}',
+    loopWarning: '{{toolName}}  {{threshold}}',
 };
 
 export function PromptEditor({ disabled = false }: { disabled?: boolean }): JSX.Element {
@@ -55,14 +75,22 @@ export function PromptEditor({ disabled = false }: { disabled?: boolean }): JSX.
     const overrides = overridesQuery.data;
     const isLoading = promptsQuery.isLoading || toolDescsQuery.isLoading;
 
-    const hasOverrides = overrides && (
-        (overrides.prompts && Object.keys(overrides.prompts).length > 0) ||
-        (overrides.toolDescriptions && Object.keys(overrides.toolDescriptions).length > 0)
-    );
+    const promptOverrides = overrides?.prompts as Record<string, string> | undefined;
+    const toolOverrides = overrides?.toolDescriptions as Record<string, string> | undefined;
+
+    const hasOverrides =
+        (promptOverrides && Object.keys(promptOverrides).length > 0) ||
+        (toolOverrides && Object.keys(toolOverrides).length > 0);
 
     if (isLoading) {
         return <div className="text-gray-500 text-sm py-2">Loading prompts...</div>;
     }
+
+    // Keys not claimed by any group fall into an implicit "Other" bucket.
+    const allGroupedKeys = new Set(PROMPT_GROUPS.flatMap((g) => g.keys));
+    const ungroupedKeys = prompts
+        ? Object.keys(prompts).filter((k) => !allGroupedKeys.has(k))
+        : [];
 
     return (
         <div className="space-y-4">
@@ -85,47 +113,81 @@ export function PromptEditor({ disabled = false }: { disabled?: boolean }): JSX.
             </div>
 
             <p className="text-xs text-gray-500">
-                Customize the prompts sent to the LLM. Variables use <code className="bg-gray-100 px-1 rounded">{'{{variable}}'}</code> syntax.
-                Overridden prompts are indicated with a dot.
+                Customize every prompt sent to the LLM. Variables use{' '}
+                <code className="bg-gray-100 px-1 rounded">{'{{variable}}'}</code> syntax.
+                Customized prompts are marked with a dot.
             </p>
 
             <CollapsibleSection title="Agent Prompts" defaultOpen={true}>
-                <div className="space-y-3">
-                    {prompts && Object.entries(prompts).map(([key, value]) => {
-                        const promptOverrides = overrides?.prompts as Record<string, string> | undefined;
+                <div className="space-y-4">
+                    {PROMPT_GROUPS.map((group) => {
+                        const groupEntries = group.keys
+                            .filter((k) => prompts && k in prompts)
+                            .map((k) => [k, (prompts as Record<string, string>)[k]] as [string, string]);
+                        if (groupEntries.length === 0) return null;
                         return (
-                            <PromptField
-                                key={key}
-                                label={PROMPT_LABELS[key] ?? key}
-                                value={value}
-                                isOverridden={!!promptOverrides?.[key]}
-                                disabled={disabled}
-                                onSave={(v) => setPromptMutation.mutate({ key, value: v })}
-                                onReset={() => resetPromptMutation.mutate({ key })}
-                                saving={setPromptMutation.isPending}
-                            />
+                            <div key={group.title}>
+                                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                                    {group.title}
+                                </p>
+                                <div className="space-y-2">
+                                    {groupEntries.map(([key, value]) => (
+                                        <PromptField
+                                            key={key}
+                                            label={PROMPT_LABELS[key] ?? key}
+                                            value={value}
+                                            variables={PROMPT_VARIABLES[key]}
+                                            isOverridden={!!promptOverrides?.[key]}
+                                            disabled={disabled}
+                                            onSave={(v) => setPromptMutation.mutate({ key, value: v })}
+                                            onReset={() => resetPromptMutation.mutate({ key })}
+                                            saving={setPromptMutation.isPending}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
                         );
                     })}
+
+                    {ungroupedKeys.length > 0 && prompts && (
+                        <div>
+                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Other</p>
+                            <div className="space-y-2">
+                                {ungroupedKeys.map((key) => (
+                                    <PromptField
+                                        key={key}
+                                        label={PROMPT_LABELS[key] ?? key}
+                                        value={(prompts as Record<string, string>)[key] ?? ''}
+                                        isOverridden={!!promptOverrides?.[key]}
+                                        disabled={disabled}
+                                        onSave={(v) => setPromptMutation.mutate({ key, value: v })}
+                                        onReset={() => resetPromptMutation.mutate({ key })}
+                                        saving={setPromptMutation.isPending}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </CollapsibleSection>
 
             <CollapsibleSection title="Tool Descriptions" defaultOpen={false}>
-                <div className="space-y-3">
-                    {toolDescs && Object.entries(toolDescs).sort(([a], [b]) => a.localeCompare(b)).map(([toolName, desc]) => {
-                        const toolOverrides = overrides?.toolDescriptions as Record<string, string> | undefined;
-                        return (
-                            <PromptField
-                                key={toolName}
-                                label={toolName}
-                                value={desc}
-                                isOverridden={!!toolOverrides?.[toolName]}
-                                disabled={disabled}
-                                onSave={(v) => setToolDescMutation.mutate({ toolName, value: v })}
-                                onReset={() => resetToolDescMutation.mutate({ toolName })}
-                                saving={setToolDescMutation.isPending}
-                            />
-                        );
-                    })}
+                <div className="space-y-2">
+                    {toolDescs &&
+                        Object.entries(toolDescs)
+                            .sort(([a], [b]) => a.localeCompare(b))
+                            .map(([toolName, desc]) => (
+                                <PromptField
+                                    key={toolName}
+                                    label={toolName}
+                                    value={desc}
+                                    isOverridden={!!toolOverrides?.[toolName]}
+                                    disabled={disabled}
+                                    onSave={(v) => setToolDescMutation.mutate({ toolName, value: v })}
+                                    onReset={() => resetToolDescMutation.mutate({ toolName })}
+                                    saving={setToolDescMutation.isPending}
+                                />
+                            ))}
                 </div>
             </CollapsibleSection>
         </div>
@@ -135,6 +197,7 @@ export function PromptEditor({ disabled = false }: { disabled?: boolean }): JSX.
 interface PromptFieldProps {
     label: string;
     value: string;
+    variables?: string | undefined;
     isOverridden: boolean;
     disabled: boolean;
     onSave: (value: string) => void;
@@ -142,7 +205,9 @@ interface PromptFieldProps {
     saving: boolean;
 }
 
-function PromptField({ label, value, isOverridden, disabled, onSave, onReset, saving }: PromptFieldProps): JSX.Element {
+function PromptField({
+    label, value, variables, isOverridden, disabled, onSave, onReset, saving,
+}: PromptFieldProps): JSX.Element {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState(value);
     const [expanded, setExpanded] = useState(false);
@@ -154,9 +219,7 @@ function PromptField({ label, value, isOverridden, disabled, onSave, onReset, sa
     };
 
     const handleSave = (): void => {
-        if (draft !== value) {
-            onSave(draft);
-        }
+        if (draft !== value) onSave(draft);
         setEditing(false);
     };
 
@@ -218,12 +281,18 @@ function PromptField({ label, value, isOverridden, disabled, onSave, onReset, sa
 
             {editing && (
                 <div className="p-3 bg-white space-y-2">
+                    {variables && (
+                        <p className="text-xs text-gray-400">
+                            Variables: <span className="font-mono">{variables}</span>
+                        </p>
+                    )}
                     <textarea
                         className="w-full min-h-40 text-xs font-mono border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y leading-relaxed"
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
                         disabled={disabled || saving}
                         spellCheck={false}
+                        autoFocus
                     />
                     <div className="flex justify-end gap-2">
                         <Button
@@ -244,7 +313,7 @@ function PromptField({ label, value, isOverridden, disabled, onSave, onReset, sa
                             disabled={disabled || saving || draft === value}
                             className="text-xs"
                         >
-                            {saving ? 'Saving...' : 'Save'}
+                            {saving ? 'Saving…' : 'Save'}
                         </Button>
                     </div>
                 </div>

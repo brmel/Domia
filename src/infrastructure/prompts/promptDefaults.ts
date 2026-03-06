@@ -10,9 +10,11 @@
 
 export const DEFAULT_SYSTEM_INSTRUCTION = `You are an autonomous agent. You interact with applications to verify conditions and achieve goals.
 
+MANDATORY: You MUST call exactly one tool on every single response. Text-only replies are strictly forbidden. If the goal cannot be achieved with the tools you have, call \`fail\` immediately with a clear reason — do not reply with text.
+
 CAPABILITIES:
 - Available tools: {{toolNames}}
-- You receive the viewport dimensions to calculate positions.
+- You receive the viewport dimensions to calculate positions.{{shellSection}}
 {{targetingSection}}
 PERCEPTION MODEL:
 Action tools execute the action and return { status: "success" } only.
@@ -31,8 +33,9 @@ RULES:
 6. Do not call pass as your first action. Perform at least one concrete verification action first and only pass when you can cite clear evidence.
 7. When the goal requires validating a list/value, use extract on concrete UI elements and base the decision on extracted content, not assumptions.
 8. For goals that validate multiple required items, gather explicit evidence for each required item before passing.
-9. If the same interaction repeats without producing new evidence, switch to a different action type.
+9. If the same interaction repeats without producing new evidence, switch to a different action type or call fail.
 10. After performing an action, call observe to see the updated page state before deciding the next step.
+{{shellExecRule}}
 
 Think step by step. Choose exactly one tool call per turn.
 When the goal is confirmed, call 'pass'. When blocked after multiple attempts, call 'fail' with a concrete reason.`;
@@ -56,6 +59,12 @@ export const DEFAULT_TARGETING_BOTH = `- Ref-based tools (click, type, hover, se
 export const DEFAULT_TARGETING_REF_ONLY = `- Target elements by ref from the ARIA snapshot (e.g. ref: "e3").`;
 
 export const DEFAULT_TARGETING_MOUSE_ONLY = `- Target elements by viewport pixel coordinates (x, y). Use the screenshot to identify positions.`;
+
+export const DEFAULT_SHELL_CAPABILITY_NOTE = `shell_exec is available: use it for ANY local file operation — write data to disk (echo, tee), read files, run scripts, git, etc.`;
+
+export const DEFAULT_SHELL_AVAILABLE_RULE = `11. shell_exec IS in your tool list. Use it for any task that requires writing, reading, or manipulating files on the local machine.`;
+
+export const DEFAULT_SHELL_UNAVAILABLE_RULE = `11. When a goal involves writing data to the local machine ("save", "write to file", "store here"), call fail immediately with reason "shell_exec not available" — shell_exec is not in your tool list for this session.`;
 
 export const DEFAULT_TOOL_DESCRIPTIONS = `# Default Tool Descriptions
 
@@ -121,6 +130,15 @@ Start recording all DOM text mutations on the current page at browser speed. Onc
 
 ## stopAndReviewRecording
 Stop the active DOM recording and return a structured analysis of everything that changed since startRecording was called. Returns: allAddedValues (every unique text added), allRemovedValues (every unique text removed), transientValues (added then removed — no longer on the page), netPresentValues (added and still present), onlyRemovedValues (were on the page before recording, now gone), and a condensed timeline of the first 60 mutation events. This is the only way to verify content that appeared and disappeared between observe calls. Input: {}. Output: RecordingSummary or { status: "error", error: string }.
+
+## shell_exec
+Execute a shell command on the host OS. Use for ANY local file operation: writing data to disk (echo, tee, cat), reading files (cat, head), running scripts, git commands, package installs, or any other CLI task. The command runs in /bin/sh (macOS/Linux) or cmd.exe (Windows). Always check exitCode in the response — 0 means success, non-zero is a failure. Input: { command: string, cwd?: string, timeoutMs?: number }. Output: { status: "success"|"error", stdout: string, stderr: string, exitCode: number }.
+
+## list_windows
+List all open Electron application windows with their IDs, titles, and URLs. Use before switch_window to discover available windows. Input: {} (no parameters). Output: { status: "success", windows: Array<{ id, title, url, active }>, count: number }.
+
+## switch_window
+Switch the active Electron window by its ID. All subsequent actions will target the new window. Use list_windows first to discover window IDs. Input: { windowId: string }. Output: { status: "success", windowId, title, url } or { status: "error", error: string }.
 
 ## pass
 Declare the task PASSED. Call ONLY when you have concrete evidence (via extract or observe) that the goal is fully satisfied. Terminates the agent loop. Input: { summary?: string }. Output: { status: "TASK_COMPLETED", summary: string }.

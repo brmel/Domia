@@ -5,7 +5,7 @@ import type { ToolSpec } from '../ToolSpec';
 import { WEB_ELECTRON_PLATFORMS, unwrapResult, toolError, toolSuccess } from '../toolResult';
 
 export function createInteractionTools(automation: IStructuredAutomation): ToolSpec[] {
-    return [
+    return ([
         {
             name: 'click',
             description: 'Click an element by its ref from the ARIA snapshot. Input: { ref: string }. Output: { status: "success", navigatedUrl: string } or { status: "error", error: string }.',
@@ -85,5 +85,5 @@ export function createInteractionTools(automation: IStructuredAutomation): ToolS
             }),
             execute: async (args) => unwrapResult(await automation.pressKey(args['key'] as string)),
         },
-    ];
+    ] as ToolSpec[]).map(spec => ({ ...spec, category: 'interaction' as const }));
 }

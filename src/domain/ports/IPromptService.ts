@@ -4,7 +4,10 @@ export type PromptKey =
     | 'loopWarning'
     | 'targetingBoth'
     | 'targetingRefOnly'
-    | 'targetingMouseOnly';
+    | 'targetingMouseOnly'
+    | 'shellCapabilityNote'
+    | 'shellAvailableRule'
+    | 'shellUnavailableRule';
 
 export type ToolDescriptionKey =
     | 'observe' | 'extract' | 'wait' | 'waitForCondition'
@@ -12,6 +15,9 @@ export type ToolDescriptionKey =
     | 'mouse_move' | 'mouse_click_left' | 'mouse_click_right'
     | 'mouse_double_click' | 'mouse_drag' | 'mouse_scroll'
     | 'scroll' | 'navigate'
+    | 'startRecording' | 'stopAndReviewRecording'
+    | 'shell_exec'
+    | 'list_windows' | 'switch_window'
     | 'pass' | 'fail';
 
 export interface PromptOverrides {

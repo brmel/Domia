@@ -12,6 +12,9 @@ import {
     DEFAULT_TARGETING_BOTH,
     DEFAULT_TARGETING_REF_ONLY,
     DEFAULT_TARGETING_MOUSE_ONLY,
+    DEFAULT_SHELL_CAPABILITY_NOTE,
+    DEFAULT_SHELL_AVAILABLE_RULE,
+    DEFAULT_SHELL_UNAVAILABLE_RULE,
     DEFAULT_TOOL_DESCRIPTIONS,
 } from './promptDefaults';
 
@@ -22,6 +25,9 @@ const INLINE_DEFAULTS: Record<PromptKey, string> = {
     targetingBoth: DEFAULT_TARGETING_BOTH,
     targetingRefOnly: DEFAULT_TARGETING_REF_ONLY,
     targetingMouseOnly: DEFAULT_TARGETING_MOUSE_ONLY,
+    shellCapabilityNote: DEFAULT_SHELL_CAPABILITY_NOTE,
+    shellAvailableRule: DEFAULT_SHELL_AVAILABLE_RULE,
+    shellUnavailableRule: DEFAULT_SHELL_UNAVAILABLE_RULE,
 };
 
 function parseToolDescriptions(content: string): Record<string, string> {
@@ -59,7 +65,7 @@ export class PromptService implements IPromptService {
     }
 
     getPrompt(key: PromptKey): string {
-        return this.promptOverrides[key] ?? this.defaultPrompts[key] ?? '';
+        return this.promptOverrides[key] ?? this.defaultPrompts[key];
     }
 
     getToolDescription(toolName: string): string | undefined {
@@ -123,10 +129,4 @@ export class PromptService implements IPromptService {
         const overrides = this.getOverrides();
         this.configService.update({ promptOverrides: overrides } as Partial<ReturnType<IConfigService['get']>>);
     }
-}
-
-export function interpolate(template: string, vars: Record<string, string | number>): string {
-    return template.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
-        return key in vars ? String(vars[key]) : `{{${key}}}`;
-    });
 }

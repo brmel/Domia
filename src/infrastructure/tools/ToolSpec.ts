@@ -10,6 +10,7 @@ import type { ElectronWindowManager } from '../drivers/ElectronWindowManager';
 
 export interface ToolSpec {
     readonly name: string;
+    readonly category?: string;
     readonly description: string;
     readonly actionType: ActionType;
     readonly parameters: z.ZodObject<z.ZodRawShape>;

@@ -35,6 +35,10 @@ export interface CLITestConfig {
     screenshots?: boolean;
     verbose?: boolean;
     debug?: boolean;
+    plugins?: {
+        /** When explicitly set to false, passes --no-shell to the CLI. */
+        shell?: boolean;
+    };
 }
 
 export interface CLITestResult {
@@ -123,6 +127,10 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
 
         if (config.debug) {
             args.push('--debug');
+        }
+
+        if (config.plugins?.shell === false) {
+            args.push('--no-shell');
         }
         
         const result = await spawnCLI(args, envUpdates);

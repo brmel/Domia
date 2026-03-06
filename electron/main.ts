@@ -9,7 +9,6 @@ import { createIPCHandler } from 'trpc-electron/main';
 import createDebug from 'debug';
 import { appRouter } from './router';
 import { AgentViewService } from '../src/infrastructure/electron/AgentViewService';
-import { ElectronViewHost } from '../src/infrastructure/view/ElectronViewHost';
 import { ContainerBuilder } from '../src/composition/ContainerBuilder';
 import { ELECTRON_DEBUG_PORT, AGENT_VIEW_WIDTH, AGENT_VIEW_HEIGHT } from '../src/shared/defaults';
 
@@ -17,7 +16,6 @@ const log = createDebug('domia:electron:main');
 
 registerCoreServices();
 container.register(AgentViewService, { useClass: AgentViewService });
-container.register('IViewHost', { useClass: ElectronViewHost });
 new ContainerBuilder().initializePlatformProviders();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -74,13 +72,18 @@ function createWindow(): void {
     agentViewService.hide();
   });
 
+  ipcMain.on('agent-view:navigate', (_event, url: string) => {
+    log('[agent-view:navigate] %s', url);
+    agentViewService.navigateTo(url);
+  });
+
   // Log renderer crashes
   win.webContents.on('render-process-gone', (_event, details) => {
     console.error('[Main] Renderer process gone:', details);
   });
 
   win.webContents.on('did-finish-load', () => {
-    win?.webContents.send('main-process-message', (new Date).toLocaleString())
+    win?.webContents.send('main-process-message', new Date().toLocaleString())
   });
 
   createIPCHandler({ router: appRouter, windows: [win] });

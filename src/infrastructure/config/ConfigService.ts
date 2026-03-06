@@ -19,7 +19,20 @@ export class ConfigService implements IConfigService {
     }
 
     constructor() {
-        const explorer = cosmiconfigSync('domia');
+        const explorer = cosmiconfigSync('domia', {
+            searchPlaces: [
+                'package.json',
+                '.domiarc',
+                '.domiarc.json',
+                '.domiarc.yaml',
+                '.domiarc.yml',
+                '.domiarc.js',
+                '.domiarc.cjs',
+                'domia.config.js',
+                'domia.config.cjs',
+                'domia.config.json',
+            ],
+        });
         const result = explorer.search();
 
         let loadedConfig = {};
@@ -42,6 +55,17 @@ export class ConfigService implements IConfigService {
     }
 
     update(updates: Partial<DomiaConfig>): void {
+        this.applyUpdates(updates);
+        this.save();
+    }
+
+    updateTransient(updates: Partial<DomiaConfig>): void {
+        this.applyUpdates(updates);
+        // Intentionally NOT calling save() — transient overrides must never be
+        // written back to domia.config.json.
+    }
+
+    private applyUpdates(updates: Partial<DomiaConfig>): void {
         this.config = {
             ...this.config,
             ...updates,
@@ -60,8 +84,6 @@ export class ConfigService implements IConfigService {
                 }
                 : this.config.plugins,
         };
-
-        this.save();
     }
 
     private save(): void {

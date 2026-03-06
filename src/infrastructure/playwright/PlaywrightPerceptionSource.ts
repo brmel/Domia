@@ -22,13 +22,17 @@ export class PlaywrightPerceptionSource implements IPerceptionSource {
     }
 
     async evaluateScript<T>(pageFunction: string | ((...args: unknown[]) => T), ...args: unknown[]): Promise<T> {
-        return this.page.evaluate(pageFunction as never, ...args);
+        // Playwright's evaluate() uses complex generic overloads not compatible with our
+        // abstract signature — the single-arg collapse is intentional and runtime-correct.
+        const arg = args.length === 0 ? undefined : args.length === 1 ? args[0] : args;
+        return this.page.evaluate(pageFunction as Parameters<typeof this.page.evaluate>[0], arg) as Promise<T>;
     }
 
     async getAriaSnapshot(): Promise<string> {
         try {
             return await this.page.locator('body').ariaSnapshot();
         } catch {
+            // ariaSnapshot is best-effort — not all pages/contexts support it
             return '';
         }
     }

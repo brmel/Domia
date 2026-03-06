@@ -13,7 +13,8 @@ export type StepExecutionResult =
               | 'loop_detected'
               | 'action_execution_error'
               | 'agent_fail'
-              | 'max_actions_reached';
+              | 'max_actions_reached'
+              | 'user_cancelled';
           readonly reason: string;
       };
 
