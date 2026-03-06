@@ -1,11 +1,18 @@
 import { vi } from 'vitest';
 import { ok, okAsync } from 'neverthrow';
 import type { IStructuredAutomation, ILogger } from '@domain/ports';
+import type { IRunRepository } from '@domain/ports/IRunRepository';
+import type { ITraceService } from '@domain/ports/ITraceService';
 import { RunUseCase } from '@application/use-cases/RunUseCase';
 import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
 import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 import { StepExecutionKernelService } from '@application/services/execution/StepExecutionKernelService';
+import { StepExecutor } from '@application/services/execution/StepExecutor';
 import { RunBudgetPolicyService } from '@application/services/execution/RunBudgetPolicyService';
+import { RunDurabilityService } from '@application/services/execution/RunDurabilityService';
+import type { RunExecutionLaneService } from '@application/services/execution/RunExecutionLaneService';
+import { RunLifecycleManager } from '@application/services/RunLifecycleManager';
+import { PlatformSessionFactory } from '@application/services/platform/PlatformSessionFactory';
 import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
 import { ReadinessGateService } from '@application/services/hardening/ReadinessGateService';
 
@@ -149,24 +156,24 @@ export function createRunUseCaseContext(overrides: UseCaseContextOverrides = {})
     const replanningPolicy = new ReplanningPolicyService(logger);
 
     const kernel = new StepExecutionKernelService(
-        executor as unknown as never,
-        persistence as unknown as never,
-        durability as unknown as never,
-        budgetPolicy as unknown as never,
+        executor as unknown as StepExecutor,
+        persistence as unknown as IRunRepository,
+        durability as unknown as RunDurabilityService,
+        budgetPolicy as RunBudgetPolicyService,
     );
 
     const useCase = new RunUseCase(
-        lifecycleManager as unknown as never,
-        trace as unknown as never,
-        sessionFactory as unknown as never,
-        laneService as unknown as never,
-        durability as unknown as never,
-        budgetPolicy as unknown as never,
-        checkpointCompaction as unknown as never,
-        replanningPolicy as unknown as never,
-        readinessPolicy as unknown as never,
-        logger as unknown as never,
-        kernel as unknown as never,
+        lifecycleManager as unknown as RunLifecycleManager,
+        trace as unknown as ITraceService,
+        sessionFactory as unknown as PlatformSessionFactory,
+        laneService as unknown as RunExecutionLaneService,
+        durability as unknown as RunDurabilityService,
+        budgetPolicy as RunBudgetPolicyService,
+        checkpointCompaction,
+        replanningPolicy,
+        readinessPolicy as RuntimeReadinessPolicyService,
+        logger,
+        kernel,
     );
 
     return {

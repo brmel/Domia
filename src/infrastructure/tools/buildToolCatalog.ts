@@ -28,6 +28,16 @@ const RECORDABLE_ACTION_TYPES: ReadonlySet<ActionType> = new Set([
     ActionType.MOUSE_DRAG,
 ]);
 
+/**
+ * Optional tool sets: each factory receives the full deps object and returns tools
+ * only when its required dependencies are present. Add new optional tool groups here
+ * without modifying the main buildToolCatalog function.
+ */
+const OPTIONAL_TOOL_FACTORIES: ReadonlyArray<(deps: ToolDependencies) => ToolSpec[]> = [
+    (deps) => deps.shellExecutor ? createShellTools(deps.shellExecutor) : [],
+    (deps) => deps.windowManager ? createElectronTools(deps.windowManager, deps.automation) : [],
+];
+
 export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] = [], promptService?: IPromptService): ToolSpec[] {
     const middleware = new PostActionCaptureMiddleware(
         deps.perceptionSource,
@@ -45,8 +55,7 @@ export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] 
         ...createPollingTools(middleware),
         ...createSnapshotRecordingTools(deps.perceptionSource),
         ...createTerminalTools(),
-        ...(deps.shellExecutor ? createShellTools(deps.shellExecutor) : []),
-        ...(deps.windowManager ? createElectronTools(deps.windowManager, deps.automation) : []),
+        ...OPTIONAL_TOOL_FACTORIES.flatMap((factory) => factory(deps)),
         ...extraTools,
     ];
 

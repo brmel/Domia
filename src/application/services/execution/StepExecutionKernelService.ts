@@ -66,6 +66,12 @@ export class StepExecutionKernelService {
                 return { type: 'state_updated', state: currentState };
             };
 
+            const cancelResult = (reason: string): KernelResult => ({
+                state: currentState,
+                result: { success: false, terminal: 'error', code: 'user_cancelled', reason },
+                estimatedTokensUsed,
+            });
+
             const iterator = stepGen[Symbol.asyncIterator]();
             let next = await iterator.next();
 
@@ -95,17 +101,7 @@ export class StepExecutionKernelService {
                     estimatedTokensUsed += Math.ceil(JSON.stringify(action).length / 4);
                     yield await emitStateUpdate();
 
-                    // Abort the step immediately when the operator requests a stop.
-                    if (controller?.isStopped()) {
-                        return {
-                            state: currentState,
-                            result: {
-                                success: false, terminal: 'error', code: 'user_cancelled',
-                                reason: 'Run cancelled by user.',
-                            },
-                            estimatedTokensUsed,
-                        };
-                    }
+                    if (controller?.isStopped()) return cancelResult('Run cancelled by user.');
 
                     this.throwIfBudgetExceeded(runId, runtime.budgetLimits, this.buildBudgetSnapshot({
                         actionsTaken: currentState.stepNumber,
@@ -113,20 +109,9 @@ export class StepExecutionKernelService {
                         estimatedTokensUsed
                     }));
 
-                    // Mid-step pause: check if controller is paused between individual actions
-                    if (controller && controller.state === RunState.PAUSED) {
+                    if (controller?.state === RunState.PAUSED) {
                         await controller.waitForResume();
-                        // After resume, check if the run was cancelled while paused
-                        if (controller.isStopped()) {
-                            return {
-                                state: currentState,
-                                result: {
-                                    success: false, terminal: 'error', code: 'agent_fail',
-                                    reason: 'Run cancelled while paused mid-step.',
-                                },
-                                estimatedTokensUsed,
-                            };
-                        }
+                        if (controller.isStopped()) return cancelResult('Run cancelled while paused mid-step.');
                     }
 
                     yield { type: 'acting', action };
@@ -146,10 +131,9 @@ export class StepExecutionKernelService {
             };
         } catch (error) {
             const iteratorError = error instanceof Error ? error : new Error(String(error));
-            if (iteratorError instanceof WorkflowError && iteratorError.message.startsWith('Run budget exceeded')) {
+            if (iteratorError instanceof WorkflowError) {
                 throw iteratorError;
             }
-
             return {
                 state: currentState,
                 result: {
@@ -158,7 +142,7 @@ export class StepExecutionKernelService {
                     code: 'action_execution_error',
                     reason: `Step iterator failed: ${iteratorError.message}`
                 },
-                estimatedTokensUsed
+                estimatedTokensUsed,
             };
         }
     }

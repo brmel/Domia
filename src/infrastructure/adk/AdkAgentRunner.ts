@@ -16,6 +16,7 @@ import { PluginRegistry } from '../plugins/PluginRegistry';
 import { ShellExecutor } from '../shell/ShellExecutor';
 import type { IConfigService } from '@domain/ports/IConfigService';
 import type { ElectronWindowManager } from '../drivers/ElectronWindowManager';
+import type { ToolDependencies } from '../tools/ToolSpec';
 import { DEFAULT_LLM_MODEL, LLM_CALL_BUDGET_OFFSET, DEFAULT_LOOP_GUARD_THRESHOLD, FINAL_RESPONSE_LOG_CHARS, TOOL_TIME_LOG_THRESHOLD_MS } from '@shared/defaults';
 
 const APP_NAME = 'domia';
@@ -111,44 +112,8 @@ export class AdkAgentRunner implements IAgentRunner {
 
         const windowManager = config.extras?.['windowManager'] as ElectronWindowManager | undefined;
 
-        const { tools, catalog } = createAdkTools({
-            automation,
-            perception: this.perception,
-            perceptionSource,
-            vision,
-            platform: config.platform,
-            ...(this.configService.get().plugins.shell.enabled ? { shellExecutor: this.shellExecutor } : {}),
-            ...(windowManager ? { windowManager } : {}),
-            onCapture: async (capturedFrame) => {
-                try {
-                    await this.storage.savePerceptionAssets(config.runId, actionCount, capturedFrame);
-                } catch {
-                    this.logger.warn(`[AdkAgentRunner] Failed to save perception assets for action ${actionCount}`);
-                }
-            },
-            ...(config.recording?.enabled
-                ? {
-                    recording: {
-                        enabled: true as const,
-                        ...(config.recording.maxDurationMs !== undefined || config.recording.intervalMs !== undefined
-                            ? {
-                                options: {
-                                    ...(config.recording.maxDurationMs !== undefined ? { maxDurationMs: config.recording.maxDurationMs } : {}),
-                                    ...(config.recording.intervalMs !== undefined ? { intervalMs: config.recording.intervalMs } : {}),
-                                },
-                            }
-                            : {}),
-                    },
-                }
-                : {}),
-            onRecording: async (recording) => {
-                try {
-                    await this.storage.saveActionRecording(config.runId, actionCount, recording);
-                } catch {
-                    this.logger.warn(`[AdkAgentRunner] Failed to save action recording for action ${actionCount}`);
-                }
-            },
-        }, this.pluginRegistry.getAllTools(), this.promptService);
+        const toolDeps = this.buildToolDeps(config, automation, perceptionSource, vision, windowManager, () => actionCount);
+        const { tools, catalog } = createAdkTools(toolDeps, this.pluginRegistry.getAllTools(), this.promptService);
 
         const actionMapper = new ActionMapper(catalog);
         const loopGuard = new AgentLoopGuard(DEFAULT_LOOP_GUARD_THRESHOLD, this.promptService);
@@ -174,11 +139,9 @@ export class AdkAgentRunner implements IAgentRunner {
             tools,
             generateContentConfig: {
                 temperature: 0,
-                // Force the model to ALWAYS call a tool — text-only responses are not allowed.
-                // Without this, the model can skip observe and return empty text on ambiguous goals.
-                toolConfig: {
-                    functionCallingConfig: { mode: FunctionCallingConfigMode.ANY },
-                },
+                    toolConfig: {
+                        functionCallingConfig: { mode: FunctionCallingConfigMode.ANY },
+                    },
             },
             beforeToolCallback: ({ tool, args }) => {
                 const sig = `${tool.name}:${JSON.stringify(args)}`;
@@ -203,7 +166,6 @@ export class AdkAgentRunner implements IAgentRunner {
                     lastObservedUrl = res['navigatedUrl'] as string;
                 }
                 this.logger.debug(`[AdkAgentRunner] Tool ${tool.name} completed in ${durationMs}ms`, { status: res?.['status'] });
-                // Capture a screenshot after every tool execution for the live view
                 captureScreenshotForView();
                 return undefined;
             },
@@ -243,9 +205,6 @@ export class AdkAgentRunner implements IAgentRunner {
                     }
 
                     const roundTripMs = Date.now() - llmTurnStartMs;
-                    // Subtract the previous tool's execution time to get actual LLM latency.
-                    // afterToolCallback already set lastToolResult before this event arrived.
-                    // Cast needed: TS control-flow can't see the callback mutation.
                     const prevToolMs = (lastToolResult as { durationMs: number } | null)?.durationMs ?? 0;
                     const llmLatencyMs = Math.max(0, roundTripMs - prevToolMs);
                     if (prevToolMs > TOOL_TIME_LOG_THRESHOLD_MS) {
@@ -254,8 +213,10 @@ export class AdkAgentRunner implements IAgentRunner {
                         this.logger.info(`[AdkAgentRunner] LLM responded in ${llmLatencyMs}ms`);
                     }
 
-                    // Flush screenshot from the previous tool before processing next actions
-                    if (screenshotPromise) { await screenshotPromise; screenshotPromise = null; }
+                    if (screenshotPromise) {
+                        await screenshotPromise;
+                        screenshotPromise = null;
+                }
                     if (latestScreenshot) {
                         yield { type: 'screenshot', data: latestScreenshot };
                         latestScreenshot = null;
@@ -319,10 +280,6 @@ export class AdkAgentRunner implements IAgentRunner {
 
                     llmTurnStartMs = Date.now();
 
-                    // When the LLM returns function calls alongside text, the ADK
-                    // still needs to execute the tools and feed results back to the
-                    // model.  Treating the event as "final" here would short-circuit
-                    // the ADK loop, so we skip the isFinalResponse check.
                     continue;
                 }
 
@@ -354,6 +311,48 @@ export class AdkAgentRunner implements IAgentRunner {
         return {
             success: false, terminal: 'max_actions', code: 'max_actions_reached',
             reason: `Agent finished without calling pass/fail. Completed ${actionCount} actions.`,
+        };
+    }
+
+    private buildToolDeps(
+        config: StepRunnerConfig,
+        automation: IStructuredAutomation,
+        perceptionSource: ToolDependencies['perceptionSource'],
+        vision: boolean,
+        windowManager: ElectronWindowManager | undefined,
+        getActionCount: () => number,
+    ): ToolDependencies {
+        return {
+            automation,
+            perception: this.perception,
+            perceptionSource,
+            vision,
+            platform: config.platform,
+            ...(this.configService.get().plugins.shell.enabled && { shellExecutor: this.shellExecutor }),
+            ...(windowManager && { windowManager }),
+            onCapture: async (capturedFrame) => {
+                try {
+                    await this.storage.savePerceptionAssets(config.runId, getActionCount(), capturedFrame);
+                } catch {
+                    this.logger.warn(`[AdkAgentRunner] Failed to save perception assets for action ${getActionCount()}`);
+                }
+            },
+            ...(config.recording?.enabled && {
+                recording: {
+                    enabled: true as const,
+                    options: {
+                        ...(config.recording.maxDurationMs !== undefined && { maxDurationMs: config.recording.maxDurationMs }),
+                        ...(config.recording.intervalMs !== undefined && { intervalMs: config.recording.intervalMs }),
+                    },
+                },
+            }),
+            onRecording: async (recording) => {
+                try {
+                    await this.storage.saveActionRecording(config.runId, getActionCount(), recording);
+                } catch {
+                    this.logger.warn(`[AdkAgentRunner] Failed to save action recording for action ${getActionCount()}`);
+                }
+            },
         };
     }
 }

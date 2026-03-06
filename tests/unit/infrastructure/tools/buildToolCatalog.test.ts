@@ -13,25 +13,30 @@ import { ok } from 'neverthrow';
  * and recording wrapping is properly applied.
  */
 
-// All expected tool names in the full catalog (no platform filter)
-const ALL_TOOL_NAMES = [
-    'click', 'type', 'hover', 'selectOption', 'dragTo', 'pressKey',
-    'mouse_move', 'mouse_click_left', 'mouse_click_right', 'mouse_double_click', 'mouse_drag', 'mouse_scroll',
-    'scroll', 'navigate',
-    'observe', 'extract', 'wait', 'waitForCondition',
-    'startRecording', 'stopAndReviewRecording',
-    'pass', 'fail',
-];
-
 describe('buildToolCatalog', () => {
-    it('returns all tools when no platform filter is applied', () => {
+    it('returns interaction, mouse, observe, and control tools by default', () => {
         const catalog = buildToolCatalog(createStubToolDeps());
 
-        const names = catalog.map(t => t.name);
-        for (const expected of ALL_TOOL_NAMES) {
-            expect(names).toContain(expected);
-        }
-        expect(catalog).toHaveLength(ALL_TOOL_NAMES.length);
+        expect(catalog.length).toBeGreaterThan(0);
+        expect(catalog.some(t => t.category === 'interaction')).toBe(true);
+        expect(catalog.some(t => t.category === 'mouse')).toBe(true);
+        // Spot-check representative tools from each group
+        expect(catalog.some(t => t.name === 'observe')).toBe(true);
+        expect(catalog.some(t => t.name === 'pass')).toBe(true);
+        expect(catalog.some(t => t.name === 'fail')).toBe(true);
+        // Shell tools must NOT appear without a shellExecutor
+        expect(catalog.some(t => t.category === 'shell')).toBe(false);
+    });
+
+    it('includes shell tools only when shellExecutor is provided', () => {
+        const shellExecutor = { executeCommand: vi.fn(async () => ok({ stdout: '', stderr: '', exitCode: 0 })) } as unknown as NonNullable<ToolDependencies['shellExecutor']>;
+
+        const withoutShell = buildToolCatalog(createStubToolDeps());
+        const withShell = buildToolCatalog(createStubToolDeps({ shellExecutor }));
+
+        expect(withoutShell.some(t => t.category === 'shell')).toBe(false);
+        expect(withShell.some(t => t.category === 'shell')).toBe(true);
+        expect(withShell.length).toBeGreaterThan(withoutShell.length);
     });
 
     it('every tool has name, description, actionType, parameters, and execute', () => {

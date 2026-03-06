@@ -6,30 +6,28 @@ import type { PluginManifest } from './PluginManifest';
 @injectable()
 export class PluginRegistry {
     private readonly plugins = new Map<string, PluginManifest>();
+    private readonly registeredToolNames = new Set<string>();
 
     constructor(@inject('ILogger') private readonly logger: ILogger) {}
 
     register(manifest: PluginManifest, builtInNames: ReadonlySet<string>): void {
         for (const tool of manifest.tools) {
-            if (builtInNames.has(tool.name)) {
-                throw new Error(`[PluginRegistry] Tool name collision: "${tool.name}" from plugin "${manifest.name}" conflicts with built-in tool`);
-            }
-            for (const [existingName, existing] of this.plugins) {
-                if (existing.tools.some((t) => t.name === tool.name)) {
-                    throw new Error(`[PluginRegistry] Tool name collision: "${tool.name}" from plugin "${manifest.name}" conflicts with plugin "${existingName}"`);
-                }
+            if (builtInNames.has(tool.name) || this.registeredToolNames.has(tool.name)) {
+                const owner = builtInNames.has(tool.name)
+                    ? 'built-in tools'
+                    : `plugin "${[...this.plugins.entries()].find(([, m]) => m.tools.some(t => t.name === tool.name))?.[0]}"`;
+                throw new Error(`[PluginRegistry] Tool name collision: "${tool.name}" from plugin "${manifest.name}" conflicts with ${owner}`);
             }
         }
 
+        for (const tool of manifest.tools) {
+            this.registeredToolNames.add(tool.name);
+        }
         this.plugins.set(manifest.name, manifest);
         this.logger.info(`[PluginRegistry] Registered plugin "${manifest.name}" with ${manifest.tools.length} tools`);
     }
 
     getAllTools(): ToolSpec[] {
-        const tools: ToolSpec[] = [];
-        for (const manifest of this.plugins.values()) {
-            tools.push(...manifest.tools);
-        }
-        return tools;
+        return [...this.plugins.values()].flatMap((m) => m.tools);
     }
 }
