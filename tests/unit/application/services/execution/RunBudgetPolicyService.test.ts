@@ -18,7 +18,7 @@ describe('RunBudgetPolicyService', () => {
 
         const limits = service.resolveLimits(undefined);
 
-        expect(limits.maxActions).toBe(20);
+        expect(limits.maxActions).toBe(50);
         expect(limits.maxDurationMs).toBe(15 * 60 * 1000);
         expect(limits.maxEstimatedTokens).toBe(120_000);
     });

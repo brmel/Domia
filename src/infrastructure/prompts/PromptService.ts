@@ -59,9 +59,8 @@ export class PromptService implements IPromptService {
         this.defaultToolDescriptions = parseToolDescriptions(DEFAULT_TOOL_DESCRIPTIONS);
 
         const config = this.configService.get();
-        const overrides = (config as unknown as { promptOverrides?: PromptOverrides }).promptOverrides;
-        this.promptOverrides = { ...overrides?.prompts };
-        this.toolDescriptionOverrides = { ...overrides?.toolDescriptions };
+        this.promptOverrides = { ...config.promptOverrides?.prompts };
+        this.toolDescriptionOverrides = { ...config.promptOverrides?.toolDescriptions };
     }
 
     getPrompt(key: PromptKey): string {

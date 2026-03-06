@@ -24,7 +24,7 @@ export const LLM_CALL_BUDGET_OFFSET = 2;
 // ── Execution budget ─────────────────────────────────────────────────
 
 /** Default maximum agent actions per step / run. */
-export const DEFAULT_MAX_ACTIONS = 20;
+export const DEFAULT_MAX_ACTIONS = 50;
 
 /** Default maximum run wall-clock duration (15 min). */
 export const DEFAULT_MAX_DURATION_MS = 15 * 60 * 1000;

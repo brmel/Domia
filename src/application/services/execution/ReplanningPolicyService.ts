@@ -1,5 +1,5 @@
-import { inject, injectable } from 'tsyringe';
-import type { ILogger, IConfigService } from '@domain/ports';
+import { injectable, inject } from 'tsyringe';
+import type { IConfigService } from '@domain/ports';
 import { DEFAULT_MAX_REPLANS_PER_RUN } from '@shared/defaults';
 
 export type ReplanningTrigger = 'loop_detected' | 'action_execution_error' | 'assertion_fail' | 'max_actions_reached';
@@ -24,7 +24,6 @@ export interface ReplanningAssessment {
 @injectable()
 export class ReplanningPolicyService {
     constructor(
-        @inject('ILogger') private readonly logger: ILogger,
         @inject('IConfigService') private readonly configService?: IConfigService
     ) {}
 
@@ -60,19 +59,5 @@ export class ReplanningPolicyService {
             shouldReplan: true,
             reason: `Active replanning approved for trigger '${input.trigger}'`
         };
-    }
-
-    logIfSuggested(input: ReplanningAssessmentInput): void {
-        const assessment = this.assess(input);
-        if (!assessment.shouldReplan) {
-            return;
-        }
-
-        this.logger.info('[ReplanningPolicyService] Replanning approved (active mode)', {
-            runId: input.runId,
-            trigger: input.trigger,
-            replanCount: input.replanCount,
-            reason: assessment.reason
-        });
     }
 }

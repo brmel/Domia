@@ -8,15 +8,17 @@ import type { IPromptService } from '@domain/ports/IPromptService';
 import { ActionType } from '@domain/enums/ActionType';
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
 import { createAdkTools } from './AdkToolFactory';
-import { ActionMapper } from '../agent/common/ActionMapper';
-import { AgentLoopGuard } from '../agent/common/AgentLoopGuard';
-import { buildAgentInstruction } from '../agent/common/AgentInstructionBuilder';
-import { interpolate } from '../prompts/interpolate';
-import { PluginRegistry } from '../plugins/PluginRegistry';
-import { ShellExecutor } from '../shell/ShellExecutor';
+import { ActionMapper } from '@infrastructure/agent/common/ActionMapper';
+import { AgentLoopGuard } from '@infrastructure/agent/common/AgentLoopGuard';
+import { buildAgentInstruction } from '@infrastructure/agent/common/AgentInstructionBuilder';
+import { interpolate } from '@infrastructure/prompts/interpolate';
+import { PluginRegistry } from '@infrastructure/plugins/PluginRegistry';
+import { ShellExecutor } from '@infrastructure/shell/ShellExecutor';
+import { ShellCommandPolicyService } from '@infrastructure/shell/ShellCommandPolicyService';
 import type { IConfigService } from '@domain/ports/IConfigService';
-import type { ElectronWindowManager } from '../drivers/ElectronWindowManager';
-import type { ToolDependencies } from '../tools/ToolSpec';
+import type { ElectronWindowManager } from '@infrastructure/drivers/ElectronWindowManager';
+import type { ITabManager } from '@domain/ports/ITabManager';
+import type { ToolDependencies } from '@infrastructure/tools/ToolSpec';
 import { DEFAULT_LLM_MODEL, LLM_CALL_BUDGET_OFFSET, DEFAULT_LOOP_GUARD_THRESHOLD, FINAL_RESPONSE_LOG_CHARS, TOOL_TIME_LOG_THRESHOLD_MS } from '@shared/defaults';
 
 const APP_NAME = 'domia';
@@ -81,7 +83,7 @@ export class AdkAgentRunner implements IAgentRunner {
         const captureScreenshotForView = (): void => {
             screenshotPromise = perceptionSource.captureScreenshot()
                 .then(buf => { latestScreenshot = buf.toString('base64'); })
-                .catch(() => {});
+                .catch(e => this.logger.debug('[AdkAgentRunner] Screenshot capture failed: %s', e));
         };
 
         const flushPending = function* (): Generator<AgentRunnerEvent> {
@@ -140,7 +142,7 @@ export class AdkAgentRunner implements IAgentRunner {
             generateContentConfig: {
                 temperature: 0,
                     toolConfig: {
-                        functionCallingConfig: { mode: FunctionCallingConfigMode.ANY },
+                        functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO },
                     },
             },
             beforeToolCallback: ({ tool, args }) => {
@@ -328,8 +330,15 @@ export class AdkAgentRunner implements IAgentRunner {
             perceptionSource,
             vision,
             platform: config.platform,
-            ...(this.configService.get().plugins.shell.enabled && { shellExecutor: this.shellExecutor }),
+            ...(this.configService.get().plugins.shell.enabled && {
+                shellExecutor: this.shellExecutor,
+                shellPolicy: new ShellCommandPolicyService(
+                    this.configService.get().plugins.shell.denyPatterns,
+                    this.configService.get().plugins.shell.allowedCwd,
+                ),
+            }),
             ...(windowManager && { windowManager }),
+            ...('newTab' in automation && { tabManager: automation as unknown as ITabManager }),
             onCapture: async (capturedFrame) => {
                 try {
                     await this.storage.savePerceptionAssets(config.runId, getActionCount(), capturedFrame);

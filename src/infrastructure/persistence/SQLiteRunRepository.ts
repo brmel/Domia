@@ -116,17 +116,28 @@ export class SQLiteRunRepository {
         ).map(rows => rows.map(row => this.mapToStep(row)));
     }
 
-    clearHistory(db: Kysely<DatabaseSchema>): ResultAsync<void, PersistenceError> {
+    getStep(runId: string, stepNumber: number): ResultAsync<Step | null, PersistenceError> {
+        return dbOp(
+            this.db.selectFrom('steps')
+                .selectAll()
+                .where('run_id', '=', runId)
+                .where('step_number', '=', stepNumber)
+                .executeTakeFirst(),
+            'get step'
+        ).map(row => row ? this.mapToStep(row) : null);
+    }
+
+    clearHistory(): ResultAsync<void, PersistenceError> {
         return dbOp(
             (async (): Promise<void> => {
-                await db.deleteFrom('steps').execute();
-                await db.deleteFrom('logs').execute();
-                await db.deleteFrom('workflow_checkpoints').execute();
-                await db.deleteFrom('replay_idempotency_keys').execute();
-                await db.deleteFrom('workflow_step_runs').execute();
-                await db.deleteFrom('workflow_runs').execute();
-                await db.deleteFrom('workflow_definitions').execute();
-                await db.deleteFrom('runs').execute();
+                await this.db.deleteFrom('steps').execute();
+                await this.db.deleteFrom('logs').execute();
+                await this.db.deleteFrom('workflow_checkpoints').execute();
+                await this.db.deleteFrom('replay_idempotency_keys').execute();
+                await this.db.deleteFrom('workflow_step_runs').execute();
+                await this.db.deleteFrom('workflow_runs').execute();
+                await this.db.deleteFrom('workflow_definitions').execute();
+                await this.db.deleteFrom('runs').execute();
             })(),
             'clear history'
         ).map(() => undefined);

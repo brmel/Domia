@@ -1,5 +1,5 @@
 import { inject, injectable } from 'tsyringe';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import type { WorkflowEvent } from '@domain/events/WorkflowEvent';
 import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
 import type { ILogger } from '@domain/ports';
@@ -38,7 +38,7 @@ export class WorkflowRunOrchestratorService {
             return;
         }
 
-        const workflowRunId = uuidv4();
+        const workflowRunId = randomUUID();
         const startedAt = new Date().toISOString();
 
         const saveRunResult = await this.persistence.saveWorkflowRun({
@@ -126,7 +126,7 @@ export class WorkflowRunOrchestratorService {
                     break;
                 }
 
-                const stepRunId = uuidv4();
+                const stepRunId = randomUUID();
                 const stepStartedAt = new Date().toISOString();
                 const saveStepRunResult = await this.persistence.saveWorkflowStepRun({
                     id: stepRunId,
@@ -150,7 +150,7 @@ export class WorkflowRunOrchestratorService {
                     stepIndex
                 };
 
-                const governanceDecision = this.governance.assess(step, definition, workflowRunId);
+                const governanceDecision = this.governance.assess(step, definition);
                 if (!governanceDecision.allowed) {
                     const blockedReason = governanceDecision.reason;
                     executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');

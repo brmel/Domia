@@ -18,7 +18,6 @@ export class WorkflowStepGovernanceService {
     assess(
         step: WorkflowStepDefinition,
         definition: WorkflowDefinition,
-        _workflowRunId: string
     ): StepGovernanceDecision {
         const readinessDecision = this.assessReadiness(step, definition);
         if (readinessDecision?.blocked) {

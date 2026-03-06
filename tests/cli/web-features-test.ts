@@ -144,7 +144,6 @@ async function runFeatureCases(baseUrl: string): Promise<FeatureCaseResult[]> {
         prompt: 'make sure button Start Scenario is present',
         maxSteps: 3,
         headless: true,
-        provider: 'google',
         verbose: true,
         debug: true
     });

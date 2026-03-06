@@ -9,6 +9,7 @@ export interface IRunRepository {
     getRun(id: string): ResultAsync<Run | null, PersistenceError>;
     getRuns(limit?: number): ResultAsync<Run[], PersistenceError>;
     saveStep(step: Step): ResultAsync<void, PersistenceError>;
+    getStep(runId: string, stepNumber: number): ResultAsync<Step | null, PersistenceError>;
     getSteps(runId: string): ResultAsync<Step[], PersistenceError>;
     clearHistory(): ResultAsync<void, PersistenceError>;
 }

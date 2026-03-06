@@ -9,6 +9,6 @@ export class AriaSensor implements ISensor<string> {
 
     async capture(source: IPerceptionSource): Promise<string> {
         await source.waitForContentReady(CONTENT_READY_TIMEOUT_MS);
-        return source.getAriaSnapshot().catch(() => '');
+        return source.getAriaSnapshot();
     }
 }

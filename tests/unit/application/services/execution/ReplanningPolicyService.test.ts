@@ -1,11 +1,8 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
 import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
-import { createMockLogger } from '../../../../helpers/createMockLogger';
 
-function createService(maxReplansPerRun?: number): { service: ReplanningPolicyService; logger: ReturnType<typeof createMockLogger> } {
-    const logger = createMockLogger();
-
+function createService(maxReplansPerRun?: number): { service: ReplanningPolicyService } {
     const configService = maxReplansPerRun === undefined
         ? undefined
         : {
@@ -17,8 +14,7 @@ function createService(maxReplansPerRun?: number): { service: ReplanningPolicySe
         };
 
     return {
-        service: new ReplanningPolicyService(logger, configService as never),
-        logger
+        service: new ReplanningPolicyService(configService as never),
     };
 }
 
@@ -64,17 +60,5 @@ describe('ReplanningPolicyService', () => {
 
         expect(assessment.shouldReplan).toBe(false);
         expect(assessment.reason).toContain('budget exhausted');
-    });
-
-    it('logs info when replanning is approved', () => {
-        const { service, logger } = createService();
-
-        service.logIfSuggested({
-            runId: 'run-1',
-            replanCount: 0,
-            trigger: 'assertion_fail'
-        });
-
-        expect(logger.info).toHaveBeenCalledTimes(1);
     });
 });

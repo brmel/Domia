@@ -11,7 +11,7 @@ import type { StepExecutionOptions } from './coordinators/RunCoordinator';
 import type { RunOutput } from '../../dtos';
 import type { IRunRepository } from '@domain/ports/IRunRepository';
 import type { ExecutionController } from '../../controllers/ExecutionController';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 export interface KernelRuntime {
     readonly budgetLimits: RunBudgetLimits;
@@ -54,9 +54,9 @@ export class StepExecutionKernelService {
             {
                 vision: executionOptions.vision,
                 maxActions: executionOptions.maxActions,
-                platform: executionOptions.platform,
-                recording: executionOptions.recording,
-                extras: executionOptions.extras,
+                ...(executionOptions.platform !== undefined ? { platform: executionOptions.platform } : {}),
+                ...(executionOptions.recording !== undefined ? { recording: executionOptions.recording } : {}),
+                ...(executionOptions.extras !== undefined ? { extras: executionOptions.extras } : {}),
             },
         );
 
@@ -88,7 +88,7 @@ export class StepExecutionKernelService {
                     if (controller?.isStopped()) return cancelResult('Run cancelled by user.');
 
                     const step: Step = {
-                        id: uuidv4(),
+                        id: randomUUID(),
                         runId,
                         stepNumber: currentState.stepNumber + 1,
                         actionType: action.type,

@@ -20,6 +20,7 @@ import {
     DEFAULT_RECORDING_MAX_DURATION_MS,
     DEFAULT_RECORDING_INTERVAL_MS,
 } from '../shared/defaults';
+import { createReportWriter, resolveReportFormats } from './reportUtils';
 
 const LOG_LEVEL_CHOICES = ['error', 'warn', 'info', 'debug'] as const;
 type LogLevelChoice = typeof LOG_LEVEL_CHOICES[number];
@@ -73,6 +74,8 @@ export class RunCommand {
             .option('--recording-interval <ms>', `Screenshot interval during recording in ms (default ${DEFAULT_RECORDING_INTERVAL_MS})`, parseInt)
             .option('--plugin-dir <dir>', 'Plugin directory (default: ~/.domia/plugins)')
             .option('--no-shell', 'Disable the shell_exec plugin for this run')
+            .option('--report <format>', 'Generate report after run: junit, html, all')
+            .option('--report-output <dir>', 'Report output directory')
             .action(async (options) => {
                 console.log(chalk.cyan(figlet.textSync('Domia Agent', { horizontalLayout: 'full' })));
 
@@ -105,6 +108,8 @@ export class RunCommand {
                     logLevel: logLevelRaw,
                     platform: platformFlag,
                     shell: shellEnabled,
+                    report: reportFormat,
+                    reportOutput,
                 } = options;
 
                 const { headless } = options;
@@ -132,9 +137,7 @@ export class RunCommand {
                     console.log(chalk.gray('[Shell plugin disabled for this run]'));
                 }
 
-                if (model) {
-                    console.log(chalk.gray(`[LLM] provider=google model=${resolvedModel}`));
-                }
+                console.log(chalk.gray(`[LLM] provider=google model=${resolvedModel}`));
 
                 const effectiveLogLevel = debug ? 'debug' as LogLevelChoice : parseLogLevel(logLevelRaw as string);
                 const logger = container.resolve<ILogger>('ILogger');
@@ -197,6 +200,7 @@ export class RunCommand {
                 try {
                     const useCase = container.resolve(RunUseCase);
                     const controller = new ExecutionController();
+                    controller.start();
                     let interactiveKeyHandler: ((str: string, key: readline.Key) => void) | null = null;
                     let rawModeEnabled = false;
 
@@ -304,10 +308,12 @@ export class RunCommand {
                     setupInteractiveControls();
 
                     const generator = useCase.execute(input, controller);
+                    let capturedRunId: string | undefined;
 
                     for await (const event of generator) {
                         switch (event.type) {
                             case 'started':
+                                capturedRunId = event.runId;
                                 break;
                             case 'acting': {
                                 const a = event.action;
@@ -354,6 +360,21 @@ export class RunCommand {
                                 } else {
                                     console.log(chalk.red.bold('\n✘ Mission Failed.'));
                                     if (event.summary) console.log(chalk.red(event.summary));
+                                }
+                                if (capturedRunId) {
+                                    const configReportFormat = currentConfig.reporting.defaultFormat;
+                                    const effectiveFormat = reportFormat ?? (configReportFormat !== 'none' ? configReportFormat : undefined);
+                                    if (effectiveFormat) {
+                                        const formats = resolveReportFormats(effectiveFormat);
+                                        const outputDir = reportOutput ?? currentConfig.reporting.outputDir;
+                                        try {
+                                            const writer = createReportWriter();
+                                            const files = await writer.write(capturedRunId, formats, outputDir);
+                                            files.forEach(f => console.log(chalk.gray(`Report: ${f}`)));
+                                        } catch (e) {
+                                            console.error(chalk.yellow(`Warning: report generation failed: ${e instanceof Error ? e.message : e}`));
+                                        }
+                                    }
                                 }
                                 process.exit(event.success ? 0 : 1);
                                 break;

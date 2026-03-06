@@ -8,6 +8,7 @@ import { canStart, canPause, canResume, canStop, isAgentRunning } from '../../ut
 import { PlatformSelector } from '../platform/PlatformSelector';
 import { platformRegistry, type PlatformFieldValue, type UIPlatformType } from '../../config/platformRegistry';
 import { buildPlatformConfig } from '../../utils/buildPlatformConfig';
+import { DomiaConfigSchema } from '@shared/config-types';
 
 interface RunFormProps {
     onOpenHistory: () => void;
@@ -34,7 +35,7 @@ export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): R
     });
 
     const cancelMutation = trpc.run.cancel.useMutation({
-        onError: () => setStatus(RunState.IDLE),
+        onError: () => setStatus(RunState.RUNNING),
     });
 
     const pauseMutation = trpc.run.pause.useMutation({
@@ -50,7 +51,7 @@ export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): R
         onMutate: async (nextConfig) => {
             await utils.settings.get.cancel();
             const previousConfig = utils.settings.get.getData();
-            utils.settings.get.setData(undefined, nextConfig);
+            utils.settings.get.setData(undefined, DomiaConfigSchema.parse(nextConfig) as NonNullable<typeof previousConfig>);
             return { previousConfig };
         },
         onError: (_error, _nextConfig, context) => {
@@ -107,7 +108,7 @@ export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): R
             platformConfig,
             prompt,
             options: {
-                maxSteps: 20,
+                maxSteps: config?.limits?.maxSteps ?? 20,
                 vision: config?.ai?.visionEnabled ?? true,
                 debugScreenshots: config?.ai?.debugScreenshots ?? false,
             }

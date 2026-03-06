@@ -5,7 +5,7 @@ import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 import type { ILogger } from '@domain/ports';
 import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import { SnapshotError } from '@domain/errors';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { VisionSensor } from './sensors/VisionSensor';
 import { AriaSensor } from './sensors/AriaSensor';
 import { buildRoleSnapshot } from './RoleRefResolver';
@@ -46,7 +46,7 @@ export class PerceptionPipeline implements IPerceptionPipeline {
             this.logger.info(`[PerceptionPipeline] Capture complete in ${Date.now() - start}ms: ${refCount} refs, url=${source.getUrl()}`);
 
             const frame: PerceptionFrame = {
-                id: uuidv4(),
+                id: randomUUID(),
                 timestamp: Date.now(),
                 metadata: {
                     url: source.getUrl(),

@@ -36,7 +36,7 @@ export const POLL_TIMEOUT_SNAPSHOT_CHARS = 500;
 // ── Observation / extract ────────────────────────────────────────────
 
 /** Max characters returned by the `extract` tool. */
-export const MAX_EXTRACT_TEXT_LENGTH = 400;
+export const MAX_EXTRACT_TEXT_LENGTH = 2000;
 
 // ── Snapshot recording (DOM mutation) ────────────────────────────────
 
@@ -76,3 +76,20 @@ export const DEFAULT_SHELL_TIMEOUT_MS = 30_000;
 
 /** Max characters of stdout/stderr returned to the agent. */
 export const MAX_SHELL_OUTPUT_LENGTH = 4096;
+
+export const DEFAULT_SHELL_DENY_PATTERNS: readonly string[] = [
+    'sudo\\b',
+    'rm\\s+-[^\\s]*r[^\\s]*\\s+/',
+    'mkfs\\b',
+    'dd\\s+if=',
+    ':\\(\\)\\{',
+    'chmod\\s+777',
+    '>\\.*/dev/sd',
+    'shutdown\\b',
+    'reboot\\b',
+    'init\\s+[06]',
+    'curl\\s[^|]*\\|\\s*(?:ba)?sh',
+    'wget\\s[^|]*\\|\\s*(?:ba)?sh',
+];
+
+export const DEFAULT_REPORT_OUTPUT_DIR = './reports';

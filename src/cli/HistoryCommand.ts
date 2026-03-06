@@ -5,7 +5,9 @@ import chalk from 'chalk';
 import { IPersistenceAdapter } from '../domain/ports';
 import type { IStorageService } from '../domain/ports/IStorageService';
 import { CLI_DEFAULT_LIST_LIMIT } from '../shared/defaults';
+import { DEFAULT_REPORT_OUTPUT_DIR } from '../shared/defaults/tools.defaults';
 import inquirer from 'inquirer';
+import { createReportWriter, resolveReportFormats } from './reportUtils';
 
 const getPersistence = () => container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
 const getStorage = () => container.resolve<IStorageService>('IStorageService');
@@ -95,14 +97,14 @@ export class HistoryCommand {
                     return;
                 }
 
-                const stepsResult = await getPersistence().getSteps(runId);
+                const stepResult = await getPersistence().getStep(runId, stepNumber);
 
-                if (stepsResult.isErr()) {
-                    console.error(chalk.red('Error:', stepsResult.error.message));
+                if (stepResult.isErr()) {
+                    console.error(chalk.red('Error:', stepResult.error.message));
                     return;
                 }
 
-                const step = stepsResult.value.find(s => s.stepNumber === stepNumber);
+                const step = stepResult.value;
                 if (!step) {
                     console.error(chalk.red(`Step ${stepNumber} not found in run ${runId}.`));
                     return;
@@ -178,6 +180,22 @@ export class HistoryCommand {
                     console.log(`[${index + 1}] ${color(record.reason)} — step ${record.state.stepNumber} (${record.state.status})`);
                     console.log(chalk.dim(`    ${record.createdAt}`));
                 });
+            });
+
+        history.command('export <runId>')
+            .description('Export a run report (junit, html, or all)')
+            .option('-f, --format <format>', 'Report format: junit, html, all', 'junit')
+            .option('-o, --output <dir>', 'Output directory', DEFAULT_REPORT_OUTPUT_DIR)
+            .action(async (runId: string, options: { format: string; output: string }) => {
+                const formats = resolveReportFormats(options.format);
+                try {
+                    const writer = createReportWriter();
+                    const files = await writer.write(runId, formats, options.output);
+                    files.forEach(f => console.log(chalk.green(`Written: ${f}`)));
+                } catch (e) {
+                    console.error(chalk.red(`Export failed: ${e instanceof Error ? e.message : e}`));
+                    process.exit(1);
+                }
             });
 
         history.command('clear')

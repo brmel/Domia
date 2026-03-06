@@ -3,6 +3,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { ILogger } from '@domain/ports';
 import { PluginRegistry } from '@infrastructure/plugins/PluginRegistry';
 import type { PluginManifest } from '@infrastructure/plugins/PluginManifest';
+import { asPluginName } from '@infrastructure/plugins/PluginManifest';
+import type { ToolName } from '@domain/types/ToolTypes';
 import { z } from 'zod';
 
 function createLogger(): ILogger {
@@ -11,7 +13,7 @@ function createLogger(): ILogger {
 
 function fakeManifest(name: string, toolNames: string[]): PluginManifest {
     return {
-        name,
+        name: asPluginName(name),
         tools: toolNames.map((n) => ({
             name: n,
             description: `${n} description`,
@@ -24,7 +26,7 @@ function fakeManifest(name: string, toolNames: string[]): PluginManifest {
 
 describe('PluginRegistry', () => {
     let registry: PluginRegistry;
-    const builtIns = new Set(['click', 'type', 'scroll']);
+    const builtIns: ReadonlySet<ToolName> = new Set<ToolName>(['click', 'type', 'scroll']);
 
     beforeEach(() => {
         registry = new PluginRegistry(createLogger());

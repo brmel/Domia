@@ -83,6 +83,9 @@ export class ConfigService implements IConfigService {
                     shell: { ...this.config.plugins.shell, ...updates.plugins.shell },
                 }
                 : this.config.plugins,
+            reporting: updates.reporting !== undefined
+                ? { ...this.config.reporting, ...updates.reporting }
+                : this.config.reporting,
         };
     }
 
@@ -97,8 +100,8 @@ export class ConfigService implements IConfigService {
             };
 
             fs.writeJsonSync(this.configPath, configToSave, { spaces: 2 });
-        } catch (_) {
-            // Config save failure is non-fatal
+        } catch (error) {
+            console.error('[ConfigService] Failed to persist config:', error);
         }
     }
 }

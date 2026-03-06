@@ -100,7 +100,7 @@ export class WorkflowCommand {
             .option('-u, --url <url>', 'Target URL for web workflows')
             .option('--cdp-url <cdpUrl>', 'CDP URL for Electron workflows')
             .option('--executable-path <path>', 'Path to Electron executable')
-            .option('--launch-args <args>', 'Launch arguments for Electron (comma-separated)')
+            .option('--launch-args <args...>', 'Launch arguments for Electron (space-separated)')
             .option('--window-title <title>', 'Target Electron window title')
             .action(async (options) => {
                 const definitionService = container.resolve(WorkflowDefinitionService);
@@ -144,7 +144,7 @@ export class WorkflowCommand {
             .option('-u, --url <url>', 'Target URL for web workflows')
             .option('--cdp-url <cdpUrl>', 'CDP URL for Electron workflows')
             .option('--executable-path <path>', 'Path to Electron executable')
-            .option('--launch-args <args>', 'Launch arguments for Electron (comma-separated)')
+            .option('--launch-args <args...>', 'Launch arguments for Electron (space-separated)')
             .option('--window-title <title>', 'Target Electron window title')
             .action(async (workflowDefinitionId: string, options) => {
                 const definitionService = container.resolve(WorkflowDefinitionService);
@@ -219,6 +219,7 @@ export class WorkflowCommand {
             .action(async (workflowDefinitionId: string) => {
                 const executionService = container.resolve(WorkflowRunOrchestratorService);
                 const controller = new ExecutionController();
+                controller.start();
 
                 process.on('SIGINT', () => {
                     console.log(chalk.yellow('\nStopping workflow...'));

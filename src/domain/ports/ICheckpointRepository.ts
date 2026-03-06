@@ -13,6 +13,4 @@ export interface ICheckpointRepository {
         lineage: CheckpointLineageInput
     ): ResultAsync<void, PersistenceError>;
     getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError>;
-    saveReplayIdempotencyKey(runId: string, idempotencyKey: string): ResultAsync<void, PersistenceError>;
-    hasReplayIdempotencyKey(runId: string, idempotencyKey: string): ResultAsync<boolean, PersistenceError>;
 }

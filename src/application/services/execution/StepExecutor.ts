@@ -29,24 +29,23 @@ export class StepExecutor {
             vision: boolean;
             maxActions: number;
             platform?: import('@domain/types/PlatformConfig').PlatformType | undefined;
-            [key: string]: unknown;
+            recording?: { enabled: boolean; maxDurationMs?: number; intervalMs?: number };
+            extras?: Readonly<Record<string, unknown>>;
         } = { vision: true, maxActions: DEFAULT_MAX_ACTIONS },
     ): AsyncGenerator<AgentActionEvent, StepExecutionResult, unknown> {
         await this.trace.startTrace(runId);
 
-        const rec = options['recording'] as { enabled: boolean; maxDurationMs?: number; intervalMs?: number } | undefined;
-        const extras = options['extras'] as Readonly<Record<string, unknown>> | undefined;
         const config: import('@domain/ports/IAgentRunner').StepRunnerConfig = {
             runId,
             stepGoal,
             url,
             maxActions: options.maxActions,
             vision: options.vision,
-            platform: options.platform as import('@domain/types/PlatformConfig').PlatformType | undefined,
-            ...(extras ? { extras } : {}),
+            platform: options.platform,
+            ...(options.extras ? { extras: options.extras } : {}),
         };
-        if (rec) {
-            (config as { recording: typeof rec }).recording = rec;
+        if (options.recording) {
+            (config as { recording: typeof options.recording }).recording = options.recording;
         }
         const gen = this.agentRunner.executeStep(config, automation);
 

@@ -15,3 +15,6 @@ export * from './ITraceExporter';
 export * from './ISensor';
 export * from './IPerceptionSource';
 export * from './IPromptService';
+export * from './IReportGenerator';
+export * from './IShellPolicy';
+export * from './ITabManager';

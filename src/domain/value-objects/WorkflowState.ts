@@ -50,9 +50,7 @@ export const WorkflowState = {
     },
 
     clearActiveItem(state: WorkflowState): WorkflowState {
-        const { activeItemId, activeNodeId, ...rest } = state;
-        void activeItemId;
-        void activeNodeId;
+        const { activeItemId: _, activeNodeId: __, ...rest } = state;
         return rest;
     },
 

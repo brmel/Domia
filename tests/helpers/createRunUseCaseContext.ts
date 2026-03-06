@@ -153,7 +153,7 @@ export function createRunUseCaseContext(overrides: UseCaseContextOverrides = {})
     const readinessPolicy = overrides.readinessPolicy ?? createReadinessPolicyReal(logger);
 
     const checkpointCompaction = new CheckpointCompactionService();
-    const replanningPolicy = new ReplanningPolicyService(logger);
+    const replanningPolicy = new ReplanningPolicyService();
 
     const kernel = new StepExecutionKernelService(
         executor as unknown as StepExecutor,

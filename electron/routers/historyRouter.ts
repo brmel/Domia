@@ -43,9 +43,8 @@ export const historyRouter = t.router({
         .input(z.object({ runId: z.string(), stepNumber: z.number() }))
         .query(async ({ input }) => {
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-            const stepsResult = await persistence.getSteps(input.runId);
-            if (stepsResult.isErr()) throw new Error(stepsResult.error.message);
-            const step = stepsResult.value.find(s => s.stepNumber === input.stepNumber);
-            return step ?? null;
+            const stepResult = await persistence.getStep(input.runId, input.stepNumber);
+            if (stepResult.isErr()) throw new Error(stepResult.error.message);
+            return stepResult.value;
         }),
 });

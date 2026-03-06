@@ -2,6 +2,11 @@ export type BuiltInPlatformType = 'web' | 'electron' | 'android' | 'ios';
 
 export type PlatformType = BuiltInPlatformType | (string & {});
 
+/** Returns true and narrows the type if `p` is one of Domia's built-in platforms. */
+export function isBuiltInPlatform(p: PlatformType): p is BuiltInPlatformType {
+    return p === 'web' || p === 'electron' || p === 'android' || p === 'ios';
+}
+
 export interface BasePlatformConfig {
   platform: PlatformType;
 }

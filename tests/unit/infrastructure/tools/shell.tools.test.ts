@@ -103,3 +103,32 @@ describe('buildToolCatalog with shell', () => {
         expect(recordings).toHaveLength(0);
     });
 });
+
+describe('shell policy enforcement', () => {
+    it('blocks a denied command and returns exit 126', async () => {
+        const executor = createMockExecutor();
+        const policy = { evaluate: vi.fn(() => ({ allowed: false, reason: 'blocked by test' })) };
+        const [tool] = createShellTools(executor, policy);
+
+        const result = await tool!.execute({ command: 'sudo rm -rf /' });
+
+        expect(result).toEqual({
+            status: 'error',
+            stdout: '',
+            stderr: 'blocked by test',
+            exitCode: 126,
+        });
+        expect(executor.execute).not.toHaveBeenCalled();
+    });
+
+    it('allows commands when policy approves', async () => {
+        const executor = createMockExecutor({ stdout: 'ok' });
+        const policy = { evaluate: vi.fn(() => ({ allowed: true })) };
+        const [tool] = createShellTools(executor, policy);
+
+        const result = await tool!.execute({ command: 'echo hello' });
+
+        expect(result['status']).toBe('success');
+        expect(executor.execute).toHaveBeenCalled();
+    });
+});

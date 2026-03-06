@@ -9,6 +9,7 @@ import {
     DEFAULT_VIEWPORT_HEIGHT,
     DEFAULT_ARTIFACTS_DIR,
     DEFAULT_DATABASE_PATH,
+    DEFAULT_REPORT_OUTPUT_DIR,
 } from '@shared/defaults';
 
 export const DomiaConfigSchema = z.object({
@@ -49,8 +50,15 @@ export const DomiaConfigSchema = z.object({
     plugins: z.object({
         shell: z.object({
             enabled: z.boolean().default(false),
+            denyPatterns: z.array(z.string()).optional(),
+            allowedCwd: z.array(z.string()).optional(),
         }).default({ enabled: false }),
     }).default({ shell: { enabled: false } }),
+
+    reporting: z.object({
+        defaultFormat: z.enum(['none', 'junit', 'html', 'all']).default('none'),
+        outputDir: z.string().default(DEFAULT_REPORT_OUTPUT_DIR),
+    }).default({ defaultFormat: 'none', outputDir: DEFAULT_REPORT_OUTPUT_DIR }),
 });
 
 export type DomiaConfig = z.infer<typeof DomiaConfigSchema>;

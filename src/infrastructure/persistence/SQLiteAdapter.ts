@@ -72,8 +72,12 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         return this.runs.getSteps(runId);
     }
 
+    getStep(runId: string, stepNumber: number): ResultAsync<Step | null, PersistenceError> {
+        return this.runs.getStep(runId, stepNumber);
+    }
+
     clearHistory(): ResultAsync<void, PersistenceError> {
-        return this.runs.clearHistory(this.db);
+        return this.runs.clearHistory();
     }
 
     saveCheckpoint(
@@ -87,14 +91,6 @@ export class SQLiteAdapter implements IPersistenceAdapter {
 
     getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError> {
         return this.checkpoints.getCheckpointRecords(runId);
-    }
-
-    saveReplayIdempotencyKey(runId: string, idempotencyKey: string): ResultAsync<void, PersistenceError> {
-        return this.checkpoints.saveReplayIdempotencyKey(runId, idempotencyKey);
-    }
-
-    hasReplayIdempotencyKey(runId: string, idempotencyKey: string): ResultAsync<boolean, PersistenceError> {
-        return this.checkpoints.hasReplayIdempotencyKey(runId, idempotencyKey);
     }
 
     saveWorkflowDefinition(definition: WorkflowDefinition): ResultAsync<void, PersistenceError> {

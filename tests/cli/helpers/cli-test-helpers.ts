@@ -25,9 +25,7 @@ export interface CLITestConfig {
     executablePath?: string;
     launchArgs?: string[];
     prompt: string;
-    provider?: 'google';
     model?: string;
-    baseUrl?: string;
     apiKey?: string;
     maxSteps?: number;
     headless?: boolean;
@@ -80,10 +78,8 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
             }
         } else if (config.executablePath) {
             args.push('--executable-path', config.executablePath);
-            if (config.launchArgs) {
-                // Join args with comma for CLI parsing compatibility if needed, or pass multiple fields?
-                // RunCommand expects comma-separated string for --launch-args
-                args.push('--launch-args', config.launchArgs.join(','));
+            if (config.launchArgs?.length) {
+                args.push('--launch-args', ...config.launchArgs);
             }
             if (config.windowTitle) {
                 args.push('--window-title', config.windowTitle);
@@ -93,16 +89,8 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
         args.push('--prompt', config.prompt);
         args.push('--steps', String(config.maxSteps ?? 5));
 
-        if (config.provider) {
-            args.push('--provider', config.provider);
-        }
-
         if (config.model) {
             args.push('--model', config.model);
-        }
-
-        if (config.baseUrl) {
-            args.push('--base-url', config.baseUrl);
         }
 
         if (config.apiKey) {

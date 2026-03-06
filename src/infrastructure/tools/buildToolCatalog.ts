@@ -11,6 +11,7 @@ import { createPollingTools } from './catalog/polling.tools';
 import { createSnapshotRecordingTools } from './catalog/snapshot-recording.tools';
 import { createShellTools } from './catalog/shell.tools';
 import { createElectronTools } from './catalog/electron.tools';
+import { createTabTools } from './catalog/tab.tools';
 import { ActionType } from '@domain/enums/ActionType';
 
 const RECORDABLE_ACTION_TYPES: ReadonlySet<ActionType> = new Set([
@@ -34,8 +35,9 @@ const RECORDABLE_ACTION_TYPES: ReadonlySet<ActionType> = new Set([
  * without modifying the main buildToolCatalog function.
  */
 const OPTIONAL_TOOL_FACTORIES: ReadonlyArray<(deps: ToolDependencies) => ToolSpec[]> = [
-    (deps) => deps.shellExecutor ? createShellTools(deps.shellExecutor) : [],
+    (deps) => deps.shellExecutor ? createShellTools(deps.shellExecutor, deps.shellPolicy) : [],
     (deps) => deps.windowManager ? createElectronTools(deps.windowManager, deps.automation) : [],
+    (deps) => deps.tabManager ? createTabTools(deps.tabManager, deps.automation) : [],
 ];
 
 export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] = [], promptService?: IPromptService): ToolSpec[] {

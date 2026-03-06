@@ -159,10 +159,12 @@ export const workflowRouter = t.router({
                 workflowControllerState.current.stop();
             }
             workflowControllerState.current = new ExecutionController();
+            workflowControllerState.current.start();
             workflowControllerState.executionToken += 1;
             const executionToken = workflowControllerState.executionToken;
 
             const workflowOrchestrator = container.resolve(WorkflowRunOrchestratorService);
+            let capturedWorkflowRunId = input.workflowDefinitionId;
 
             (async () => {
                 const generator = workflowOrchestrator.executeWorkflow(input.workflowDefinitionId, workflowControllerState.current as ExecutionController);
@@ -170,6 +172,7 @@ export const workflowRouter = t.router({
                     if (executionToken !== workflowControllerState.executionToken) {
                         break;
                     }
+                    if ('workflowRunId' in event) capturedWorkflowRunId = event.workflowRunId;
                     eventEmitter.emit('workflow:update', event);
                 }
             })().catch((error) => {
@@ -178,7 +181,7 @@ export const workflowRouter = t.router({
                 }
                 eventEmitter.emit('workflow:update', {
                     type: 'workflow_failed',
-                    workflowRunId: 'unknown',
+                    workflowRunId: capturedWorkflowRunId,
                     reason: String(error)
                 });
             }).finally(() => {

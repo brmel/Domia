@@ -1,3 +1,5 @@
+import type { BuiltInToolName } from '@domain/types/ToolTypes';
+
 export type PromptKey =
     | 'systemInstruction'
     | 'stepGoal'
@@ -9,16 +11,11 @@ export type PromptKey =
     | 'shellAvailableRule'
     | 'shellUnavailableRule';
 
-export type ToolDescriptionKey =
-    | 'observe' | 'extract' | 'wait' | 'waitForCondition'
-    | 'click' | 'type' | 'hover' | 'selectOption' | 'dragTo' | 'pressKey'
-    | 'mouse_move' | 'mouse_click_left' | 'mouse_click_right'
-    | 'mouse_double_click' | 'mouse_drag' | 'mouse_scroll'
-    | 'scroll' | 'navigate'
-    | 'startRecording' | 'stopAndReviewRecording'
-    | 'shell_exec'
-    | 'list_windows' | 'switch_window'
-    | 'pass' | 'fail';
+/**
+ * Type-safe key for overriding built-in tool descriptions in config/prompts.
+ * Derived from `BuiltInToolName` — the single source of truth for tool names.
+ */
+export type ToolDescriptionKey = BuiltInToolName;
 
 export interface PromptOverrides {
     readonly prompts?: Partial<Record<PromptKey, string>> | undefined;

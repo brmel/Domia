@@ -40,6 +40,9 @@ import { FileSystemStorage } from '@infrastructure/storage/FileSystemStorage';
 import { TraceService } from '@infrastructure/services/TraceService';
 import { FileTraceExporter } from '@infrastructure/services/exporters/FileTraceExporter';
 import { DebugExporter } from '@infrastructure/services/exporters/DebugExporter';
+import { ReportWriterService } from '@infrastructure/reporting/ReportWriterService';
+import { JUnitXmlReportGenerator } from '@infrastructure/reporting/JUnitXmlReportGenerator';
+import { HtmlReportGenerator } from '@infrastructure/reporting/HtmlReportGenerator';
 import type { IStorageService } from '@domain/ports/IStorageService';
 
 export class ContainerBuilder {
@@ -126,6 +129,18 @@ export class ContainerBuilder {
 
     registerUseCases(): this {
         container.register('RunUseCase', { useClass: RunUseCase });
+        return this;
+    }
+
+    registerReporting(): this {
+        container.register('IReportGenerator:junit', { useClass: JUnitXmlReportGenerator });
+        container.register('IReportGenerator:html', { useClass: HtmlReportGenerator });
+        container.register(ReportWriterService, {
+            useFactory: (c) => new ReportWriterService(
+                c.resolve('IPersistenceAdapter'),
+                [c.resolve('IReportGenerator:junit'), c.resolve('IReportGenerator:html')],
+            ),
+        });
         return this;
     }
 

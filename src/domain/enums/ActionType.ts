@@ -24,4 +24,8 @@ export enum ActionType {
     SHELL_EXEC = 'shell_exec',
     LIST_WINDOWS = 'list_windows',
     SWITCH_WINDOW = 'switch_window',
+    OPEN_TAB = 'open_tab',
+    LIST_BROWSER_TABS = 'list_browser_tabs',
+    SWITCH_BROWSER_TAB = 'switch_browser_tab',
+    CLOSE_BROWSER_TAB = 'close_browser_tab',
 }

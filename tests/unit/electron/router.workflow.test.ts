@@ -27,14 +27,13 @@ function createInMemoryPersistence() {
         getRuns: vi.fn(() => okAsync([])),
         getRun: vi.fn(() => okAsync(null)),
         getSteps: vi.fn(() => okAsync([])),
+        getStep: vi.fn(() => okAsync(null)),
         saveRun: vi.fn(() => okAsync(undefined as void)),
         saveStep: vi.fn(() => okAsync(undefined as void)),
         updateRunStatus: vi.fn(() => okAsync(undefined as void)),
         clearHistory: vi.fn(() => okAsync(undefined as void)),
         saveCheckpoint: vi.fn(() => okAsync(undefined as void)),
         getCheckpointRecords: vi.fn(() => okAsync([])),
-        saveReplayIdempotencyKey: vi.fn(() => okAsync(undefined as void)),
-        hasReplayIdempotencyKey: vi.fn(() => okAsync(false)),
     };
 }
 

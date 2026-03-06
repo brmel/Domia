@@ -1,6 +1,6 @@
-import { z } from 'zod';
 import { container } from '../../src/composition-root';
 import { ConfigService } from '../../src/infrastructure/config/ConfigService';
+import { DomiaConfigSchema } from '../../src/shared/config-types';
 import { t } from './shared';
 
 export const settingsRouter = t.router({
@@ -9,7 +9,7 @@ export const settingsRouter = t.router({
         return configService.get();
     }),
     update: t.procedure
-        .input(z.any())
+        .input(DomiaConfigSchema)
         .mutation(({ input }) => {
             const configService = container.resolve<ConfigService>(ConfigService);
             configService.update(input);

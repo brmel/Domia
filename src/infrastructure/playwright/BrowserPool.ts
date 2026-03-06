@@ -21,7 +21,7 @@ export class BrowserPool {
 
         if (this.browser?.isConnected()) {
             this.logger.debug('[BrowserPool] Headless mode changed, closing old browser');
-            await this.browser.close().catch(() => {});
+            await this.browser.close().catch(e => this.logger.debug('[BrowserPool] Close failed during mode change: %s', e));
         }
 
         this.logger.info('[BrowserPool] Launching new browser');
@@ -49,7 +49,7 @@ export class BrowserPool {
         this.clearIdleTimer();
         if (this.browser?.isConnected()) {
             this.logger.debug('[BrowserPool] Closing browser');
-            await this.browser.close().catch(() => {});
+            await this.browser.close().catch(e => this.logger.debug('[BrowserPool] Close failed during shutdown: %s', e));
         }
         this.browser = null;
         this.lastHeadless = null;

@@ -4,6 +4,7 @@ import { ExecutionController } from '../../src/application/controllers/Execution
 
 export const t = initTRPC.create({ isServer: true });
 export const eventEmitter = new EventEmitter();
+eventEmitter.setMaxListeners(50);
 
 export const activeRunState = {
     current: null as ExecutionController | null,

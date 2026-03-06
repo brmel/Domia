@@ -68,30 +68,4 @@ export class SQLiteCheckpointRepository {
             state: JSON.parse(row.state_json)
         })));
     }
-
-    saveReplayIdempotencyKey(runId: string, idempotencyKey: string): ResultAsync<void, PersistenceError> {
-        return ResultAsync.fromPromise(
-            this.db.insertInto('replay_idempotency_keys')
-                .values({
-                    run_id: runId,
-                    idempotency_key: idempotencyKey,
-                    created_at: new Date().toISOString()
-                })
-                .onConflict(oc => oc.columns(['run_id', 'idempotency_key']).doNothing())
-                .execute(),
-            (e) => new PersistenceError(`Failed to save replay idempotency key: ${e}`)
-        ).map(() => undefined);
-    }
-
-    hasReplayIdempotencyKey(runId: string, idempotencyKey: string): ResultAsync<boolean, PersistenceError> {
-        return ResultAsync.fromPromise(
-            this.db.selectFrom('replay_idempotency_keys')
-                .select(['id'])
-                .where('run_id', '=', runId)
-                .where('idempotency_key', '=', idempotencyKey)
-                .limit(1)
-                .executeTakeFirst(),
-            (e) => new PersistenceError(`Failed to query replay idempotency key: ${e}`)
-        ).map(row => Boolean(row));
-    }
 }

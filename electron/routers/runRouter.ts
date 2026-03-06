@@ -21,6 +21,7 @@ export const runRouter = t.router({
                 activeRunState.current.stop();
             }
             activeRunState.current = new ExecutionController();
+            activeRunState.current.start();
             activeRunState.executionToken += 1;
             const executionToken = activeRunState.executionToken;
 

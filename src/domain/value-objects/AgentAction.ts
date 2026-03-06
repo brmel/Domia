@@ -14,15 +14,22 @@ export type AgentAction =
     | MouseDragAction
     | MouseScrollAction
     | WaitAction
+    | WaitForConditionAction
     | PressKeyAction
     | ExtractAction
     | NavigateAction
     | ObserveAction
+    | StartRecordingAction
+    | StopAndReviewRecordingAction
     | PassAction
     | FailAction
     | ShellExecAction
     | ListWindowsAction
-    | SwitchWindowAction;
+    | SwitchWindowAction
+    | OpenTabAction
+    | ListBrowserTabsAction
+    | SwitchBrowserTabAction
+    | CloseBrowserTabAction;
 
 interface ClickAction {
     readonly type: ActionType.CLICK;
@@ -117,6 +124,15 @@ interface WaitAction {
     readonly thought: string;
 }
 
+interface WaitForConditionAction {
+    readonly type: ActionType.WAIT_FOR_CONDITION;
+    readonly pattern: string;
+    readonly isRegex?: boolean;
+    readonly timeoutMs?: number;
+    readonly pollIntervalMs?: number;
+    readonly thought: string;
+}
+
 interface PressKeyAction {
     readonly type: ActionType.PRESS_KEY;
     readonly key: string;
@@ -140,6 +156,16 @@ interface ObserveAction {
     readonly type: ActionType.OBSERVE;
     readonly delayMs?: number;
     readonly vision?: boolean;
+    readonly thought: string;
+}
+
+interface StartRecordingAction {
+    readonly type: ActionType.START_RECORDING;
+    readonly thought: string;
+}
+
+interface StopAndReviewRecordingAction {
+    readonly type: ActionType.STOP_AND_REVIEW_RECORDING;
     readonly thought: string;
 }
 
@@ -171,5 +197,28 @@ interface ListWindowsAction {
 interface SwitchWindowAction {
     readonly type: ActionType.SWITCH_WINDOW;
     readonly windowId: string;
+    readonly thought: string;
+}
+
+interface OpenTabAction {
+    readonly type: ActionType.OPEN_TAB;
+    readonly url?: string;
+    readonly thought: string;
+}
+
+interface ListBrowserTabsAction {
+    readonly type: ActionType.LIST_BROWSER_TABS;
+    readonly thought: string;
+}
+
+interface SwitchBrowserTabAction {
+    readonly type: ActionType.SWITCH_BROWSER_TAB;
+    readonly index: number;
+    readonly thought: string;
+}
+
+interface CloseBrowserTabAction {
+    readonly type: ActionType.CLOSE_BROWSER_TAB;
+    readonly index?: number;
     readonly thought: string;
 }

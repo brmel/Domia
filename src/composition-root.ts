@@ -13,7 +13,8 @@ export function registerCoreServices(): void {
         .registerLlm()
         .registerPerception()
         .registerObservability()
-        .registerUseCases();
+        .registerUseCases()
+        .registerReporting();
 }
 
 export { container };

@@ -1,16 +1,17 @@
 import { injectable, inject } from 'tsyringe';
 import type { ILogger } from '@domain/ports';
+import type { ToolName } from '@domain/types/ToolTypes';
 import type { ToolSpec } from '../tools/ToolSpec';
-import type { PluginManifest } from './PluginManifest';
+import type { PluginManifest, PluginName } from './PluginManifest';
 
 @injectable()
 export class PluginRegistry {
-    private readonly plugins = new Map<string, PluginManifest>();
-    private readonly registeredToolNames = new Set<string>();
+    private readonly plugins = new Map<PluginName, PluginManifest>();
+    private readonly registeredToolNames = new Set<ToolName>();
 
     constructor(@inject('ILogger') private readonly logger: ILogger) {}
 
-    register(manifest: PluginManifest, builtInNames: ReadonlySet<string>): void {
+    register(manifest: PluginManifest, builtInNames: ReadonlySet<ToolName>): void {
         for (const tool of manifest.tools) {
             if (builtInNames.has(tool.name) || this.registeredToolNames.has(tool.name)) {
                 const owner = builtInNames.has(tool.name)
