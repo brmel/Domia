@@ -38,8 +38,7 @@ npm install playwright
 npx playwright install chromium
 
 # Storage
-npm install better-sqlite3
-npm install -D @types/better-sqlite3
+npm install sql.js kysely-wasm
 
 # State management
 npm install zustand

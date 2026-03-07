@@ -1,27 +1,19 @@
 import 'reflect-metadata';
 import { describe, expect, it, beforeEach } from 'vitest';
-import Database from 'better-sqlite3';
-import { Kysely, SqliteDialect } from 'kysely';
+import { createInMemoryDatabase } from '@infrastructure/persistence/SqlJsProvider';
 import { initializeSchema } from '@infrastructure/persistence/SQLiteMigrationManager';
 import { SQLiteRunRepository } from '@infrastructure/persistence/SQLiteRunRepository';
-import type { DatabaseSchema } from '@infrastructure/persistence/DatabaseSchema';
 import type { Step } from '@domain/ports';
 import { Run } from '@domain/entities/Run';
 import { RunIdFactory, UrlFactory } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
-
-function createInMemoryDb(): { db: Kysely<DatabaseSchema>; raw: Database.Database } {
-    const raw = new Database(':memory:');
-    const db = new Kysely<DatabaseSchema>({ dialect: new SqliteDialect({ database: raw }) });
-    initializeSchema(raw);
-    return { db, raw };
-}
+import { createInMemoryDb } from '../../../helpers/createInMemoryTestDb';
 
 describe('SQLite persistence round-trip', () => {
     let repo: SQLiteRunRepository;
 
-    beforeEach(() => {
-        const { db } = createInMemoryDb();
+    beforeEach(async () => {
+        const { db } = await createInMemoryDb();
         repo = new SQLiteRunRepository(db);
     });
 
@@ -239,12 +231,13 @@ describe('SQLite persistence round-trip', () => {
         expect(step.assets).toEqual(assets);
     });
 
-    it('schema migrations are idempotent', () => {
-        const raw2 = new Database(':memory:');
+    it('schema migrations are idempotent', async () => {
+        const raw2 = await createInMemoryDatabase();
         initializeSchema(raw2);
         initializeSchema(raw2);
 
-        const migrations = raw2.prepare('SELECT id FROM schema_migrations').all() as Array<{ id: string }>;
+        const result = raw2.exec('SELECT id FROM schema_migrations');
+        const migrations = (result[0]?.values ?? []).map(row => ({ id: row[0] as string }));
         expect(migrations.length).toBeGreaterThanOrEqual(2);
 
         const unique = new Set(migrations.map(m => m.id));

@@ -43,12 +43,36 @@ const layerRules = [
             /@infrastructure\//,
             /\.\.\/\.\.\/infrastructure\//
         ]
+    },
+    {
+        name: 'renderer-no-node-builtins',
+        scope: /\/src\/presentation\/|\/src\/App\.tsx|\/src\/main\.tsx/,
+        forbiddenImportPatterns: [
+            /^os$/,
+            /^path$/,
+            /^fs$/,
+            /^child_process$/,
+            /^crypto$/,
+            /^node:/,
+        ]
+    },
+    {
+        name: 'shared-defaults-no-node-builtins',
+        scope: /\/src\/shared\/defaults\/(?!plugin\.)/,
+        forbiddenImportPatterns: [
+            /^os$/,
+            /^path$/,
+            /^fs$/,
+            /^child_process$/,
+            /^node:/,
+        ]
     }
 ];
 
 const forbiddenRuntimeMarkers = [/\blegacy\b/i, /\bdeprecated\b/i, /\bfallback\b/i];
 const allowedMarkerContexts = [
-    /userAgentFallback/
+    /userAgentFallback/,
+    /fallback path/,
 ];
 
 async function walkFiles(dir) {

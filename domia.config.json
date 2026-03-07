@@ -23,5 +23,9 @@
     "shell": {
       "enabled": true
     }
+  },
+  "reporting": {
+    "defaultFormat": "none",
+    "outputDir": "./reports"
   }
 }

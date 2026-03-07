@@ -65,6 +65,7 @@ describe('useRunStore', () => {
 
         const s = useRunStore.getState();
         expect(s.status).toBe(RunState.FAILED);
+        expect(s.success).toBe(false);
         expect(s.errorMessage).toBe('timeout');
     });
 

@@ -1,5 +1,5 @@
 import { ResultAsync } from 'neverthrow';
-import Database from 'better-sqlite3';
+import type { Database as SqlJsDatabase } from 'sql.js';
 import { Kysely } from 'kysely';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
 import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
@@ -11,7 +11,7 @@ import { dbOp } from './dbOp';
 export class SQLiteWorkflowRepository {
     constructor(
         private readonly db: Kysely<DatabaseSchema>,
-        private readonly database: Database.Database
+        private readonly database: SqlJsDatabase
     ) {}
 
     saveWorkflowDefinition(definition: WorkflowDefinition): ResultAsync<void, PersistenceError> {
@@ -170,52 +170,53 @@ export class SQLiteWorkflowRepository {
     commitAtomicWorkflowTransition(input: AtomicWorkflowTransitionInput): ResultAsync<void, PersistenceError> {
         return dbOp(
             Promise.resolve().then(() => {
-                const tx = this.database.transaction((payload: AtomicWorkflowTransitionInput) => {
-                    const workflowStepSetClauses: string[] = ['status = @step_status'];
-                    const workflowRunSetClauses: string[] = ['status = @run_status'];
+                this.database.run('BEGIN TRANSACTION');
+                try {
+                    const stepSetClauses: string[] = ['status = ?'];
+                    const stepParams: (string | null)[] = [input.workflowStepRunUpdates.status];
 
-                    if (payload.workflowStepRunUpdates.summary !== undefined) {
-                        workflowStepSetClauses.push('summary = @step_summary');
+                    if (input.workflowStepRunUpdates.summary !== undefined) {
+                        stepSetClauses.push('summary = ?');
+                        stepParams.push(input.workflowStepRunUpdates.summary ?? null);
                     }
-                    if (payload.workflowStepRunUpdates.completedAt !== undefined) {
-                        workflowStepSetClauses.push('completed_at = @step_completed_at');
+                    if (input.workflowStepRunUpdates.completedAt !== undefined) {
+                        stepSetClauses.push('completed_at = ?');
+                        stepParams.push(input.workflowStepRunUpdates.completedAt ?? null);
                     }
-                    if (payload.workflowStepRunUpdates.runId !== undefined) {
-                        workflowStepSetClauses.push('run_id = @step_linked_run_id');
+                    if (input.workflowStepRunUpdates.runId !== undefined) {
+                        stepSetClauses.push('run_id = ?');
+                        stepParams.push(input.workflowStepRunUpdates.runId ?? null);
                     }
+                    stepParams.push(input.workflowStepRunId);
 
-                    if (payload.workflowRunUpdates.summary !== undefined) {
-                        workflowRunSetClauses.push('summary = @run_summary');
+                    this.database.run(
+                        `UPDATE workflow_step_runs SET ${stepSetClauses.join(', ')} WHERE id = ?`,
+                        stepParams
+                    );
+
+                    const runSetClauses: string[] = ['status = ?'];
+                    const runParams: (string | null)[] = [input.workflowRunUpdates.status];
+
+                    if (input.workflowRunUpdates.summary !== undefined) {
+                        runSetClauses.push('summary = ?');
+                        runParams.push(input.workflowRunUpdates.summary ?? null);
                     }
-                    if (payload.workflowRunUpdates.completedAt !== undefined) {
-                        workflowRunSetClauses.push('completed_at = @run_completed_at');
+                    if (input.workflowRunUpdates.completedAt !== undefined) {
+                        runSetClauses.push('completed_at = ?');
+                        runParams.push(input.workflowRunUpdates.completedAt ?? null);
                     }
+                    runParams.push(input.workflowRunId);
 
-                    this.database.prepare(`
-                        UPDATE workflow_step_runs
-                        SET ${workflowStepSetClauses.join(', ')}
-                        WHERE id = @step_run_id
-                    `).run({
-                        step_status: payload.workflowStepRunUpdates.status,
-                        step_summary: payload.workflowStepRunUpdates.summary ?? null,
-                        step_completed_at: payload.workflowStepRunUpdates.completedAt ?? null,
-                        step_linked_run_id: payload.workflowStepRunUpdates.runId ?? null,
-                        step_run_id: payload.workflowStepRunId
-                    });
+                    this.database.run(
+                        `UPDATE workflow_runs SET ${runSetClauses.join(', ')} WHERE id = ?`,
+                        runParams
+                    );
 
-                    this.database.prepare(`
-                        UPDATE workflow_runs
-                        SET ${workflowRunSetClauses.join(', ')}
-                        WHERE id = @workflow_run_id
-                    `).run({
-                        run_status: payload.workflowRunUpdates.status,
-                        run_summary: payload.workflowRunUpdates.summary ?? null,
-                        run_completed_at: payload.workflowRunUpdates.completedAt ?? null,
-                        workflow_run_id: payload.workflowRunId
-                    });
-                });
-
-                tx(input);
+                    this.database.run('COMMIT');
+                } catch (e) {
+                    this.database.run('ROLLBACK');
+                    throw e;
+                }
             }),
             'commit atomic workflow transition'
         ).map(() => undefined);

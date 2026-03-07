@@ -128,6 +128,7 @@ export const useRunStore = create<RunStore>()(persist((set) => ({
             case 'error':
                 set({
                     status: RunState.FAILED,
+                    success: false,
                     errorMessage: event.error.message,
                 });
                 break;

@@ -38,6 +38,9 @@ export const POLL_TIMEOUT_SNAPSHOT_CHARS = 500;
 /** Max characters returned by the `extract` tool. */
 export const MAX_EXTRACT_TEXT_LENGTH = 2000;
 
+/** Max characters returned by the `extract_page_content` tool. */
+export const MAX_PAGE_CONTENT_LENGTH = 16_000;
+
 // ── Snapshot recording (DOM mutation) ────────────────────────────────
 
 /** Maximum mutation log entries kept in the recording buffer. */

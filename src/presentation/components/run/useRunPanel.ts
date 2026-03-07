@@ -24,7 +24,14 @@ export function useRunPanel() {
     );
 
     trpc.run.onUpdate.useSubscription(undefined, {
-        onData: (event) => { handleRunOutput(event as unknown as RunOutput); },
+        onData: (event) => {
+            console.debug('[useRunPanel] subscription event:', event.type,
+                event.type === 'error' ? (event as { error?: { message?: string } }).error : '');
+            handleRunOutput(event as unknown as RunOutput);
+        },
+        onError: (err) => {
+            console.error('[useRunPanel] subscription error:', err);
+        },
         enabled: typeof window !== 'undefined' && 'electronTRPC' in window,
     });
 

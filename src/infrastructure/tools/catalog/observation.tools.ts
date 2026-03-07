@@ -1,14 +1,16 @@
 import { z } from 'zod';
 import type { IStructuredAutomation } from '@domain/ports';
+import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 import { ActionType } from '@domain/enums/ActionType';
 import type { ToolSpec } from '../ToolSpec';
 import type { PostActionCaptureMiddleware } from '../PostActionCaptureMiddleware';
-import { MAX_EXTRACT_TEXT_LENGTH, DEFAULT_WAIT_DURATION_MS } from '@shared/defaults';
+import { MAX_EXTRACT_TEXT_LENGTH, MAX_PAGE_CONTENT_LENGTH, DEFAULT_WAIT_DURATION_MS } from '@shared/defaults';
 import { WEB_ELECTRON_PLATFORMS, unwrapResult, toolError, toolSuccess } from '../toolResult';
 
 export function createObservationTools(
     automation: IStructuredAutomation,
     captureMiddleware: PostActionCaptureMiddleware,
+    perceptionSource?: IPerceptionSource,
 ): ToolSpec[] {
     return [
         {
@@ -37,6 +39,34 @@ export function createObservationTools(
                 if (result.isErr()) return toolError(result.error.message);
                 const text = result.value.replace(/\s+/g, ' ').trim().slice(0, MAX_EXTRACT_TEXT_LENGTH);
                 return toolSuccess({ extractedText: text || '(empty)' });
+            },
+        },
+        {
+            name: 'extract_page_content',
+            description: `Extract the full visible text content of the entire page (body innerText). Use when you need to read large amounts of page content at once — articles, data tables, lists — instead of extracting individual elements one by one. Returns up to ${MAX_PAGE_CONTENT_LENGTH} characters. Input: { selector?: string (CSS selector, default "body") }. Output: { status: "success", content: string, length: number, truncated: boolean } or { status: "error", error: string }.`,
+            actionType: ActionType.EXTRACT,
+            platforms: WEB_ELECTRON_PLATFORMS,
+            parameters: z.object({
+                selector: z.string().optional().describe('CSS selector for the root element to extract from. Default "body". Use "main", "article", etc. for targeted extraction.'),
+            }),
+            execute: async (args) => {
+                if (!perceptionSource) return toolError('Perception source not available');
+                try {
+                    const selector = (args['selector'] as string) || 'body';
+                    const raw = await perceptionSource.evaluateScript(
+                        ((sel: unknown) => {
+                            const el = document.querySelector(sel as string);
+                            return el ? (el as HTMLElement).innerText : '';
+                        }) as (...args: unknown[]) => string,
+                        selector,
+                    ) as string;
+                    const text = (raw ?? '').replace(/\n{3,}/g, '\n\n').trim();
+                    const truncated = text.length > MAX_PAGE_CONTENT_LENGTH;
+                    const content = truncated ? text.slice(0, MAX_PAGE_CONTENT_LENGTH) : text;
+                    return toolSuccess({ content: content || '(empty)', length: text.length, truncated });
+                } catch (e) {
+                    return toolError(`Page content extraction failed: ${e instanceof Error ? e.message : String(e)}`);
+                }
             },
         },
         {

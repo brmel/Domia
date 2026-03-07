@@ -30,8 +30,15 @@ export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): R
     const isRunning = isAgentRunning(status);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+    const { handleRunOutput } = useRunStore();
     const runMutation = trpc.run.run.useMutation({
-        onError: () => setStatus(RunState.FAILED),
+        onError: (err) => {
+            console.error('[RunForm] mutation error:', err.message);
+            handleRunOutput({
+                type: 'error',
+                error: { name: err.name, message: err.message } as unknown as Error,
+            });
+        },
     });
 
     const cancelMutation = trpc.run.cancel.useMutation({

@@ -21,15 +21,6 @@ export interface StepTable {
     timestamp: string;
 }
 
-export interface LogTable {
-    id: Generated<number>;
-    run_id: string;
-    level: string;
-    message: string;
-    metadata: string | null;
-    timestamp: string;
-}
-
 export interface WorkflowCheckpointTable {
     id: Generated<number>;
     run_id: string;
@@ -42,18 +33,6 @@ export interface WorkflowCheckpointTable {
     state_json: string;
     reason: string;
     created_at: string;
-}
-
-export interface ReplayIdempotencyKeyTable {
-    id: Generated<number>;
-    run_id: string;
-    idempotency_key: string;
-    created_at: string;
-}
-
-export interface SchemaMigrationTable {
-    id: string;
-    applied_at: string;
 }
 
 export interface WorkflowDefinitionTable {
@@ -93,10 +72,7 @@ export interface WorkflowStepRunTable {
 export interface DatabaseSchema {
     runs: RunTable;
     steps: StepTable;
-    logs: LogTable;
     workflow_checkpoints: WorkflowCheckpointTable;
-    replay_idempotency_keys: ReplayIdempotencyKeyTable;
-    schema_migrations: SchemaMigrationTable;
     workflow_definitions: WorkflowDefinitionTable;
     workflow_runs: WorkflowRunTable;
     workflow_step_runs: WorkflowStepRunTable;

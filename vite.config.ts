@@ -21,7 +21,15 @@ export default defineConfig({
         vite: {
           build: {
             rollupOptions: {
-              external: ['playwright', 'better-sqlite3', 'keytar', 'bufferutil', 'utf-8-validate'],
+              external: [
+                'playwright',
+                'sql.js',
+                'keytar',
+                'bufferutil',
+                'utf-8-validate',
+                'protobufjs',
+                '@protobufjs/inquire',
+              ],
             },
           },
           resolve: {
@@ -48,9 +56,12 @@ export default defineConfig({
   resolve: {
     alias: pathAliases,
   },
+  optimizeDeps: {
+    include: ['zod', 'react', 'react-dom', '@tanstack/react-query', 'trpc-electron/renderer', 'zustand'],
+  },
   server: {
     watch: {
-      ignored: ['**/domia.config.json', '**/domia.db', '**/artifacts/**'],
+      ignored: ['**/domia.config.json', '**/domia.db', '**/artifacts/**', '**/article.txt', '**/page.html'],
     },
   },
 })

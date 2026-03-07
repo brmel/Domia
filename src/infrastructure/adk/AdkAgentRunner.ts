@@ -218,7 +218,7 @@ export class AdkAgentRunner implements IAgentRunner {
                     if (screenshotPromise) {
                         await screenshotPromise;
                         screenshotPromise = null;
-                }
+                    }
                     if (latestScreenshot) {
                         yield { type: 'screenshot', data: latestScreenshot };
                         latestScreenshot = null;

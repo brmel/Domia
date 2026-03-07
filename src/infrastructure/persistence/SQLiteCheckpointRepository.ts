@@ -1,11 +1,12 @@
-import { ResultAsync } from 'neverthrow';
 import { Kysely } from 'kysely';
+import type { ResultAsync } from 'neverthrow';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { RunCheckpointReason } from '@domain/value-objects/RunLifecycle';
 import type { CheckpointLineageInput } from '@domain/ports/IPersistenceAdapter';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
-import { PersistenceError } from '@domain/errors';
+import type { PersistenceError } from '@domain/errors';
 import type { DatabaseSchema } from './DatabaseSchema';
+import { dbOp } from './dbOp';
 
 export class SQLiteCheckpointRepository {
     constructor(private readonly db: Kysely<DatabaseSchema>) {}
@@ -16,7 +17,7 @@ export class SQLiteCheckpointRepository {
         reason: RunCheckpointReason,
         lineage: CheckpointLineageInput
     ): ResultAsync<void, PersistenceError> {
-        return ResultAsync.fromPromise(
+        return dbOp(
             this.db.insertInto('workflow_checkpoints')
                 .values({
                     run_id: runId,
@@ -31,12 +32,12 @@ export class SQLiteCheckpointRepository {
                     created_at: new Date().toISOString()
                 })
                 .execute(),
-            (e) => new PersistenceError(`Failed to save checkpoint: ${e}`)
+            'save checkpoint'
         ).map(() => undefined);
     }
 
     getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError> {
-        return ResultAsync.fromPromise(
+        return dbOp(
             this.db.selectFrom('workflow_checkpoints')
                 .select([
                     'run_id',
@@ -54,7 +55,7 @@ export class SQLiteCheckpointRepository {
                 .orderBy('sequence_number', 'asc')
                 .orderBy('created_at', 'asc')
                 .execute(),
-            (e) => new PersistenceError(`Failed to get checkpoint records: ${e}`)
+            'get checkpoint records'
         ).map(rows => rows.map(row => ({
             runId: row.run_id,
             checkpointId: row.checkpoint_id,

@@ -10,7 +10,6 @@ import { ExecutionController } from '@application/controllers/ExecutionControlle
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
 import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
 import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
-import type { ResultAsync } from 'neverthrow';
 
 function createStatefulPersistence(definitions: WorkflowDefinition[]): IWorkflowRepository & {
     readonly storedRuns: Map<string, WorkflowRunRecord>;

@@ -15,6 +15,7 @@ import { RunLifecycleManager } from '@application/services/RunLifecycleManager';
 import { PlatformSessionFactory } from '@application/services/platform/PlatformSessionFactory';
 import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
 import { ReadinessGateService } from '@application/services/hardening/ReadinessGateService';
+import { createMockLogger } from './createMockLogger';
 
 
 
@@ -100,10 +101,6 @@ function createReadinessPolicyReal(logger: ILogger): RuntimeReadinessPolicyServi
     );
 }
 
-function createLoggerMock(): ILogger {
-    return { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn(), setLevel: vi.fn() };
-}
-
 
 export interface UseCaseContextOverrides {
     runId?: string;
@@ -138,7 +135,7 @@ export interface UseCaseContext {
 }
 
 export function createRunUseCaseContext(overrides: UseCaseContextOverrides = {}): UseCaseContext {
-    const logger = overrides.logger ?? createLoggerMock();
+    const logger = overrides.logger ?? createMockLogger();
     const releaseLane = vi.fn();
     const browser = overrides.browser ?? createBrowserMock();
 

@@ -1,16 +1,14 @@
-import * as os from 'os';
-import * as path from 'path';
-
 /**
  * Centralized defaults for platform connectivity, viewport,
  * and browser management.
  *
  * Consumed by PlatformConstants.ts, config-types.ts,
- * BrowserPool, ElectronDriver, AgentViewService, electron/main.ts,
+ * BrowserPool, ElectronDriver, electron/main.ts,
  * PlaywrightAdapter, PlaywrightPerceptionSource, and AriaSensor.
  *
- * To expose a constant in CLI/UI, add it to DomiaConfigSchema in
- * `src/shared/config-types.ts`.
+ * ⚠️  Node-only constants (e.g. DEFAULT_PLUGIN_DIR) live in
+ *     plugin.defaults.ts and are NOT barrel-exported, so this
+ *     file stays safe for the Vite renderer bundle.
  */
 
 // ── Viewport ─────────────────────────────────────────────────────────
@@ -117,6 +115,4 @@ export const WINDOW_SCORE_TITLE_BONUS = 5;
 export const WINDOW_SCORE_DOMIA_BONUS = 10;
 
 // ── Plugins ──────────────────────────────────────────────────────────
-
-/** Default plugin directory. */
-export const DEFAULT_PLUGIN_DIR = path.join(os.homedir(), '.domia', 'plugins');
+// DEFAULT_PLUGIN_DIR moved to plugin.defaults.ts (Node-only, not barrel-exported).

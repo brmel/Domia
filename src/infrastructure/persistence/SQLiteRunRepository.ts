@@ -131,9 +131,7 @@ export class SQLiteRunRepository {
         return dbOp(
             (async (): Promise<void> => {
                 await this.db.deleteFrom('steps').execute();
-                await this.db.deleteFrom('logs').execute();
                 await this.db.deleteFrom('workflow_checkpoints').execute();
-                await this.db.deleteFrom('replay_idempotency_keys').execute();
                 await this.db.deleteFrom('workflow_step_runs').execute();
                 await this.db.deleteFrom('workflow_runs').execute();
                 await this.db.deleteFrom('workflow_definitions').execute();

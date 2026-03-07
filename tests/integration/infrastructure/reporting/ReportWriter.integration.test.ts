@@ -3,32 +3,23 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import Database from 'better-sqlite3';
-import { Kysely, SqliteDialect } from 'kysely';
-import { initializeSchema } from '@infrastructure/persistence/SQLiteMigrationManager';
+import type { Database as SqlJsDatabase } from 'sql.js';
 import { SQLiteRunRepository } from '@infrastructure/persistence/SQLiteRunRepository';
 import { ReportWriterService } from '@infrastructure/reporting/ReportWriterService';
 import { JUnitXmlReportGenerator } from '@infrastructure/reporting/JUnitXmlReportGenerator';
 import { HtmlReportGenerator } from '@infrastructure/reporting/HtmlReportGenerator';
-import type { DatabaseSchema } from '@infrastructure/persistence/DatabaseSchema';
 import { Run } from '@domain/entities/Run';
 import { RunIdFactory, UrlFactory } from '@domain/value-objects';
 import { ActionType } from '@domain/enums/ActionType';
-
-function createInMemoryDb(): { db: Kysely<DatabaseSchema>; raw: Database.Database } {
-    const raw = new Database(':memory:');
-    const db = new Kysely<DatabaseSchema>({ dialect: new SqliteDialect({ database: raw }) });
-    initializeSchema(raw);
-    return { db, raw };
-}
+import { createInMemoryDb } from '../../../helpers/createInMemoryTestDb';
 
 describe('ReportWriterService integration', () => {
     let repo: SQLiteRunRepository;
     let tmpDir: string;
-    let raw: Database.Database;
+    let raw: SqlJsDatabase;
 
-    beforeEach(() => {
-        const result = createInMemoryDb();
+    beforeEach(async () => {
+        const result = await createInMemoryDb();
         raw = result.raw;
         repo = new SQLiteRunRepository(result.db);
         tmpDir = mkdtempSync(join(tmpdir(), 'domia-report-'));

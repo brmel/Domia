@@ -1,9 +1,9 @@
-import Database from 'better-sqlite3';
+import type { Database as SqlJsDatabase } from 'sql.js';
 
 export const SQLITE_MIGRATION_IDS = ['20260213_baseline_v1', '20260213_workflow_indexes_v1', '20260214_rename_legacy_tables_v1'] as const;
 
-export function initializeSchema(database: Database.Database): void {
-    database.exec(`
+export function initializeSchema(database: SqlJsDatabase): void {
+    database.run(`
         CREATE TABLE IF NOT EXISTS schema_migrations (
             id TEXT PRIMARY KEY,
             applied_at DATETIME NOT NULL
@@ -13,9 +13,11 @@ export function initializeSchema(database: Database.Database): void {
     applyMigrations(database);
 }
 
-function applyMigrations(database: Database.Database): void {
-    const appliedRows = database.prepare('SELECT id FROM schema_migrations').all() as Array<{ id: string }>;
-    const applied = new Set(appliedRows.map((row) => row.id));
+function applyMigrations(database: SqlJsDatabase): void {
+    const appliedRows = database.exec('SELECT id FROM schema_migrations');
+    const applied = new Set(
+        (appliedRows[0]?.values ?? []).map((row) => row[0] as string)
+    );
 
     const migrations: Array<{ id: string; apply: () => void }> = [
         {
@@ -138,45 +140,45 @@ function applyMigrations(database: Database.Database): void {
         {
             id: SQLITE_MIGRATION_IDS[2],
             apply: (): void => {
-                const oldTableExists = database.prepare(
+                const result = database.exec(
                     "SELECT 1 FROM sqlite_master WHERE type='table' AND name='test_runs'"
-                ).get();
+                );
 
-                if (!oldTableExists) return;
+                if (result.length === 0) return;
 
-                database.exec(`
-                    ALTER TABLE test_runs RENAME TO runs;
-                    ALTER TABLE test_steps RENAME TO steps;
-                    ALTER TABLE steps RENAME COLUMN test_run_id TO run_id;
-                    ALTER TABLE logs RENAME COLUMN test_run_id TO run_id;
-                    ALTER TABLE workflow_step_runs RENAME COLUMN test_run_id TO run_id;
+                database.run(`ALTER TABLE test_runs RENAME TO runs`);
+                database.run(`ALTER TABLE test_steps RENAME TO steps`);
+                database.run(`ALTER TABLE steps RENAME COLUMN test_run_id TO run_id`);
+                database.run(`ALTER TABLE logs RENAME COLUMN test_run_id TO run_id`);
+                database.run(`ALTER TABLE workflow_step_runs RENAME COLUMN test_run_id TO run_id`);
 
-                    DROP INDEX IF EXISTS idx_test_runs_started_at;
-                    DROP INDEX IF EXISTS idx_test_steps_run_step;
-                    DROP INDEX IF EXISTS idx_workflow_step_runs_test_run;
+                database.run(`DROP INDEX IF EXISTS idx_test_runs_started_at`);
+                database.run(`DROP INDEX IF EXISTS idx_test_steps_run_step`);
+                database.run(`DROP INDEX IF EXISTS idx_workflow_step_runs_test_run`);
 
-                    CREATE INDEX IF NOT EXISTS idx_runs_started_at ON runs(started_at);
-                    CREATE INDEX IF NOT EXISTS idx_steps_run_step ON steps(run_id, step_number);
-                    CREATE INDEX IF NOT EXISTS idx_workflow_step_runs_run ON workflow_step_runs(run_id);
-                `);
+                database.run(`CREATE INDEX IF NOT EXISTS idx_runs_started_at ON runs(started_at)`);
+                database.run(`CREATE INDEX IF NOT EXISTS idx_steps_run_step ON steps(run_id, step_number)`);
+                database.run(`CREATE INDEX IF NOT EXISTS idx_workflow_step_runs_run ON workflow_step_runs(run_id)`);
             }
         }
     ];
 
-    const insertMigration = database.prepare(
-        'INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)'
-    );
-
-    const tx = database.transaction(() => {
+    database.run('BEGIN TRANSACTION');
+    try {
         for (const migration of migrations) {
             if (applied.has(migration.id)) {
                 continue;
             }
 
             migration.apply();
-            insertMigration.run(migration.id, new Date().toISOString());
+            database.run(
+                'INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)',
+                [migration.id, new Date().toISOString()]
+            );
         }
-    });
-
-    tx();
+        database.run('COMMIT');
+    } catch (e) {
+        database.run('ROLLBACK');
+        throw e;
+    }
 }

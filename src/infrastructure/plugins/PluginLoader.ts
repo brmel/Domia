@@ -4,7 +4,7 @@ import * as path from 'path';
 import type { ILogger } from '@domain/ports';
 import { PluginRegistry } from './PluginRegistry';
 import { validatePluginManifest } from './PluginManifest';
-import { DEFAULT_PLUGIN_DIR } from '@shared/defaults';
+import { DEFAULT_PLUGIN_DIR } from '@shared/defaults/plugin.defaults';
 
 @injectable()
 export class PluginLoader {

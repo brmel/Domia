@@ -11,6 +11,7 @@ import { RuntimeReadinessPolicyService } from '../../src/application/services/ha
 import type { RunOutput } from '../../src/application/dtos';
 import debug from 'debug';
 import { t, eventEmitter, activeRunState } from './shared';
+import { serializeRunOutput } from './serializeRunOutput';
 
 export const runRouter = t.router({
     run: t.procedure
@@ -38,9 +39,10 @@ export const runRouter = t.router({
             (async () => {
                 for await (const event of generator) {
                     if (executionToken !== activeRunState.executionToken) break;
-                    eventEmitter.emit('test:update', event);
+                    eventEmitter.emit('test:update', serializeRunOutput(event));
                 }
             })().catch(err => {
+                console.error('[runRouter] Unhandled generator error:', err);
                 if (executionToken !== activeRunState.executionToken) return;
                 eventEmitter.emit('test:update', {
                     type: 'error',
