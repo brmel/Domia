@@ -329,11 +329,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         return this.page ? new PlaywrightPerceptionSource(this.page) : null;
     }
 
-    getPage(): Page | null {
-        this.ensureRecoverablePage();
-        return this.page;
-    }
-
+    /** @internal — used only by ElectronDriver and ElectronWindowManager for window switching */
     setAttachedPage(page: Page): void {
         this.page = page;
         this.browser = page.context().browser();

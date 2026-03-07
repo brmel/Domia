@@ -1,20 +1,15 @@
-import { Page } from 'playwright';
+import type { Page } from 'playwright';
 import { Result, ok, err } from 'neverthrow';
 import type { ILogger } from '@domain/ports';
 import { CDPValidator, ValidationError } from '@domain/CDPValidator';
-import { WINDOW_ID_CONSTANTS } from '@domain/PlatformConstants';
+import type { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
 
 export interface ElectronWindow {
     readonly id: string;
+    /** @internal — only accessed within infrastructure layer */
     readonly page: Page;
     readonly title: string;
     readonly url: string;
-}
-
-export interface WindowSelector {
-    readonly windowId?: string;
-    readonly title?: string;
-    readonly url?: string;
 }
 
 export class ElectronWindowManager {
@@ -81,22 +76,28 @@ export class ElectronWindowManager {
         return ok(undefined);
     }
 
-    findWindow(selector: WindowSelector): Result<ElectronWindow, Error> {
-        if (selector.windowId) return this.getWindow(selector.windowId);
+    findWindowByTitle(title: string): Result<ElectronWindow, Error> {
+        const w = Array.from(this.windows.values()).find((win) => win.title.includes(title));
+        return w ? ok(w) : err(new Error(`No window found matching title '${title}'`));
+    }
 
-        const windows = Array.from(this.windows.values());
+    /**
+     * Switch to window, bring it to front, and attach the page to the adapter.
+     * Consolidates logic previously duplicated in electron.tools.ts, ElectronDriver, and ElectronWindowSelectionPolicy.
+     */
+    async switchWindow(windowId: string, adapter?: PlaywrightAdapter): Promise<Result<ElectronWindow, ValidationError>> {
+        const setResult = this.setActiveWindow(windowId);
+        if (setResult.isErr()) return err(setResult.error);
 
-        if (selector.title) {
-            const w = windows.find((win) => win.title.includes(selector.title!));
-            if (w) return ok(w);
+        const win = this.windows.get(windowId)!;
+        await win.page.bringToFront().catch(() => undefined);
+
+        if (adapter) {
+            adapter.setAttachedPage(win.page);
         }
 
-        if (selector.url) {
-            const w = windows.find((win) => win.url.includes(selector.url!));
-            if (w) return ok(w);
-        }
-
-        return err(new Error('No window found matching criteria'));
+        this.logger.info(`${ElectronWindowManager.TAG} Switched to window '${win.title}' (${windowId})`);
+        return ok(win);
     }
 
     getAllWindows(): ElectronWindow[] {
@@ -115,6 +116,6 @@ export class ElectronWindowManager {
     }
 
     private generateWindowId(): string {
-        return `${WINDOW_ID_CONSTANTS.PREFIX}${WINDOW_ID_CONSTANTS.SEPARATOR}${this.windowIdCounter++}`;
+        return `electron-window-${this.windowIdCounter++}`;
     }
 }

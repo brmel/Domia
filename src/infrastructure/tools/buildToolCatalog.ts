@@ -36,7 +36,7 @@ const RECORDABLE_ACTION_TYPES: ReadonlySet<ActionType> = new Set([
  */
 const OPTIONAL_TOOL_FACTORIES: ReadonlyArray<(deps: ToolDependencies) => ToolSpec[]> = [
     (deps) => deps.shellExecutor ? createShellTools(deps.shellExecutor, deps.shellPolicy) : [],
-    (deps) => deps.windowManager ? createElectronTools(deps.windowManager, deps.automation) : [],
+    (deps) => deps.windowManager ? createElectronTools(deps.windowManager) : [],
     (deps) => deps.tabManager ? createTabTools(deps.tabManager) : [],
 ];
 

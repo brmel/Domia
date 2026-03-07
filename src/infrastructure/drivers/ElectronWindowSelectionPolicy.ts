@@ -26,7 +26,7 @@ export class ElectronWindowSelectionPolicy {
         let targetWindow: ElectronWindow | undefined;
 
         if (requestedTitle) {
-            const result = windowManager.findWindow({ title: requestedTitle });
+            const result = windowManager.findWindowByTitle(requestedTitle);
             if (result.isOk()) {
                 targetWindow = result.value;
             } else {
@@ -49,14 +49,7 @@ export class ElectronWindowSelectionPolicy {
             return;
         }
 
-        const setActiveResult = windowManager.setActiveWindow(targetWindow.id);
-        if (setActiveResult.isErr()) {
-            this.logger.warn(`${ElectronWindowSelectionPolicy.TAG} Failed to set active window '${targetWindow.id}': ${setActiveResult.error.message}`);
-            return;
-        }
-
-        await targetWindow.page.bringToFront().catch(() => undefined);
-        this.logger.info(`${ElectronWindowSelectionPolicy.TAG} Selected window '${targetWindow.title}' (${targetWindow.id})`);
+        await windowManager.switchWindow(targetWindow.id);
     }
 
     private scoreWindow(title: string, url: string): number {

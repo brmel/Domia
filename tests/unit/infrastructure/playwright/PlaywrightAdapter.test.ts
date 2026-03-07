@@ -58,9 +58,10 @@ describe('PlaywrightAdapter lifecycle recovery', () => {
         (adapter as unknown as { page: Page | null }).page = closed.page;
         (adapter as unknown as { browser: Browser | null }).browser = browser;
 
-        const recovered = adapter.getPage();
+        // Recovery happens transparently — getCurrentUrl() triggers ensureRecoverablePage
+        const url = adapter.getCurrentUrl();
 
-        expect(recovered).toBe(candidate.page);
+        expect(url).toBe('https://app.local');
         expect(logger.warn).toHaveBeenCalledWith(
             '[PlaywrightAdapter] Recovered active page after closure: https://app.local'
         );
@@ -83,9 +84,10 @@ describe('PlaywrightAdapter lifecycle recovery', () => {
         adapter.setAttachedPage(attached.page);
         attached.emit('close');
 
-        const activePage = adapter.getPage();
+        // After close event + no remaining pages, getCurrentUrl returns null
+        const url = adapter.getCurrentUrl();
 
-        expect(activePage).toBeNull();
+        expect(url).toBeNull();
         expect(logger.debug).toHaveBeenCalledWith('[PlaywrightAdapter] Active page closed');
     });
 });

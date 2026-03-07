@@ -145,18 +145,13 @@ export class ElectronDriver implements IAppDriver {
     }
 
     switchToWindow(windowId: string): void {
-        const result = this.windowManager.setActiveWindow(windowId);
-        if (result.isErr()) {
-            throw new Error(`${ElectronDriver.TAG} ${result.error.message}`);
+        const win = this.windowManager.getWindow(windowId);
+        if (win.isErr()) {
+            throw new Error(`${ElectronDriver.TAG} ${win.error.message}`);
         }
 
-        const win = this.windowManager.getActiveWindow();
-        if (!win) {
-            throw new Error(`${ElectronDriver.TAG} Window ${windowId} not found after switch`);
-        }
-
-        this.adapter = new PlaywrightAdapter(this.logger);
-        this.adapter.setAttachedPage(win.page);
+        // switchWindow is async (bringToFront), but callers don't await — fire-and-forget the focus
+        void this.windowManager.switchWindow(windowId, this.adapter ?? undefined);
         this.logger.info(`${ElectronDriver.TAG} Switched to window: ${windowId}`);
     }
 

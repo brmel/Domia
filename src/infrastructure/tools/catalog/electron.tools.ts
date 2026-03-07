@@ -1,19 +1,10 @@
 import { z } from 'zod';
 import { ActionType } from '@domain/enums';
-import type { IStructuredAutomation } from '@domain/ports';
 import type { ToolSpec } from '../ToolSpec';
 import type { ElectronWindowManager } from '../../drivers/ElectronWindowManager';
-import { toolSuccess, toolError, errorMsg } from '../toolResult';
+import { toolSuccess, toolError } from '../toolResult';
 
-interface PageAttachable {
-    setAttachedPage(page: import('playwright').Page): void;
-}
-
-function isPageAttachable(obj: unknown): obj is PageAttachable {
-    return typeof obj === 'object' && obj !== null && typeof (obj as PageAttachable).setAttachedPage === 'function';
-}
-
-export function createElectronTools(windowManager: ElectronWindowManager, automation: IStructuredAutomation): ToolSpec[] {
+export function createElectronTools(windowManager: ElectronWindowManager): ToolSpec[] {
     return [
         {
             name: 'list_windows',
@@ -46,26 +37,12 @@ export function createElectronTools(windowManager: ElectronWindowManager, automa
             execute: async (args) => {
                 const windowId = args['windowId'] as string;
 
-                const result = windowManager.setActiveWindow(windowId);
+                const result = await windowManager.switchWindow(windowId);
                 if (result.isErr()) {
                     return toolError(result.error.message);
                 }
 
-                const win = windowManager.getActiveWindow();
-                if (!win) {
-                    return toolError('Window set but could not retrieve active window');
-                }
-
-                try {
-                    await win.page.bringToFront();
-                } catch (e) {
-                    return toolError(`Switched but failed to bring window to front: ${errorMsg(e)}`);
-                }
-
-                if (isPageAttachable(automation)) {
-                    automation.setAttachedPage(win.page);
-                }
-
+                const win = result.value;
                 return toolSuccess({
                     windowId: win.id,
                     title: win.title,

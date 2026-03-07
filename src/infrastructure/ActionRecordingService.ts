@@ -5,27 +5,15 @@ import {
     DEFAULT_RECORDING_QUALITY,
 } from '@shared/defaults';
 
-/**
- * A single frame in an action recording.
- */
-export interface RecordingFrame {
-    /** Milliseconds since recording started */
+interface RecordingFrame {
     readonly offsetMs: number;
-    /** JPEG screenshot buffer */
     readonly screenshot: Buffer;
 }
 
-/**
- * Complete recording of an action execution.
- */
-export interface ActionRecording {
-    /** Tool name that was being executed */
+interface ActionRecording {
     readonly toolName: string;
-    /** When the recording started (ISO string) */
     readonly startedAt: string;
-    /** Total duration of the recording in ms */
     readonly durationMs: number;
-    /** Captured frames */
     readonly frames: readonly RecordingFrame[];
 }
 

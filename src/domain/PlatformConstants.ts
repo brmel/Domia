@@ -32,11 +32,6 @@ export const SCROLL_CONSTANTS = {
     AMOUNT_PX: SCROLL_AMOUNT_PX,
 } as const;
 
-export const WINDOW_ID_CONSTANTS = {
-    PREFIX: 'electron-window',
-    SEPARATOR: '-'
-} as const;
-
 export const AGENT_VIEW_CONFIG = {
     DEFAULT_WIDTH: AGENT_VIEW_WIDTH,
     DEFAULT_HEIGHT: AGENT_VIEW_HEIGHT,

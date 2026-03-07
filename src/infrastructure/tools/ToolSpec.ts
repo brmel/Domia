@@ -23,7 +23,7 @@ export interface ToolSpec {
     readonly execute: (args: Record<string, unknown>) => Promise<ToolResult> | ToolResult;
 }
 
-export interface RecordingConfig {
+interface RecordingConfig {
     readonly enabled: boolean;
     readonly options?: ActionRecordingOptions;
 }
