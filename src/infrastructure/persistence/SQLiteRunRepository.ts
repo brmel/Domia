@@ -173,7 +173,7 @@ export class SQLiteRunRepository {
             id: row.id,
             runId: row.run_id,
             stepNumber: row.step_number,
-            actionType: row.action_type as import('@domain/enums/ActionType').ActionType,
+            actionType: row.action_type as import('@domain/enums').ActionType,
             actionPayload: action,
             assets: row.assets_json ? JSON.parse(row.assets_json) : undefined,
             timestamp: row.timestamp

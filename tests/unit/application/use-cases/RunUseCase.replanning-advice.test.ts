@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
-import { ExecutionController } from '@application/controllers/ExecutionController';
-import { ActionType } from '@domain/enums/ActionType';
+import { ExecutionController } from '@application/ExecutionController';
+import { ActionType } from '@domain/enums';
 import { createRunUseCaseContext } from '../../../helpers/createRunUseCaseContext';
 
 describe('RunUseCase no-plan behavior', () => {

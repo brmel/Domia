@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { trpc } from '../../trpc';
-import type { WorkflowEvent } from '@domain/events';
+import type { WorkflowEvent } from '@domain/WorkflowEvent';
 import { platformRegistry, type PlatformFieldValue } from '../../config/platformRegistry';
 import { buildPlatformConfig } from '../../utils/buildPlatformConfig';
 import type { UIPlatformType } from '../../config/platformRegistry';

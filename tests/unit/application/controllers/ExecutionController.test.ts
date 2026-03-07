@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { ExecutionController } from '@application/controllers/ExecutionController';
+import { ExecutionController } from '@application/ExecutionController';
 
 describe('ExecutionController', () => {
     it('can be instantiated', () => {

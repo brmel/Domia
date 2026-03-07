@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useRunStore } from '@presentation/stores/useRunStore';
-import { RunState } from '@domain/enums/RunState';
+import { RunState } from '@domain/enums';
 import type { RunOutput } from '@application/dtos';
 import type { RunId } from '@domain/value-objects';
 

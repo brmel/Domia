@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { chromium } from 'playwright';
-import { CDP_CONSTANTS } from '../domain/constants/PlatformConstants';
+import { CDP_CONSTANTS } from '../domain/PlatformConstants';
 
 export class InspectCommand {
     static register(program: Command): void {

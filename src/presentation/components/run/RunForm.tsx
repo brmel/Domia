@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRunStore } from '../../stores';
 import { trpc } from '../../trpc';
 import { Button } from '../ui/Button';
-import { RunState } from '@domain/enums/RunState';
+import { RunState } from '@domain/enums';
 import { canStart, canPause, canResume, canStop, isAgentRunning } from '../../utils/agentStateUtils';
 import { PlatformSelector } from '../platform/PlatformSelector';
 import { platformRegistry, type PlatformFieldValue, type UIPlatformType } from '../../config/platformRegistry';

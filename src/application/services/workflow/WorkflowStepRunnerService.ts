@@ -1,7 +1,7 @@
 import { inject, injectable } from 'tsyringe';
 import type { WorkflowDefinition, WorkflowStepDefinition } from '@domain/entities/Workflow';
 import { RunUseCase } from '@application/use-cases';
-import { ExecutionController } from '@application/controllers/ExecutionController';
+import { ExecutionController } from '@application/ExecutionController';
 import type { PlatformSession } from '@application/services/platform/PlatformSession';
 import { PlatformSessionFactory } from '@application/services/platform/PlatformSessionFactory';
 

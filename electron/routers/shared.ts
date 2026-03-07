@@ -1,6 +1,6 @@
 import { initTRPC } from '@trpc/server';
 import { EventEmitter } from 'events';
-import { ExecutionController } from '../../src/application/controllers/ExecutionController';
+import { ExecutionController } from '../../src/application/ExecutionController';
 
 export const t = initTRPC.create({ isServer: true });
 export const eventEmitter = new EventEmitter();

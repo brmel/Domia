@@ -29,3 +29,19 @@ export enum ActionType {
     SWITCH_BROWSER_TAB = 'switch_browser_tab',
     CLOSE_BROWSER_TAB = 'close_browser_tab',
 }
+
+export enum LogLevel {
+    ERROR = 0,
+    WARN = 1,
+    INFO = 2,
+    DEBUG = 3,
+}
+
+export enum RunState {
+    IDLE = 'idle',
+    RUNNING = 'running',
+    PAUSED = 'paused',
+    COMPLETED = 'completed',
+    FAILED = 'failed',
+    CANCELLED = 'cancelled',
+}

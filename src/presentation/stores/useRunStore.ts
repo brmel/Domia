@@ -4,7 +4,7 @@ import type { RunOutput } from '@application/dtos';
 import type { AgentAction, RunId } from '@domain/value-objects';
 import type { Plan } from '@domain/entities/Plan';
 import type { ReplanningTelemetry } from '@application/dtos';
-import { RunState } from '@domain/enums/RunState';
+import { RunState } from '@domain/enums';
 import type { UIPlatformType } from '../config/platformRegistry';
 import type { PlatformFieldValue } from '../config/platformRegistry';
 

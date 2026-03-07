@@ -5,7 +5,7 @@ import type { ITabManager, TabInfo } from '@domain/ports/ITabManager';
 import type { Url } from '@domain/value-objects';
 import type { RoleRefMap } from '@domain/value-objects/RoleRef';
 import { NavigationError, InteractionError } from '@domain/errors';
-import { TOOL_TIMEOUTS, SCROLL_CONSTANTS, AGENT_VIEW_CONFIG } from '@domain/constants/PlatformConstants';
+import { TOOL_TIMEOUTS, SCROLL_CONSTANTS, AGENT_VIEW_CONFIG } from '@domain/PlatformConstants';
 import { CONTENT_READY_TIMEOUT_MS, CHROMIUM_LAUNCH_ARGS } from '@shared/defaults';
 import { PlaywrightPerceptionSource } from './PlaywrightPerceptionSource';
 import type { BrowserPool } from './BrowserPool';
@@ -271,8 +271,6 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         this.page = null;
     }
 
-    // ── ITabManager implementation ──────────────────────────────────────────
-
     async newTab(url?: string): Promise<TabInfo> {
         if (!this.context) throw new Error(BROWSER_NOT_LAUNCHED);
         const newPage = await this.context.newPage();
@@ -325,8 +323,6 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         const remaining = this.context.pages().filter(p => !p.isClosed());
         this.page = remaining[remaining.length - 1] ?? null;
     }
-
-    // ── Perception & page access ────────────────────────────────────────────
 
     getPerceptionSource(): IPerceptionSource | null {
         this.ensureRecoverablePage();

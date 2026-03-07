@@ -1,4 +1,4 @@
-import { ActionType } from '../enums/ActionType';
+import { ActionType } from '../enums';
 
 export type AgentAction =
     | ClickAction

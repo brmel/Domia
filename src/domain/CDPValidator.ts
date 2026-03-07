@@ -1,5 +1,5 @@
 import { Result, ok, err } from 'neverthrow';
-import { ValidationError } from '@domain/errors/ValidationError';
+import { ValidationError } from '@domain/errors';
 
 export { ValidationError };
 

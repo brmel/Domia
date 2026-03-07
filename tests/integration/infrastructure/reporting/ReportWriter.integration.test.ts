@@ -10,7 +10,7 @@ import { JUnitXmlReportGenerator } from '@infrastructure/reporting/JUnitXmlRepor
 import { HtmlReportGenerator } from '@infrastructure/reporting/HtmlReportGenerator';
 import { Run } from '@domain/entities/Run';
 import { RunIdFactory, UrlFactory } from '@domain/value-objects';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 import { createInMemoryDb } from '../../../helpers/createInMemoryTestDb';
 
 describe('ReportWriterService integration', () => {

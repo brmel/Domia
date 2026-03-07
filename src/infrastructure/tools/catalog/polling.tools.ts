@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 import type { ToolSpec } from '../ToolSpec';
 import type { PostActionCaptureMiddleware } from '../PostActionCaptureMiddleware';
 import {
@@ -110,7 +110,6 @@ export function createPollingTools(
                         };
                     }
 
-                    // Wait before next poll
                     await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
                 }
 

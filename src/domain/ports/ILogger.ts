@@ -1,4 +1,4 @@
-import type { LogLevel } from '../enums/LogLevel';
+import type { LogLevel } from '../enums';
 
 export interface ILogger {
     info(message: string, context?: Record<string, unknown>): void;

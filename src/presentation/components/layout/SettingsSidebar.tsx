@@ -1,7 +1,7 @@
 import { trpc } from '../../trpc';
 import type { DomiaConfig } from '@shared/config-types';
 import { Button } from '../ui/Button';
-import { PromptEditor } from '../settings/PromptEditor';
+import { PromptEditor } from '../PromptEditor';
 
 interface SettingsSidebarProps {
     onClose: () => void;

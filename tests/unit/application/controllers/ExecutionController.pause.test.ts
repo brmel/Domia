@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { ExecutionController } from '@application/controllers/ExecutionController';
-import { RunState } from '@domain/enums/RunState';
+import { ExecutionController } from '@application/ExecutionController';
+import { RunState } from '@domain/enums';
 
 describe('ExecutionController mid-step pause', () => {
     it('waitForResume resolves immediately when already running', async () => {

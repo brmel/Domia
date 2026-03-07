@@ -1,9 +1,19 @@
-import type { PlatformConfig } from '@domain/types/PlatformConfig';
+import type { PlatformConfig, PlatformType } from '@domain/types/PlatformConfig';
+import type { RunOptions } from '@shared/validation';
+import { DEFAULT_MAX_ACTIONS } from '@shared/defaults';
 
-/**
- * Derive a canonical execution URL from a PlatformConfig.
- * Centralises the platform→URL mapping used by RunCoordinator and PlatformSessionFactory.
- */
+export interface StepExecutionOptions {
+    vision: boolean;
+    maxActions: number;
+    platform?: PlatformType | undefined;
+    recording?: {
+        enabled: boolean;
+        maxDurationMs?: number;
+        intervalMs?: number;
+    };
+    extras?: Readonly<Record<string, unknown>>;
+}
+
 export function resolveUrlFromConfig(config: PlatformConfig): string {
     switch (config.platform) {
         case 'web':
@@ -36,4 +46,23 @@ export function resolveLaneKeyFromConfig(config: PlatformConfig): string {
         case 'ios':
             return `platform:ios:${config.bundleId}`;
     }
+}
+
+export function buildExecutionOptions(options?: RunOptions, platform?: PlatformType): StepExecutionOptions {
+    const base: StepExecutionOptions = {
+        vision: options?.vision ?? true,
+        maxActions: options?.maxSteps ?? DEFAULT_MAX_ACTIONS,
+        platform,
+    };
+    if (options?.recording) {
+        const rec: StepExecutionOptions['recording'] = { enabled: true };
+        if (options.recordingMaxDurationMs !== undefined) {
+            (rec as { maxDurationMs: number }).maxDurationMs = options.recordingMaxDurationMs;
+        }
+        if (options.recordingIntervalMs !== undefined) {
+            (rec as { intervalMs: number }).intervalMs = options.recordingIntervalMs;
+        }
+        return { ...base, recording: rec };
+    }
+    return base;
 }

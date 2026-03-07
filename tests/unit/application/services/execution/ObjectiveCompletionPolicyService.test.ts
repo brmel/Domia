@@ -1,12 +1,12 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { ObjectiveCompletionPolicyService } from '@application/services/execution/ObjectiveCompletionPolicyService';
+import { assessObjectiveCompletion } from '@application/services/execution/ObjectiveCompletionPolicyService';
 
 describe('ObjectiveCompletionPolicyService', () => {
     it('fails when unresolved verification failure exists', () => {
-        const service = new ObjectiveCompletionPolicyService();
+        
 
-        const result = service.assess({
+        const result = assessObjectiveCompletion({
             hasUnresolvedVerificationFailure: true,
             failureSummary: 'Verification failed: mismatch detected'
         });
@@ -16,9 +16,9 @@ describe('ObjectiveCompletionPolicyService', () => {
     });
 
     it('fails when plan still has non-completed items', () => {
-        const service = new ObjectiveCompletionPolicyService();
+        
 
-        const result = service.assess({
+        const result = assessObjectiveCompletion({
             hasUnresolvedVerificationFailure: false,
             plan: {
                 id: 'plan-1',
@@ -39,9 +39,9 @@ describe('ObjectiveCompletionPolicyService', () => {
     });
 
     it('passes when all objectives are completed and no unresolved failures', () => {
-        const service = new ObjectiveCompletionPolicyService();
+        
 
-        const result = service.assess({
+        const result = assessObjectiveCompletion({
             hasUnresolvedVerificationFailure: false,
             plan: {
                 id: 'plan-1',
@@ -60,9 +60,9 @@ describe('ObjectiveCompletionPolicyService', () => {
     });
 
     it('passes when execution graph indicates completion even if plan statuses are stale', () => {
-        const service = new ObjectiveCompletionPolicyService();
+        
 
-        const result = service.assess({
+        const result = assessObjectiveCompletion({
             hasUnresolvedVerificationFailure: false,
             plan: {
                 id: 'plan-1',

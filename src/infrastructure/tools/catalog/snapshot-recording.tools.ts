@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 import type { ToolSpec } from '../ToolSpec';
 import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 import { MAX_MUTATION_LOG_ENTRIES, MAX_RECORDING_UNIQUE_VALUES, RECORDING_TIMELINE_ENTRIES } from '@shared/defaults';
@@ -86,7 +86,6 @@ const RETRIEVE_AND_STOP_SCRIPT = `
 })()
 `;
 
-// ──────────────────────── analysis helpers ────────────────────────
 
 /** @internal — exported for unit tests */
 export interface LogEntry {
@@ -157,7 +156,6 @@ export function analyzeLog(log: LogEntry[], durationMs: number): RecordingSummar
     };
 }
 
-// ──────────────────────── tool factories ────────────────────────
 
 /**
  * Creates the snapshot recording tools.

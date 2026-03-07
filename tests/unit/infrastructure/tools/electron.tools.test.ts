@@ -4,8 +4,8 @@ import { ok, err } from 'neverthrow';
 import { createElectronTools } from '@infrastructure/tools/catalog/electron.tools';
 import type { ElectronWindowManager, ElectronWindow } from '@infrastructure/drivers/ElectronWindowManager';
 import type { IStructuredAutomation } from '@domain/ports';
-import { ActionType } from '@domain/enums/ActionType';
-import { ValidationError } from '@domain/validators/CDPValidator';
+import { ActionType } from '@domain/enums';
+import { ValidationError } from '@domain/CDPValidator';
 
 /**
  * Unit tests for createElectronTools.

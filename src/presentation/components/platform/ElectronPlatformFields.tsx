@@ -82,7 +82,6 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Connection Type Selector */}
       <div className="flex flex-col gap-1">
         <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           Connection Type
@@ -99,8 +98,6 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
           activeItemClassName="bg-blue-600 text-white"
         />
       </div>
-
-      {/* CDP URL Input */}
       {connectionType === 'cdp' && connection.type === 'cdp' && (
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -127,8 +124,6 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
           </p>
         </div>
       )}
-
-      {/* Executable Path Input */}
       {connectionType === 'executable' && connection.type === 'executable' && (
         <>
           <div className="flex flex-col gap-1">
@@ -152,8 +147,6 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
               <span className="text-xs text-red-500">{errors['connection.executablePath']}</span>
             )}
           </div>
-
-          {/* Launch Arguments (Optional) */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
               Launch Arguments <span className="text-gray-400">(Optional)</span>
@@ -188,8 +181,6 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
           </div>
         </>
       )}
-
-      {/* Window Title Filter (Optional for both) */}
       <div className="flex flex-col gap-1">
         <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           Window Title Filter <span className="text-gray-400">(Optional)</span>

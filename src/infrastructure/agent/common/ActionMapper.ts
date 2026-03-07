@@ -1,5 +1,5 @@
 import type { AgentAction } from '@domain/value-objects';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 import type { ToolSpec } from '@infrastructure/tools/ToolSpec';
 import { DEFAULT_WAIT_DURATION_MS, DEFAULT_POLL_TIMEOUT_MS, DEFAULT_POLL_INTERVAL_MS, DEFAULT_SHELL_TIMEOUT_MS } from '@shared/defaults';
 

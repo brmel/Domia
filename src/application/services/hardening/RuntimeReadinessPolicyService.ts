@@ -1,10 +1,22 @@
 import { inject, injectable } from 'tsyringe';
 import type { IConfigService, ILogger } from '@domain/ports';
 import type { RunOptions } from '@shared/validation';
-import { ReadinessGateService, type ReadinessReport } from './ReadinessGateService';
 
 export type RuntimeReadinessMode = 'observe' | 'soft-enforce';
 export type RuntimeReadinessProfile = 'dev' | 'staging' | 'production';
+
+export interface ReadinessGate {
+    readonly id: string;
+    readonly description: string;
+    readonly required: boolean;
+    readonly passed: boolean;
+}
+
+export interface ReadinessReport {
+    readonly passed: boolean;
+    readonly failedRequiredGateIds: readonly string[];
+    readonly gates: readonly ReadinessGate[];
+}
 
 export interface RuntimeReadinessDecision {
     readonly mode: RuntimeReadinessMode;
@@ -18,10 +30,16 @@ export interface RuntimeReadinessInput {
     readonly options?: RunOptions;
 }
 
+function evaluateGates(gates: readonly ReadinessGate[]): ReadinessReport {
+    const failedRequiredGateIds = gates
+        .filter(g => g.required && !g.passed)
+        .map(g => g.id);
+    return { passed: failedRequiredGateIds.length === 0, failedRequiredGateIds, gates };
+}
+
 @injectable()
 export class RuntimeReadinessPolicyService {
     constructor(
-        @inject(ReadinessGateService) private readonly readinessGateService: ReadinessGateService,
         @inject('IConfigService') private readonly configService: IConfigService,
         @inject('ILogger') private readonly logger: ILogger
     ) {}
@@ -34,7 +52,7 @@ export class RuntimeReadinessPolicyService {
         const apiKeyPresent = Boolean(config.ai.apiKey?.trim());
         const readinessFlagEnabled = process.env['DOMIA_ENABLE_READINESS_GATES'] === 'true';
 
-        const report = this.readinessGateService.evaluate([
+        const report = evaluateGates([
             {
                 id: 'prompt_non_empty',
                 description: 'Prompt must be non-empty',

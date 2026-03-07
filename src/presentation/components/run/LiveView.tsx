@@ -1,7 +1,7 @@
 import React from 'react';
 import { useRunStore } from '../../stores';
 import { LiveViewContainer } from './LiveViewContainer';
-import { RunState } from '@domain/enums/RunState';
+import { RunState } from '@domain/enums';
 
 export function LiveView(): React.ReactElement {
     const { status, liveScreenshot } = useRunStore();

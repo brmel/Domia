@@ -46,7 +46,6 @@ function createWindow(): void {
     },
   });
 
-  // Log renderer crashes
   win.webContents.on('render-process-gone', (_event, details) => {
     console.error('[Main] Renderer process gone:', details);
   });

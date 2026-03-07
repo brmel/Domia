@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { container } from '../../src/composition-root';
 import { RunUseCase } from '../../src/application/use-cases';
 import { IPersistenceAdapter } from '../../src/domain/ports';
-import { ExecutionController } from '../../src/application/controllers/ExecutionController';
+import { ExecutionController } from '../../src/application/ExecutionController';
 import { observable } from '@trpc/server/observable';
 import { RunInput } from '../../src/application/dtos';
 import { configureVerboseTracing } from '../../src/composition/ContainerBuilder';

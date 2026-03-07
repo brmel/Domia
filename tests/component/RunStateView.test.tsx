@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { RunStateView } from '@presentation/components/run/RunStateView';
-import { RunState } from '@domain/enums/RunState';
+import { RunState } from '@domain/enums';
 
 const defaults = {
     status: RunState.RUNNING,

@@ -5,7 +5,7 @@ import { FunctionCallingConfigMode } from '@google/genai';
 import type { IStructuredAutomation, IPerceptionPipeline, ILogger, IStorageService } from '@domain/ports';
 import type { IAgentRunner, AgentRunnerEvent, StepExecutionResult, StepRunnerConfig } from '@domain/ports/IAgentRunner';
 import type { IPromptService } from '@domain/ports/IPromptService';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
 import { createAdkTools } from './AdkToolFactory';
 import { ActionMapper } from '@infrastructure/agent/common/ActionMapper';
@@ -76,7 +76,6 @@ export class AdkAgentRunner implements IAgentRunner {
         let lastObservedUrl: string = url;
         let llmTurnStartMs = Date.now();
 
-        // Live-view screenshot streaming
         let latestScreenshot: string | null = null;
         let screenshotPromise: Promise<void> | null = null;
 

@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { buildToolCatalog } from '@infrastructure/tools/buildToolCatalog';
 import type { ToolDependencies } from '@infrastructure/tools/ToolSpec';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 import { createStubToolDeps } from '../../../helpers/createStubToolDeps';
 import { ok } from 'neverthrow';
 

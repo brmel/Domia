@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { RunState } from '@domain/enums/RunState';
+import { RunState } from '@domain/enums';
 
 export class ExecutionController extends EventEmitter {
     private _state: RunState = RunState.IDLE;

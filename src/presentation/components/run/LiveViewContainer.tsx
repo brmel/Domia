@@ -1,6 +1,6 @@
 import React from 'react';
 import { useRunStore } from '../../stores';
-import { RunState } from '@domain/enums/RunState';
+import { RunState } from '@domain/enums';
 
 export const LiveViewContainer: React.FC = () => {
     const { status, liveScreenshot } = useRunStore();

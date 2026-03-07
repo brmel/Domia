@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
-import { ActionRecordingService } from '@infrastructure/recording/ActionRecordingService';
+import { ActionRecordingService } from '@infrastructure/ActionRecordingService';
 import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 
 function makeMockSource(screenshotBuffer?: Buffer): IPerceptionSource {

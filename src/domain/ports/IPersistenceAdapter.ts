@@ -1,5 +1,5 @@
 import { AgentAction } from '@domain/value-objects';
-import { ActionType } from '../enums/ActionType';
+import { ActionType } from '../enums';
 import type { WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
 import type { IRunRepository } from './IRunRepository';
 import type { ICheckpointRepository } from './ICheckpointRepository';

@@ -1,7 +1,7 @@
 import type { ToolDependencies, ToolSpec } from './ToolSpec';
 import type { IPromptService } from '@domain/ports/IPromptService';
 import { PostActionCaptureMiddleware } from './PostActionCaptureMiddleware';
-import { ActionRecordingService } from '../recording/ActionRecordingService';
+import { ActionRecordingService } from '../ActionRecordingService';
 import { createInteractionTools } from './catalog/interaction.tools';
 import { createMouseTools } from './catalog/mouse.tools';
 import { createNavigationTools } from './catalog/navigation.tools';
@@ -12,7 +12,7 @@ import { createSnapshotRecordingTools } from './catalog/snapshot-recording.tools
 import { createShellTools } from './catalog/shell.tools';
 import { createElectronTools } from './catalog/electron.tools';
 import { createTabTools } from './catalog/tab.tools';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 
 const RECORDABLE_ACTION_TYPES: ReadonlySet<ActionType> = new Set([
     ActionType.CLICK,
@@ -37,7 +37,7 @@ const RECORDABLE_ACTION_TYPES: ReadonlySet<ActionType> = new Set([
 const OPTIONAL_TOOL_FACTORIES: ReadonlyArray<(deps: ToolDependencies) => ToolSpec[]> = [
     (deps) => deps.shellExecutor ? createShellTools(deps.shellExecutor, deps.shellPolicy) : [],
     (deps) => deps.windowManager ? createElectronTools(deps.windowManager, deps.automation) : [],
-    (deps) => deps.tabManager ? createTabTools(deps.tabManager, deps.automation) : [],
+    (deps) => deps.tabManager ? createTabTools(deps.tabManager) : [],
 ];
 
 export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] = [], promptService?: IPromptService): ToolSpec[] {

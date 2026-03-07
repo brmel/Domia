@@ -1,6 +1,6 @@
 import { chromium, Browser } from 'playwright';
 import type { ILogger } from '@domain/ports';
-import { CDP_CONSTANTS } from '@domain/constants/PlatformConstants';
+import { CDP_CONSTANTS } from '@domain/PlatformConstants';
 import { retryAsync } from '@shared/reliability/retry';
 import { RETRY_PROFILES, isTransientElectronConnectError } from '@shared/reliability/retryProfiles';
 import type { RetryOptions } from '@shared/reliability/retry';

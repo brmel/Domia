@@ -1,7 +1,6 @@
 import { z } from 'zod';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 import type { ITabManager } from '@domain/ports/ITabManager';
-import type { IStructuredAutomation } from '@domain/ports';
 import type { ToolSpec } from '../ToolSpec';
 import { toolSuccess, toolError, errorMsg } from '../toolResult';
 
@@ -11,15 +10,7 @@ import { toolSuccess, toolError, errorMsg } from '../toolResult';
  * Enables multi-tab workflows: open, list, switch, close browser tabs.
  */
 
-interface PageAttachable {
-    setAttachedPage(page: import('playwright').Page): void;
-}
-function isPageAttachable(obj: unknown): obj is PageAttachable {
-    return typeof obj === 'object' && obj !== null &&
-        typeof (obj as PageAttachable).setAttachedPage === 'function';
-}
-
-export function createTabTools(tabManager: ITabManager, automation: IStructuredAutomation): ToolSpec[] {
+export function createTabTools(tabManager: ITabManager): ToolSpec[] {
     return [
         {
             name: 'open_tab',
@@ -33,14 +24,6 @@ export function createTabTools(tabManager: ITabManager, automation: IStructuredA
             execute: async (args) => {
                 try {
                     const tab = await tabManager.newTab(args['url'] as string | undefined);
-                    // Keep automation's page reference in sync
-                    if (isPageAttachable(automation)) {
-                        const pages = await tabManager.listTabs();
-                        const activePage = pages.find(p => p.active);
-                        if (activePage) {
-                            // Page reference sync is handled inside PlaywrightAdapter.newTab
-                        }
-                    }
                     return toolSuccess({ index: tab.index, url: tab.url, title: tab.title });
                 } catch (e) {
                     return toolError(errorMsg(e));

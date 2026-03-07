@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { IAppAutomation } from '@domain/ports';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 import { UrlFactory } from '@domain/value-objects';
 import type { ToolSpec } from '../ToolSpec';
 import { unwrapResult, toolError } from '../toolResult';

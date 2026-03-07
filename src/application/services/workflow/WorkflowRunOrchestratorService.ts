@@ -1,13 +1,13 @@
 import { inject, injectable } from 'tsyringe';
 import { randomUUID } from 'crypto';
-import type { WorkflowEvent } from '@domain/events/WorkflowEvent';
+import type { WorkflowEvent } from '@domain/WorkflowEvent';
 import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
 import type { ILogger } from '@domain/ports';
-import { RunState } from '@domain/enums/RunState';
+import { RunState } from '@domain/enums';
 import type { WorkflowDefinition } from '@domain/entities/Workflow';
 import type { WorkflowExecutionGraph } from '@domain/value-objects';
 import { ExecutionGraph } from '@domain/value-objects';
-import { ExecutionController } from '@application/controllers/ExecutionController';
+import { ExecutionController } from '@application/ExecutionController';
 import { WorkflowStepPolicyService } from './WorkflowStepPolicyService';
 import { WorkflowStepGovernanceService } from './WorkflowStepGovernanceService';
 import { WorkflowStepRunnerService } from './WorkflowStepRunnerService';

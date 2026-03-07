@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { trpc } from '../../trpc';
-import { Button } from '../ui/Button';
-import { CollapsibleSection } from '../ui/CollapsibleSection';
+import { trpc } from '../trpc';
+import { Button } from './ui/Button';
+import { CollapsibleSection } from './ui/CollapsibleSection';
 
 const PROMPT_LABELS: Record<string, string> = {
     // Core

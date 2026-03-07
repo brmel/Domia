@@ -9,7 +9,7 @@ import { ComposeWorkspace } from './presentation/components/layout/ComposeWorksp
 import { WorkflowWorkspace } from './presentation/components/workflow/WorkflowWorkspace';
 import { PluginsWorkspace } from './presentation/components/layout/PluginsWorkspace';
 import { StepInspector } from './presentation/components/run/StepInspector';
-import { RunState } from '@domain/enums/RunState';
+import { RunState } from '@domain/enums';
 
 type AppSection = 'runs' | 'compose' | 'workflow' | 'skills' | 'plugins' | 'governance' | 'observability';
 

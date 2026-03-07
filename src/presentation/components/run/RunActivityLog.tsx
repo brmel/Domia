@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { cn } from '../../utils';
 import { getThought } from '../../utils/actionUtils';
-import { RunState } from '@domain/enums/RunState';
+import { RunState } from '@domain/enums';
 import type { AgentAction } from '@domain/value-objects';
 import { Button } from '../ui/Button';
 import { trpc } from '../../trpc';

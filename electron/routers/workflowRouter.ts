@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { container } from '../../src/composition-root';
 import { IPersistenceAdapter } from '../../src/domain/ports';
-import { ExecutionController } from '../../src/application/controllers/ExecutionController';
+import { ExecutionController } from '../../src/application/ExecutionController';
 import { observable } from '@trpc/server/observable';
 import {
     CreateNextWorkflowVersionInputSchema,
@@ -14,7 +14,7 @@ import {
 import { WorkflowRunOrchestratorService } from '../../src/application/services/workflow/WorkflowRunOrchestratorService';
 import { WorkflowDefinitionService } from '../../src/application/services/workflow/WorkflowDefinitionService';
 import type { PlatformConfig } from '../../src/domain/types/PlatformConfig';
-import type { WorkflowEvent } from '../../src/domain/events/WorkflowEvent';
+import type { WorkflowEvent } from '../../src/domain/WorkflowEvent';
 import { RunInputSchema } from '../../src/shared/validation';
 import { t, eventEmitter, workflowControllerState } from './shared';
 

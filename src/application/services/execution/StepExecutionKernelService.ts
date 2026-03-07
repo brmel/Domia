@@ -3,14 +3,14 @@ import type { IStructuredAutomation } from '@domain/ports';
 import type { Step } from '@domain/ports';
 import { WorkflowError } from '@domain/errors';
 import { WorkflowState } from '@domain/value-objects';
-import { RunState } from '@domain/enums/RunState';
+import { RunState } from '@domain/enums';
 import { RunDurabilityService } from './RunDurabilityService';
 import { RunBudgetPolicyService, type RunBudgetLimits } from './RunBudgetPolicyService';
 import { StepExecutor, type StepExecutionResult } from './StepExecutor';
-import type { StepExecutionOptions } from './coordinators/RunCoordinator';
+import type { StepExecutionOptions } from '@application/services/platform/platformUrlUtils';
 import type { RunOutput } from '../../dtos';
 import type { IRunRepository } from '@domain/ports/IRunRepository';
-import type { ExecutionController } from '../../controllers/ExecutionController';
+import type { ExecutionController } from '../../ExecutionController';
 import { randomUUID } from 'crypto';
 
 export interface KernelRuntime {

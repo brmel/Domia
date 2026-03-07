@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { createPollingTools } from '@infrastructure/tools/catalog/polling.tools';
 import type { PostActionCaptureMiddleware } from '@infrastructure/tools/PostActionCaptureMiddleware';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 
 function makeMockMiddleware(captureResults: Array<Record<string, unknown>>): PostActionCaptureMiddleware {
     let callIndex = 0;

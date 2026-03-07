@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ActionType } from '@domain/enums/ActionType';
+import type { ActionType } from '@domain/enums';
 import type { PlatformType } from '@domain/types/PlatformConfig';
 import type { ToolSpec } from '../tools/ToolSpec';
 

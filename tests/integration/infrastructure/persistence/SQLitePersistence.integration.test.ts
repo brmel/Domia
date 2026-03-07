@@ -6,7 +6,7 @@ import { SQLiteRunRepository } from '@infrastructure/persistence/SQLiteRunReposi
 import type { Step } from '@domain/ports';
 import { Run } from '@domain/entities/Run';
 import { RunIdFactory, UrlFactory } from '@domain/value-objects';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 import { createInMemoryDb } from '../../../helpers/createInMemoryTestDb';
 
 describe('SQLite persistence round-trip', () => {

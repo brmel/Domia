@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { createShellTools } from '@infrastructure/tools/catalog/shell.tools';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 import type { ShellExecutor, ShellResult } from '@infrastructure/shell/ShellExecutor';
 import { buildToolCatalog } from '@infrastructure/tools/buildToolCatalog';
 import { createStubToolDeps } from '../../../helpers/createStubToolDeps';

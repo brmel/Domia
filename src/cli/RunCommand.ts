@@ -7,9 +7,8 @@ import chalk from 'chalk';
 import figlet from 'figlet';
 import readline from 'readline';
 import { RunUseCase } from '../application/use-cases';
-import { ExecutionController } from '../application/controllers/ExecutionController';
-import { RunState } from '../domain/enums/RunState';
-import { LogLevel } from '../domain/enums/LogLevel';
+import { ExecutionController } from '../application/ExecutionController';
+import { RunState, LogLevel } from '../domain/enums';
 import { configureVerboseTracing } from '../composition/ContainerBuilder';
 import { buildPlatformConfig } from './platformUtils';
 import type { ILogger } from '../domain/ports';
@@ -127,11 +126,8 @@ export class RunCommand {
                         debugScreenshots: !!screenshots
                     }
                 };
-                // All CLI per-run overrides are transient — they must not be written back to domia.config.json
                 configService.updateTransient(updates);
 
-                // Per-run flags: these must not be written back to domia.config.json
-                // --no-shell disables the shell_exec tool for this run only
                 if (shellEnabled === false) {
                     configService.updateTransient({ plugins: { shell: { enabled: false } } });
                     console.log(chalk.gray('[Shell plugin disabled for this run]'));

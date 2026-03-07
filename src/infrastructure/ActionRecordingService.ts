@@ -98,7 +98,6 @@ export class ActionRecordingService {
 
         let capturing = true;
 
-        // Start concurrent frame capture loop
         const captureLoop = (async () => {
             while (capturing && (Date.now() - startMs) < opts.maxDurationMs) {
                 const offsetMs = Date.now() - startMs;
@@ -112,7 +111,6 @@ export class ActionRecordingService {
                     // Screenshot failures are non-fatal — skip frame
                 }
 
-                // Wait for next capture interval
                 if (capturing) {
                     await new Promise<void>((resolve) =>
                         setTimeout(resolve, opts.intervalMs)
@@ -121,19 +119,15 @@ export class ActionRecordingService {
             }
         })();
 
-        // Execute the actual action concurrently
         let result: T;
         try {
             result = await action();
         } finally {
-            // Stop capture loop once action completes
             capturing = false;
         }
 
-        // Wait for any in-flight capture to finish
         await captureLoop;
 
-        // Capture one final frame after the action completes (shows end-state)
         try {
             const screenshot = await this.source.captureScreenshot({
                 type: 'jpeg',

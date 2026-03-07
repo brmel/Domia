@@ -1,7 +1,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import { chromium, Browser } from 'playwright';
 import type { ILogger } from '@domain/ports';
-import { CDP_CONSTANTS } from '@domain/constants/PlatformConstants';
+import { CDP_CONSTANTS } from '@domain/PlatformConstants';
 import { CDP_DEFAULT_PORT } from '@shared/defaults';
 import { RETRY_PROFILES } from '@shared/reliability/retryProfiles';
 import { ElectronCDPConnector } from './ElectronCDPConnector';

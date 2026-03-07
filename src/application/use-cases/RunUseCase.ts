@@ -3,21 +3,21 @@ import type { IStructuredAutomation } from '@domain/ports';
 import { ExecutionGraph, UrlFactory, WorkflowState } from '@domain/value-objects';
 import type { WorkflowExecutionGraph } from '@domain/value-objects/ExecutionGraph';
 import type { RunId } from '@domain/value-objects/Brand';
-import { ExecutionController } from '../controllers/ExecutionController';
+import { ExecutionController } from '../ExecutionController';
 import { WorkflowError } from '@domain/errors';
 import { RunLifecycleManager } from '../services/RunLifecycleManager';
 import { RunInput, RunOutput } from '../dtos';
-import { RunState } from '@domain/enums/RunState';
+import { RunState } from '@domain/enums';
 import type { RunExecutionLaneService } from '../services/execution/RunExecutionLaneService';
 import { RunDurabilityService } from '../services/execution/RunDurabilityService';
 import { RunBudgetPolicyService } from '../services/execution/RunBudgetPolicyService';
 import { CheckpointCompactionService } from '../services/execution/CheckpointCompactionService';
 import { ReplanningPolicyService } from '../services/execution/ReplanningPolicyService';
-import { ObjectiveCompletionPolicyService } from '../services/execution/ObjectiveCompletionPolicyService';
+import { assessObjectiveCompletion } from '../services/execution/ObjectiveCompletionPolicyService';
 import { StepExecutionKernelService } from '../services/execution/StepExecutionKernelService';
 import type { StepExecutionResult } from '../services/execution/StepExecutor';
 
-import { RunCoordinator } from '../services/execution/coordinators/RunCoordinator';
+import { resolveUrlFromConfig, resolveLaneKeyFromConfig, buildExecutionOptions } from '../services/platform/platformUrlUtils';
 import { RuntimeReadinessPolicyService } from '../services/hardening/RuntimeReadinessPolicyService';
 import { Plan, PlanItem } from '@domain/entities/Plan';
 import type { ILogger } from '@domain/ports';
@@ -49,8 +49,6 @@ export class RunUseCase {
         @inject(RuntimeReadinessPolicyService) private readonly readinessPolicy: RuntimeReadinessPolicyService,
         @inject('ILogger') private logger: ILogger,
         @inject(StepExecutionKernelService) private readonly kernel: StepExecutionKernelService,
-        @inject(RunCoordinator) private readonly runCoordinator: RunCoordinator = new RunCoordinator(),
-        @inject(ObjectiveCompletionPolicyService) private readonly objectiveCompletionPolicy: ObjectiveCompletionPolicyService = new ObjectiveCompletionPolicyService()
     ) {}
 
     async *execute(
@@ -58,7 +56,7 @@ export class RunUseCase {
         controller: ExecutionController,
         runContext?: RunExecutionContext
     ): AsyncGenerator<RunOutput, void, unknown> {
-        const url = this.runCoordinator.resolveExecutionUrl(input, runContext);
+        const url = runContext?.session?.executionUrl ?? resolveUrlFromConfig(input.platformConfig);
 
         const readinessDecision = this.readinessPolicy.assess(input, url);
         if (readinessDecision.blocked) {
@@ -66,7 +64,7 @@ export class RunUseCase {
             return;
         }
 
-        const laneKey = this.runCoordinator.resolveLaneKey(input);
+        const laneKey = resolveLaneKeyFromConfig(input.platformConfig);
         const releaseLane = await this.laneService.acquire(laneKey);
 
         const initResult = await this.lifecycleManager.initializeRun(url, input.prompt);
@@ -194,7 +192,7 @@ export class RunUseCase {
                 yield { type: 'state_updated', state: currentState };
 
                 const executionOptions = {
-                    ...this.runCoordinator.buildExecutionOptions(input.options, input.platformConfig.platform),
+                    ...buildExecutionOptions(input.options, input.platformConfig.platform),
                     ...(sessionExtras ? { extras: sessionExtras } : {}),
                 };
 
@@ -254,7 +252,7 @@ export class RunUseCase {
                 }
             }
 
-            const completionAssessment = this.objectiveCompletionPolicy.assess({
+            const completionAssessment = assessObjectiveCompletion({
                 plan,
                 ...(currentState.executionGraph ? { executionGraph: currentState.executionGraph } : {}),
                 hasUnresolvedVerificationFailure,

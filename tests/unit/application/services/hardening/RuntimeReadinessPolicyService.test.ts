@@ -1,7 +1,6 @@
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
-import { ReadinessGateService } from '@application/services/hardening/ReadinessGateService';
 import { createMockLogger } from '../../../../helpers/createMockLogger';
 
 function makeService(apiKey?: string): { service: RuntimeReadinessPolicyService } {
@@ -23,7 +22,7 @@ function makeService(apiKey?: string): { service: RuntimeReadinessPolicyService 
         })
     };
 
-    const service = new RuntimeReadinessPolicyService(new ReadinessGateService(), configService as unknown as never, createMockLogger());
+    const service = new RuntimeReadinessPolicyService(configService as unknown as never, createMockLogger());
     return { service };
 }
 

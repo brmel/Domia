@@ -14,7 +14,6 @@ import type { RunExecutionLaneService } from '@application/services/execution/Ru
 import { RunLifecycleManager } from '@application/services/RunLifecycleManager';
 import { PlatformSessionFactory } from '@application/services/platform/PlatformSessionFactory';
 import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
-import { ReadinessGateService } from '@application/services/hardening/ReadinessGateService';
 import { createMockLogger } from './createMockLogger';
 
 
@@ -95,7 +94,6 @@ function createReadinessPolicyReal(logger: ILogger): RuntimeReadinessPolicyServi
         }),
     };
     return new RuntimeReadinessPolicyService(
-        new ReadinessGateService(),
         configService as never,
         logger,
     );

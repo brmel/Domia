@@ -1,7 +1,7 @@
 import { container } from 'tsyringe';
-import { ConfigService } from '@infrastructure/config/ConfigService';
+import { ConfigService } from '@infrastructure/ConfigService';
 import { SQLiteAdapter } from '@infrastructure/persistence/SQLiteAdapter';
-import { ConsoleLogger } from '@infrastructure/logger/ConsoleLogger';
+import { ConsoleLogger } from '@infrastructure/ConsoleLogger';
 import { RunUseCase } from '@application/use-cases';
 import {
     WebDriverProvider,
@@ -16,9 +16,6 @@ import { RunBudgetPolicyService } from '@application/services/execution/RunBudge
 import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
 import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 import { StepExecutionKernelService } from '@application/services/execution/StepExecutionKernelService';
-import { ObjectiveCompletionPolicyService } from '@application/services/execution/ObjectiveCompletionPolicyService';
-import { RunCoordinator } from '@application/services/execution/coordinators/RunCoordinator';
-import { ReadinessGateService } from '@application/services/hardening/ReadinessGateService';
 import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
 import { WorkflowDefinitionService } from '@application/services/workflow/WorkflowDefinitionService';
 import { WorkflowRunOrchestratorService } from '@application/services/workflow/WorkflowRunOrchestratorService';
@@ -36,7 +33,7 @@ import { PluginRegistry } from '@infrastructure/plugins/PluginRegistry';
 import { PluginLoader } from '@infrastructure/plugins/PluginLoader';
 import { ShellExecutor } from '@infrastructure/shell/ShellExecutor';
 import { PromptService } from '@infrastructure/prompts/PromptService';
-import { FileSystemStorage } from '@infrastructure/storage/FileSystemStorage';
+import { FileSystemStorage } from '@infrastructure/FileSystemStorage';
 import { TraceService } from '@infrastructure/services/TraceService';
 import { FileTraceExporter } from '@infrastructure/services/exporters/FileTraceExporter';
 import { DebugExporter } from '@infrastructure/services/exporters/DebugExporter';
@@ -76,10 +73,7 @@ export class ContainerBuilder {
         container.registerSingleton(CheckpointCompactionService);
         container.registerSingleton(ReplanningPolicyService);
         container.registerSingleton(StepExecutionKernelService);
-        container.registerSingleton(RunCoordinator);
-        container.registerSingleton(ReadinessGateService);
         container.registerSingleton(RuntimeReadinessPolicyService);
-        container.registerSingleton(ObjectiveCompletionPolicyService);
         return this;
     }
 

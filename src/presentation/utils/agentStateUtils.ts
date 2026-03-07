@@ -1,4 +1,4 @@
-import { RunState } from '@domain/enums/RunState';
+import { RunState } from '@domain/enums';
 
 export const isAgentRunning = (status: RunState): boolean => {
     return status === RunState.RUNNING || status === RunState.PAUSED;

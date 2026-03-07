@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { HtmlReportGenerator } from '@infrastructure/reporting/HtmlReportGenerator';
 import type { RunReport } from '@domain/ports/IReportGenerator';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 import type { RunId, Url } from '@domain/value-objects/Brand';
 
 function makeReport(overrides?: Partial<RunReport['run']>, steps?: RunReport['steps']): RunReport {

@@ -12,7 +12,7 @@ import type { RunCheckpointReason } from '@domain/value-objects/RunLifecycle';
 import type { CheckpointLineageInput } from '@domain/ports/IPersistenceAdapter';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 import { PersistenceError } from '@domain/errors';
-import { ConfigService } from '../config/ConfigService';
+import { ConfigService } from '../ConfigService';
 import type { DatabaseSchema } from './DatabaseSchema';
 import { initializeSchema } from './SQLiteMigrationManager';
 import { SQLiteRunRepository } from './SQLiteRunRepository';

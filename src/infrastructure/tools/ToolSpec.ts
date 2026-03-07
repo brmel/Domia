@@ -4,7 +4,7 @@ import type { PlatformType } from '@domain/types/PlatformConfig';
 import type { IStructuredAutomation, IPerceptionPipeline, IPerceptionSource } from '@domain/ports';
 import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import type { ActionRecordingData } from '@domain/types/ActionRecordingTypes';
-import type { ActionRecordingOptions } from '../recording/ActionRecordingService';
+import type { ActionRecordingOptions } from '../ActionRecordingService';
 import type { ShellExecutor } from '../shell/ShellExecutor';
 import type { IShellPolicy } from '@domain/ports/IShellPolicy';
 import type { ElectronWindowManager } from '../drivers/ElectronWindowManager';
@@ -16,7 +16,7 @@ export interface ToolSpec {
     /** Semantic grouping — used for docs and recording opt-in. */
     readonly category?: ToolCategory;
     readonly description: string;
-    readonly actionType: import('@domain/enums/ActionType').ActionType;
+    readonly actionType: import('@domain/enums').ActionType;
     readonly parameters: z.ZodObject<z.ZodRawShape>;
     readonly platforms?: readonly PlatformType[];
     readonly isLongRunning?: boolean;

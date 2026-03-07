@@ -6,7 +6,7 @@ import { WorkflowStepPolicyService } from '@application/services/workflow/Workfl
 import { WorkflowStepRunnerService } from '@application/services/workflow/WorkflowStepRunnerService';
 import { WorkflowStepGovernanceService } from '@application/services/workflow/WorkflowStepGovernanceService';
 import { PlatformCapabilityNegotiationService } from '@application/services/platform/PlatformCapabilityNegotiationService';
-import { ExecutionController } from '@application/controllers/ExecutionController';
+import { ExecutionController } from '@application/ExecutionController';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
 import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
 import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';

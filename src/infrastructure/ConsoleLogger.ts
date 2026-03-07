@@ -1,6 +1,6 @@
 import { injectable } from 'tsyringe';
 import { ILogger } from '@domain/ports/ILogger';
-import { LogLevel } from '@domain/enums/LogLevel';
+import { LogLevel } from '@domain/enums';
 import { MAX_LOG_CONTEXT_LENGTH } from '@shared/defaults';
 
 @injectable()

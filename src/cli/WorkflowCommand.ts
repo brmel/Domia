@@ -3,7 +3,7 @@ import { container } from 'tsyringe';
 import chalk from 'chalk';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { ExecutionController } from '../application/controllers/ExecutionController';
+import { ExecutionController } from '../application/ExecutionController';
 import { WorkflowDefinitionService } from '../application/services/workflow/WorkflowDefinitionService';
 import { WorkflowRunOrchestratorService } from '../application/services/workflow/WorkflowRunOrchestratorService';
 import type { IPersistenceAdapter } from '../domain/ports';

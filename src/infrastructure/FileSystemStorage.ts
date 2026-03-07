@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import fs from 'fs-extra';
 import path from 'path';
-import { ConfigService } from '../config/ConfigService';
+import { ConfigService } from './ConfigService';
 import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 
 import type { StepTrace } from '@domain/ports/ITraceService';
@@ -131,7 +131,6 @@ export class FileSystemStorage implements IStorageService {
         const baseDir = path.resolve(config.paths.artifactsDir, runId, 'recordings');
         await fs.ensureDir(baseDir);
 
-        // Save each frame as a numbered JPEG
         const frameWrites = recording.frames.map(async (frame, index) => {
             const filename = `${actionIndex}_${String(index).padStart(3, '0')}_${frame.offsetMs}ms.jpg`;
             const filePath = path.join(baseDir, filename);
@@ -141,7 +140,6 @@ export class FileSystemStorage implements IStorageService {
 
         const framePaths = await Promise.all(frameWrites);
 
-        // Save recording metadata
         const metadataPath = path.join(baseDir, `${actionIndex}_meta.json`);
         await fs.writeJson(metadataPath, {
             toolName: recording.toolName,

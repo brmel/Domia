@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 
 const baseWithThought = {
     thought: z.string().min(1)

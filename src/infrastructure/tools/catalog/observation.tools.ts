@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { IStructuredAutomation } from '@domain/ports';
 import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 import type { ToolSpec } from '../ToolSpec';
 import type { PostActionCaptureMiddleware } from '../PostActionCaptureMiddleware';
 import { MAX_EXTRACT_TEXT_LENGTH, MAX_PAGE_CONTENT_LENGTH, DEFAULT_WAIT_DURATION_MS } from '@shared/defaults';

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 import type { ToolSpec } from '../ToolSpec';
 import type { ShellExecutor } from '../../shell/ShellExecutor';
 import type { IShellPolicy } from '@domain/ports/IShellPolicy';

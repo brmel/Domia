@@ -1,39 +1,26 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import { ActionType } from '@domain/enums/ActionType';
-import { RunCoordinator } from '@application/services/execution/coordinators/RunCoordinator';
+import { ActionType } from '@domain/enums';
+import { resolveUrlFromConfig, resolveLaneKeyFromConfig, buildExecutionOptions } from '@application/services/platform/platformUrlUtils';
 import { WorkflowState } from '@domain/value-objects/WorkflowState';
 
 describe('Execution coordinators', () => {
     it('resolves bootstrap URL and lane key deterministically', () => {
-        const coordinator = new RunCoordinator();
-        const input = {
-            platformConfig: {
-                platform: 'web',
-                url: 'https://example.com'
-            }
-        } as unknown as never;
+        const config = { platform: 'web' as const, url: 'https://example.com' };
 
-        expect(coordinator.resolveExecutionUrl(input)).toBe('https://example.com');
-        expect(coordinator.resolveLaneKey(input)).toBe('platform:web:https://example.com');
+        expect(resolveUrlFromConfig(config)).toBe('https://example.com');
+        expect(resolveLaneKeyFromConfig(config)).toBe('platform:web:https://example.com');
     });
 
     it('builds normalized step execution options', () => {
-        const coordinator = new RunCoordinator();
-        const options = coordinator.buildExecutionOptions({
-            maxSteps: 5,
-        });
+        const options = buildExecutionOptions({ maxSteps: 5 });
 
         expect(options.maxActions).toBe(5);
         expect(options.vision).toBe(true);
     });
 
     it('honors run-level option overrides', () => {
-        const coordinator = new RunCoordinator();
-        const options = coordinator.buildExecutionOptions({
-            vision: false,
-            maxSteps: 10,
-        });
+        const options = buildExecutionOptions({ vision: false, maxSteps: 10 });
 
         expect(options.vision).toBe(false);
         expect(options.maxActions).toBe(10);

@@ -14,6 +14,23 @@ import type { StepTrace } from '@domain/ports/ITraceService';
 
 const QUERY_OPTS = { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } as const;
 
+function TabPanel({ id, activeTab, overflow = true, children }: { id: string; activeTab: string; overflow?: boolean; children: React.ReactNode }) {
+    return (
+        <div className={cn("absolute inset-0 transition-opacity duration-300", overflow && "overflow-auto",
+            activeTab === id ? "opacity-100 z-10" : "opacity-0 pointer-events-none")}>
+            {children}
+        </div>
+    );
+}
+
+function SectionBar({ children, className }: { children: React.ReactNode; className?: string }) {
+    return <div className={cn("px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider", className)}>{children}</div>;
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+    return <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{children}</div>;
+}
+
 export function StepInspector(): JSX.Element | null {
     const { isOpen, runId, stepNumber, close } = useStepInspectorStore();
     const modalRef = useRef<HTMLDivElement>(null);
@@ -48,19 +65,16 @@ export function StepInspector(): JSX.Element | null {
 
     return (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-4 sm:p-8 animate-in fade-in duration-200">
-            {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
                 onClick={close}
             />
 
-            {/* Modal Window */}
             <div
                 ref={modalRef}
                 className="relative w-full max-w-6xl h-[85vh] bg-white rounded-xl border border-gray-200 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300"
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50/50">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 font-bold text-sm">
@@ -97,7 +111,6 @@ export function StepInspector(): JSX.Element | null {
                     </div>
                 </div>
 
-                {/* Content Area */}
                 <div className="flex-1 overflow-hidden bg-gray-50/50 relative">
                     {anyLoading && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
@@ -152,7 +165,6 @@ function InspectorContent({ beforeArtifacts, afterArtifacts, stepDetail }: Inspe
 
     return (
         <div className="flex flex-col h-full">
-            {/* Tab Navigation */}
             <div className="px-4 py-2.5 border-b border-gray-100 bg-gray-50/50">
                 <SegmentedControl
                     items={tabs.map((tab) => ({
@@ -166,38 +178,19 @@ function InspectorContent({ beforeArtifacts, afterArtifacts, stepDetail }: Inspe
                 />
             </div>
 
-            {/* Tab Panels */}
             <div className="flex-1 overflow-hidden relative">
-
-                {/* ── Summary Tab ── */}
-                <div className={cn("absolute inset-0 transition-opacity duration-300 overflow-auto",
-                    activeTab === 'summary' ? "opacity-100 z-10" : "opacity-0 pointer-events-none")}>
+                <TabPanel id="summary" activeTab={activeTab}>
                     <SummaryTab stepDetail={stepDetail} beforeScreenshot={afterArtifacts.screenshots?.[0] ?? beforeArtifacts.screenshots?.[0]} />
-                </div>
-
-                {/* ── Vision Tab ── */}
-                <div className={cn("absolute inset-0 transition-opacity duration-300 overflow-auto",
-                    activeTab === 'vision' ? "opacity-100 z-10" : "opacity-0 pointer-events-none")}>
-                    <VisionTab
-                        beforeScreenshots={beforeArtifacts.screenshots}
-                        currentScreenshots={afterArtifacts.screenshots}
-                    />
-                </div>
-
-                {/* ── Context Tab ── */}
-                <div className={cn("absolute inset-0 transition-opacity duration-300",
-                    activeTab === 'context' ? "opacity-100 z-10" : "opacity-0 pointer-events-none")}>
-                    <ContextTab
-                        dom={afterArtifacts.dom ?? beforeArtifacts.dom}
-                        accessibility={afterArtifacts.accessibility ?? beforeArtifacts.accessibility}
-                    />
-                </div>
-
-                {/* ── Raw Tab ── */}
-                <div className={cn("absolute inset-0 transition-opacity duration-300 overflow-auto",
-                    activeTab === 'raw' ? "opacity-100 z-10" : "opacity-0 pointer-events-none")}>
+                </TabPanel>
+                <TabPanel id="vision" activeTab={activeTab}>
+                    <VisionTab beforeScreenshots={beforeArtifacts.screenshots} currentScreenshots={afterArtifacts.screenshots} />
+                </TabPanel>
+                <TabPanel id="context" activeTab={activeTab} overflow={false}>
+                    <ContextTab dom={afterArtifacts.dom ?? beforeArtifacts.dom} accessibility={afterArtifacts.accessibility ?? beforeArtifacts.accessibility} />
+                </TabPanel>
+                <TabPanel id="raw" activeTab={activeTab}>
                     <RawTab trace={trace} stepDetail={stepDetail} afterArtifacts={afterArtifacts} />
-                </div>
+                </TabPanel>
             </div>
         </div>
     );
@@ -223,10 +216,8 @@ function SummaryTab({ stepDetail, beforeScreenshot }: {
 
     return (
         <div className="p-6 space-y-6">
-            {/* Header row: badge + timestamp + thumbnail */}
             <div className="flex items-start gap-5">
                 <div className="flex-1 space-y-4">
-                    {/* Action badge + timestamp */}
                     <div className="flex items-center gap-4">
                         <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-md bg-blue-50 border border-blue-200 text-blue-700 uppercase tracking-wider">
                             ⚡ {actionType}
@@ -234,7 +225,6 @@ function SummaryTab({ stepDetail, beforeScreenshot }: {
                         <span className="text-xs text-gray-500 font-mono">{new Date(timestamp).toLocaleString()}</span>
                     </div>
 
-                    {/* Thought — single canonical location */}
                     {thought && (
                         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                             <div className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-2">Agent Reasoning</div>
@@ -243,7 +233,6 @@ function SummaryTab({ stepDetail, beforeScreenshot }: {
                     )}
                 </div>
 
-                {/* Screenshot thumbnail — what the agent saw */}
                 {beforeScreenshot && (
                     <div className="shrink-0">
                         <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 text-center">Before</div>
@@ -256,12 +245,9 @@ function SummaryTab({ stepDetail, beforeScreenshot }: {
                 )}
             </div>
 
-            {/* Parameters — clean key-value grid */}
             {Object.keys(params).length > 0 && (
                 <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                        Parameters
-                    </div>
+                    <SectionBar>Parameters</SectionBar>
                     <div className="p-4">
                         <div className="grid gap-3">
                             {Object.entries(params).map(([key, value]) => (
@@ -295,12 +281,11 @@ function VisionTab({ beforeScreenshots, currentScreenshots }: {
 
     return (
         <div className="h-full grid grid-cols-2 divide-x divide-gray-200">
-            {/* Previous Step */}
             <div className="flex flex-col overflow-hidden">
-                <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                <SectionBar className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-blue-400"></span>
                     Previous Step
-                </div>
+                </SectionBar>
                 <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-gray-50/50">
                     {hasBefore ? (
                         <div className="space-y-4 w-full">
@@ -316,12 +301,11 @@ function VisionTab({ beforeScreenshots, currentScreenshots }: {
                 </div>
             </div>
 
-            {/* Current Step */}
             <div className="flex flex-col overflow-hidden">
-                <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                <SectionBar className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-green-400"></span>
                     Current Step
-                </div>
+                </SectionBar>
                 <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-gray-50/50">
                     {hasCurrent ? (
                         <div className="space-y-4 w-full">
@@ -351,19 +335,19 @@ function ContextTab({ dom, accessibility }: {
     return (
         <div className="h-full grid grid-cols-2 divide-x divide-gray-200">
             <div className="flex flex-col overflow-hidden bg-white">
-                <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider flex justify-between items-center">
+                <SectionBar className="flex justify-between items-center">
                     <span>DOM Tree</span>
                     <span className="text-[10px] font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">PRE-ACTION</span>
-                </div>
+                </SectionBar>
                 <div className="flex-1 overflow-auto p-4">
                     {dom ? <JsonTreeView data={dom} name="DOM" /> : <div className="text-gray-400 text-sm italic">No DOM data</div>}
                 </div>
             </div>
             <div className="flex flex-col overflow-hidden bg-white">
-                <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider flex justify-between items-center">
+                <SectionBar className="flex justify-between items-center">
                     <span>Accessibility Tree</span>
                     <span className="text-[10px] font-mono bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-200">AX</span>
-                </div>
+                </SectionBar>
                 <div className="flex-1 overflow-auto p-4">
                     {accessibility ? <pre className="text-xs font-mono text-gray-700 whitespace-pre-wrap">{accessibility}</pre> : <div className="text-gray-400 text-sm italic">No ARIA data</div>}
                 </div>
@@ -387,7 +371,6 @@ function RawTab({ trace, stepDetail, afterArtifacts }: {
 
     return (
         <div className="p-6 space-y-3">
-            {/* Tool Call */}
             {toolCall && (
                 <CollapsibleSection title="Tool Call" badge={toolCall.name} badgeColor="green" defaultOpen>
                     <div className="grid gap-2">
@@ -415,7 +398,6 @@ function RawTab({ trace, stepDetail, afterArtifacts }: {
                 </CollapsibleSection>
             )}
 
-            {/* Tool Result */}
             {toolCall?.result && Object.keys(toolCall.result).length > 0 && (
                 <CollapsibleSection title="Tool Result" badge={toolCall.name} badgeColor="blue" defaultOpen>
                     <div className="grid gap-2">
@@ -433,7 +415,6 @@ function RawTab({ trace, stepDetail, afterArtifacts }: {
                 </CollapsibleSection>
             )}
 
-            {/* LLM Raw Response */}
             {rawResponse && (
                 <CollapsibleSection title="LLM Response" badge="event.content" badgeColor="purple">
                     <pre className="text-xs text-gray-700 font-mono whitespace-pre-wrap bg-gray-50 rounded-lg p-3 border border-gray-100 max-h-80 overflow-auto">
@@ -442,7 +423,6 @@ function RawTab({ trace, stepDetail, afterArtifacts }: {
                 </CollapsibleSection>
             )}
 
-            {/* Agent Input Context */}
             {trace?.agentInput && (
                 <CollapsibleSection title="Agent Input" badge="context" badgeColor="blue">
                     <div className="grid gap-2 text-sm">
@@ -460,13 +440,12 @@ function RawTab({ trace, stepDetail, afterArtifacts }: {
                 </CollapsibleSection>
             )}
 
-            {/* Saved Assets — rendered inline */}
             {assets && Object.keys(assets).length > 0 && (
                 <CollapsibleSection title="Artifacts" badge={`${Object.keys(assets).length} files`} badgeColor="gray" defaultOpen>
                     <div className="space-y-4">
                         {afterArtifacts.screenshots && afterArtifacts.screenshots.length > 0 && (
                             <div>
-                                <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Screenshots</div>
+                                <SectionLabel>Screenshots</SectionLabel>
                                 <div className="grid grid-cols-2 gap-3">
                                     {afterArtifacts.screenshots.map((src, i) => (
                                         <img key={i} src={src} alt={`Screenshot ${i + 1}`} className="w-full rounded-lg border border-gray-200 shadow-sm" />
@@ -476,7 +455,7 @@ function RawTab({ trace, stepDetail, afterArtifacts }: {
                         )}
                         {afterArtifacts.dom && (
                             <div>
-                                <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">DOM Snapshot</div>
+                                <SectionLabel>DOM Snapshot</SectionLabel>
                                 <div className="max-h-60 overflow-auto rounded-lg border border-gray-100 bg-gray-50 p-2">
                                     <JsonTreeView data={afterArtifacts.dom} name="DOM" />
                                 </div>
@@ -484,7 +463,7 @@ function RawTab({ trace, stepDetail, afterArtifacts }: {
                         )}
                         {afterArtifacts.accessibility && (
                             <div>
-                                <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Accessibility Tree</div>
+                                <SectionLabel>Accessibility Tree</SectionLabel>
                                 <div className="max-h-60 overflow-auto rounded-lg border border-gray-100 bg-gray-50 p-2">
                                     <pre className="text-xs font-mono text-gray-700 whitespace-pre-wrap">{afterArtifacts.accessibility}</pre>
                                 </div>
@@ -492,7 +471,7 @@ function RawTab({ trace, stepDetail, afterArtifacts }: {
                         )}
                         {afterArtifacts.trace && (
                             <div>
-                                <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Trace</div>
+                                <SectionLabel>Trace</SectionLabel>
                                 <div className="max-h-60 overflow-auto rounded-lg border border-gray-100 bg-gray-50 p-2">
                                     <JsonTreeView data={afterArtifacts.trace} name="Trace" />
                                 </div>
@@ -502,14 +481,12 @@ function RawTab({ trace, stepDetail, afterArtifacts }: {
                 </CollapsibleSection>
             )}
 
-            {/* Full Trace JSON */}
             {trace && (
                 <CollapsibleSection title="Full Trace JSON" badge="debug" badgeColor="gray">
                     <JsonTreeView data={trace} name="Trace" />
                 </CollapsibleSection>
             )}
 
-            {/* Full Action Payload */}
             {stepDetail && (
                 <CollapsibleSection title="Full Action Payload" badge="debug" badgeColor="gray">
                     <JsonTreeView data={stepDetail.actionPayload as unknown as Record<string, unknown>} name="Action" />

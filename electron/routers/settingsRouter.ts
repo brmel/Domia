@@ -1,5 +1,5 @@
 import { container } from '../../src/composition-root';
-import { ConfigService } from '../../src/infrastructure/config/ConfigService';
+import { ConfigService } from '../../src/infrastructure/ConfigService';
 import { DomiaConfigSchema } from '../../src/shared/config-types';
 import { t } from './shared';
 

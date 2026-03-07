@@ -6,7 +6,7 @@ import {
     type LogEntry,
 } from '@infrastructure/tools/catalog/snapshot-recording.tools';
 import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
-import { ActionType } from '@domain/enums/ActionType';
+import { ActionType } from '@domain/enums';
 
 // ──────────────────────── analyzeLog unit tests ────────────────────────
 
