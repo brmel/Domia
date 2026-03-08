@@ -1,14 +1,15 @@
-import { useTestRunStore } from './presentation/stores';
-import { canInteract } from './presentation/utils/agentStateUtils';
+import { useRunStore } from './presentation/stores';
+import { canStart } from './presentation/utils/agentStateUtils';
 
 import { useEffect, useState } from 'react';
-import { AppSectionPlaceholder } from './presentation/components/AppSectionPlaceholder';
+import { AppSectionPlaceholder } from './presentation/components/layout/AppSectionPlaceholder';
 import { SegmentedControl } from './presentation/components/ui/SegmentedControl';
-import { RunsWorkspace } from './presentation/components/RunsWorkspace';
-import { ComposeWorkspace } from './presentation/components/ComposeWorkspace';
-import { WorkflowWorkspace } from './presentation/components/WorkflowWorkspace';
-import { StepInspector } from './presentation/components/StepInspector';
-import { AgentStatus } from './domain/types/AgentStatus';
+import { RunsWorkspace } from './presentation/components/layout/RunsWorkspace';
+import { ComposeWorkspace } from './presentation/components/layout/ComposeWorkspace';
+import { WorkflowWorkspace } from './presentation/components/workflow/WorkflowWorkspace';
+import { PluginsWorkspace } from './presentation/components/layout/PluginsWorkspace';
+import { StepInspector } from './presentation/components/run/StepInspector';
+import { RunState } from '@domain/enums';
 
 type AppSection = 'runs' | 'compose' | 'workflow' | 'skills' | 'plugins' | 'governance' | 'observability';
 
@@ -17,7 +18,7 @@ const SECTION_TABS: ReadonlyArray<{ id: AppSection; label: string }> = [
     { id: 'compose', label: 'Compose' },
     { id: 'workflow', label: 'Workflow' },
     { id: 'skills', label: 'Skills · Not available' },
-    { id: 'plugins', label: 'Plugins · Not available' },
+    { id: 'plugins', label: 'Plugins' },
     { id: 'governance', label: 'Governance · Not available' },
     { id: 'observability', label: 'Observability · Not available' }
 ];
@@ -26,13 +27,13 @@ const SECTION_TABS: ReadonlyArray<{ id: AppSection; label: string }> = [
 function App(): JSX.Element {
     const [activeSidebar, setActiveSidebar] = useState<'config' | 'history' | 'settings_debug'>('config');
     const [activeSection, setActiveSection] = useState<AppSection>('runs');
-    const { status } = useTestRunStore();
-    const isInteractionDisabled = !canInteract(status);
+    const { status } = useRunStore();
+    const isInteractionDisabled = !canStart(status);
 
     useEffect(() => {
         if (
             activeSection === 'compose'
-            && (status === AgentStatus.RUNNING || status === AgentStatus.PAUSED)
+            && (status === RunState.RUNNING || status === RunState.PAUSED)
         ) {
             setActiveSection('runs');
         }
@@ -69,18 +70,7 @@ function App(): JSX.Element {
         }
 
         if (section === 'plugins') {
-            return (
-                <AppSectionPlaceholder
-                    title="Plugins"
-                    unavailable
-                    description="Capability-first operations across SSH, filesystem, and device connectors with policy controls."
-                    nextSteps={[
-                        'Add plugin catalog with trust and capability matrix.',
-                        'Add policy decision visibility per invocation.',
-                        'Add runtime controls for rate limit and kill switch.'
-                    ]}
-                />
-            );
+            return <PluginsWorkspace />;
         }
 
         if (section === 'governance') {
@@ -105,7 +95,7 @@ function App(): JSX.Element {
                 description="Run reliability, performance, and policy telemetry with drill-down diagnostics."
                 nextSteps={[
                     'Add pass rate and duration trend panels.',
-                    'Add retry, token, and temporal overhead views.',
+                    'Add retry, token, and overhead views.',
                     'Add exportable audit trail filters.'
                 ]}
             />

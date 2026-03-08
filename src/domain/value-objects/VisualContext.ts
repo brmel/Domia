@@ -8,8 +8,4 @@ export class VisualContext {
     get primaryScreenshot(): Buffer | undefined {
         return this.screenshots.length > 0 ? this.screenshots[0] : undefined;
     }
-
-    get count(): number {
-        return this.screenshots.length;
-    }
 }

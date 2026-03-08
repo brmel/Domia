@@ -1,103 +1,65 @@
 import { injectable, inject } from 'tsyringe';
-import { ResultAsync } from 'neverthrow';
+import { ResultAsync, errAsync } from 'neverthrow';
 import { IPerceptionPipeline } from '@domain/ports/IPerceptionPipeline';
-import type { Page } from 'playwright';
-
+import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 import type { ILogger } from '@domain/ports';
 import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
-import type { IBrowserAutomation } from '../../domain/ports/IBrowserAutomation';
 import { SnapshotError } from '@domain/errors';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { VisionSensor } from './sensors/VisionSensor';
-import { DomSensor } from './sensors/DomSensor';
 import { AriaSensor } from './sensors/AriaSensor';
-import { VisualContext } from '../../domain/value-objects/VisualContext';
+import { buildRoleSnapshot } from './RoleRefResolver';
+import { VisualContext } from '@domain/value-objects/VisualContext';
 
 @injectable()
 export class PerceptionPipeline implements IPerceptionPipeline {
     constructor(
         @inject('ILogger') private logger: ILogger,
         @inject(VisionSensor) private visionSensor: VisionSensor,
-        @inject(DomSensor) private domSensor: DomSensor,
         @inject(AriaSensor) private ariaSensor: AriaSensor
     ) { }
 
     capture(
-        browser: IBrowserAutomation,
-        options: import('@domain/ports/IPerceptionPipeline').PerceptionOptions = { vision: true, aria: true, dom: true }
+        source: IPerceptionSource,
+        options: import('@domain/ports/IPerceptionPipeline').PerceptionOptions = { vision: true, aria: true }
     ): ResultAsync<PerceptionFrame, SnapshotError> {
-        this.logger.info(`[PerceptionPipeline] Starting capture sequence (Options: ${JSON.stringify(options)})`);
-        const page = this.resolvePage(browser);
+        const start = Date.now();
+        this.logger.info(`[PerceptionPipeline] Starting capture (vision=${!!options.vision}, aria=${options.aria !== false})`);
 
-        if (!page) {
-            return ResultAsync.fromPromise(
-                Promise.reject(new Error('Browser automation does not expose an active page for perception capture.')),
-                e => new SnapshotError(`Sensor capture failed: ${String(e)}`)
-            );
+        if (!source) {
+            return errAsync(new SnapshotError('No perception source provided.'));
         }
 
         const capturePromise = Promise.all([
-            options.vision ? this.visionSensor.capture(page) : Promise.resolve({ screenshots: [], mimeType: 'image/jpeg' }),
-            options.aria ? this.ariaSensor.capture(page) : Promise.resolve(null),
-            options.dom ? this.domSensor.capture(page) : Promise.resolve(Object.freeze({
-                url: page.url(),
-                title: '',
-                rootElements: {
-                    html: {},
-                    body: {}
-                },
-                elements: [],
-                timestamp: new Date()
-            }))
-        ]).then(([vision, aria, dom]) => ({ vision, aria, dom }));
+            options.vision ? this.visionSensor.capture(source) : Promise.resolve({ screenshots: [], mimeType: 'image/jpeg' }),
+            options.aria !== false ? this.ariaSensor.capture(source) : Promise.resolve(''),
+            source.getTitle().catch(() => ''),
+        ]).then(([vision, ariaText, title]) => ({ vision, ariaText, title }));
 
         return ResultAsync.fromPromise(
             capturePromise,
             e => new SnapshotError(`Sensor capture failed: ${String(e)}`)
-        ).map(({ vision, aria, dom }) => {
+        ).map(({ vision, ariaText, title }) => {
+            const { snapshot, refs } = buildRoleSnapshot(ariaText);
+            const viewport = source.getViewportSize() ?? { width: 0, height: 0 };
+            const refCount = Object.keys(refs).length;
+            this.logger.info(`[PerceptionPipeline] Capture complete in ${Date.now() - start}ms: ${refCount} refs, url=${source.getUrl()}`);
+
             const frame: PerceptionFrame = {
-                id: uuidv4(),
+                id: randomUUID(),
                 timestamp: Date.now(),
                 metadata: {
-                    url: dom.url,
-                    title: dom.title,
-                    viewport: { width: 0, height: 0 }
+                    url: source.getUrl(),
+                    title,
+                    viewport
                 },
                 vision: new VisualContext(vision.screenshots, 'image/jpeg'),
                 semantic: {
-                    dom,
-                    accessibility: aria
+                    ariaSnapshot: snapshot,
+                    refs
                 }
             };
             return frame;
         });
-    }
-
-    private resolvePage(browser: IBrowserAutomation): Page | null {
-        const candidate = browser as unknown as { getPage?: () => unknown; page?: unknown };
-
-        if (typeof candidate.getPage === 'function') {
-            const resolved = candidate.getPage();
-            if (this.isPage(resolved)) {
-                return resolved;
-            }
-        }
-
-        if (this.isPage(candidate.page)) {
-            return candidate.page;
-        }
-
-        return null;
-    }
-
-    private isPage(value: unknown): value is Page {
-        if (!value || typeof value !== 'object') {
-            return false;
-        }
-
-        const pageCandidate = value as Partial<Page>;
-        return typeof pageCandidate.url === 'function'
-            && typeof pageCandidate.screenshot === 'function'
-            && typeof pageCandidate.evaluate === 'function';
     }
 }

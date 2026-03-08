@@ -1,13 +1,16 @@
-export interface AgentViewAPI {
-    resize: (bounds: { x: number; y: number; width: number; height: number }) => void;
-    show: (bounds: { x: number; y: number; width: number; height: number }) => void;
-    hide: () => void;
+interface AgentViewBridge {
+  setBounds(bounds: { x: number; y: number; width: number; height: number }): Promise<void>;
+  clear(): Promise<void>;
+}
+
+interface ElectronBridge {
+  agentView: AgentViewBridge;
 }
 
 declare global {
-    interface Window {
-        electron: {
-            agentView: AgentViewAPI;
-        };
-    }
+  interface Window {
+    electron?: ElectronBridge;
+  }
 }
+
+export {};

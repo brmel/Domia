@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Slow Counter Test</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f0f4f8;
+        color: #1a202c;
+      }
+      .card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 800px;
+      }
+      h1 { margin-top: 0; }
+      #status {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 12px 0;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: #edf2f7;
+      }
+      #number-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 16px;
+      }
+      .number-cell {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 32px;
+        border: 1px solid #cbd5e0;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 500;
+        background: #ebf8ff;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Slow Process Monitor</h1>
+      <p>A background process adds numbers to the grid at its own pace.
+         The grid is removed shortly after the process finishes.</p>
+      <div id="status" aria-live="polite">Status: Counting... (0/30)</div>
+      <div id="number-grid" role="list" aria-label="Number grid"></div>
+    </main>
+
+    <script>
+      var statusEl = document.getElementById('status');
+      var gridEl = document.getElementById('number-grid');
+      var TOTAL = 30;
+      var SKIP = 23;              // Silently skip number 23
+      var INTERVAL_MS = 3000;     // 3 seconds per number — ~90s total
+      var CLEAR_DELAY_MS = 15000; // Grid visible for 15s after completion
+      var current = 0;
+
+      var timer = setInterval(function () {
+        current++;
+        if (current > TOTAL) {
+          clearInterval(timer);
+          statusEl.textContent = 'Status: Complete';
+          setTimeout(function () {
+            gridEl.innerHTML = '';
+            statusEl.textContent = 'Status: Archived — grid has been cleared';
+          }, CLEAR_DELAY_MS);
+          return;
+        }
+
+        // Skip this number silently — never appears in the grid
+        if (current === SKIP) {
+          statusEl.textContent = 'Status: Counting... (' + current + '/' + TOTAL + ')';
+          return;
+        }
+
+        var cell = document.createElement('span');
+        cell.className = 'number-cell';
+        cell.setAttribute('role', 'listitem');
+        cell.textContent = String(current);
+        gridEl.appendChild(cell);
+
+        statusEl.textContent = 'Status: Counting... (' + current + '/' + TOTAL + ')';
+      }, INTERVAL_MS);
+    </script>
+  </body>
+</html>

@@ -1,4 +1,6 @@
-export type RetryInfo = {
+import { DEFAULT_RETRY_ATTEMPTS, DEFAULT_RETRY_MIN_DELAY_MS, DEFAULT_RETRY_MAX_DELAY_MS } from '@shared/defaults';
+
+type RetryInfo = {
     attempt: number;
     maxAttempts: number;
     delayMs: number;
@@ -17,9 +19,9 @@ export type RetryOptions = {
 };
 
 const DEFAULT_RETRY_OPTIONS: Required<Pick<RetryOptions, 'attempts' | 'minDelayMs' | 'maxDelayMs' | 'jitter'>> = {
-    attempts: 3,
-    minDelayMs: 300,
-    maxDelayMs: 30_000,
+    attempts: DEFAULT_RETRY_ATTEMPTS,
+    minDelayMs: DEFAULT_RETRY_MIN_DELAY_MS,
+    maxDelayMs: DEFAULT_RETRY_MAX_DELAY_MS,
     jitter: 0,
 };
 
@@ -49,7 +51,7 @@ export async function retryAsync<T>(
     const minDelayMs = Math.max(0, Math.floor(options?.minDelayMs ?? DEFAULT_RETRY_OPTIONS.minDelayMs));
     const maxDelayMs = Math.max(minDelayMs, Math.floor(options?.maxDelayMs ?? DEFAULT_RETRY_OPTIONS.maxDelayMs));
     const jitter = options?.jitter ?? DEFAULT_RETRY_OPTIONS.jitter;
-    const shouldRetry = options?.shouldRetry ?? (() => true);
+    const shouldRetry = options?.shouldRetry ?? ((_: unknown, __: number): boolean => true);
 
     let lastError: unknown;
 

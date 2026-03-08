@@ -1,7 +1,7 @@
 import type { PlatformConfig } from '@domain/types/PlatformConfig';
 import type { RunOptions } from '@shared/validation';
 
-export type WorkflowStatus = 'draft' | 'published';
+type WorkflowStatus = 'draft' | 'published';
 
 export interface WorkflowStepDefinition {
     readonly id: string;
@@ -23,7 +23,7 @@ export interface WorkflowDefinition {
     readonly updatedAt: string;
 }
 
-export type WorkflowRunStatus = 'running' | 'completed' | 'failed' | 'cancelled';
+type WorkflowRunStatus = 'running' | 'completed' | 'failed' | 'cancelled';
 
 export interface WorkflowRunRecord {
     readonly id: string;
@@ -35,14 +35,14 @@ export interface WorkflowRunRecord {
     readonly completedAt?: string;
 }
 
-export type WorkflowStepRunStatus = 'running' | 'completed' | 'failed' | 'cancelled';
+type WorkflowStepRunStatus = 'running' | 'completed' | 'failed' | 'cancelled';
 
 export interface WorkflowStepRunRecord {
     readonly id: string;
     readonly workflowRunId: string;
     readonly stepId: string;
     readonly stepIndex: number;
-    readonly testRunId?: string;
+    readonly runId?: string;
     readonly status: WorkflowStepRunStatus;
     readonly summary?: string;
     readonly startedAt: string;

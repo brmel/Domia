@@ -1,34 +1,62 @@
 import { z } from 'zod';
+import {
+    DEFAULT_LLM_MODEL,
+    DEFAULT_LLM_PROVIDER,
+    DEFAULT_MAX_ACTIONS,
+    DEFAULT_DELAY_BETWEEN_STEPS_MS,
+    DEFAULT_VIEWPORT_WIDTH,
+    DEFAULT_VIEWPORT_HEIGHT,
+    DEFAULT_ARTIFACTS_DIR,
+    DEFAULT_DATABASE_PATH,
+    DEFAULT_REPORT_OUTPUT_DIR,
+} from '@shared/defaults';
 
 export const DomiaConfigSchema = z.object({
     headless: z.boolean().default(true),
+    viewMode: z.enum(['embedded', 'detached']).default('embedded'),
     viewport: z.object({
-        width: z.number().default(1280),
-        height: z.number().default(800),
-    }).default({ width: 1280, height: 800 }),
+        width: z.number().default(DEFAULT_VIEWPORT_WIDTH),
+        height: z.number().default(DEFAULT_VIEWPORT_HEIGHT),
+    }).default({ width: DEFAULT_VIEWPORT_WIDTH, height: DEFAULT_VIEWPORT_HEIGHT }),
 
     ai: z.object({
-        provider: z.enum(['google', 'openai', 'anthropic']).default('google'),
-        model: z.string().default('gemini-2.0-flash'),
+        provider: z.literal(DEFAULT_LLM_PROVIDER).default(DEFAULT_LLM_PROVIDER),
+        model: z.string().default(DEFAULT_LLM_MODEL),
         apiKey: z.string().optional(),
         visionEnabled: z.boolean().default(false),
         debugScreenshots: z.boolean().default(false),
-    }).default({ provider: 'google', model: 'gemini-2.0-flash', visionEnabled: false, debugScreenshots: false }),
-
-    selectorEngine: z.object({
-        strategyOrder: z.array(z.enum(['fast', 'semantic', 'visual', 'heuristic']))
-            .default(['fast', 'semantic', 'visual', 'heuristic']),
-    }).default({ strategyOrder: ['fast', 'semantic', 'visual', 'heuristic'] }),
+    }).default({ provider: DEFAULT_LLM_PROVIDER, model: DEFAULT_LLM_MODEL, visionEnabled: false, debugScreenshots: false }),
 
     paths: z.object({
-        artifactsDir: z.string().default('./artifacts'),
-        databasePath: z.string().default('./domia.db'),
-    }).default({ artifactsDir: './artifacts', databasePath: './domia.db' }),
+        artifactsDir: z.string().default(DEFAULT_ARTIFACTS_DIR),
+        databasePath: z.string().default(DEFAULT_DATABASE_PATH),
+    }).default({ artifactsDir: DEFAULT_ARTIFACTS_DIR, databasePath: DEFAULT_DATABASE_PATH }),
 
     limits: z.object({
-        maxSteps: z.number().default(20),
-        delayBetweenSteps: z.number().default(1000),
-    }).default({ maxSteps: 20, delayBetweenSteps: 1000 }),
+        maxSteps: z.number().default(DEFAULT_MAX_ACTIONS),
+        delayBetweenSteps: z.number().default(DEFAULT_DELAY_BETWEEN_STEPS_MS),
+    }).default({
+        maxSteps: DEFAULT_MAX_ACTIONS,
+        delayBetweenSteps: DEFAULT_DELAY_BETWEEN_STEPS_MS,
+    }),
+
+    promptOverrides: z.object({
+        prompts: z.record(z.string()).optional(),
+        toolDescriptions: z.record(z.string()).optional(),
+    }).optional(),
+
+    plugins: z.object({
+        shell: z.object({
+            enabled: z.boolean().default(false),
+            denyPatterns: z.array(z.string()).optional(),
+            allowedCwd: z.array(z.string()).optional(),
+        }).default({ enabled: false }),
+    }).default({ shell: { enabled: false } }),
+
+    reporting: z.object({
+        defaultFormat: z.enum(['none', 'junit', 'html', 'all']).default('none'),
+        outputDir: z.string().default(DEFAULT_REPORT_OUTPUT_DIR),
+    }).default({ defaultFormat: 'none', outputDir: DEFAULT_REPORT_OUTPUT_DIR }),
 });
 
 export type DomiaConfig = z.infer<typeof DomiaConfigSchema>;

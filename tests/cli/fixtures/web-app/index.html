@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Domia Web Fixture</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      .card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        max-width: 740px;
+      }
+      button {
+        margin-top: 12px;
+        border: 1px solid #0f172a;
+        border-radius: 8px;
+        background: #0f172a;
+        color: white;
+        padding: 10px 14px;
+        cursor: pointer;
+      }
+      #result {
+        margin-top: 12px;
+        font-weight: 600;
+      }
+      .token {
+        margin-top: 8px;
+        font-size: 14px;
+        color: #334155;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Domia Fixture Ready</h1>
+      <p id="status">Status: waiting for interaction</p>
+      <button id="start-btn" type="button">Start Scenario</button>
+      <div id="result"></div>
+      <p class="token">Session token: WEB-FIXTURE-12345</p>
+    </main>
+
+    <script>
+      const button = document.getElementById('start-btn');
+      const status = document.getElementById('status');
+      const result = document.getElementById('result');
+
+      button.addEventListener('click', () => {
+        status.textContent = 'Status: interaction executed';
+        result.textContent = 'Interaction Complete';
+      });
+    </script>
+  </body>
+</html>

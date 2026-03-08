@@ -1,40 +1,20 @@
+import { AgentAction, RunId } from '@domain/value-objects';
+import { WorkflowError } from '@domain/errors';
+import type { PlatformConfig } from '@domain/types/PlatformConfig';
+import type { RunOptions } from '@shared/validation';
 
-import { AgentAction, TestRunId } from '../domain/value-objects';
-import { WorkflowError } from '../domain/errors';
-import type { PlatformConfig } from '../domain/types/PlatformConfig';
-import type { RunOptions } from '../shared/validation';
-
-export interface RunTestInput {
+export interface RunInput {
     platformConfig: PlatformConfig;
     prompt: string;
     options?: RunOptions;
 }
 
-export interface RecoveryReplayTelemetry {
-    sourceRunId: string;
-    targetStepNumber: number;
-    replayedCount: number;
-    status: 'started' | 'completed' | 'cancelled' | 'blocked' | 'failed';
-    reason?: string;
-}
-
-export interface ReplanningTelemetry {
-    runId: string;
-    trigger?: 'loop_detected' | 'action_execution_error' | 'assertion_fail' | 'max_actions_reached';
-    status: 'suggested' | 'suppressed';
-    reason: string;
-    mode: 'observe';
-    replanCount: number;
-    maxReplansPerRun: number;
-}
-
-export type RunTestOutput =
-    | { type: 'started'; testRunId: TestRunId }
-    | { type: 'observing' }
-    | { type: 'thinking' }
+export type RunOutput =
+    | { type: 'started'; runId: RunId }
+    | { type: 'thinking_chunk'; text: string }
     | { type: 'acting'; action: AgentAction }
-    | { type: 'state_updated'; state: import('../domain/value-objects').WorkflowState }
-    | { type: 'recovery_replay'; telemetry: RecoveryReplayTelemetry }
-    | { type: 'replanning'; telemetry: ReplanningTelemetry }
+    | { type: 'state_updated'; state: import('@domain/value-objects').WorkflowState }
     | { type: 'completed'; success: boolean; summary?: string }
-    | { type: 'error'; error: WorkflowError | Error };
+    | { type: 'cancelled'; summary?: string }
+    | { type: 'error'; error: WorkflowError | Error }
+    | { type: 'browser_ready'; wsEndpoint: string };

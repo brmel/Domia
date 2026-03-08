@@ -1,12 +1,12 @@
 import { inject, injectable } from 'tsyringe';
 import { randomUUID } from 'crypto';
-import type { IPersistenceAdapter } from '@domain/ports/IPersistenceAdapter';
+import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
 import type { ILogger } from '@domain/ports';
 import type { WorkflowDefinition, WorkflowStepDefinition } from '@domain/entities/Workflow';
 import type { PlatformConfig } from '@domain/types/PlatformConfig';
 import type { RunOptions } from '@shared/validation';
 
-export interface CreateWorkflowDefinitionRequest {
+interface CreateWorkflowDefinitionRequest {
     readonly name: string;
     readonly description?: string;
     readonly platformConfig: PlatformConfig;
@@ -18,7 +18,7 @@ export interface CreateWorkflowDefinitionRequest {
     }>;
 }
 
-export interface UpdateWorkflowDefinitionRequest {
+interface UpdateWorkflowDefinitionRequest {
     readonly id: string;
     readonly name: string;
     readonly description?: string;
@@ -35,7 +35,7 @@ export interface UpdateWorkflowDefinitionRequest {
 @injectable()
 export class WorkflowDefinitionService {
     constructor(
-        @inject('IPersistenceAdapter') private readonly persistence: IPersistenceAdapter,
+        @inject('IWorkflowRepository') private readonly persistence: IWorkflowRepository,
         @inject('ILogger') private readonly logger: ILogger
     ) {}
 
@@ -50,7 +50,7 @@ export class WorkflowDefinitionService {
             status: 'draft',
             version: 1,
             platformConfig: request.platformConfig,
-            steps: this.normalizeNewSteps(id, request.steps),
+            steps: this.normalizeSteps(id, request.steps),
             createdAt: now,
             updatedAt: now
         };
@@ -83,7 +83,7 @@ export class WorkflowDefinitionService {
             name: request.name.trim(),
             ...(request.description?.trim() ? { description: request.description.trim() } : {}),
             ...(request.platformConfig ? { platformConfig: request.platformConfig } : {}),
-            steps: this.normalizeExistingSteps(existing.id, request.steps),
+            steps: this.normalizeSteps(existing.id, request.steps),
             updatedAt: new Date().toISOString()
         };
 
@@ -163,25 +163,7 @@ export class WorkflowDefinitionService {
         return next;
     }
 
-    private normalizeNewSteps(
-        workflowId: string,
-        steps: ReadonlyArray<{
-            readonly name: string;
-            readonly prompt: string;
-            readonly continueOnFailure: boolean;
-            readonly options?: RunOptions;
-        }>
-    ): ReadonlyArray<WorkflowStepDefinition> {
-        return steps.map((step, index) => ({
-            id: `${workflowId}-step-${index + 1}`,
-            name: step.name.trim(),
-            prompt: step.prompt.trim(),
-            continueOnFailure: step.continueOnFailure,
-            ...(step.options ? { options: step.options } : {})
-        }));
-    }
-
-    private normalizeExistingSteps(
+    private normalizeSteps(
         workflowId: string,
         steps: ReadonlyArray<{
             readonly id?: string;

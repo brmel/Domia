@@ -1,22 +1,17 @@
-import { DOMSnapshot } from './DOMSnapshot';
-import { AriaNode } from './AriaNode';
-
+import type { RoleRefMap } from './RoleRef';
 import { VisualContext } from './VisualContext';
 
 export interface PerceptionFrame {
-    id: string; // UUID
-    timestamp: number;
-    metadata: {
-        url: string;
-        title: string;
-        viewport: { width: number; height: number };
+    readonly id: string;
+    readonly timestamp: number;
+    readonly metadata: {
+        readonly url: string;
+        readonly title: string;
+        readonly viewport: { readonly width: number; readonly height: number };
     };
-    vision: VisualContext;
-    semantic: {
-        dom: DOMSnapshot;
-        accessibility: AriaNode | null;
+    readonly vision: VisualContext;
+    readonly semantic: {
+        readonly ariaSnapshot: string;
+        readonly refs: RoleRefMap;
     };
-    // Future modalities
-    network?: unknown[];
-    console?: unknown[];
 }

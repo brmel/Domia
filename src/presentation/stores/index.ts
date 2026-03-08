@@ -1,3 +1,2 @@
-export { useTestRunStore } from './useTestRunStore';
-export type { TestRunStoreState } from './useTestRunStore';
+export { useRunStore } from './useRunStore';
 export { useStepInspectorStore } from './useStepInspectorStore';

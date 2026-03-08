@@ -56,13 +56,46 @@ Start the Electron-based desktop application:
 npm run dev
 ```
 
+## Readiness Gates (CI / Release)
+
+Run readiness validation pipeline (typecheck + architecture + tests) with baseline profile controls:
+
+```bash
+npm run readiness:gate -- --profile=staging
+```
+
+Production release check:
+
+```bash
+npm run release:check
+```
+
+Profiles:
+- `dev`: readiness gates optional, observe mode by default
+- `staging`: readiness gates enabled, observe mode default
+- `production`: readiness gates enabled, soft-enforce required
+
+## Verification Contracts
+
+Terminal success behavior is policy-driven (not hardcoded by test type). Configure defaults in `domia.config.json`:
+
+```json
+"verification": {
+    "enforceSupervisedTerminalPass": true,
+    "terminalPassMinConfidence": 0.9,
+    "terminalPassMinEvidenceItems": 2
+}
+```
+
+You can also override these per run via run options (`verification.*`).
+
 ## Architecture
 
 Domia is built with a Hexagonal Architecture (Ports & Adapters):
 
--   **Core Domain**: Contains the business logic, entities (TestRun, Plan, AgentAction), and ports.
--   **Application Layer**: Orchestrates use cases (`RunTestUseCase`), services (`PlannerService`), and workflows.
--   **Infrastructure**: Implements adapters for Browser (Playwright), LLM (LangChain/Google), Persistence (SQLite), and UI.
+-   **Core Domain**: Contains the business logic, entities (Run, Plan, AgentAction), and ports.
+-   **Application Layer**: Orchestrates use cases (`RunUseCase`), services (`PlannerService`), and workflows.
+-   **Infrastructure**: Implements adapters for Browser (Playwright), LLM (Google Gemini), Persistence (SQLite), and UI.
 
 ## Contributing
 

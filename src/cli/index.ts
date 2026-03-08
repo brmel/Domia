@@ -5,27 +5,30 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import figlet from 'figlet';
 import { registerCoreServices } from '../composition-root';
-import { container } from '../composition-root';
-import { ConsoleViewHost } from '../infrastructure/adapters/view/ConsoleViewHost';
+import { ContainerBuilder } from '../composition/ContainerBuilder';
 import { RunCommand } from './RunCommand';
 import { HistoryCommand } from './HistoryCommand';
+import { WorkflowCommand } from './WorkflowCommand';
+import { SettingsCommand } from './SettingsCommand';
+import { InspectCommand } from './InspectCommand';
 
-// Setup DI
 registerCoreServices();
-container.register('IViewHost', { useClass: ConsoleViewHost });
+const cliBuilder = new ContainerBuilder();
+cliBuilder.initializePlatformProviders();
 
 const program = new Command();
 
 program
     .version('1.0.0')
-    .description('Domia CLI - Autonomous Web E2E Testing Agent');
+    .description('Domia CLI - Autonomous Application Agent');
 
-// Banner
 console.log(chalk.cyan(figlet.textSync('Domia', { horizontalLayout: 'full' })));
 
-// Register Commands
 RunCommand.register(program);
 HistoryCommand.register(program);
+WorkflowCommand.register(program);
+SettingsCommand.register(program);
+InspectCommand.register(program);
 
 program.parse(process.argv);
 

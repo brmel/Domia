@@ -1,6 +1,6 @@
-import { Page } from 'playwright';
+import type { IPerceptionSource } from './IPerceptionSource';
 
 export interface ISensor<T> {
     readonly name: string;
-    capture(page: Page): Promise<T>;
+    capture(source: IPerceptionSource): Promise<T>;
 }

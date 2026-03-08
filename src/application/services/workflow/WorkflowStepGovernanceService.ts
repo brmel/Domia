@@ -1,12 +1,8 @@
 import { inject, injectable } from 'tsyringe';
 import type { WorkflowDefinition, WorkflowStepDefinition } from '@domain/entities/Workflow';
 import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
-import { SkillRegistryService } from '@application/services/skills/SkillRegistryService';
-import { SkillGovernanceService } from '@application/services/skills/SkillGovernanceService';
-import { PluginRegistryService } from '@application/services/plugins/PluginRegistryService';
-import { PluginGatewayService } from '@application/services/plugins/PluginGatewayService';
 
-export type StepGovernanceDecision =
+type StepGovernanceDecision =
     | { allowed: true }
     | {
         allowed: false;
@@ -16,17 +12,12 @@ export type StepGovernanceDecision =
 @injectable()
 export class WorkflowStepGovernanceService {
     constructor(
-        @inject(RuntimeReadinessPolicyService) private readonly readinessPolicy: RuntimeReadinessPolicyService,
-        @inject(SkillRegistryService) private readonly skillRegistry: SkillRegistryService,
-        @inject(SkillGovernanceService) private readonly skillGovernance: SkillGovernanceService,
-        @inject(PluginRegistryService) private readonly pluginRegistry: PluginRegistryService,
-        @inject(PluginGatewayService) private readonly pluginGateway: PluginGatewayService
+        @inject(RuntimeReadinessPolicyService) private readonly readinessPolicy: RuntimeReadinessPolicyService
     ) {}
 
     assess(
         step: WorkflowStepDefinition,
         definition: WorkflowDefinition,
-        workflowRunId: string
     ): StepGovernanceDecision {
         const readinessDecision = this.assessReadiness(step, definition);
         if (readinessDecision?.blocked) {
@@ -34,53 +25,6 @@ export class WorkflowStepGovernanceService {
                 allowed: false,
                 reason: `Workflow step blocked by readiness policy (${readinessDecision.mode}).`
             };
-        }
-
-        const preferredSkillId = step.options?.preferredSkillId;
-        if (preferredSkillId) {
-            const skill = this.skillRegistry.get(preferredSkillId);
-            if (!skill) {
-                return {
-                    allowed: false,
-                    reason: `Workflow step blocked: preferred skill not found (${preferredSkillId}).`
-                };
-            }
-
-            const allowedTrustLevels = step.options?.allowedSkillTrustLevels ?? ['verified'];
-            const skillAllowed = this.skillGovernance.isAllowed(skill, allowedTrustLevels);
-            if (!skillAllowed) {
-                return {
-                    allowed: false,
-                    reason: `Workflow step blocked: skill trust level ${skill.trust} not allowed.`
-                };
-            }
-        }
-
-        const pluginPreflight = step.options?.pluginPreflight;
-        if (pluginPreflight) {
-            const manifest = this.pluginRegistry.get(pluginPreflight.pluginId);
-            if (!manifest) {
-                return {
-                    allowed: false,
-                    reason: `Workflow step blocked: plugin not found (${pluginPreflight.pluginId}).`
-                };
-            }
-
-            const invocationResult = this.pluginGateway.invoke(manifest, {
-                runId: workflowRunId,
-                pluginId: pluginPreflight.pluginId,
-                capability: pluginPreflight.capability,
-                payload: {
-                    source: 'workflow-step-governance'
-                }
-            });
-
-            if (!invocationResult.success) {
-                return {
-                    allowed: false,
-                    reason: `Workflow step blocked: ${invocationResult.message}`
-                };
-            }
         }
 
         return { allowed: true };

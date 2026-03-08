@@ -29,7 +29,7 @@ src/presentation/   → UI. Imports: application/, domain/, react, zustand
 | No `as` casts | Use type guards or branded type factories |
 | No thrown exceptions | Return `Result<T, E>` or `ResultAsync<T, E>` |
 | No nullable without `| null` | Explicit union types |
-| Branded types for IDs | `TestRunId`, `Url`, `ElementId` |
+| Branded types for IDs | `RunId`, `Url`, `ElementId` |
 
 ---
 
@@ -65,8 +65,8 @@ interface ILLMProvider {
 }
 
 // Use Cases: AsyncGenerator for streaming
-class RunTestUseCase {
-  async *execute(input): AsyncGenerator<TestRunEvent, TestOutput> {
+class RunUseCase {
+  async *execute(input): AsyncGenerator<RunEvent, RunOutput> {
     yield { type: 'thinking' };
     const action = await this.llm.generateAction(ctx);
     yield { type: 'acting', action };
@@ -126,9 +126,9 @@ Use cases receive `IInputPort`, return via `IOutputPort`. Never couple to specif
 | Type | Convention | Example |
 |------|------------|---------|
 | Interface (port) | `I` prefix | `IBrowserAutomation` |
-| Branded type | PascalCase | `TestRunId` |
+| Branded type | PascalCase | `RunId` |
 | Adapter | `*Adapter` suffix | `PlaywrightAdapter` |
-| Use case | `*UseCase` suffix | `RunTestUseCase` |
+| Use case | `*UseCase` suffix | `RunUseCase` |
 | Error | `*Error` suffix | `NavigationError` |
 
 ---

@@ -1,22 +1,15 @@
 {
   "headless": true,
+  "viewMode": "embedded",
   "viewport": {
     "width": 1280,
-    "height": 800
+    "height": 720
   },
   "ai": {
     "provider": "google",
     "model": "gemini-2.0-flash",
-    "visionEnabled": true,
-    "debugScreenshots": true
-  },
-  "selectorEngine": {
-    "strategyOrder": [
-      "fast",
-      "semantic",
-      "visual",
-      "heuristic"
-    ]
+    "visionEnabled": false,
+    "debugScreenshots": false
   },
   "paths": {
     "artifactsDir": "./artifacts",
@@ -24,6 +17,16 @@
   },
   "limits": {
     "maxSteps": 20,
-    "delayBetweenSteps": 1000
+    "delayBetweenSteps": 1000,
+    "maxReplansPerRun": 2
+  },
+  "plugins": {
+    "shell": {
+      "enabled": true
+    }
+  },
+  "reporting": {
+    "defaultFormat": "none",
+    "outputDir": "./reports"
   }
 }

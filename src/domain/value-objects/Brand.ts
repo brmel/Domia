@@ -1,20 +1,12 @@
 import { Result, ok, err } from 'neverthrow';
 import { ValidationError } from '../errors';
 
-/**
- * Branded type utility
- * Creates nominal types from primitive types to prevent mixing
- */
 declare const brand: unique symbol;
-export type Brand<T, B> = T & { readonly [brand]: B };
+type Brand<T, B> = T & { readonly [brand]: B };
 
-// Branded type definitions
 export type Url = Brand<string, 'Url'>;
-export type TestRunId = Brand<string, 'TestRunId'>;
-export type ElementId = Brand<number, 'ElementId'>;
-export type Selector = Brand<string, 'Selector'>;
+export type RunId = Brand<string, 'RunId'>;
 
-// Url factory
 export const UrlFactory = {
     create(value: string): Result<Url, ValidationError> {
         if (!value || value.trim() === '') {
@@ -32,27 +24,13 @@ export const UrlFactory = {
     },
 };
 
-// TestRunId factory
 import { nanoid } from 'nanoid';
 
-export const TestRunIdFactory = {
-    create(): TestRunId {
-        return nanoid() as TestRunId;
+export const RunIdFactory = {
+    create(): RunId {
+        return nanoid() as RunId;
     },
-    fromString(value: string): TestRunId {
-        return value as TestRunId;
-    },
-};
-
-// ElementId factory
-export const ElementIdFactory = {
-    create(value: number): Result<ElementId, ValidationError> {
-        if (!Number.isInteger(value) || value < 0) {
-            return err(new ValidationError(`Invalid element ID: ${value}`, 'elementId'));
-        }
-        return ok(value as ElementId);
-    },
-    unsafe(value: number): ElementId {
-        return value as ElementId;
+    fromString(value: string): RunId {
+        return value as RunId;
     },
 };

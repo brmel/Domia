@@ -1,10 +1,11 @@
-import type { IBrowserAutomation } from '../../../domain/ports';
-import type { IAppDriver } from '../../../domain/ports/IAppDriver';
+import type { IStructuredAutomation } from '@domain/ports';
+import type { IAppDriver } from '@domain/ports/IAppDriver';
 
 export interface PlatformSession {
     readonly executionUrl: string;
     readonly shouldNavigate: boolean;
-    readonly browser: IBrowserAutomation;
+    readonly automation: IStructuredAutomation;
     readonly driver?: IAppDriver;
+    readonly extras?: Readonly<Record<string, unknown>>;
     dispose(): Promise<void>;
 }

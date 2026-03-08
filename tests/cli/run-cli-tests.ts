@@ -12,9 +12,13 @@ function printBanner() {
 
 function printUsage() {
     console.log('Usage:');
-    console.log('  npm run test:cli              # All tests');
+    console.log('  npm run test:cli              # Web quality suite');
     console.log('  npm run test:cli -- web       # Web only');
-    console.log('  npm run test:cli -- electron  # Electron only\n');
+    console.log('  npm run test:cli -- electron  # Electron only');
+    console.log('  npm run test:cli -- counter   # Fast + Slow counter scenarios');
+    console.log('  npm run test:cli -- recording # Recording tools scenario');
+    console.log('  npm run test:cli -- shell     # Shell capability gate (enabled vs disabled)');
+    console.log('  npm run test:cli -- all       # Web + Electron + Counter + Recording + Shell\n');
 }
 
 async function runTest(testFile: string, testName: string): Promise<boolean> {
@@ -40,8 +44,9 @@ async function runTest(testFile: string, testName: string): Promise<boolean> {
 
 async function runTests() {
     printBanner();
-    
-    if (!process.env['GOOGLE_API_KEY'] && !process.env['GEMINI_API_KEY']) {
+
+    const requiresGoogleProvider = !platform || platform === 'web' || platform === 'electron' || platform === 'all';
+    if (requiresGoogleProvider && !process.env['GOOGLE_API_KEY'] && !process.env['GEMINI_API_KEY']) {
         console.log(chalk.red('Error: GOOGLE_API_KEY not set'));
         console.log('Set: export GOOGLE_API_KEY=your-key\n');
         process.exit(1);
@@ -50,13 +55,31 @@ async function runTests() {
     const results: { name: string; passed: boolean }[] = [];
     
     if (!platform || platform === 'web' || platform === 'all') {
-        const webPassed = await runTest('tests/cli/web-test.ts', 'Web Platform');
-        results.push({ name: 'Web', passed: webPassed });
+        const webSmokePassed = await runTest('tests/cli/web-test.ts', 'Web Platform Smoke');
+        results.push({ name: 'Web Smoke', passed: webSmokePassed });
+
+        const webFeaturesPassed = await runTest('tests/cli/web-features-test.ts', 'Web Platform Feature Suite');
+        results.push({ name: 'Web Features', passed: webFeaturesPassed });
     }
     
-    if (!platform || platform === 'electron' || platform === 'all') {
+    if (platform === 'electron' || platform === 'all') {
         const electronPassed = await runTest('tests/cli/electron-test.ts', 'Electron Platform');
         results.push({ name: 'Electron', passed: electronPassed });
+    }
+
+    if (platform === 'counter' || platform === 'all') {
+        const counterPassed = await runTest('tests/cli/counter-scenario-test.ts', 'Counter Scenarios (Fast + Slow)');
+        results.push({ name: 'Counter Scenarios', passed: counterPassed });
+    }
+
+    if (platform === 'recording' || platform === 'all') {
+        const recordingPassed = await runTest('tests/cli/recording-scenario-test.ts', 'Recording Tools Scenario');
+        results.push({ name: 'Recording Tools', passed: recordingPassed });
+    }
+
+    if (platform === 'shell' || platform === 'all') {
+        const shellPassed = await runTest('tests/cli/shell-capability-test.ts', 'Shell Capability Gate');
+        results.push({ name: 'Shell Capability', passed: shellPassed });
     }
     
     console.log(chalk.cyan('\nSummary:'));

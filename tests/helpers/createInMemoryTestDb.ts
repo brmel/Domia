@@ -1,0 +1,13 @@
+import { Kysely } from 'kysely';
+import { SqlJsDialect } from 'kysely-wasm';
+import type { Database as SqlJsDatabase } from 'sql.js';
+import { createInMemoryDatabase } from '@infrastructure/persistence/SqlJsProvider';
+import { initializeSchema } from '@infrastructure/persistence/SQLiteMigrationManager';
+import type { DatabaseSchema } from '@infrastructure/persistence/DatabaseSchema';
+
+export async function createInMemoryDb(): Promise<{ db: Kysely<DatabaseSchema>; raw: SqlJsDatabase }> {
+    const raw = await createInMemoryDatabase();
+    const db = new Kysely<DatabaseSchema>({ dialect: new SqlJsDialect({ database: raw }) });
+    initializeSchema(raw);
+    return { db, raw };
+}

@@ -4,8 +4,8 @@ import path from 'path';
 export default defineConfig({
     test: {
         globals: true,
-        include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
-        exclude: ['src/**/*.integration.test.ts', 'node_modules/**'],
+        include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+        exclude: ['tests/**/*.integration.test.ts', 'tests/_future/**', 'tests/component/**', 'node_modules/**'],
         coverage: {
             provider: 'v8',
             reporter: ['text', 'html', 'lcov'],

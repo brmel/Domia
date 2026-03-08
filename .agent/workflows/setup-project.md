@@ -30,16 +30,15 @@ npm install neverthrow
 # Dependency injection
 npm install tsyringe reflect-metadata
 
-# LLM integration (unified API)
-npm install ai @ai-sdk/anthropic @ai-sdk/openai
+# LLM integration (Google Gemini)
+npm install @google/generative-ai
 
 # Browser automation
 npm install playwright
 npx playwright install chromium
 
 # Storage
-npm install better-sqlite3
-npm install -D @types/better-sqlite3
+npm install sql.js kysely-wasm
 
 # State management
 npm install zustand
@@ -215,7 +214,7 @@ type Brand<T, B> = T & { readonly [brand]: B };
 
 export type Url = Brand<string, 'Url'>;
 export type ElementId = Brand<number, 'ElementId'>;
-export type TestRunId = Brand<string, 'TestRunId'>;
+export type RunId = Brand<string, 'RunId'>;
 
 export const Url = {
   create: (value: string): Result<Url, ValidationError> => {

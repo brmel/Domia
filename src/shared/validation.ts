@@ -1,10 +1,16 @@
 import { z } from 'zod';
-import { WebConfigSchema } from './validation/platforms/web';
-import { ElectronConfigSchema } from './validation/platforms/electron';
+import { WebConfigSchema, ElectronConfigSchema, AndroidConfigSchema, IosConfigSchema } from './validation/platforms';
+import {
+    MIN_RECORDING_DURATION_MS,
+    MAX_RECORDING_DURATION_MS,
+    MAX_RECORDING_INTERVAL_MS,
+} from '@shared/defaults';
 
 export const PlatformConfigSchema = z.discriminatedUnion('platform', [
   WebConfigSchema,
   ElectronConfigSchema,
+  AndroidConfigSchema,
+  IosConfigSchema,
 ]);
 
 export const RunOptionsSchema = z.object({
@@ -18,32 +24,11 @@ export const RunOptionsSchema = z.object({
   debug: z.boolean().optional(),
   vision: z.boolean().optional(),
   debugScreenshots: z.boolean().optional(),
-  recoveryMode: z.enum(['observe', 'manual-only', 'auto-safe']).optional(),
-  recoveryRunId: z.string().trim().min(1).optional(),
-  temporalObservation: z.boolean().optional(),
-  temporalMode: z.enum(['off', 'baseline', 'adaptive', 'forensic']).optional(),
-  temporalBurstFrames: z.number().int().positive().optional(),
-  temporalBaselineIntervalMs: z.number().int().positive().optional(),
-  temporalBurstIntervalMs: z.number().int().positive().optional(),
-  temporalMaxFramesPerWindow: z.number().int().positive().optional(),
-  temporalPromptTokenBudget: z.number().int().positive().optional(),
-  temporalRedactSensitive: z.boolean().optional(),
-  temporalPersistWindow: z.boolean().optional(),
-  preferredSkillId: z.string().trim().min(1).optional(),
-  allowedSkillTrustLevels: z.array(z.enum(['draft', 'verified', 'restricted'])).optional(),
-  pluginPreflight: z.object({
-    pluginId: z.string().trim().min(1),
-    capability: z.enum([
-      'ssh.read',
-      'ssh.exec',
-      'fs.read',
-      'fs.write',
-      'device.connect',
-      'device.read',
-      'device.control'
-    ])
-  }).optional(),
-  readinessMode: z.enum(['observe', 'soft-enforce']).optional()
+  readinessMode: z.enum(['observe', 'soft-enforce']).optional(),
+  readinessProfile: z.enum(['dev', 'staging', 'production']).optional(),
+  recording: z.boolean().optional(),
+  recordingMaxDurationMs: z.number().int().min(MIN_RECORDING_DURATION_MS).max(MAX_RECORDING_DURATION_MS).optional(),
+  recordingIntervalMs: z.number().int().min(MIN_RECORDING_DURATION_MS).max(MAX_RECORDING_INTERVAL_MS).optional(),
 });
 
 export const RunInputSchema = z.object({
@@ -51,8 +36,4 @@ export const RunInputSchema = z.object({
   prompt: z.string().trim().min(1, 'Prompt cannot be empty'),
   options: RunOptionsSchema.optional()
 });
-export type PlatformConfig = z.infer<typeof PlatformConfigSchema>;
 export type RunOptions = z.infer<typeof RunOptionsSchema>;
-
-export { WebConfigSchema } from './validation/platforms/web';
-export { ElectronConfigSchema } from './validation/platforms/electron';

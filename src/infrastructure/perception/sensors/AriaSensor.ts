@@ -1,31 +1,14 @@
 import { injectable } from 'tsyringe';
-import { Page } from 'playwright';
+import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 import { ISensor } from '@domain/ports/ISensor';
-import type { AriaNode } from '@domain/value-objects/AriaNode';
+import { CONTENT_READY_TIMEOUT_MS } from '@shared/defaults';
 
 @injectable()
-export class AriaSensor implements ISensor<AriaNode | null> {
+export class AriaSensor implements ISensor<string> {
     public readonly name = 'AriaSensor';
 
-    async capture(page: Page): Promise<AriaNode | null> {
-        if (!page) {
-            return null;
-        }
-
-        const pageWithAccessibility = page as unknown as {
-            accessibility?: {
-                snapshot(options: { interestingOnly: boolean }): Promise<AriaNode | null>;
-            };
-        };
-        const accessibility = pageWithAccessibility.accessibility;
-        if (!accessibility) {
-            return null;
-        }
-
-        try {
-            return await accessibility.snapshot({ interestingOnly: false });
-        } catch {
-            return null;
-        }
+    async capture(source: IPerceptionSource): Promise<string> {
+        await source.waitForContentReady(CONTENT_READY_TIMEOUT_MS);
+        return source.getAriaSnapshot();
     }
 }

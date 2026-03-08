@@ -1,1 +1,1 @@
-export { RunTestUseCase } from './RunTestUseCase';
+export { RunUseCase } from './RunUseCase';

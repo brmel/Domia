@@ -1,0 +1,3 @@
+export const MAX_LOG_CONTEXT_LENGTH = 4096;
+export const FINAL_RESPONSE_LOG_CHARS = 200;
+export const TOOL_TIME_LOG_THRESHOLD_MS = 1000;

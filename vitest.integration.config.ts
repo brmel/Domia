@@ -4,8 +4,8 @@ import path from 'path';
 export default defineConfig({
     test: {
         globals: true,
-        include: ['src/**/*.integration.test.ts', 'tests/**/*.integration.test.ts'],
-        exclude: ['node_modules/**'],
+        include: ['tests/**/*.integration.test.ts'],
+        exclude: ['tests/_future/**', 'node_modules/**'],
         testTimeout: 120000, // 2 minute timeout for integration tests
     },
     resolve: {

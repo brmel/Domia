@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Flash Notifications Test</title>
+    <style>
+      body { font-family: system-ui; margin: 24px; background: #f0f4f8; }
+      .card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; max-width: 600px; }
+      h1 { margin-top: 0; }
+      #status { font-size: 18px; font-weight: 600; margin: 12px 0; padding: 8px 12px; border-radius: 6px; background: #edf2f7; }
+      #toast-area { margin-top: 16px; min-height: 40px; }
+      .toast { padding: 8px 16px; background: #38a169; color: white; border-radius: 6px; margin: 4px 0; font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Flash Notifications</h1>
+      <p>Click "Run Process" to trigger 5 notifications. Each flashes for 400ms then disappears.</p>
+      <button id="run-btn">Run Process</button>
+      <div id="status">Idle</div>
+      <div id="toast-area" role="log" aria-label="Notifications"></div>
+    </main>
+
+    <script>
+      const statusEl = document.getElementById('status');
+      const toastArea = document.getElementById('toast-area');
+      const messages = [
+        'Order #1001 confirmed',
+        'Payment processed: $42.99',
+        'Inventory updated: Widget-X',
+        'Email sent to customer',
+        'Workflow complete'
+      ];
+
+      document.getElementById('run-btn').addEventListener('click', () => {
+        statusEl.textContent = 'Processing...';
+        let i = 0;
+        const timer = setInterval(() => {
+          if (i >= messages.length) {
+            clearInterval(timer);
+            statusEl.textContent = 'Done — all notifications were shown';
+            return;
+          }
+          // Show toast
+          const toast = document.createElement('div');
+          toast.className = 'toast';
+          toast.setAttribute('role', 'status');
+          toast.textContent = messages[i];
+          toastArea.appendChild(toast);
+          // Remove after 400ms (transient!)
+          setTimeout(() => toast.remove(), 400);
+          i++;
+        }, 600);
+      });
+    </script>
+  </body>
+</html>

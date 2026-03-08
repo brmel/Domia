@@ -1,23 +1,24 @@
 import { inject, injectable } from 'tsyringe';
-import type { RunTestInput } from '../../dtos';
-import type { ILogger, IBrowserAutomation } from '../../../domain/ports';
-import { WorkflowError } from '../../../domain/errors';
-import { AppDriverFactory } from '../../../infrastructure/adapters/drivers/AppDriverFactory';
-import type { DriverConfig } from '../../../infrastructure/adapters/drivers/AppDriverFactory';
+import type { RunInput } from '../../dtos';
+import type { ILogger, IStructuredAutomation } from '@domain/ports';
+import { WorkflowError } from '@domain/errors';
+import type { IAppDriverFactory, AppDriverCreateOptions } from '@domain/ports/IAppDriverFactory';
 import type { PlatformSession } from './PlatformSession';
+import { resolveUrlFromConfig } from './platformUrlUtils';
+import { ElectronDriver } from '@infrastructure/drivers/ElectronDriver';
 
 @injectable()
 export class PlatformSessionFactory {
     constructor(
-        @inject(AppDriverFactory) private readonly driverFactory: AppDriverFactory,
+        @inject('IAppDriverFactory') private readonly driverFactory: IAppDriverFactory,
         @inject('ILogger') private readonly logger: ILogger
     ) {}
 
-    async createSession(input: RunTestInput): Promise<PlatformSession> {
+    async createSession(input: RunInput): Promise<PlatformSession> {
         return this.createPlatformSession(input);
     }
 
-    private async createPlatformSession(input: RunTestInput): Promise<PlatformSession> {
+    private async createPlatformSession(input: RunInput): Promise<PlatformSession> {
         const platformConfig = input.platformConfig;
 
         this.logger.info(`[PlatformSessionFactory] Creating session for platform: ${platformConfig.platform}`);
@@ -29,52 +30,45 @@ export class PlatformSessionFactory {
             ...(driverOptions ? { options: driverOptions } : {})
         });
 
-        let browser: IBrowserAutomation;
+        let automation: IStructuredAutomation;
 
         try {
-            browser = driver.getBrowserAutomation();
+            automation = driver.getAutomation();
         } catch (error) {
             await driver.disconnect().catch(() => undefined);
             const message = error instanceof Error ? error.message : String(error);
-            throw new WorkflowError(`Driver is connected but browser automation bridge is unavailable: ${message}`);
+            throw new WorkflowError(`Driver is connected but automation bridge is unavailable: ${message}`);
         }
 
-        const executionUrl = this.getExecutionUrlFromInput(input);
-        const shouldNavigate = platformConfig.platform === 'web';
+        const executionUrl = resolveUrlFromConfig(input.platformConfig);
+        const shouldNavigate = platformConfig.platform === 'web'
+            || (platformConfig.platform === 'electron' && 'startUrl' in platformConfig && !!platformConfig.startUrl);
+
+        const extras: Record<string, unknown> = {};
+        if (driver instanceof ElectronDriver) {
+            extras['windowManager'] = driver.windowManager;
+        }
 
         return {
             executionUrl,
             shouldNavigate,
-            browser,
+            automation,
             driver,
-            dispose: async () => {
-                await driver.disconnect().catch(err => {
+            extras,
+            dispose: async (): Promise<void> => {
+                await driver.disconnect().catch((err): void => {
                     this.logger.warn(`[PlatformSessionFactory] Error disconnecting driver: ${String(err)}`);
                 });
             }
         };
     }
 
-    private getExecutionUrlFromInput(input: RunTestInput): string {
-        if (input.platformConfig?.platform === 'web') {
-            return input.platformConfig.url;
-        }
-
-        if (input.platformConfig?.platform === 'electron') {
-            return input.platformConfig.connection.type === 'cdp'
-                ? input.platformConfig.connection.cdpUrl
-                : 'electron://app';
-        }
-
-        throw new WorkflowError('Unable to resolve execution URL from provided input');
-    }
-
-    private toDriverOptions(options: RunTestInput['options']): DriverConfig['options'] | undefined {
+    private toDriverOptions(options: RunInput['options']): AppDriverCreateOptions | undefined {
         if (!options) {
             return undefined;
         }
 
-        const driverOptions: DriverConfig['options'] = {
+        const driverOptions: AppDriverCreateOptions = {
             ...(options.headless !== undefined ? { headless: options.headless } : {}),
             ...(options.maxSteps !== undefined ? { maxSteps: options.maxSteps } : {}),
             ...(options.vision !== undefined ? { vision: options.vision } : {}),

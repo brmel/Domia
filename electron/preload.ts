@@ -3,14 +3,12 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 process.once('loaded', async () => {
   exposeElectronTRPC();
+});
 
-  contextBridge.exposeInMainWorld('electron', {
-    agentView: {
-      resize: (bounds: { x: number; y: number; width: number; height: number }) =>
-        ipcRenderer.send('agent-view:resize', bounds),
-      show: (bounds: { x: number; y: number; width: number; height: number }) =>
-        ipcRenderer.send('agent-view:show', bounds),
-      hide: () => ipcRenderer.send('agent-view:hide'),
-    }
-  });
+contextBridge.exposeInMainWorld('electron', {
+  agentView: {
+    setBounds: (bounds: { x: number; y: number; width: number; height: number }) =>
+      ipcRenderer.invoke('agent-view:set-bounds', bounds),
+    clear: () => ipcRenderer.invoke('agent-view:clear'),
+  },
 });

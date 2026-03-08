@@ -2,6 +2,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import * as net from 'net';
+import { readdir, stat } from 'fs/promises';
 
 export async function getFreePort(): Promise<number> {
     return new Promise((resolve, reject) => {
@@ -24,10 +25,18 @@ export interface CLITestConfig {
     executablePath?: string;
     launchArgs?: string[];
     prompt: string;
+    model?: string;
+    apiKey?: string;
     maxSteps?: number;
     headless?: boolean;
     vision?: boolean;
     screenshots?: boolean;
+    verbose?: boolean;
+    debug?: boolean;
+    plugins?: {
+        /** When explicitly set to false, passes --no-shell to the CLI. */
+        shell?: boolean;
+    };
 }
 
 export interface CLITestResult {
@@ -36,6 +45,7 @@ export interface CLITestResult {
     errors: string[];
     duration: number;
     exitCode: number;
+    runId?: string;
 }
 
 export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> {
@@ -68,10 +78,8 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
             }
         } else if (config.executablePath) {
             args.push('--executable-path', config.executablePath);
-            if (config.launchArgs) {
-                // Join args with comma for CLI parsing compatibility if needed, or pass multiple fields?
-                // RunCommand expects comma-separated string for --launch-args
-                args.push('--launch-args', config.launchArgs.join(','));
+            if (config.launchArgs?.length) {
+                args.push('--launch-args', ...config.launchArgs);
             }
             if (config.windowTitle) {
                 args.push('--window-title', config.windowTitle);
@@ -80,6 +88,14 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
         
         args.push('--prompt', config.prompt);
         args.push('--steps', String(config.maxSteps ?? 5));
+
+        if (config.model) {
+            args.push('--model', config.model);
+        }
+
+        if (config.apiKey) {
+            args.push('--api-key', config.apiKey);
+        }
         
         if (!config.headless) {
             args.push('--no-headless');
@@ -91,6 +107,18 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
         
         if (config.screenshots) {
             args.push('--screenshots');
+        }
+
+        if (config.verbose) {
+            args.push('--verbose');
+        }
+
+        if (config.debug) {
+            args.push('--debug');
+        }
+
+        if (config.plugins?.shell === false) {
+            args.push('--no-shell');
         }
         
         const result = await spawnCLI(args, envUpdates);
@@ -111,7 +139,8 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
             output,
             errors,
             duration,
-            exitCode: result.exitCode
+            exitCode: result.exitCode,
+            ...(extractRunId(output) ? { runId: extractRunId(output) as string } : {})
         };
     } catch (error) {
         const duration = Date.now() - startTime;
@@ -123,6 +152,80 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
             exitCode: 1
         };
     }
+}
+
+function extractRunId(output: string): string | undefined {
+    const jsonMatch = output.match(/"id"\s*:\s*"([A-Za-z0-9_-]+)"/);
+    if (jsonMatch?.[1]) {
+        return jsonMatch[1];
+    }
+
+    const runIdMatch = output.match(/"runId"\s*:\s*"([A-Za-z0-9_-]+)"/);
+    if (runIdMatch?.[1]) {
+        return runIdMatch[1];
+    }
+
+    return undefined;
+}
+
+export async function runCLICommand(args: string[], extraEnv: Record<string, string> = {}): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+    return spawnCLI(args, extraEnv);
+}
+
+export async function getLarunId(): Promise<string | null> {
+    const result = await runCLICommand(['history', 'list', '--limit', '1']);
+    if (result.exitCode !== 0) {
+        return null;
+    }
+
+    const outputLines = (result.stdout + result.stderr)
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+    const candidate = outputLines.find((line) => line.includes('|'));
+    if (!candidate) {
+        return null;
+    }
+
+    const match = candidate.match(/^([^\s|]+)\s*\|/);
+    return match?.[1] || null;
+}
+
+export async function findRunStepAsset(runId: string, suffix: string): Promise<string | null> {
+    const stepsDir = join(process.cwd(), 'artifacts', runId, 'steps');
+    if (!existsSync(stepsDir)) {
+        return null;
+    }
+
+    const files = await readdir(stepsDir);
+    const candidates = files
+        .filter((name) => name.endsWith(suffix))
+        .map((name) => join(stepsDir, name));
+
+    if (candidates.length === 0) {
+        return null;
+    }
+
+    const withStats = await Promise.all(candidates.map(async (filePath) => ({
+        filePath,
+        fileStat: await stat(filePath)
+    })));
+
+    withStats.sort((a, b) => b.fileStat.mtimeMs - a.fileStat.mtimeMs);
+    return withStats[0]?.filePath || null;
+}
+
+export async function listRunStepAssets(runId: string, suffix: string): Promise<string[]> {
+    const stepsDir = join(process.cwd(), 'artifacts', runId, 'steps');
+    if (!existsSync(stepsDir)) {
+        return [];
+    }
+
+    const files = await readdir(stepsDir);
+    return files
+        .filter((name) => name.endsWith(suffix))
+        .map((name) => join(stepsDir, name));
 }
 
 function spawnCLI(args: string[], extraEnv: Record<string, string> = {}): Promise<{ stdout: string; stderr: string; exitCode: number }> {
@@ -137,8 +240,6 @@ function spawnCLI(args: string[], extraEnv: Record<string, string> = {}): Promis
         
         cli.stdout?.on('data', (data) => {
             const str = data.toString();
-            // Filter noise
-            if (str.includes('[WARN] [LangChainAdapter] validation failed')) return;
             stdout += str;
             process.stdout.write(data);
         });
@@ -147,7 +248,6 @@ function spawnCLI(args: string[], extraEnv: Record<string, string> = {}): Promis
             const str = data.toString();
             // Filter noise
             if (str.includes('[DEP0190]') || str.includes('DeprecationWarning')) return;
-            if (str.includes('[WARN] [LangChainAdapter] validation failed')) return;
             stderr += str;
             process.stderr.write(data);
         });

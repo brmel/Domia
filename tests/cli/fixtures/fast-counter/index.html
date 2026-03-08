@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fast Counter Test</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f0f4f8;
+        color: #1a202c;
+      }
+      .card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 800px;
+      }
+      h1 { margin-top: 0; }
+      #status {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 12px 0;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: #edf2f7;
+      }
+      #number-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 16px;
+      }
+      .number-cell {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 32px;
+        border: 1px solid #cbd5e0;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 500;
+        background: #f0fff4;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Fast Process Simulator</h1>
+      <p>Click "Start" to run a fast process that briefly displays numbers 1 through 50.
+         Each number appears for only a few milliseconds before being replaced by the next.</p>
+      <button id="start-btn">Start</button>
+      <div id="status" aria-live="polite">Status: Ready</div>
+      <div id="number-grid" role="list" aria-label="Number display"></div>
+    </main>
+
+    <script>
+      const statusEl = document.getElementById('status');
+      const gridEl = document.getElementById('number-grid');
+      const TOTAL = 50;
+      const SKIP = 37;         // Silently skip number 37
+      const INTERVAL_MS = 10;  // 10ms per number — 500ms total
+
+      document.getElementById('start-btn').addEventListener('click', function () {
+        this.disabled = true;
+        statusEl.textContent = 'Status: Processing...';
+        let current = 0;
+
+        const timer = setInterval(function () {
+          current++;
+          if (current > TOTAL) {
+            clearInterval(timer);
+            gridEl.innerHTML = '';   // Clear the grid — numbers were transient
+            statusEl.textContent = 'Status: Process complete';
+            return;
+          }
+          if (current === SKIP) return;  // Skip silently — never displayed
+
+          // Replace mode — only one number visible at a time
+          gridEl.innerHTML = '';
+          var cell = document.createElement('span');
+          cell.className = 'number-cell';
+          cell.setAttribute('role', 'listitem');
+          cell.textContent = String(current);
+          gridEl.appendChild(cell);
+        }, INTERVAL_MS);
+      });
+    </script>
+  </body>
+</html>
