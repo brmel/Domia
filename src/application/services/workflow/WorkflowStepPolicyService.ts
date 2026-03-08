@@ -1,12 +1,12 @@
 import { injectable } from 'tsyringe';
 import type { WorkflowStepDefinition } from '@domain/entities/Workflow';
 
-export interface StepExecutionPolicy {
+interface StepExecutionPolicy {
     readonly maxAttempts: number;
     readonly timeoutMs: number;
 }
 
-export interface StepExecutionResult {
+interface StepExecutionResult {
     readonly success: boolean;
     readonly summary?: string;
     readonly runId?: string;

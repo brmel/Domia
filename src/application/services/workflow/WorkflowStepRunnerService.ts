@@ -5,13 +5,13 @@ import { ExecutionController } from '@application/ExecutionController';
 import type { PlatformSession } from '@application/services/platform/PlatformSession';
 import { PlatformSessionFactory } from '@application/services/platform/PlatformSessionFactory';
 
-export interface WorkflowStepExecutionResult {
+interface WorkflowStepExecutionResult {
     readonly success: boolean;
     readonly summary?: string;
     readonly runId?: string;
 }
 
-export interface WorkflowStepRuntimeContext {
+interface WorkflowStepRuntimeContext {
     readonly session: PlatformSession;
     readonly shouldNavigate: boolean;
 }

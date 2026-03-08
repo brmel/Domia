@@ -2,30 +2,30 @@ import { inject, injectable } from 'tsyringe';
 import type { IConfigService, ILogger } from '@domain/ports';
 import type { RunOptions } from '@shared/validation';
 
-export type RuntimeReadinessMode = 'observe' | 'soft-enforce';
-export type RuntimeReadinessProfile = 'dev' | 'staging' | 'production';
+type RuntimeReadinessMode = 'observe' | 'soft-enforce';
+type RuntimeReadinessProfile = 'dev' | 'staging' | 'production';
 
-export interface ReadinessGate {
+interface ReadinessGate {
     readonly id: string;
     readonly description: string;
     readonly required: boolean;
     readonly passed: boolean;
 }
 
-export interface ReadinessReport {
+interface ReadinessReport {
     readonly passed: boolean;
     readonly failedRequiredGateIds: readonly string[];
     readonly gates: readonly ReadinessGate[];
 }
 
-export interface RuntimeReadinessDecision {
+interface RuntimeReadinessDecision {
     readonly mode: RuntimeReadinessMode;
     readonly blocked: boolean;
     readonly report: ReadinessReport;
     readonly message?: string;
 }
 
-export interface RuntimeReadinessInput {
+interface RuntimeReadinessInput {
     readonly prompt: string;
     readonly options?: RunOptions;
 }

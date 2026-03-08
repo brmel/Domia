@@ -2,7 +2,7 @@ import { injectable } from 'tsyringe';
 import type { BuiltInPlatformType } from '@domain/types/PlatformConfig';
 import type { WorkflowStepDefinition } from '@domain/entities/Workflow';
 
-export type CapabilityFamily =
+type CapabilityFamily =
     | 'navigate'
     | 'locate'
     | 'interact'
@@ -11,16 +11,16 @@ export type CapabilityFamily =
     | 'app-control'
     | 'system-control';
 
-export type CapabilitySupport = 'supported' | 'degraded' | 'unsupported';
-export type CapabilityPlatform = BuiltInPlatformType;
+type CapabilitySupport = 'supported' | 'degraded' | 'unsupported';
+type CapabilityPlatform = BuiltInPlatformType;
 
-export interface CapabilityDecision {
+interface CapabilityDecision {
     readonly capability: CapabilityFamily;
     readonly support: CapabilitySupport;
     readonly reason: string;
 }
 
-export interface StepCapabilityAssessment {
+interface StepCapabilityAssessment {
     readonly requiredCapabilities: readonly CapabilityFamily[];
     readonly decisions: readonly CapabilityDecision[];
     readonly blocked: boolean;

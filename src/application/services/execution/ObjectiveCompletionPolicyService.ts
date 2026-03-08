@@ -1,7 +1,7 @@
 import type { Plan } from '@domain/entities/Plan';
 import type { WorkflowExecutionGraph } from '@domain/value-objects/ExecutionGraph';
 
-export interface ObjectiveCompletionAssessment {
+interface ObjectiveCompletionAssessment {
     readonly success: boolean;
     readonly summary: string;
     readonly unmetObjectives: readonly string[];

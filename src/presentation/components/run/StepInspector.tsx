@@ -136,7 +136,7 @@ export function StepInspector(): JSX.Element | null {
                         <InspectorContent
                             beforeArtifacts={prevArtifactsQuery.data ?? {}}
                             afterArtifacts={artifactsQuery.data ?? {}}
-                            stepDetail={stepDetailQuery.data ?? undefined}
+                            stepDetail={stepDetailQuery.data}
                         />
                     )}
                 </div>

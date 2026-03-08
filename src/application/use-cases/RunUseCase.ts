@@ -28,7 +28,7 @@ import type { RunLifecycleState } from '@domain/value-objects/RunLifecycle';
 import type { PlatformSession } from '../services/platform/PlatformSession';
 import type { ReplanningTrigger } from '../services/execution/ReplanningPolicyService';
 
-export interface RunExecutionContext {
+interface RunExecutionContext {
     readonly session?: PlatformSession;
     readonly shouldNavigate?: boolean;
     readonly disposeSessionOnComplete?: boolean;

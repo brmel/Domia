@@ -11,13 +11,9 @@ export type PromptKey =
     | 'shellAvailableRule'
     | 'shellUnavailableRule';
 
-/**
- * Type-safe key for overriding built-in tool descriptions in config/prompts.
- * Derived from `BuiltInToolName` — the single source of truth for tool names.
- */
-export type ToolDescriptionKey = BuiltInToolName;
+type ToolDescriptionKey = BuiltInToolName;
 
-export interface PromptOverrides {
+interface PromptOverrides {
     readonly prompts?: Partial<Record<PromptKey, string>> | undefined;
     readonly toolDescriptions?: Partial<Record<ToolDescriptionKey, string>> | undefined;
 }

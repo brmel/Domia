@@ -6,7 +6,7 @@ import { DEFAULT_MAX_ACTIONS } from '@shared/defaults';
 
 export type { StepExecutionResult } from '@domain/ports/IAgentRunner';
 
-export type AgentActionEvent =
+type AgentActionEvent =
     | { readonly type: 'action'; readonly action: AgentAction }
     | { readonly type: 'thinking_chunk'; readonly text: string }
     | { readonly type: 'screenshot'; readonly data: string };

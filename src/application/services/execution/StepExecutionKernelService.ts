@@ -13,13 +13,13 @@ import type { IRunRepository } from '@domain/ports/IRunRepository';
 import type { ExecutionController } from '../../ExecutionController';
 import { randomUUID } from 'crypto';
 
-export interface KernelRuntime {
+interface KernelRuntime {
     readonly budgetLimits: RunBudgetLimits;
     readonly runStartMs: number;
     estimatedTokensUsed: number;
 }
 
-export interface KernelResult {
+interface KernelResult {
     state: WorkflowState;
     result: StepExecutionResult;
     estimatedTokensUsed: number;

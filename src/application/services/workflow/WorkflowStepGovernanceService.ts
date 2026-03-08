@@ -2,7 +2,7 @@ import { inject, injectable } from 'tsyringe';
 import type { WorkflowDefinition, WorkflowStepDefinition } from '@domain/entities/Workflow';
 import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
 
-export type StepGovernanceDecision =
+type StepGovernanceDecision =
     | { allowed: true }
     | {
         allowed: false;

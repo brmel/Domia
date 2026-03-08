@@ -3,7 +3,7 @@ import type { ILogger } from '@domain/ports';
 import type { RunInput } from '@application/dtos';
 import { DEFAULT_MAX_ACTIONS, DEFAULT_MAX_DURATION_MS, DEFAULT_MAX_ESTIMATED_TOKENS } from '@shared/defaults';
 
-export type RunBudgetDimension = 'actions' | 'duration' | 'tokens';
+type RunBudgetDimension = 'actions' | 'duration' | 'tokens';
 
 export interface RunBudgetLimits {
     readonly maxActions: number;
@@ -11,13 +11,13 @@ export interface RunBudgetLimits {
     readonly maxEstimatedTokens: number;
 }
 
-export interface RunBudgetSnapshot {
+interface RunBudgetSnapshot {
     readonly actionsTaken: number;
     readonly elapsedMs: number;
     readonly estimatedTokensUsed: number;
 }
 
-export interface RunBudgetAssessment {
+interface RunBudgetAssessment {
     readonly status: 'ok' | 'exceeded';
     readonly exceeded: readonly RunBudgetDimension[];
 }

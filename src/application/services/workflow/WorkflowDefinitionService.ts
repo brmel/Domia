@@ -6,7 +6,7 @@ import type { WorkflowDefinition, WorkflowStepDefinition } from '@domain/entitie
 import type { PlatformConfig } from '@domain/types/PlatformConfig';
 import type { RunOptions } from '@shared/validation';
 
-export interface CreateWorkflowDefinitionRequest {
+interface CreateWorkflowDefinitionRequest {
     readonly name: string;
     readonly description?: string;
     readonly platformConfig: PlatformConfig;
@@ -18,7 +18,7 @@ export interface CreateWorkflowDefinitionRequest {
     }>;
 }
 
-export interface UpdateWorkflowDefinitionRequest {
+interface UpdateWorkflowDefinitionRequest {
     readonly id: string;
     readonly name: string;
     readonly description?: string;

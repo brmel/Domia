@@ -4,18 +4,18 @@ import { DEFAULT_MAX_REPLANS_PER_RUN } from '@shared/defaults';
 
 export type ReplanningTrigger = 'loop_detected' | 'action_execution_error' | 'assertion_fail' | 'max_actions_reached';
 
-export interface ReplanningPolicyLimits {
+interface ReplanningPolicyLimits {
     readonly mode: 'active';
     readonly maxReplansPerRun: number;
 }
 
-export interface ReplanningAssessmentInput {
+interface ReplanningAssessmentInput {
     readonly runId: string;
     readonly replanCount: number;
     readonly trigger?: ReplanningTrigger;
 }
 
-export interface ReplanningAssessment {
+interface ReplanningAssessment {
     readonly mode: 'active';
     readonly shouldReplan: boolean;
     readonly reason: string;
