@@ -1,9 +1,5 @@
 import { injectable } from 'tsyringe';
-
-interface LaneQueue {
-    locked: boolean;
-    waiters: Array<() => void>;
-}
+import AsyncLock from 'async-lock';
 
 export interface RunExecutionLaneService {
     acquire(laneKey: string): Promise<() => void>;
@@ -11,37 +7,19 @@ export interface RunExecutionLaneService {
 
 @injectable()
 export class InMemoryRunExecutionLaneService implements RunExecutionLaneService {
-    private readonly lanes = new Map<string, LaneQueue>();
+    private readonly lock = new AsyncLock();
 
     async acquire(laneKey: string): Promise<() => void> {
-        const key = laneKey.trim();
-        const queue = this.lanes.get(key) ?? { locked: false, waiters: [] };
-        this.lanes.set(key, queue);
+        let releaseFn!: () => void;
+        const releasePromise = new Promise<void>(resolve => { releaseFn = resolve; });
 
-        if (queue.locked) {
-            await new Promise<void>((resolve) => {
-                queue.waiters.push(resolve);
+        await new Promise<void>(resolve => {
+            this.lock.acquire(laneKey.trim(), () => {
+                resolve();
+                return releasePromise;
             });
-        }
+        });
 
-        queue.locked = true;
-
-        let released = false;
-        return () => {
-            if (released) {
-                return;
-            }
-
-            released = true;
-
-            const next = queue.waiters.shift();
-            if (next) {
-                next();
-                return;
-            }
-
-            queue.locked = false;
-            this.lanes.delete(key);
-        };
+        return releaseFn;
     }
 }
