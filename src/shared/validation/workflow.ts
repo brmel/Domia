@@ -39,5 +39,3 @@ export const StartWorkflowRunInputSchema = z.object({
 export const GetWorkflowRunDetailsInputSchema = z.object({
     workflowRunId: z.string().trim().min(1)
 });
-
-

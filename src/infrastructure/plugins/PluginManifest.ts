@@ -3,21 +3,12 @@ import type { ActionType } from '@domain/enums';
 import type { PlatformType } from '@domain/types/PlatformConfig';
 import type { ToolSpec } from '../tools/ToolSpec';
 
-// ---------------------------------------------------------------------------
-// PluginName — nominal brand prevents confusing arbitrary strings with a
-// registered plugin's identity.
-// ---------------------------------------------------------------------------
 declare const __pluginNameBrand: unique symbol;
-/** Nominal type for a validated plugin name. Construct via `asPluginName()`. */
 export type PluginName = string & { readonly [__pluginNameBrand]: void };
-/** Cast a raw string to `PluginName` — call only after validation. */
 export function asPluginName(name: string): PluginName {
     return name as PluginName;
 }
 
-// ---------------------------------------------------------------------------
-// Validation
-// ---------------------------------------------------------------------------
 const PluginToolSchema = z.object({
     name: z.string().min(1),
     description: z.string().min(1),

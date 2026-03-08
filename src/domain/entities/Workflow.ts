@@ -48,4 +48,3 @@ export interface WorkflowStepRunRecord {
     readonly startedAt: string;
     readonly completedAt?: string;
 }
-

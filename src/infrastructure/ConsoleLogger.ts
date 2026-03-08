@@ -5,7 +5,6 @@ import { MAX_LOG_CONTEXT_LENGTH } from '@shared/defaults';
 
 @injectable()
 export class ConsoleLogger implements ILogger {
-    private static readonly MAX_CONTEXT_LENGTH = MAX_LOG_CONTEXT_LENGTH;
     private level: LogLevel = LogLevel.INFO;
 
     private formatMessage(level: string, message: string): string {
@@ -15,8 +14,8 @@ export class ConsoleLogger implements ILogger {
 
     private formatContext(context: Record<string, unknown>): string {
         const raw = JSON.stringify(context, null, 2);
-        if (raw.length <= ConsoleLogger.MAX_CONTEXT_LENGTH) return raw;
-        return raw.slice(0, ConsoleLogger.MAX_CONTEXT_LENGTH) + `\n... [truncated ${raw.length - ConsoleLogger.MAX_CONTEXT_LENGTH} chars]`;
+        if (raw.length <= MAX_LOG_CONTEXT_LENGTH) return raw;
+        return raw.slice(0, MAX_LOG_CONTEXT_LENGTH) + `\n... [truncated ${raw.length - MAX_LOG_CONTEXT_LENGTH} chars]`;
     }
 
     setLevel(level: LogLevel): void {

@@ -1,4 +1,4 @@
-export type { ActionRecordingData, ActionRecordingFrameData } from './ActionRecordingTypes';
+export type { ActionRecordingData } from './ActionRecordingTypes';
 export type {
     BuiltInPlatformType,
     PlatformType,

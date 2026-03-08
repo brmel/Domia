@@ -48,17 +48,9 @@ export const HIGHLIGHT_DURATION_MS = 1_000;
 // ── Window scoring ───────────────────────────────────────────────────
 
 export const WINDOW_SCORE_DEVTOOLS_PENALTY = 100;
-
-/** Penalty for about:blank or chrome:// URLs. */
 export const WINDOW_SCORE_BLANK_PENALTY = 20;
-
-/** Bonus for file://, http://, or https:// URLs. */
 export const WINDOW_SCORE_PROTOCOL_BONUS = 10;
-
-/** Bonus for windows with a meaningful title. */
 export const WINDOW_SCORE_TITLE_BONUS = 5;
-
-/** Bonus for titles containing "domia" or "agent". */
 export const WINDOW_SCORE_DOMIA_BONUS = 10;
 
 // ── Plugins ──────────────────────────────────────────────────────────

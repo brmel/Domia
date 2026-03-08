@@ -7,11 +7,7 @@ export type {
 	CheckpointCompactionPolicy,
 	CompactedCheckpointView,
 } from './CheckpointReadModel';
-export type {
-	WorkflowExecutionGraph,
-	GraphNode,
-	GraphNodeState
-} from './ExecutionGraph';
+export type { WorkflowExecutionGraph } from './ExecutionGraph';
 export { ExecutionGraph } from './ExecutionGraph';
 export type { PerceptionFrame } from './PerceptionFrame';
 export type { RunLifecycleState, RunCheckpointReason } from './RunLifecycle';

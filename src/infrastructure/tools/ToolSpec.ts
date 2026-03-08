@@ -11,9 +11,7 @@ import type { ElectronWindowManager } from '../drivers/ElectronWindowManager';
 import type { ITabManager } from '@domain/ports/ITabManager';
 
 export interface ToolSpec {
-    /** Unique tool identifier. Built-in names autocomplete; plugins may add any string. */
     readonly name: ToolName;
-    /** Semantic grouping — used for docs and recording opt-in. */
     readonly category?: ToolCategory;
     readonly description: string;
     readonly actionType: import('@domain/enums').ActionType;

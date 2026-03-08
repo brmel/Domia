@@ -495,4 +495,3 @@ function RawTab({ trace, stepDetail, afterArtifacts }: {
         </div>
     );
 }
-

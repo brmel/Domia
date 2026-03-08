@@ -4,7 +4,7 @@ import { ok, err } from 'neverthrow';
 import { createElectronTools } from '@infrastructure/tools/catalog/electron.tools';
 import type { ElectronWindowManager, ElectronWindow } from '@infrastructure/drivers/ElectronWindowManager';
 import { ActionType } from '@domain/enums';
-import { ValidationError } from '@domain/CDPValidator';
+import { ValidationError } from '@domain/errors';
 
 function makeWindow(id: string, title: string, url: string): ElectronWindow {
     return { id, page: {} as import('playwright').Page, title, url };

@@ -1,4 +1,4 @@
-export abstract class DomainError extends Error {
+abstract class DomainError extends Error {
     abstract readonly code: string;
 
     constructor(message: string) {
@@ -11,13 +11,6 @@ export abstract class DomainError extends Error {
 export class ValidationError extends DomainError {
     readonly code = 'VALIDATION_ERROR';
     constructor(message: string, readonly field?: string) {
-        super(message);
-    }
-}
-
-export class ConfigurationError extends DomainError {
-    readonly code = 'CONFIGURATION_ERROR';
-    constructor(message: string) {
         super(message);
     }
 }

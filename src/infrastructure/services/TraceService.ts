@@ -6,8 +6,6 @@ import { ITraceExporter } from '@domain/ports/ITraceExporter';
 export class TraceService implements ITraceService {
     private exporters: ITraceExporter[] = [];
 
-    constructor() { }
-
     addExporter(exporter: ITraceExporter): void {
         if (this.exporters.some(existing => existing.name === exporter.name)) {
             return;

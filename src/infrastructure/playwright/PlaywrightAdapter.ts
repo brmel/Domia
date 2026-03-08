@@ -16,7 +16,6 @@ import type { BrowserPool } from './BrowserPool';
 const BROWSER_NOT_LAUNCHED = 'Browser not launched';
 const TAG = '[PlaywrightAdapter]';
 
-/** Wrap a promise as ResultAsync<T, InteractionError> with a consistent message. */
 function wrapInteraction<T>(promise: Promise<T>, label: string, ref?: string): ResultAsync<T, InteractionError> {
     return ResultAsync.fromPromise(promise, (e) => new InteractionError(`${label} failed: ${String(e)}`, ref));
 }
@@ -32,7 +31,6 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         this.pool = pool ?? null;
     }
 
-    /** Returns the active Page or an InteractionError if unavailable. */
     private requirePage(): ResultAsync<Page, InteractionError> {
         this.ensureRecoverablePage();
         return this.page ? okAsync(this.page) : errAsync(new InteractionError(BROWSER_NOT_LAUNCHED));

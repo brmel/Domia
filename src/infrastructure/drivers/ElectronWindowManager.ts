@@ -1,7 +1,8 @@
 import type { Page } from 'playwright';
 import { Result, ok, err } from 'neverthrow';
 import type { ILogger } from '@domain/ports';
-import { CDPValidator, ValidationError } from '@domain/CDPValidator';
+import { CDPValidator } from '@domain/CDPValidator';
+import { ValidationError } from '@domain/errors';
 import type { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
 
 export interface ElectronWindow {

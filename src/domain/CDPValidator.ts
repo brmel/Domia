@@ -1,8 +1,6 @@
 import { Result, ok, err } from 'neverthrow';
 import { ValidationError } from '@domain/errors';
 
-export { ValidationError };
-
 export class CDPValidator {
     static validateCDPUrl(url: string): Result<string, ValidationError> {
         if (!url || url.trim().length === 0) {
