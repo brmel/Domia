@@ -1,15 +1,16 @@
 import { ResultAsync, errAsync } from 'neverthrow';
-import { Browser } from 'playwright';
-import type { ChildProcess } from 'child_process';
+import { chromium, Browser } from 'playwright';
+import { spawn, type ChildProcess } from 'child_process';
 import { IAppDriver, AppCapabilities } from '@domain/ports/IAppDriver';
 import type { ILogger, IStructuredAutomation } from '@domain/ports';
 import { NavigationError } from '@domain/errors';
-import { CDP_CONSTANTS } from '@domain/PlatformConstants';
+import { CDP_DEFAULT_URL, CDP_DEFAULT_PORT, CDP_CONNECTION_TIMEOUT_MS, WINDOW_WAIT_TIMEOUT_MS, WINDOW_POLL_INTERVAL_MS } from '@shared/defaults';
 import { CDPValidator } from '@domain/CDPValidator';
+import { retryAsync } from '@shared/reliability/retry';
+import { RETRY_PROFILES, isTransientElectronConnectError } from '@shared/reliability/retryProfiles';
+import type { RetryOptions } from '@shared/reliability/retry';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
-import { ElectronCDPConnector } from './ElectronCDPConnector';
-import { ElectronProcessLauncher } from './ElectronProcessLauncher';
 import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
 
 export interface ElectronConnectionConfig {
@@ -29,16 +30,12 @@ export class ElectronDriver implements IAppDriver {
     private appProcess: ChildProcess | null = null;
     private adapter: PlaywrightAdapter | null = null;
     readonly windowManager: ElectronWindowManager;
-    private readonly cdpConnector: ElectronCDPConnector;
-    private readonly processLauncher: ElectronProcessLauncher;
 
     constructor(
         private readonly windowSelectionPolicy: ElectronWindowSelectionPolicy,
         private readonly logger: ILogger,
     ) {
         this.windowManager = new ElectronWindowManager(logger);
-        this.cdpConnector = new ElectronCDPConnector(logger);
-        this.processLauncher = new ElectronProcessLauncher(this.cdpConnector, logger);
     }
 
     connect(config?: ElectronConnectionConfig): ResultAsync<void, NavigationError | Error> {
@@ -49,7 +46,7 @@ export class ElectronDriver implements IAppDriver {
             );
         }
 
-        const cdpUrl = config?.cdpUrl ?? CDP_CONSTANTS.DEFAULT_URL;
+        const cdpUrl = config?.cdpUrl ?? CDP_DEFAULT_URL;
         const validation = CDPValidator.validateCDPUrl(cdpUrl);
         if (validation.isErr()) {
             return errAsync(new NavigationError(`Invalid CDP configuration: ${validation.error.message}`));
@@ -62,7 +59,7 @@ export class ElectronDriver implements IAppDriver {
     }
 
     private async doConnect(config: ElectronConnectionConfig): Promise<void> {
-        this.browser = await this.cdpConnector.connect(
+        this.browser = await this.connectCDP(
             config.cdpUrl!,
             config.connectionTimeout,
         );
@@ -71,23 +68,91 @@ export class ElectronDriver implements IAppDriver {
     }
 
     private async doLaunch(config: ElectronConnectionConfig): Promise<void> {
-        const result = await this.processLauncher.launch({
-            executablePath: config.executablePath!,
-            ...(config.launchArgs ? { launchArgs: [...config.launchArgs] } : {}),
-            ...(config.cdpPort !== undefined ? { cdpPort: config.cdpPort } : {}),
-            ...(config.connectionTimeout !== undefined ? { connectionTimeout: config.connectionTimeout } : {}),
-        });
-        this.browser = result.browser;
-        this.appProcess = result.process;
+        if (config.cdpPort) {
+            const { browser, process: proc } = await this.launchWithCDP(config);
+            this.browser = browser;
+            this.appProcess = proc;
+        } else {
+            this.browser = await this.launchWithPlaywright(config);
+        }
         await this.initializeWindows(config);
         this.logger.info(`${ElectronDriver.TAG} Launched with ${this.windowManager.getWindowCount()} window(s)`);
+    }
+
+    private async connectCDP(cdpUrl: string, timeoutMs?: number, retryProfile?: RetryOptions): Promise<Browser> {
+        const timeout = timeoutMs ?? CDP_CONNECTION_TIMEOUT_MS;
+        const profile = retryProfile ?? RETRY_PROFILES.electronCdpConnect;
+        this.logger.info(`${ElectronDriver.TAG} Connecting to CDP: ${cdpUrl}`);
+
+        const browser = await retryAsync(
+            async () => chromium.connectOverCDP(cdpUrl, { timeout }),
+            {
+                ...profile,
+                shouldRetry: (error) => isTransientElectronConnectError(error),
+                onRetry: (info) => {
+                    const message = info.error instanceof Error ? info.error.message : String(info.error);
+                    this.logger.debug(`${ElectronDriver.TAG} CDP retry ${info.attempt}/${info.maxAttempts - 1}: ${message}`);
+                },
+            },
+        );
+        this.logger.debug(`${ElectronDriver.TAG} CDP connected`);
+        return browser;
+    }
+
+    private async launchWithCDP(config: ElectronConnectionConfig): Promise<{ browser: Browser; process: ChildProcess }> {
+        const port = config.cdpPort!;
+        this.logger.info(`${ElectronDriver.TAG} Launching with CDP port ${port}: ${config.executablePath}`);
+
+        const env = { ...process.env };
+        delete env['ELECTRON_RUN_AS_NODE'];
+        delete env['NODE_OPTIONS'];
+
+        const appProcess = spawn(config.executablePath!, [...(config.launchArgs ?? [])], {
+            env,
+            detached: false,
+            stdio: 'pipe',
+        });
+
+        this.logger.debug(`${ElectronDriver.TAG} Process spawned: PID ${appProcess.pid}`);
+
+        appProcess.stdout?.on('data', (data: Buffer) => {
+            this.logger.debug(`[ElectronApp] ${data.toString().trimEnd()}`);
+        });
+        appProcess.stderr?.on('data', (data: Buffer) => {
+            this.logger.debug(`[ElectronApp:err] ${data.toString().trimEnd()}`);
+        });
+
+        const cdpUrl = `http://127.0.0.1:${port}`;
+        try {
+            const browser = await this.connectCDP(cdpUrl, config.connectionTimeout, RETRY_PROFILES.electronExecutableConnect);
+            return { browser, process: appProcess };
+        } catch (error) {
+            appProcess.kill();
+            const message = error instanceof Error ? error.message : String(error);
+            throw new Error(`${ElectronDriver.TAG} CDP connect failed after launch: ${message}`);
+        }
+    }
+
+    private async launchWithPlaywright(config: ElectronConnectionConfig): Promise<Browser> {
+        this.logger.info(`${ElectronDriver.TAG} Launching via Playwright: ${config.executablePath}`);
+
+        const defaultArgs = [`--remote-debugging-port=${CDP_DEFAULT_PORT}`];
+        const userArgs = config.launchArgs ?? [];
+        const hasPortArg = userArgs.some((a) => a.includes('remote-debugging-port'));
+
+        return chromium.launch({
+            executablePath: config.executablePath,
+            args: [...userArgs, ...(hasPortArg ? [] : defaultArgs)],
+            timeout: config.connectionTimeout ?? CDP_CONNECTION_TIMEOUT_MS,
+            ignoreDefaultArgs: true,
+        });
     }
 
     private async initializeWindows(config: ElectronConnectionConfig): Promise<void> {
         await this.discoverWindows();
 
         if (config.waitForWindow !== false && this.windowManager.getWindowCount() === 0) {
-            await this.waitForWindow(CDP_CONSTANTS.WINDOW_WAIT_TIMEOUT_MS);
+            await this.waitForWindow(WINDOW_WAIT_TIMEOUT_MS);
         }
 
         await this.windowSelectionPolicy.selectTargetWindow(this.windowManager, config.windowTitle);
@@ -182,7 +247,7 @@ export class ElectronDriver implements IAppDriver {
         const startTime = Date.now();
 
         while (this.windowManager.getWindowCount() === 0 && Date.now() - startTime < timeoutMs) {
-            await new Promise((resolve) => setTimeout(resolve, CDP_CONSTANTS.WINDOW_POLL_INTERVAL_MS));
+            await new Promise((resolve) => setTimeout(resolve, WINDOW_POLL_INTERVAL_MS));
             await this.discoverWindows();
         }
 

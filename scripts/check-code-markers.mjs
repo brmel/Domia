@@ -7,14 +7,29 @@ const rootDir = process.cwd();
 const checks = [
     {
         file: 'src/application/use-cases/RunUseCase.ts',
-        required: ['ExecutionGraph', 'ExecutionGraph.selectNextReadyNode'],
-        forbidden: [/for\s*\(\s*let\s+i\s*=\s*0\s*;\s*i\s*<\s*plan\.items\.length\s*;\s*i\+\+\s*\)/]
+        required: [
+            "type: 'replanning'",
+            'ExecutionGraph',
+            'ExecutionGraph.selectNextReadyNode',
+        ],
+        forbidden: [/for\s*\(\s*let\s+i\s*=\s*0\s*;\s*i\s*<\s*plan\.items\.length\s*;\s*i\+\+\s*\)/],
+    },
+    {
+        file: 'src/application/services/execution/ReplanningPolicyService.ts',
+        required: [
+            'maxReplansPerRun',
+            'Active replanning approved',
+        ],
+        forbidden: [],
     },
     {
         file: 'src/application/services/workflow/WorkflowRunOrchestratorService.ts',
-        required: ['ExecutionGraph', 'ExecutionGraph.selectNextReadyNode'],
-        forbidden: [/for\s*\(\s*let\s+stepIndex\s*=\s*0\s*;\s*stepIndex\s*<\s*definition\.steps\.length\s*;\s*stepIndex\+\+\s*\)/]
-    }
+        required: [
+            'ExecutionGraph',
+            'ExecutionGraph.selectNextReadyNode',
+        ],
+        forbidden: [/for\s*\(\s*let\s+stepIndex\s*=\s*0\s*;\s*stepIndex\s*<\s*definition\.steps\.length\s*;\s*stepIndex\+\+\s*\)/],
+    },
 ];
 
 async function main() {
@@ -38,17 +53,17 @@ async function main() {
     }
 
     if (violations.length > 0) {
-        console.error('Runtime cutover checks failed:');
+        console.error('Code marker checks failed:');
         for (const violation of violations) {
             console.error(`- ${violation}`);
         }
         process.exit(1);
     }
 
-    console.log('Runtime cutover checks passed.');
+    console.log('Code marker checks passed.');
 }
 
 main().catch((error) => {
-    console.error('[check-runtime-cutover] failed', error);
+    console.error('[check-code-markers] failed', error);
     process.exit(1);
 });

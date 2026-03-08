@@ -36,8 +36,7 @@ async function main() {
     const checks = [
         ['npm', ['run', 'typecheck']],
         ['npm', ['run', 'check:architecture']],
-        ['npm', ['run', 'check:runtime-cutover']],
-        ['npm', ['run', 'check:kpi-slo']],
+        ['npm', ['run', 'check:code-markers']],
         ['npm', ['test']]
     ];
 

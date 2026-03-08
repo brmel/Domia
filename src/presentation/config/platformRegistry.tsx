@@ -9,10 +9,7 @@ import { WebPlatformFields } from '../components/platform/WebPlatformFields';
 import { ElectronPlatformFields } from '../components/platform/ElectronPlatformFields';
 import { AndroidPlatformFields } from '../components/platform/AndroidPlatformFields';
 import { IosPlatformFields } from '../components/platform/IosPlatformFields';
-import { WebConfigSchema } from '../../shared/validation/platforms/web';
-import { ElectronConfigSchema } from '../../shared/validation/platforms/electron';
-import { AndroidConfigSchema } from '../../shared/validation/platforms/android';
-import { IosConfigSchema } from '../../shared/validation/platforms/ios';
+import { WebConfigSchema, ElectronConfigSchema, AndroidConfigSchema, IosConfigSchema } from '../../shared/validation/platforms';
 import { z } from 'zod';
 
 export type UIPlatformType = 'web' | 'electron' | 'android' | 'ios';

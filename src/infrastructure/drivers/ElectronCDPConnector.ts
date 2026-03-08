@@ -1,6 +1,6 @@
 import { chromium, Browser } from 'playwright';
 import type { ILogger } from '@domain/ports';
-import { CDP_CONSTANTS } from '@domain/PlatformConstants';
+import { CDP_CONNECTION_TIMEOUT_MS } from '@shared/defaults';
 import { retryAsync } from '@shared/reliability/retry';
 import { RETRY_PROFILES, isTransientElectronConnectError } from '@shared/reliability/retryProfiles';
 import type { RetryOptions } from '@shared/reliability/retry';
@@ -11,7 +11,7 @@ export class ElectronCDPConnector {
     constructor(private readonly logger: ILogger) {}
 
     async connect(cdpUrl: string, timeoutMs?: number, retryProfile?: RetryOptions): Promise<Browser> {
-        const timeout = timeoutMs ?? CDP_CONSTANTS.CONNECTION_TIMEOUT_MS;
+        const timeout = timeoutMs ?? CDP_CONNECTION_TIMEOUT_MS;
         const profile = retryProfile ?? RETRY_PROFILES.electronCdpConnect;
 
         this.logger.info(`${ElectronCDPConnector.TAG} Connecting to CDP: ${cdpUrl}`);

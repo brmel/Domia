@@ -1,8 +1,5 @@
 import { z } from 'zod';
-import { WebConfigSchema } from './validation/platforms/web';
-import { ElectronConfigSchema } from './validation/platforms/electron';
-import { AndroidConfigSchema } from './validation/platforms/android';
-import { IosConfigSchema } from './validation/platforms/ios';
+import { WebConfigSchema, ElectronConfigSchema, AndroidConfigSchema, IosConfigSchema } from './validation/platforms';
 import {
     MIN_RECORDING_DURATION_MS,
     MAX_RECORDING_DURATION_MS,

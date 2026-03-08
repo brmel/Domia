@@ -1,15 +1,15 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { chromium } from 'playwright';
-import { CDP_CONSTANTS } from '../domain/PlatformConstants';
+import { CDP_DEFAULT_URL, CDP_CONNECTION_TIMEOUT_MS } from '../shared/defaults';
 
 export class InspectCommand {
     static register(program: Command): void {
         program
             .command('inspect')
             .description('Inspect a running Electron app via CDP. Lists windows, titles, and URLs.')
-            .option('--cdp-url <url>', 'CDP URL to connect to', CDP_CONSTANTS.DEFAULT_URL)
-            .option('--timeout <ms>', 'Connection timeout in ms', String(CDP_CONSTANTS.CONNECTION_TIMEOUT_MS))
+            .option('--cdp-url <url>', 'CDP URL to connect to', CDP_DEFAULT_URL)
+            .option('--timeout <ms>', 'Connection timeout in ms', String(CDP_CONNECTION_TIMEOUT_MS))
             .action(async (options) => {
                 const { cdpUrl, timeout } = options;
                 const timeoutMs = parseInt(String(timeout), 10);

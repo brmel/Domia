@@ -5,8 +5,11 @@ import type { ITabManager, TabInfo } from '@domain/ports/ITabManager';
 import type { Url } from '@domain/value-objects';
 import type { RoleRefMap } from '@domain/value-objects/RoleRef';
 import { NavigationError, InteractionError } from '@domain/errors';
-import { TOOL_TIMEOUTS, SCROLL_CONSTANTS, AGENT_VIEW_CONFIG } from '@domain/PlatformConstants';
-import { CONTENT_READY_TIMEOUT_MS, CHROMIUM_LAUNCH_ARGS } from '@shared/defaults';
+import {
+    NAVIGATION_TIMEOUT_MS, ELEMENT_WAIT_TIMEOUT_MS, HIGHLIGHT_DURATION_MS,
+    SCROLL_AMOUNT_PX, AGENT_VIEW_WIDTH, AGENT_VIEW_HEIGHT,
+    CONTENT_READY_TIMEOUT_MS, CHROMIUM_LAUNCH_ARGS,
+} from '@shared/defaults';
 import { PlaywrightPerceptionSource } from './PlaywrightPerceptionSource';
 import type { BrowserPool } from './BrowserPool';
 
@@ -75,7 +78,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         }
         this.logger.debug(`${TAG} Navigating to: ${url}`);
         return ResultAsync.fromPromise(
-            this.page.goto(url, { waitUntil: 'load', timeout: TOOL_TIMEOUTS.NAVIGATION_MS }),
+            this.page.goto(url, { waitUntil: 'load', timeout: NAVIGATION_TIMEOUT_MS }),
             (e) => new NavigationError(`Navigation failed: ${String(e)}`)
         ).andThen(() => ResultAsync.fromPromise(this.waitForReady(), e => new NavigationError(String(e))));
     }
@@ -86,7 +89,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         return this.resolveRef(ref).andThen((locator) => {
             const clickOptions = {
                 force: options?.force ?? false,
-                timeout: options?.timeout ?? TOOL_TIMEOUTS.ELEMENT_WAIT_MS
+                timeout: options?.timeout ?? ELEMENT_WAIT_TIMEOUT_MS
             };
 
             return wrapInteraction(locator.click(clickOptions), 'Click', ref).orElse((err) => {
@@ -145,14 +148,14 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
     hover(ref: string): ResultAsync<void, InteractionError> {
         this.logger.debug(`${TAG} Hovering element: ${ref}`);
         return this.resolveRef(ref).andThen((locator) =>
-            wrapInteraction(locator.hover({ timeout: TOOL_TIMEOUTS.ELEMENT_WAIT_MS }), 'Hover', ref)
+            wrapInteraction(locator.hover({ timeout: ELEMENT_WAIT_TIMEOUT_MS }), 'Hover', ref)
         );
     }
 
     selectOption(ref: string, values: string[]): ResultAsync<void, InteractionError> {
         this.logger.debug(`${TAG} Selecting option on element: ${ref}`);
         return this.resolveRef(ref).andThen((locator) =>
-            wrapInteraction(locator.selectOption(values, { timeout: TOOL_TIMEOUTS.ELEMENT_WAIT_MS }).then(() => {}), 'Select option', ref)
+            wrapInteraction(locator.selectOption(values, { timeout: ELEMENT_WAIT_TIMEOUT_MS }).then(() => {}), 'Select option', ref)
         );
     }
 
@@ -160,7 +163,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         this.logger.debug(`${TAG} Dragging element ${fromRef} to ${toRef}`);
         return this.resolveRef(fromRef).andThen((source) =>
             this.resolveRef(toRef).andThen((target) =>
-                wrapInteraction(source.dragTo(target, { timeout: TOOL_TIMEOUTS.ELEMENT_WAIT_MS }), 'Drag', fromRef)
+                wrapInteraction(source.dragTo(target, { timeout: ELEMENT_WAIT_TIMEOUT_MS }), 'Drag', fromRef)
             )
         );
     }
@@ -175,7 +178,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
     scroll(direction: 'up' | 'down'): ResultAsync<void, InteractionError> {
         return this.requirePage().andThen((page) => {
             this.logger.debug(`${TAG} Scrolling: ${direction}`);
-            const delta = direction === 'down' ? SCROLL_CONSTANTS.AMOUNT_PX : -SCROLL_CONSTANTS.AMOUNT_PX;
+            const delta = direction === 'down' ? SCROLL_AMOUNT_PX : -SCROLL_AMOUNT_PX;
             return wrapInteraction(page.mouse.wheel(0, delta), 'Scroll');
         });
     }
@@ -212,7 +215,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
                             element.style.outline = originalOutline;
                             element.style.transition = originalTransition;
                         }, highlightMs);
-                    }, TOOL_TIMEOUTS.HIGHLIGHT_DURATION_MS);
+                    }, HIGHLIGHT_DURATION_MS);
                 })(),
                 'Highlight', ref
             )
@@ -234,10 +237,10 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
     async getViewportSize(): Promise<{ width: number; height: number }> {
         this.ensureRecoverablePage();
         if (!this.page) {
-            return { width: AGENT_VIEW_CONFIG.DEFAULT_WIDTH, height: AGENT_VIEW_CONFIG.DEFAULT_HEIGHT };
+            return { width: AGENT_VIEW_WIDTH, height: AGENT_VIEW_HEIGHT };
         }
         const size = this.page.viewportSize();
-        return size ?? { width: AGENT_VIEW_CONFIG.DEFAULT_WIDTH, height: AGENT_VIEW_CONFIG.DEFAULT_HEIGHT };
+        return size ?? { width: AGENT_VIEW_WIDTH, height: AGENT_VIEW_HEIGHT };
     }
 
     async waitForReady(timeout: number = CONTENT_READY_TIMEOUT_MS): Promise<void> {
@@ -277,7 +280,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         this.page = newPage;
         this.attachPageLifecycleHandlers(newPage);
         if (url) {
-            await newPage.goto(url, { waitUntil: 'load', timeout: TOOL_TIMEOUTS.NAVIGATION_MS });
+            await newPage.goto(url, { waitUntil: 'load', timeout: NAVIGATION_TIMEOUT_MS });
             await this.waitForReady();
         }
         const tabs = await this.listTabs();
