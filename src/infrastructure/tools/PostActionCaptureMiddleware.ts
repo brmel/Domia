@@ -16,10 +16,6 @@ export class PostActionCaptureMiddleware {
         private readonly onCapture?: (frame: PerceptionFrame) => void | Promise<void>,
     ) {}
 
-    /**
-     * Drain any buffered media from the last capture.
-     * Called by the agent runner to inject images into the LLM conversation.
-     */
     consumeMedia(): MediaAttachment[] {
         const media = this._pendingMedia;
         this._pendingMedia = [];
@@ -31,7 +27,7 @@ export class PostActionCaptureMiddleware {
             await new Promise((resolve) => setTimeout(resolve, delayMs));
         }
 
-        const useVision = visionOverride ?? this.vision;
+        const useVision = this.vision && (visionOverride ?? true);
         const frameResult = await this.perception.capture(this.perceptionSource, { aria: true, vision: useVision });
 
         if (frameResult.isErr()) {
@@ -40,12 +36,8 @@ export class PostActionCaptureMiddleware {
 
         const frame = frameResult.value;
         this.automation.updateRefs(frame.semantic.refs);
+        await this.onCapture?.(frame)?.catch?.(() => {});
 
-        if (this.onCapture) {
-            try { await this.onCapture(frame); } catch { /* persistence must not break agent loop */ }
-        }
-
-        // Buffer screenshots for LLM injection by the agent runner
         if (useVision && frame.vision.screenshots.length > 0) {
             this._pendingMedia = frame.vision.screenshots.map(buf => ({
                 type: 'image' as const,
@@ -54,12 +46,15 @@ export class PostActionCaptureMiddleware {
             }));
         }
 
-        const refCount = Object.keys(frame.semantic.refs).length;
+        return this.buildResult(frame, useVision);
+    }
+
+    private buildResult(frame: PerceptionFrame, useVision: boolean): Record<string, unknown> {
         const result: Record<string, unknown> = {
             status: TOOL_SUCCESS,
             currentUrl: frame.metadata.url,
             pageTitle: frame.metadata.title,
-            elementCount: refCount,
+            elementCount: Object.keys(frame.semantic.refs).length,
             elements: frame.semantic.ariaSnapshot,
         };
 

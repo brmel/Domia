@@ -142,29 +142,28 @@ export class SQLiteRunRepository {
     }
 
     private mapToRun(row: RunTable): Run {
-        let status: RunStatus;
-
-        if (row.status === 'passed') {
-            status = { type: 'passed', summary: row.summary || '', duration: row.duration_ms || 0 };
-        } else if (row.status === 'failed') {
-            status = { type: 'failed', error: row.summary || 'Unknown error', duration: row.duration_ms || 0 };
-        } else if (row.status === 'cancelled') {
-            status = { type: 'cancelled', reason: row.summary || '' };
-        } else if (row.status === 'running') {
-            status = { type: 'running' };
-        } else {
-            status = { type: 'pending' };
-        }
-
+        const status = this.mapRowStatus(row);
         return {
             id: row.id as RunId,
             url: row.url as Url,
             prompt: row.goal || '',
-            status: status,
+            status,
             createdAt: new Date(row.started_at),
             startedAt: new Date(row.started_at),
-            updatedAt: row.completed_at ? new Date(row.completed_at) : new Date(row.started_at)
+            updatedAt: row.completed_at ? new Date(row.completed_at) : new Date(row.started_at),
         };
+    }
+
+    private static readonly STATUS_BUILDERS: Record<string, (row: RunTable) => RunStatus> = {
+        passed:    (row) => ({ type: 'passed', summary: row.summary || '', duration: row.duration_ms || 0 }),
+        failed:    (row) => ({ type: 'failed', error: row.summary || 'Unknown error', duration: row.duration_ms || 0 }),
+        cancelled: (row) => ({ type: 'cancelled', reason: row.summary || '' }),
+        running:   ()    => ({ type: 'running' }),
+    };
+
+    private mapRowStatus(row: RunTable): RunStatus {
+        const builder = SQLiteRunRepository.STATUS_BUILDERS[row.status];
+        return builder ? builder(row) : { type: 'pending' };
     }
 
     private mapToStep(row: StepTable): Step {

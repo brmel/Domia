@@ -155,6 +155,13 @@ describe('SQLite persistence round-trip', () => {
 
         const runs = (await repo.getRuns(10))._unsafeUnwrap();
         expect(runs).toHaveLength(3);
+
+        // Verify ordering: most recent first (descending started_at)
+        for (let i = 0; i < runs.length - 1; i++) {
+            const current = new Date(runs[i]!.createdAt).getTime();
+            const next = new Date(runs[i + 1]!.createdAt).getTime();
+            expect(current).toBeGreaterThanOrEqual(next);
+        }
     });
 
     it('clearHistory removes all runs and steps', async () => {

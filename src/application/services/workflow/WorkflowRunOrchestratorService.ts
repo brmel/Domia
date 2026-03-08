@@ -4,7 +4,8 @@ import type { WorkflowEvent } from '@domain/WorkflowEvent';
 import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
 import type { ILogger } from '@domain/ports';
 import { RunState } from '@domain/enums';
-import type { WorkflowDefinition } from '@domain/entities/Workflow';
+import type { WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
+import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
 import { ExecutionController } from '@application/ExecutionController';
 import { WorkflowStepPolicyService } from './WorkflowStepPolicyService';
 import { WorkflowStepGovernanceService } from './WorkflowStepGovernanceService';
@@ -150,12 +151,40 @@ export class WorkflowRunOrchestratorService {
 
                 const combinedSummary = [stepResult.summary, degradationSummary].filter(Boolean).join(' | ') || undefined;
 
-                const updateStepRunResult = await this.persistence.updateWorkflowStepRun(stepRunId, {
-                    status: stepResult.success ? 'completed' : 'failed',
-                    ...(combinedSummary ? { summary: combinedSummary } : {}),
-                    ...(stepResult.runId ? { runId: stepResult.runId } : {}),
-                    completedAt: new Date().toISOString()
-                });
+                if (!stepResult.success && !step.continueOnFailure) {
+                    const completedAt = new Date().toISOString();
+                    const stepUpdates = this.buildStepRunUpdates('failed', completedAt, combinedSummary, stepResult.runId);
+
+                    const terminalResult = await this.persistence.commitAtomicWorkflowTransition({
+                        workflowRunId,
+                        workflowRunUpdates: { status: 'failed', summary: combinedSummary ?? `Step failed: ${step.name}`, completedAt },
+                        workflowStepRunId: stepRunId,
+                        workflowStepRunUpdates: stepUpdates,
+                    });
+
+                    if (terminalResult.isErr()) {
+                        this.logger.warn('[WorkflowRunOrchestratorService] Failed to atomically persist terminal transition', {
+                            workflowRunId, stepRunId, reason: terminalResult.error.message
+                        });
+                    }
+
+                    yield {
+                        type: 'workflow_step_completed', workflowRunId, stepId: step.id, stepIndex,
+                        success: false,
+                        ...(combinedSummary ? { summary: combinedSummary } : {})
+                    };
+
+                    yield { type: 'workflow_failed', workflowRunId, reason: combinedSummary ?? `Step failed: ${step.name}` };
+                    return;
+                }
+
+                const stepUpdates = this.buildStepRunUpdates(
+                    stepResult.success ? 'completed' : 'failed',
+                    new Date().toISOString(),
+                    combinedSummary,
+                    stepResult.runId,
+                );
+                const updateStepRunResult = await this.persistence.updateWorkflowStepRun(stepRunId, stepUpdates);
 
                 if (updateStepRunResult.isErr()) {
                     this.logger.warn('[WorkflowRunOrchestratorService] Failed to update workflow step run', {
@@ -170,30 +199,8 @@ export class WorkflowRunOrchestratorService {
                 };
 
                 if (!stepResult.success) {
-                    if (step.continueOnFailure) continue;
-
-                    const terminalReason = stepResult.summary ?? `Step failed: ${step.name}`;
-                    const completedAt = new Date().toISOString();
-                    const terminalResult = await this.persistence.commitAtomicWorkflowTransition({
-                        workflowRunId,
-                        workflowRunUpdates: { status: 'failed', summary: terminalReason, completedAt },
-                        workflowStepRunId: stepRunId,
-                        workflowStepRunUpdates: {
-                            status: 'failed',
-                            ...(terminalReason ? { summary: terminalReason } : {}),
-                            ...(stepResult.runId ? { runId: stepResult.runId } : {}),
-                            completedAt
-                        }
-                    });
-
-                    if (terminalResult.isErr()) {
-                        this.logger.warn('[WorkflowRunOrchestratorService] Failed to atomically persist terminal transition', {
-                            workflowRunId, stepRunId, reason: terminalResult.error.message
-                        });
-                    }
-
-                    yield { type: 'workflow_failed', workflowRunId, reason: terminalReason };
-                    return;
+                    // continueOnFailure is true — keep going
+                    continue;
                 }
 
                 completedSteps += 1;
@@ -215,7 +222,21 @@ export class WorkflowRunOrchestratorService {
         }
     }
 
-    private async persistTerminalWorkflowStatus(workflowRunId: string, status: string, summary: string): Promise<void> {
+    private buildStepRunUpdates(
+        status: WorkflowStepRunRecord['status'],
+        completedAt: string,
+        summary?: string,
+        runId?: string,
+    ): AtomicWorkflowTransitionInput['workflowStepRunUpdates'] {
+        return {
+            status,
+            completedAt,
+            ...(summary ? { summary } : {}),
+            ...(runId ? { runId } : {}),
+        };
+    }
+
+    private async persistTerminalWorkflowStatus(workflowRunId: string, status: WorkflowRunRecord['status'], summary: string): Promise<void> {
         const result = await this.persistence.updateWorkflowRun(workflowRunId, {
             status, summary, completedAt: new Date().toISOString()
         });

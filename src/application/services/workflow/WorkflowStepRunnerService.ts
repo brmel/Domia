@@ -44,55 +44,45 @@ export class WorkflowStepRunnerService {
             {
                 platformConfig: definition.platformConfig,
                 prompt: step.prompt,
-                ...(step.options ? { options: step.options } : {})
+                ...(step.options ? { options: step.options } : {}),
             },
             controller,
             runtimeContext
-                ? {
-                    session: runtimeContext.session,
-                    shouldNavigate: runtimeContext.shouldNavigate,
-                    disposeSessionOnComplete: false
-                }
+                ? { session: runtimeContext.session, shouldNavigate: runtimeContext.shouldNavigate, disposeSessionOnComplete: false }
                 : undefined
         );
 
         for await (const event of generator) {
-            if (event.type === 'started') {
-                runId = event.runId;
-            }
+            if (event.type === 'started') runId = event.runId;
 
+            if (event.type === 'completed' && !event.success) {
+                return {
+                    success: false,
+                    ...(event.summary ? { summary: event.summary } : {}),
+                    ...(runId ? { runId } : {}),
+                };
+            }
             if (event.type === 'completed') {
                 completedSummary = event.summary;
-                if (!event.success) {
-                    return {
-                        success: false,
-                        ...(event.summary ? { summary: event.summary } : {}),
-                        ...(runId ? { runId } : {})
-                    };
-                }
             }
 
             if (event.type === 'error') {
-                const reason = event.error.message;
                 return {
                     success: false,
-                    summary: reason,
-                    ...(runId ? { runId } : {})
+                    summary: event.error.message,
+                    ...(runId ? { runId } : {}),
                 };
             }
         }
 
         if (!runId) {
-            return {
-                success: false,
-                summary: `Step ${stepIndex + 1} failed to produce a run id.`
-            };
+            return { success: false, summary: `Step ${stepIndex + 1} failed to produce a run id.` };
         }
 
         return {
             success: true,
             ...(completedSummary ? { summary: completedSummary } : {}),
-            runId
+            runId,
         };
     }
 }

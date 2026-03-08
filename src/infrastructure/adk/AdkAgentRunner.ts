@@ -19,6 +19,7 @@ import type { IConfigService } from '@domain/ports/IConfigService';
 import type { ElectronWindowManager } from '@infrastructure/drivers/ElectronWindowManager';
 import type { ITabManager } from '@domain/ports/ITabManager';
 import type { ToolDependencies } from '@infrastructure/tools/ToolSpec';
+import type { PostActionCaptureMiddleware } from '@infrastructure/tools/PostActionCaptureMiddleware';
 import { DEFAULT_LLM_MODEL, LLM_CALL_BUDGET_OFFSET, DEFAULT_LOOP_GUARD_THRESHOLD, FINAL_RESPONSE_LOG_CHARS, TOOL_TIME_LOG_THRESHOLD_MS } from '@shared/defaults';
 
 const APP_NAME = 'domia';
@@ -29,6 +30,15 @@ function extractThought(event: { content?: { parts?: Array<{ text?: string }> } 
         .filter((p): p is { text: string } => typeof p.text === 'string' && p.text.trim().length > 0)
         .map(p => p.text.trim())
         .join('\n');
+}
+
+/** Mutable state shared across one executeStep() call. */
+interface StepExecutionState {
+    actionCount: number;
+    lastToolResult: { name: string; result: Record<string, unknown>; durationMs: number } | null;
+    pendingYield: AgentRunnerEvent | null;
+    lastObservedUrl: string;
+    llmTurnStartMs: number;
 }
 
 @injectable()
@@ -69,60 +79,29 @@ export class AdkAgentRunner implements IAgentRunner {
 
         const viewport = await automation.getViewportSize();
 
-        let actionCount = 0;
-        const toolTimers = new Map<string, number>();
-        let lastToolResult: { name: string; result: Record<string, unknown>; durationMs: number } | null = null;
-        let pendingYield: AgentRunnerEvent | null = null;
-        let lastObservedUrl: string = url;
-        let llmTurnStartMs = Date.now();
-
-        const flushPending = function* (): Generator<AgentRunnerEvent> {
-            if (!pendingYield) return;
-            if (pendingYield.type !== 'action') {
-                yield pendingYield;
-                pendingYield = null;
-                return;
-            }
-            if (lastToolResult) {
-                yield {
-                    ...pendingYield,
-                    trace: {
-                        ...pendingYield.trace,
-                        toolCall: {
-                            ...pendingYield.trace.toolCall!,
-                            result: lastToolResult.result,
-                            durationMs: lastToolResult.durationMs,
-                        },
-                    },
-                };
-                lastToolResult = null;
-            } else {
-                yield pendingYield;
-            }
-            pendingYield = null;
+        const state: StepExecutionState = {
+            actionCount: 0,
+            lastToolResult: null,
+            pendingYield: null,
+            lastObservedUrl: url,
+            llmTurnStartMs: Date.now(),
         };
+        const toolTimers = new Map<string, number>();
 
         const windowManager = config.extras?.['windowManager'] as ElectronWindowManager | undefined;
 
-        const toolDeps = this.buildToolDeps(config, automation, perceptionSource, vision, windowManager, () => actionCount);
+        const toolDeps = this.buildToolDeps(config, automation, perceptionSource, vision, windowManager, () => state.actionCount);
         const { tools, catalog, captureMiddleware } = createAdkTools(toolDeps, this.pluginRegistry.getAllTools(), this.promptService);
 
         const actionMapper = new ActionMapper(catalog);
         const loopGuard = new AgentLoopGuard(DEFAULT_LOOP_GUARD_THRESHOLD, this.promptService);
         const instruction = buildAgentInstruction(catalog, this.promptService);
 
-        const stepGoalTemplate = this.promptService.getPrompt('stepGoal');
-        const stepGoalText = interpolate(stepGoalTemplate, {
-            stepGoal,
-            viewportWidth: viewport.width,
-            viewportHeight: viewport.height,
-            url,
-            maxActions,
+        const stepGoalText = interpolate(this.promptService.getPrompt('stepGoal'), {
+            stepGoal, viewportWidth: viewport.width, viewportHeight: viewport.height, url, maxActions,
         });
 
-        const textPart: Part = { text: stepGoalText };
-
-        const initialMessage: Content = { role: 'user', parts: [textPart] };
+        const initialMessage: Content = { role: 'user', parts: [{ text: stepGoalText }] };
 
         const agent = new LlmAgent({
             name: 'app_agent',
@@ -131,32 +110,24 @@ export class AdkAgentRunner implements IAgentRunner {
             tools,
             generateContentConfig: {
                 temperature: 0,
-                    toolConfig: {
-                        functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO },
-                    },
+                toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
             },
             beforeToolCallback: ({ tool, args }) => {
-                const sig = `${tool.name}:${JSON.stringify(args)}`;
                 loopGuard.record(tool.name, args as Record<string, unknown>);
                 if (loopGuard.isLoop()) {
                     const warning = loopGuard.recordViolation(tool.name);
-                    this.logger.warn(`[AdkAgentRunner] Loop detected: ${sig}`);
+                    this.logger.warn(`[AdkAgentRunner] Loop detected: ${tool.name}:${JSON.stringify(args)}`);
                     return { status: 'error', error: warning };
                 }
                 toolTimers.set(tool.name, Date.now());
                 return undefined;
             },
             afterToolCallback: ({ tool, response }) => {
-                const start = toolTimers.get(tool.name);
-                const durationMs = start ? Date.now() - start : 0;
+                const durationMs = Date.now() - (toolTimers.get(tool.name) ?? Date.now());
                 toolTimers.delete(tool.name);
-                lastToolResult = { name: tool.name, result: response as Record<string, unknown>, durationMs };
                 const res = response as Record<string, unknown>;
-                if (typeof res?.['currentUrl'] === 'string') {
-                    lastObservedUrl = res['currentUrl'] as string;
-                } else if (typeof res?.['navigatedUrl'] === 'string') {
-                    lastObservedUrl = res['navigatedUrl'] as string;
-                }
+                state.lastToolResult = { name: tool.name, result: res, durationMs };
+                state.lastObservedUrl = (res?.['currentUrl'] ?? res?.['navigatedUrl'] ?? state.lastObservedUrl) as string;
                 this.logger.debug(`[AdkAgentRunner] Tool ${tool.name} completed in ${durationMs}ms`, { status: res?.['status'] });
                 return undefined;
             },
@@ -169,7 +140,7 @@ export class AdkAgentRunner implements IAgentRunner {
         });
 
         try {
-            llmTurnStartMs = Date.now();
+            state.llmTurnStartMs = Date.now();
 
             for await (const event of runner.runAsync({
                 userId: session.userId,
@@ -185,9 +156,8 @@ export class AdkAgentRunner implements IAgentRunner {
                 }
 
                 if (functionCalls?.length) {
-                    // Terminate if the loop guard signalled irrecoverable looping
                     if (loopGuard.shouldTerminate()) {
-                        yield* flushPending();
+                        yield* this.flushPending(state);
                         this.logger.warn(`[AdkAgentRunner] Step terminated: agent ignored loop warnings. Last call: ${loopGuard.getLastLoopingArg()}`);
                         return {
                             success: false, terminal: 'fail', code: 'agent_fail',
@@ -195,48 +165,18 @@ export class AdkAgentRunner implements IAgentRunner {
                         };
                     }
 
-                    const roundTripMs = Date.now() - llmTurnStartMs;
-                    const prevToolMs = (lastToolResult as { durationMs: number } | null)?.durationMs ?? 0;
-                    const llmLatencyMs = Math.max(0, roundTripMs - prevToolMs);
-                    if (prevToolMs > TOOL_TIME_LOG_THRESHOLD_MS) {
-                        this.logger.info(`[AdkAgentRunner] LLM responded in ${llmLatencyMs}ms (tool: ${prevToolMs}ms, round-trip: ${roundTripMs}ms)`);
-                    } else {
-                        this.logger.info(`[AdkAgentRunner] LLM responded in ${llmLatencyMs}ms`);
-                    }
+                    const llmLatencyMs = this.computeLlmLatency(state);
 
                     for (const fc of functionCalls) {
-                        yield* flushPending();
+                        yield* this.flushPending(state);
 
                         const action = actionMapper.map(fc.name!, fc.args as Record<string, unknown>, thought);
-                        actionCount++;
+                        state.actionCount++;
+                        this.logger.info(`[AdkAgentRunner] Action ${state.actionCount}/${maxActions}: ${fc.name}`, fc.args);
 
-                        this.logger.info(`[AdkAgentRunner] Action ${actionCount}/${maxActions}: ${fc.name}`, fc.args);
-
-                        const { thought: _t, ...actionWithoutThought } = action as unknown as Record<string, unknown>;
-
-                        const actionEvent: AgentRunnerEvent = {
-                            type: 'action',
-                            action,
-                            actionIndex: actionCount,
-                            trace: {
-                                timestamp: Date.now(),
-                                agentInput: {
-                                    goal: stepGoal,
-                                    currentUrl: lastObservedUrl,
-                                    promptPreview: `GOAL: ${stepGoal} | URL: ${lastObservedUrl} | Action ${actionCount}/${maxActions}`,
-                                    llmLatencyMs,
-                                },
-                                agentOutput: {
-                                    thought,
-                                    action: actionWithoutThought as Record<string, unknown>,
-                                    rawResponse: JSON.stringify(event.content ?? {}, null, 2),
-                                },
-                                toolCall: {
-                                    name: fc.name!,
-                                    input: fc.args as Record<string, unknown>,
-                                },
-                            },
-                        };
+                        const actionEvent = this.buildActionEvent(
+                            action, state, stepGoal, maxActions, llmLatencyMs, thought, event, fc,
+                        );
 
                         if (action.type === ActionType.PASS) {
                             yield actionEvent;
@@ -249,7 +189,7 @@ export class AdkAgentRunner implements IAgentRunner {
                                 reason: (action as { reason: string }).reason,
                             };
                         }
-                        if (actionCount >= maxActions) {
+                        if (state.actionCount >= maxActions) {
                             yield actionEvent;
                             return {
                                 success: false, terminal: 'max_actions', code: 'max_actions_reached',
@@ -257,49 +197,34 @@ export class AdkAgentRunner implements IAgentRunner {
                             };
                         }
 
-                        pendingYield = actionEvent;
+                        state.pendingYield = actionEvent;
                     }
 
-                    llmTurnStartMs = Date.now();
-
+                    state.llmTurnStartMs = Date.now();
                     continue;
                 }
 
-                // Inject pending screenshot media into function response events.
-                // The event is already stored in session.events[] by reference;
-                // mutating its parts here ensures getContents() picks up the images
-                // before the next LLM call (the generator is paused between yields).
-                if (vision && event.content?.parts?.some((p: Part) => 'functionResponse' in p)) {
-                    const media = captureMiddleware.consumeMedia();
-                    for (const m of media) {
-                        (event.content!.parts as unknown[]).push({
-                            inlineData: {
-                                data: m.data.toString('base64'),
-                                mimeType: m.mimeType,
-                            },
-                        });
-                    }
-                    if (media.length > 0) {
-                        this.logger.info(`[AdkAgentRunner] Injected ${media.length} screenshot(s) as inlineData into function response event`);
-                    }
-                }
+                this.injectVisionMedia(vision, event, captureMiddleware);
 
                 if (isFinalResponse(event)) {
-                    yield* flushPending();
-
+                    yield* this.flushPending(state);
                     const text = stringifyContent(event);
                     this.logger.info(`[AdkAgentRunner] Final response: ${text.slice(0, FINAL_RESPONSE_LOG_CHARS)}`);
-                    if (actionCount === 0) {
+
+                    if (state.actionCount === 0) {
                         return {
                             success: false, terminal: 'fail', code: 'agent_fail',
                             reason: 'Agent generated text without calling any tools',
                         };
                     }
-                    break;
+                    return {
+                        success: false, terminal: 'no_terminal_call', code: 'no_terminal_call',
+                        reason: `Agent responded with text instead of calling pass/fail after ${state.actionCount} action(s).`,
+                    };
                 }
             }
 
-            yield* flushPending();
+            yield* this.flushPending(state);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             this.logger.error(`[AdkAgentRunner] Agent error: ${message}`);
@@ -311,8 +236,99 @@ export class AdkAgentRunner implements IAgentRunner {
 
         return {
             success: false, terminal: 'max_actions', code: 'max_actions_reached',
-            reason: `Agent finished without calling pass/fail. Completed ${actionCount} actions.`,
+            reason: `Max LLM calls exhausted without pass/fail. Completed ${state.actionCount} action(s).`,
         };
+    }
+
+    // ── Private helpers ──────────────────────────────────────────────
+
+    private *flushPending(state: StepExecutionState): Generator<AgentRunnerEvent> {
+        if (!state.pendingYield) return;
+
+        if (state.pendingYield.type === 'action' && state.lastToolResult) {
+            yield {
+                ...state.pendingYield,
+                trace: {
+                    ...state.pendingYield.trace,
+                    toolCall: {
+                        ...state.pendingYield.trace.toolCall!,
+                        result: state.lastToolResult.result,
+                        durationMs: state.lastToolResult.durationMs,
+                    },
+                },
+            };
+            state.lastToolResult = null;
+        } else {
+            yield state.pendingYield;
+        }
+        state.pendingYield = null;
+    }
+
+    private computeLlmLatency(state: StepExecutionState): number {
+        const roundTripMs = Date.now() - state.llmTurnStartMs;
+        const prevToolMs = state.lastToolResult?.durationMs ?? 0;
+        const llmLatencyMs = Math.max(0, roundTripMs - prevToolMs);
+
+        if (prevToolMs > TOOL_TIME_LOG_THRESHOLD_MS) {
+            this.logger.info(`[AdkAgentRunner] LLM responded in ${llmLatencyMs}ms (tool: ${prevToolMs}ms, round-trip: ${roundTripMs}ms)`);
+        } else {
+            this.logger.info(`[AdkAgentRunner] LLM responded in ${llmLatencyMs}ms`);
+        }
+        return llmLatencyMs;
+    }
+
+    private buildActionEvent(
+        action: ReturnType<ActionMapper['map']>,
+        state: StepExecutionState,
+        stepGoal: string,
+        maxActions: number,
+        llmLatencyMs: number,
+        thought: string,
+        event: { content?: { parts?: Part[] } },
+        fc: { name?: string; args?: unknown },
+    ): AgentRunnerEvent {
+        const { thought: _t, ...actionWithoutThought } = action as unknown as Record<string, unknown>;
+        return {
+            type: 'action',
+            action,
+            actionIndex: state.actionCount,
+            trace: {
+                timestamp: Date.now(),
+                agentInput: {
+                    goal: stepGoal,
+                    currentUrl: state.lastObservedUrl,
+                    promptPreview: `GOAL: ${stepGoal} | URL: ${state.lastObservedUrl} | Action ${state.actionCount}/${maxActions}`,
+                    llmLatencyMs,
+                },
+                agentOutput: {
+                    thought,
+                    action: actionWithoutThought as Record<string, unknown>,
+                    rawResponse: JSON.stringify(event.content ?? {}, null, 2),
+                },
+                toolCall: {
+                    name: fc.name!,
+                    input: fc.args as Record<string, unknown>,
+                },
+            },
+        };
+    }
+
+    private injectVisionMedia(
+        vision: boolean,
+        event: { content?: { parts?: Part[] } },
+        captureMiddleware: PostActionCaptureMiddleware,
+    ): void {
+        if (!vision || !event.content?.parts?.some((p: Part) => 'functionResponse' in p)) return;
+
+        const media = captureMiddleware.consumeMedia();
+        for (const m of media) {
+            (event.content!.parts as unknown[]).push({
+                inlineData: { data: m.data.toString('base64'), mimeType: m.mimeType },
+            });
+        }
+        if (media.length > 0) {
+            this.logger.info(`[AdkAgentRunner] Injected ${media.length} screenshot(s) as inlineData into function response event`);
+        }
     }
 
     private buildToolDeps(

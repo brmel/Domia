@@ -15,6 +15,8 @@ import 'dotenv/config';
 import 'reflect-metadata';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs-extra';
+import path from 'path';
 
 import { PlaywrightAdapter } from '@infrastructure/playwright/PlaywrightAdapter';
 import { PerceptionPipeline } from '@infrastructure/perception/PerceptionPipeline';
@@ -61,6 +63,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
     await adapter?.close();
+    // Clean up artifact directories created during tests
+    const artifactsDir = configService.get().paths.artifactsDir;
+    for (const runId of runIdsToCleanup) {
+        await fs.remove(path.resolve(artifactsDir, runId)).catch(() => {});
+    }
 });
 
 function buildRunner(): AdkAgentRunner {
@@ -86,18 +93,23 @@ function buildRunner(): AdkAgentRunner {
     );
 }
 
+const runIdsToCleanup: string[] = [];
+
 async function runStep(
     runner: AdkAgentRunner,
     vision: boolean,
-): Promise<{ result: StepExecutionResult; events: AgentRunnerEvent[] }> {
+): Promise<{ result: StepExecutionResult; events: AgentRunnerEvent[]; runId: string }> {
+    const runId = uuidv4();
     const config: StepRunnerConfig = {
-        runId: uuidv4(),
+        runId,
         stepGoal: STEP_GOAL,
         url: TARGET_URL,
         maxActions: 10,
         vision,
         platform: 'web',
     };
+
+    runIdsToCleanup.push(runId);
 
     const events: AgentRunnerEvent[] = [];
     const gen = runner.executeStep(config, adapter);
@@ -110,7 +122,7 @@ async function runStep(
 
     // When done === true, value is the StepExecutionResult returned by the generator.
     const result: StepExecutionResult = iterResult.value;
-    return { result, events };
+    return { result, events, runId };
 }
 
 // ──────────────────────── Tests ────────────────────────
@@ -131,7 +143,7 @@ describe('Vision Multimodal — real Gemini API + real browser', () => {
 
     it('WITH vision: agent sees screenshots and returns PASS', async () => {
         const runner = buildRunner();
-        const { result, events } = await runStep(runner, true);
+        const { result, events, runId } = await runStep(runner, true);
 
         console.log('[Vision] Result:', JSON.stringify(result, null, 2));
         console.log('[Vision] Actions:', events.filter(e => e.type === 'action').length);
@@ -139,10 +151,29 @@ describe('Vision Multimodal — real Gemini API + real browser', () => {
         // With vision the agent receives actual screenshot data and can
         // verify that Ibrahim in the picture is smiling.
         // LLMs may respond with text instead of calling pass, so also accept
-        // max_actions as proof the pipeline worked (screenshots were injected).
-        const passedOrSaw = result.terminal === 'pass' || result.terminal === 'max_actions';
+        // max_actions or no_terminal_call as proof the pipeline worked (screenshots were injected).
+        const passedOrSaw = result.terminal === 'pass' || result.terminal === 'max_actions' || result.terminal === 'no_terminal_call';
         expect(passedOrSaw).toBe(true);
         // The agent must NOT report 'fail' — that would mean it couldn't see.
         expect(result.terminal).not.toBe('fail');
+
+        // Verify screenshots were persisted to disk for at least one action.
+        // This is the exact path the inspect UI reads from — if this fails,
+        // the UI will show "No screenshots".
+        const storage = new FileSystemStorage(configService);
+        const actionEvents = events.filter(e => e.type === 'action');
+        let foundScreenshots = false;
+        for (const event of actionEvents) {
+            const artifacts = await storage.getStepArtifacts(runId, event.actionIndex);
+            if (artifacts.screenshots && artifacts.screenshots.length > 0) {
+                foundScreenshots = true;
+                // Each screenshot should be a valid data URI
+                for (const s of artifacts.screenshots) {
+                    expect(s).toMatch(/^data:image\/jpeg;base64,/);
+                }
+                break;
+            }
+        }
+        expect(foundScreenshots).toBe(true);
     }, 120_000);
 });

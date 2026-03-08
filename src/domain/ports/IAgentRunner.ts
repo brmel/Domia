@@ -5,7 +5,7 @@ export type StepExecutionResult =
     | { readonly success: true; readonly terminal: 'pass' }
     | {
           readonly success: false;
-          readonly terminal: 'fail' | 'error' | 'max_actions';
+          readonly terminal: 'fail' | 'error' | 'max_actions' | 'no_terminal_call';
           readonly code:
               | 'assertion_fail'
               | 'perception_error'
@@ -14,6 +14,7 @@ export type StepExecutionResult =
               | 'action_execution_error'
               | 'agent_fail'
               | 'max_actions_reached'
+              | 'no_terminal_call'
               | 'user_cancelled';
           readonly reason: string;
       };

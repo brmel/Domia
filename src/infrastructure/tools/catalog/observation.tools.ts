@@ -19,7 +19,7 @@ export function createObservationTools(
             actionType: ActionType.OBSERVE,
             parameters: z.object({
                 delayMs: z.number().int().nonnegative().optional().describe('Ms to wait before capturing. Use for animations/transitions. Default 0.'),
-                vision: z.boolean().optional().describe('Override session-level vision setting. True = force screenshot, false = skip it.'),
+                vision: z.boolean().optional().describe('Skip screenshots for this capture when set to false. Only effective when vision is enabled for the session.'),
             }),
             execute: async (args) => captureMiddleware.capture(
                 args['delayMs'] as number | undefined,

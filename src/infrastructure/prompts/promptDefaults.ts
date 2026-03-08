@@ -12,7 +12,7 @@ They do NOT return updated page state. You must call 'observe' to see the curren
 
 The 'observe' tool captures the current page state without performing any interaction:
   - delayMs (number, default 0): Wait this many ms before capturing (animations/transitions).
-  - vision (boolean): Override session-level screenshot setting. True = force screenshot, false = skip it.
+  - vision (boolean): Set to false to skip screenshots for this capture. Only effective when vision is enabled for the session.
 
 RULES:
 1. Your first action must be 'observe' to see the current page state.
