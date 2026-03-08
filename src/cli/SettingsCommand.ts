@@ -21,7 +21,6 @@ export class SettingsCommand {
                 console.log(`Headless: ${config.headless}`);
                 console.log(`Max Steps: ${config.limits.maxSteps}`);
                 console.log(`Delay Between Steps: ${config.limits.delayBetweenSteps}ms`);
-                console.log(`Max Replans Per Run: ${config.limits.maxReplansPerRun}`);
                 console.log(`AI Provider: ${config.ai.provider}`);
                 console.log(`AI Model: ${config.ai.model}`);
                 console.log(`Vision Enabled: ${config.ai.visionEnabled}`);

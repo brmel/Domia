@@ -3,7 +3,6 @@ import { persist } from 'zustand/middleware';
 import type { RunOutput } from '@application/dtos';
 import type { AgentAction, RunId } from '@domain/value-objects';
 import type { Plan } from '@domain/entities/Plan';
-import type { ReplanningTelemetry } from '@application/dtos';
 import { RunState } from '@domain/enums';
 import type { UIPlatformType } from '../config/platformRegistry';
 import type { PlatformFieldValue } from '../config/platformRegistry';
@@ -25,9 +24,7 @@ export interface RunStoreState {
     selectedPlatform: UIPlatformType;
     platformData: PlatformFieldValue;
 
-    replanningEvents: ReplanningTelemetry[];
-
-    liveScreenshot: string | null;
+    browserWsEndpoint: string | null;
 }
 
 interface RunStoreActions {
@@ -37,7 +34,6 @@ interface RunStoreActions {
     setSelectedPlatform: (platform: UIPlatformType) => void;
     setPlatformData: (data: PlatformFieldValue) => void;
     setStatus: (status: RunState) => void;
-    setLiveScreenshot: (data: string | null) => void;
 
     handleRunOutput: (event: RunOutput) => void;
 }
@@ -56,8 +52,7 @@ const initialState: RunStoreState = {
     prompt: 'verify that brahim is smiling',
     selectedPlatform: 'web',
     platformData: { url: 'https://ibraverse.ca' },
-    replanningEvents: [],
-    liveScreenshot: null,
+    browserWsEndpoint: null,
 };
 
 export const useRunStore = create<RunStore>()(persist((set) => ({
@@ -69,7 +64,6 @@ export const useRunStore = create<RunStore>()(persist((set) => ({
     setSelectedPlatform: (selectedPlatform: UIPlatformType): void => set({ selectedPlatform }),
     setPlatformData: (platformData: PlatformFieldValue): void => set({ platformData }),
     setStatus: (status: RunState): void => set({ status }),
-    setLiveScreenshot: (liveScreenshot: string | null): void => set({ liveScreenshot }),
 
     handleRunOutput: (event: RunOutput): void => {
         switch (event.type) {
@@ -83,8 +77,7 @@ export const useRunStore = create<RunStore>()(persist((set) => ({
                     success: null,
                     summary: null,
                     errorMessage: null,
-                    replanningEvents: [],
-                    liveScreenshot: null,
+                    browserWsEndpoint: null,
                 });
                 break;
 
@@ -101,10 +94,6 @@ export const useRunStore = create<RunStore>()(persist((set) => ({
                     plan: event.state.plan || state.plan,
                     currentAction: null
                 }));
-                break;
-
-            case 'replanning':
-                set((state) => ({ replanningEvents: [...state.replanningEvents, event.telemetry] }));
                 break;
 
             case 'completed':
@@ -133,8 +122,8 @@ export const useRunStore = create<RunStore>()(persist((set) => ({
                 });
                 break;
 
-            case 'screenshot':
-                set({ liveScreenshot: event.data });
+            case 'browser_ready':
+                set({ browserWsEndpoint: event.wsEndpoint });
                 break;
         }
     },

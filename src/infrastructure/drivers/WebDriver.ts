@@ -33,4 +33,8 @@ export class WebDriver implements IAppDriver {
     getAutomation(): import('../../domain/ports').IStructuredAutomation {
         return this.playwright;
     }
+
+    getBrowserWsEndpoint(): string | null {
+        return this.playwright.getBrowserWsEndpoint();
+    }
 }

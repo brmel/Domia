@@ -1,130 +1,42 @@
 import { inject, injectable } from 'tsyringe';
-import { randomUUID, createHash } from 'crypto';
+import { randomUUID } from 'crypto';
 import type { ICheckpointRepository } from '@domain/ports/ICheckpointRepository';
 import type { ILogger } from '@domain/ports';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
-import type { RunCheckpointReason, RunLifecycleState } from '@domain/value-objects/RunLifecycle';
-import { canTransitionRunLifecycle } from '@domain/value-objects/RunLifecycle';
+import type { RunCheckpointReason } from '@domain/value-objects/RunLifecycle';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 
 @injectable()
 export class RunDurabilityService {
-    private readonly lastCheckpointSignatureByRun = new Map<string, string>();
-    private readonly lastCheckpointIdByRun = new Map<string, string>();
-    private readonly checkpointSequenceByRun = new Map<string, number>();
-    private readonly checkpointBranchByRun = new Map<string, string>();
+    private readonly lastSignatureByRun = new Map<string, string>();
 
     constructor(
         @inject('ICheckpointRepository') private readonly persistence: ICheckpointRepository,
         @inject('ILogger') private readonly logger: ILogger
     ) {}
 
-    transition(
-        runId: string,
-        current: RunLifecycleState,
-        next: RunLifecycleState,
-        metadata?: Record<string, unknown>
-    ): RunLifecycleState {
-        if (!canTransitionRunLifecycle(current, next)) {
-            this.logger.warn(
-                `[RunDurabilityService] Ignoring invalid lifecycle transition ${current} -> ${next}`,
-                { runId, ...(metadata ?? {}) }
-            );
-            return current;
-        }
-
-        this.logger.info(
-            `[RunDurabilityService] Lifecycle transition ${current} -> ${next}`,
-            { runId, ...(metadata ?? {}) }
-        );
-
-        return next;
-    }
-
     async checkpoint(runId: string, state: WorkflowState, reason: RunCheckpointReason): Promise<void> {
-        const signature = JSON.stringify({
-            reason,
-            stepNumber: state.stepNumber,
-            status: state.status,
-            activeItemId: state.activeItemId,
-            error: state.error,
-            historyLength: state.history.length
-        });
+        const signature = `${reason}:${state.stepNumber}:${state.status}:${state.history.length}`;
+        if (this.lastSignatureByRun.get(runId) === signature) return;
 
-        const previousSignature = this.lastCheckpointSignatureByRun.get(runId);
-        if (previousSignature === signature) {
-            this.logger.debug('[RunDurabilityService] Checkpoint skipped (duplicate signature)', {
-                runId,
-                reason,
-                stepNumber: state.stepNumber,
-                status: state.status
-            });
-            return;
-        }
-
-        const checkpointId = randomUUID();
-        const parentCheckpointId = state.lastCheckpointId ?? this.lastCheckpointIdByRun.get(runId) ?? null;
-        const branchId = this.checkpointBranchByRun.get(runId) ?? `run:${runId}:main`;
-        const sequenceNumber = (this.checkpointSequenceByRun.get(runId) ?? 0) + 1;
-        const commitBoundary = reason !== 'action_applied';
-        const sideEffectSetHash = this.computeSideEffectSetHash(state);
-        const checkpointState: WorkflowState = {
-            ...state,
-            lastCheckpointId: checkpointId
-        };
-
-        const result = await this.persistence.saveCheckpoint(runId, checkpointState, reason, {
-            checkpointId,
-            parentCheckpointId,
-            branchId,
-            sequenceNumber,
-            commitBoundary,
-            sideEffectSetHash
+        const result = await this.persistence.saveCheckpoint(runId, state, reason, {
+            checkpointId: randomUUID(),
         });
 
         if (result.isErr()) {
-            this.logger.warn(`[RunDurabilityService] Checkpoint skipped: ${result.error.message}`, { runId, reason });
+            this.logger.warn(`[RunDurabilityService] Checkpoint failed: ${result.error.message}`, { runId, reason });
             return;
         }
 
-        this.lastCheckpointSignatureByRun.set(runId, signature);
-        this.lastCheckpointIdByRun.set(runId, checkpointId);
-        this.checkpointSequenceByRun.set(runId, sequenceNumber);
-        this.checkpointBranchByRun.set(runId, branchId);
-
-        this.logger.debug(`[RunDurabilityService] Checkpoint saved`, {
-            runId,
-            reason,
-            stepNumber: state.stepNumber,
-            status: state.status,
-            commitBoundary
-        });
-    }
-
-    private computeSideEffectSetHash(state: WorkflowState): string | null {
-        if (state.history.length === 0) {
-            return null;
-        }
-
-        const fingerprint = JSON.stringify({
-            stepNumber: state.stepNumber,
-            history: state.history.map(action => ({
-                type: action.type,
-                thought: action.thought ?? null
-            }))
-        });
-
-        return createHash('sha256').update(fingerprint).digest('hex');
+        this.lastSignatureByRun.set(runId, signature);
     }
 
     async getCheckpointRecords(runId: string): Promise<readonly CheckpointRecord[]> {
         const result = await this.persistence.getCheckpointRecords(runId);
-
         if (result.isErr()) {
-            this.logger.warn(`[RunDurabilityService] Could not load checkpoint records: ${result.error.message}`, { runId });
+            this.logger.warn(`[RunDurabilityService] Could not load checkpoints: ${result.error.message}`, { runId });
             return [];
         }
-
         return result.value;
     }
 }

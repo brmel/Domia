@@ -18,7 +18,8 @@ describe('RunUseCase no-plan behavior', () => {
                         yield {
                             type: 'action' as const,
                             action: { type: ActionType.FAIL, reason: 'could not verify', thought: 'failing this attempt' },
-                            assets: {},
+                            actionIndex: 0,
+                            trace: {},
                         };
                         return {
                             success: false as const,
@@ -31,7 +32,8 @@ describe('RunUseCase no-plan behavior', () => {
                     yield {
                         type: 'action' as const,
                         action: { type: ActionType.PASS, summary: 'done', thought: 'done' },
-                        assets: {},
+                        actionIndex: 0,
+                        trace: {},
                     };
                     return { success: true as const, terminal: 'pass' as const };
                 }),

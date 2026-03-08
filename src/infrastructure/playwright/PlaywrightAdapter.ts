@@ -26,6 +26,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
     private page: Page | null = null;
     private refs: RoleRefMap = {};
     private pool: BrowserPool | null = null;
+    private _ownsBrowser = false;
 
     constructor(private readonly logger: ILogger, pool?: BrowserPool) {
         this.pool = pool ?? null;
@@ -65,6 +66,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         });
         this.context = context;
         this.page = await context.newPage();
+        this._ownsBrowser = true;
         this.attachPageLifecycleHandlers(this.page);
         this.logger.info(`${TAG} Created new page`);
     }
@@ -262,7 +264,11 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
     async close(): Promise<void> {
         this.logger.debug(`${TAG} Closing browser context`);
 
-        if (this.pool) {
+        if (!this._ownsBrowser) {
+            if (this.page && !this.page.isClosed()) {
+                await this.page.goto('about:blank').catch(() => {});
+            }
+        } else if (this.pool) {
             this.pool.release();
         } else if (this.browser) {
             await this.browser.close();
@@ -270,6 +276,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         this.browser = null;
         this.context = null;
         this.page = null;
+        this._ownsBrowser = false;
     }
 
     async newTab(url?: string): Promise<TabInfo> {
@@ -330,11 +337,19 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         return this.page ? new PlaywrightPerceptionSource(this.page) : null;
     }
 
-    /** @internal — used only by ElectronDriver and ElectronWindowManager for window switching */
     setAttachedPage(page: Page): void {
         this.page = page;
         this.browser = page.context().browser();
+        this._ownsBrowser = false;
         this.attachPageLifecycleHandlers(page);
+    }
+
+    getBrowserWsEndpoint(): string | null {
+        try {
+            return this.browser?.wsEndpoint() ?? null;
+        } catch {
+            return null;
+        }
     }
 
     private resolveRef(ref: string): ResultAsync<Locator, InteractionError> {

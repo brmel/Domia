@@ -12,5 +12,4 @@ export type {
     IosPlatformConfig,
     PlatformConfig,
 } from './PlatformConfig';
-export type { ReplanningTelemetry } from './RunTelemetry';
 export type { BuiltInToolName, ToolName, ToolCategory, ToolResult } from './ToolTypes';

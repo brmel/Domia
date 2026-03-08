@@ -1,35 +1,21 @@
-// ── LLM ──────────────────────────────────────────────────────────────
-
 export const DEFAULT_LLM_MODEL = 'gemini-2.0-flash';
 export const DEFAULT_LLM_PROVIDER = 'google' as const;
 export const LLM_CALL_BUDGET_OFFSET = 2;
-
-// ── Execution budget ─────────────────────────────────────────────────
 
 export const DEFAULT_MAX_ACTIONS = 50;
 export const DEFAULT_MAX_DURATION_MS = 15 * 60 * 1000;
 export const DEFAULT_MAX_ESTIMATED_TOKENS = 120_000;
 export const DEFAULT_DELAY_BETWEEN_STEPS_MS = 1000;
 
-// ── Replanning ───────────────────────────────────────────────────────
-
-export const DEFAULT_MAX_REPLANS_PER_RUN = 2;
-
-// ── Loop guard ───────────────────────────────────────────────────────
-
 export const DEFAULT_LOOP_GUARD_THRESHOLD = 3;
 
-// ── CLI interactive defaults ─────────────────────────────────────────
 
 export const CLI_DEFAULT_STEPS = 10;
 export const CLI_DEFAULT_LIST_LIMIT = 20;
 export const CLI_DEFAULT_URL = 'https://ibraverse.ca';
 
-// ── Config file ──────────────────────────────────────────────────────
 
 export const CONFIG_FILE_NAME = 'domia.config.json';
-
-// ── Retry defaults ───────────────────────────────────────────────────
 
 export const DEFAULT_RETRY_ATTEMPTS = 3;
 export const DEFAULT_RETRY_MIN_DELAY_MS = 300;

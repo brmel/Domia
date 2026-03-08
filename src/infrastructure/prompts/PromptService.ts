@@ -15,7 +15,6 @@ import {
     DEFAULT_SHELL_CAPABILITY_NOTE,
     DEFAULT_SHELL_AVAILABLE_RULE,
     DEFAULT_SHELL_UNAVAILABLE_RULE,
-    DEFAULT_TOOL_DESCRIPTIONS,
 } from './promptDefaults';
 
 const INLINE_DEFAULTS: Record<PromptKey, string> = {
@@ -30,25 +29,9 @@ const INLINE_DEFAULTS: Record<PromptKey, string> = {
     shellUnavailableRule: DEFAULT_SHELL_UNAVAILABLE_RULE,
 };
 
-function parseToolDescriptions(content: string): Record<string, string> {
-    const result: Record<string, string> = {};
-    const sections = content.split(/^## /m).slice(1);
-    for (const section of sections) {
-        const newlineIdx = section.indexOf('\n');
-        if (newlineIdx === -1) continue;
-        const name = section.slice(0, newlineIdx).trim();
-        const body = section.slice(newlineIdx + 1).trim();
-        if (name && body) {
-            result[name] = body;
-        }
-    }
-    return result;
-}
-
 @injectable()
 export class PromptService implements IPromptService {
     private readonly defaultPrompts: Record<PromptKey, string>;
-    private readonly defaultToolDescriptions: Record<string, string>;
     private promptOverrides: Partial<Record<PromptKey, string>>;
     private toolDescriptionOverrides: Partial<Record<string, string>>;
 
@@ -56,7 +39,6 @@ export class PromptService implements IPromptService {
         @inject('IConfigService') private readonly configService: IConfigService,
     ) {
         this.defaultPrompts = { ...INLINE_DEFAULTS };
-        this.defaultToolDescriptions = parseToolDescriptions(DEFAULT_TOOL_DESCRIPTIONS);
 
         const config = this.configService.get();
         this.promptOverrides = { ...config.promptOverrides?.prompts };
@@ -68,7 +50,7 @@ export class PromptService implements IPromptService {
     }
 
     getToolDescription(toolName: string): string | undefined {
-        return this.toolDescriptionOverrides[toolName] ?? this.defaultToolDescriptions[toolName];
+        return this.toolDescriptionOverrides[toolName];
     }
 
     getAllPrompts(): Record<PromptKey, string> {
@@ -82,13 +64,7 @@ export class PromptService implements IPromptService {
     }
 
     getAllToolDescriptions(): Record<string, string> {
-        const result = { ...this.defaultToolDescriptions };
-        for (const [key, value] of Object.entries(this.toolDescriptionOverrides)) {
-            if (value !== undefined) {
-                result[key] = value;
-            }
-        }
-        return result;
+        return { ...this.toolDescriptionOverrides };
     }
 
     setPromptOverride(key: PromptKey, value: string): void {

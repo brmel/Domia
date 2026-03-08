@@ -22,11 +22,11 @@ export class SQLiteCheckpointRepository {
                 .values({
                     run_id: runId,
                     checkpoint_id: lineage.checkpointId,
-                    parent_checkpoint_id: lineage.parentCheckpointId,
-                    branch_id: lineage.branchId,
-                    sequence_number: lineage.sequenceNumber,
-                    commit_boundary: lineage.commitBoundary ? 1 : 0,
-                    side_effect_set_hash: lineage.sideEffectSetHash,
+                    parent_checkpoint_id: null,
+                    branch_id: '',
+                    sequence_number: 0,
+                    commit_boundary: 0,
+                    side_effect_set_hash: null,
                     state_json: JSON.stringify(state),
                     reason,
                     created_at: new Date().toISOString()
@@ -39,31 +39,14 @@ export class SQLiteCheckpointRepository {
     getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError> {
         return dbOp(
             this.db.selectFrom('workflow_checkpoints')
-                .select([
-                    'run_id',
-                    'checkpoint_id',
-                    'parent_checkpoint_id',
-                    'branch_id',
-                    'sequence_number',
-                    'commit_boundary',
-                    'side_effect_set_hash',
-                    'state_json',
-                    'reason',
-                    'created_at'
-                ])
+                .select(['run_id', 'checkpoint_id', 'state_json', 'reason', 'created_at'])
                 .where('run_id', '=', runId)
-                .orderBy('sequence_number', 'asc')
                 .orderBy('created_at', 'asc')
                 .execute(),
             'get checkpoint records'
         ).map(rows => rows.map(row => ({
             runId: row.run_id,
             checkpointId: row.checkpoint_id,
-            parentCheckpointId: row.parent_checkpoint_id,
-            branchId: row.branch_id,
-            sequenceNumber: row.sequence_number,
-            commitBoundary: row.commit_boundary === 1,
-            sideEffectSetHash: row.side_effect_set_hash,
             createdAt: row.created_at,
             reason: row.reason as RunCheckpointReason,
             state: JSON.parse(row.state_json)

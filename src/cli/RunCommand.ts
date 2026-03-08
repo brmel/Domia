@@ -320,13 +320,6 @@ export class RunCommand {
                             case 'thinking_chunk':
                                 process.stdout.write(chalk.gray(event.text));
                                 break;
-                            case 'replanning': {
-                                const status = event.telemetry.status;
-                                const reason = event.telemetry.reason;
-                                const trigger = event.telemetry.trigger ?? 'unspecified';
-                                console.log(chalk.yellow(`[Replanning] status=${status} trigger=${trigger} reason=${reason}`));
-                                break;
-                            }
                             case 'state_updated': {
                                 const state = event.state;
                                 if (state.plan) {

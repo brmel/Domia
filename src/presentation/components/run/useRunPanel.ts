@@ -6,7 +6,7 @@ import type { RunOutput } from '@application/dtos';
 export function useRunPanel() {
     const {
         status, currentAction, plan, history, success, summary,
-        errorMessage, handleRunOutput, runId, replanningEvents,
+        errorMessage, handleRunOutput, runId,
     } = useRunStore();
     const { open } = useStepInspectorStore();
 
@@ -74,7 +74,6 @@ export function useRunPanel() {
         summary,
         errorMessage,
         runId,
-        replanningEvents,
         rightRailTab,
         setRightRailTab,
         workspaceTab,

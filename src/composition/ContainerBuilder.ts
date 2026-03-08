@@ -13,8 +13,6 @@ import { RunLifecycleManager } from '@application/services/RunLifecycleManager';
 import { InMemoryRunExecutionLaneService } from '@application/services/execution/RunExecutionLaneService';
 import { RunDurabilityService } from '@application/services/execution/RunDurabilityService';
 import { RunBudgetPolicyService } from '@application/services/execution/RunBudgetPolicyService';
-import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
-import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 import { StepExecutionKernelService } from '@application/services/execution/StepExecutionKernelService';
 import { RuntimeReadinessPolicyService } from '@application/services/hardening/RuntimeReadinessPolicyService';
 import { WorkflowDefinitionService } from '@application/services/workflow/WorkflowDefinitionService';
@@ -70,8 +68,6 @@ export class ContainerBuilder {
         container.register('IRunExecutionLaneService', { useToken: InMemoryRunExecutionLaneService });
         container.registerSingleton(RunDurabilityService);
         container.registerSingleton(RunBudgetPolicyService);
-        container.registerSingleton(CheckpointCompactionService);
-        container.registerSingleton(ReplanningPolicyService);
         container.registerSingleton(StepExecutionKernelService);
         container.registerSingleton(RuntimeReadinessPolicyService);
         return this;

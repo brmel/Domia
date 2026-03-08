@@ -1,17 +1,20 @@
 import { injectable, inject } from 'tsyringe';
-import type { IStructuredAutomation } from '@domain/ports';
+import type { IStructuredAutomation, ITraceService, IStorageService, ILogger } from '@domain/ports';
 import type { Step } from '@domain/ports';
+import type { IAgentRunner, StepExecutionResult } from '@domain/ports/IAgentRunner';
 import { WorkflowError } from '@domain/errors';
 import { WorkflowState } from '@domain/value-objects';
 import { RunState } from '@domain/enums';
 import { RunDurabilityService } from './RunDurabilityService';
 import { RunBudgetPolicyService, type RunBudgetLimits } from './RunBudgetPolicyService';
-import { StepExecutor, type StepExecutionResult } from './StepExecutor';
 import type { StepExecutionOptions } from '@application/services/platform/platformUrlUtils';
 import type { RunOutput } from '../../dtos';
 import type { IRunRepository } from '@domain/ports/IRunRepository';
 import type { ExecutionController } from '../../ExecutionController';
+import { DEFAULT_MAX_ACTIONS } from '@shared/defaults';
 import { randomUUID } from 'crypto';
+
+export type { StepExecutionResult } from '@domain/ports/IAgentRunner';
 
 interface KernelRuntime {
     readonly budgetLimits: RunBudgetLimits;
@@ -28,7 +31,10 @@ interface KernelResult {
 @injectable()
 export class StepExecutionKernelService {
     constructor(
-        @inject(StepExecutor) private readonly executor: StepExecutor,
+        @inject('IAgentRunner') private readonly agentRunner: IAgentRunner,
+        @inject('ITraceService') private readonly trace: ITraceService,
+        @inject('IStorageService') private readonly storage: IStorageService,
+        @inject('ILogger') private readonly logger: ILogger,
         @inject('IRunRepository') private readonly persistence: IRunRepository,
         @inject(RunDurabilityService) private readonly durability: RunDurabilityService,
         @inject(RunBudgetPolicyService) private readonly budgetPolicy: RunBudgetPolicyService
@@ -46,19 +52,22 @@ export class StepExecutionKernelService {
     ): AsyncGenerator<RunOutput, KernelResult, unknown> {
         let estimatedTokensUsed = runtime.estimatedTokensUsed;
 
-        const stepGen = this.executor.executeStep(
+        await this.trace.startTrace(runId);
+
+        const config: import('@domain/ports/IAgentRunner').StepRunnerConfig = {
             runId,
-            executionGoal,
-            automation,
+            stepGoal: executionGoal,
             url,
-            {
-                vision: executionOptions.vision,
-                maxActions: executionOptions.maxActions,
-                ...(executionOptions.platform !== undefined ? { platform: executionOptions.platform } : {}),
-                ...(executionOptions.recording !== undefined ? { recording: executionOptions.recording } : {}),
-                ...(executionOptions.extras !== undefined ? { extras: executionOptions.extras } : {}),
-            },
-        );
+            maxActions: executionOptions.maxActions ?? DEFAULT_MAX_ACTIONS,
+            vision: executionOptions.vision,
+            platform: executionOptions.platform,
+            ...(executionOptions.extras ? { extras: executionOptions.extras } : {}),
+        };
+        if (executionOptions.recording) {
+            (config as { recording: typeof executionOptions.recording }).recording = executionOptions.recording;
+        }
+
+        const stepGen = this.agentRunner.executeStep(config, automation);
 
         try {
             const emitStateUpdate = async (): Promise<RunOutput> => {
@@ -72,17 +81,21 @@ export class StepExecutionKernelService {
                 estimatedTokensUsed,
             });
 
-            const iterator = stepGen[Symbol.asyncIterator]();
-            let next = await iterator.next();
+            let next = await stepGen.next();
 
             while (!next.done) {
-                if (next.value.type === 'thinking_chunk') {
-                    yield { type: 'thinking_chunk', text: next.value.text } as RunOutput;
-                } else if (next.value.type === 'screenshot') {
-                    yield { type: 'screenshot', data: next.value.data } as RunOutput;
-                } else if (next.value.type === 'action') {
-                    const action = next.value.action;
+                const event = next.value;
 
+                if (event.type === 'thinking_chunk') {
+                    yield { type: 'thinking_chunk', text: event.text } as RunOutput;
+                } else {
+                    try {
+                        await this.storage.saveStepTrace(runId, event.actionIndex, event.trace);
+                    } catch {
+                        this.logger.warn(`[Kernel] Failed to save step trace for action ${event.actionIndex}`);
+                    }
+
+                    const action = event.action;
                     yield { type: 'acting', action };
 
                     if (controller?.isStopped()) return cancelResult('Run cancelled by user.');
@@ -116,23 +129,17 @@ export class StepExecutionKernelService {
                     }
                 }
 
-                next = await iterator.next();
+                next = await stepGen.next();
             }
 
             const result = next.value;
             currentState = WorkflowState.transitionTo(currentState, 'validating');
             yield { type: 'state_updated', state: currentState };
 
-            return {
-                state: currentState,
-                result,
-                estimatedTokensUsed
-            };
+            return { state: currentState, result, estimatedTokensUsed };
         } catch (error) {
             const iteratorError = error instanceof Error ? error : new Error(String(error));
-            if (iteratorError instanceof WorkflowError) {
-                throw iteratorError;
-            }
+            if (iteratorError instanceof WorkflowError) throw iteratorError;
             return {
                 state: currentState,
                 result: {
@@ -168,10 +175,7 @@ export class StepExecutionKernelService {
         estimatedTokensUsed: number;
     }): void {
         const assessment = this.budgetPolicy.evaluate(runId, limits, snapshot);
-        if (assessment.status !== 'exceeded') {
-            return;
-        }
-
+        if (assessment.status !== 'exceeded') return;
         throw new WorkflowError(
             this.budgetPolicy.formatExceededMessage(limits, snapshot, assessment)
         );

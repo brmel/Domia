@@ -15,4 +15,5 @@ export interface IAppDriver {
     disconnect(): Promise<void>;
     getCapabilities(): AppCapabilities;
     getAutomation(): import('./IAppAutomation').IStructuredAutomation;
+    getBrowserWsEndpoint(): string | null;
 }

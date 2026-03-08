@@ -1,10 +1,13 @@
 import { injectable, inject } from 'tsyringe';
 import type { IAppDriverProvider, AppDriverCreateConfig } from '@domain/ports/IAppDriverFactory';
 import type { IAppDriver } from '@domain/ports/IAppDriver';
-import type { ILogger } from '@domain/ports';
+import type { ILogger, IConfigService } from '@domain/ports';
 import { WebDriver } from './WebDriver';
 import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
 import { BrowserPool } from '../playwright/BrowserPool';
+import { ELECTRON_DEBUG_PORT } from '@shared/defaults';
+
+const AGENT_VIEW_MARKER = 'domia-agent-view';
 
 @injectable()
 export class WebDriverProvider implements IAppDriverProvider {
@@ -13,6 +16,7 @@ export class WebDriverProvider implements IAppDriverProvider {
     constructor(
         @inject('ILogger') private readonly logger: ILogger,
         @inject(BrowserPool) private readonly pool: BrowserPool,
+        @inject('IConfigService') private readonly configService: IConfigService,
     ) {}
 
     async createDriver(config: AppDriverCreateConfig): Promise<IAppDriver> {
@@ -20,24 +24,50 @@ export class WebDriverProvider implements IAppDriverProvider {
             throw new Error('[WebDriverProvider] Invalid platform config');
         }
 
-        const adapter = new PlaywrightAdapter(this.logger, this.pool);
+        const viewMode = this.configService.get().viewMode ?? 'embedded';
+        const isElectron = typeof process !== 'undefined' && process.versions?.['electron'];
+
+        if (viewMode === 'embedded' && isElectron) {
+            return this.createEmbeddedDriver();
+        }
+
+        return this.createDetachedDriver(config);
+    }
+
+    private async createEmbeddedDriver(): Promise<IAppDriver> {
+        const { chromium } = await import('playwright');
+        const debugPort = process.env['ELECTRON_REMOTE_DEBUGGING_PORT'] || ELECTRON_DEBUG_PORT;
+        const cdpUrl = `http://127.0.0.1:${debugPort}`;
+
+        this.logger.info(`[WebDriverProvider] Connecting to own CDP at ${cdpUrl} (embedded mode)`);
+        const browser = await chromium.connectOverCDP(cdpUrl);
+
+        const allPages = browser.contexts().flatMap(c => c.pages());
+        const agentPage = allPages.find(p => p.url().includes(AGENT_VIEW_MARKER));
+        if (!agentPage) {
+            await browser.close();
+            throw new Error('[WebDriverProvider] Agent view page not found — is the WebContentsView created?');
+        }
+
+        const adapter = new PlaywrightAdapter(this.logger);
+        adapter.setAttachedPage(agentPage);
         const driver = new WebDriver(adapter, this.logger);
 
-        // When running inside the Electron desktop app, always keep the browser
-        // headless so Playwright does not open a foreign window. The live view
-        // displays screenshot frames streamed from the agent instead.
-        const runningInElectron = Boolean(
-            typeof process !== 'undefined' && process.versions && process.versions['electron']
-        );
-        const headless = runningInElectron ? true : (config.options?.headless ?? true);
+        this.logger.info('[WebDriverProvider] Attached to agent view (embedded mode)');
+        return driver;
+    }
+
+    private async createDetachedDriver(config: AppDriverCreateConfig): Promise<IAppDriver> {
+        const adapter = new PlaywrightAdapter(this.logger, this.pool);
+        const driver = new WebDriver(adapter, this.logger);
+        const headless = config.options?.headless ?? true;
 
         const connectResult = await driver.connect({ headless });
-
         if (connectResult.isErr()) {
             throw new Error(`[WebDriverProvider] Connection failed: ${connectResult.error.message}`);
         }
 
-        this.logger.info(`[WebDriverProvider] Connected to: ${config.platformConfig.url}${runningInElectron ? ' (headless, in-app mode)' : ''}`);
+        this.logger.info(`[WebDriverProvider] Connected (detached, headless=${headless})`);
         return driver;
     }
 }

@@ -4,7 +4,6 @@ import {
     DEFAULT_LLM_PROVIDER,
     DEFAULT_MAX_ACTIONS,
     DEFAULT_DELAY_BETWEEN_STEPS_MS,
-    DEFAULT_MAX_REPLANS_PER_RUN,
     DEFAULT_VIEWPORT_WIDTH,
     DEFAULT_VIEWPORT_HEIGHT,
     DEFAULT_ARTIFACTS_DIR,
@@ -14,6 +13,7 @@ import {
 
 export const DomiaConfigSchema = z.object({
     headless: z.boolean().default(true),
+    viewMode: z.enum(['embedded', 'detached']).default('embedded'),
     viewport: z.object({
         width: z.number().default(DEFAULT_VIEWPORT_WIDTH),
         height: z.number().default(DEFAULT_VIEWPORT_HEIGHT),
@@ -35,11 +35,9 @@ export const DomiaConfigSchema = z.object({
     limits: z.object({
         maxSteps: z.number().default(DEFAULT_MAX_ACTIONS),
         delayBetweenSteps: z.number().default(DEFAULT_DELAY_BETWEEN_STEPS_MS),
-        maxReplansPerRun: z.number().int().nonnegative().default(DEFAULT_MAX_REPLANS_PER_RUN),
     }).default({
         maxSteps: DEFAULT_MAX_ACTIONS,
         delayBetweenSteps: DEFAULT_DELAY_BETWEEN_STEPS_MS,
-        maxReplansPerRun: DEFAULT_MAX_REPLANS_PER_RUN,
     }),
 
     promptOverrides: z.object({

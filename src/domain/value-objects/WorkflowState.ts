@@ -1,10 +1,8 @@
 import { Plan } from '../entities/Plan';
 import { AgentAction } from './AgentAction';
-import { WorkflowExecutionGraph } from './ExecutionGraph';
 
 export type WorkflowStatus =
     | 'idle'
-    | 'planning'
     | 'observing'
     | 'thinking'
     | 'acting'
@@ -15,14 +13,10 @@ export type WorkflowStatus =
 export interface WorkflowState {
     readonly status: WorkflowStatus;
     readonly stepNumber: number;
-    readonly lastCheckpointId?: string;
-    readonly variables: Record<string, unknown>;
     readonly error?: string;
 
     readonly plan?: Plan;
-    readonly executionGraph?: WorkflowExecutionGraph;
     readonly activeItemId?: string;
-    readonly activeNodeId?: string;
     readonly history: readonly AgentAction[];
 }
 
@@ -31,7 +25,6 @@ export const WorkflowState = {
         return {
             status: 'idle',
             stepNumber: 0,
-            variables: {},
             history: []
         };
     },
@@ -50,7 +43,7 @@ export const WorkflowState = {
     },
 
     clearActiveItem(state: WorkflowState): WorkflowState {
-        const { activeItemId: _, activeNodeId: __, ...rest } = state;
+        const { activeItemId: _, ...rest } = state;
         return rest;
     },
 

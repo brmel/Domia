@@ -94,9 +94,7 @@ export function useWorkflowWorkspace() {
 
     trpc.workflow.onUpdate.useSubscription(undefined, {
         onData: (event) => {
-            // Forward live-view screenshots to the run store without polluting the event feed;
-            // also skip the cancelled event (run-panel handles it via the run store)
-            if ((event as { type: string }).type === 'screenshot' || (event as { type: string }).type === 'cancelled') {
+            if ((event as { type: string }).type === 'browser_ready' || (event as { type: string }).type === 'cancelled') {
                 return;
             }
             const typedEvent = event as WorkflowEvent;

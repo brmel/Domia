@@ -14,7 +14,8 @@ describe('RunUseCase budget hardening', () => {
                     yield {
                         type: 'action' as const,
                         action: { type: ActionType.WAIT, durationMs: 10, thought: 'wait' },
-                        assets: {},
+                        actionIndex: 0,
+                        trace: {},
                     };
                     return { success: true as const, terminal: 'pass' as const };
                 }),

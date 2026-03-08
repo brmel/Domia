@@ -76,15 +76,6 @@ export class AdkAgentRunner implements IAgentRunner {
         let lastObservedUrl: string = url;
         let llmTurnStartMs = Date.now();
 
-        let latestScreenshot: string | null = null;
-        let screenshotPromise: Promise<void> | null = null;
-
-        const captureScreenshotForView = (): void => {
-            screenshotPromise = perceptionSource.captureScreenshot()
-                .then(buf => { latestScreenshot = buf.toString('base64'); })
-                .catch(e => this.logger.debug('[AdkAgentRunner] Screenshot capture failed: %s', e));
-        };
-
         const flushPending = function* (): Generator<AgentRunnerEvent> {
             if (!pendingYield) return;
             if (pendingYield.type !== 'action') {
@@ -167,7 +158,6 @@ export class AdkAgentRunner implements IAgentRunner {
                     lastObservedUrl = res['navigatedUrl'] as string;
                 }
                 this.logger.debug(`[AdkAgentRunner] Tool ${tool.name} completed in ${durationMs}ms`, { status: res?.['status'] });
-                captureScreenshotForView();
                 return undefined;
             },
         });
@@ -212,15 +202,6 @@ export class AdkAgentRunner implements IAgentRunner {
                         this.logger.info(`[AdkAgentRunner] LLM responded in ${llmLatencyMs}ms (tool: ${prevToolMs}ms, round-trip: ${roundTripMs}ms)`);
                     } else {
                         this.logger.info(`[AdkAgentRunner] LLM responded in ${llmLatencyMs}ms`);
-                    }
-
-                    if (screenshotPromise) {
-                        await screenshotPromise;
-                        screenshotPromise = null;
-                    }
-                    if (latestScreenshot) {
-                        yield { type: 'screenshot', data: latestScreenshot };
-                        latestScreenshot = null;
                     }
 
                     for (const fc of functionCalls) {

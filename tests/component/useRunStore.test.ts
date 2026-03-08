@@ -80,17 +80,6 @@ describe('useRunStore', () => {
         expect(useRunStore.getState().history).toEqual(actions);
     });
 
-    it('handles replanning event', () => {
-        act(() => useRunStore.getState().handleRunOutput({ type: 'started', runId: RUN_1 }));
-        act(() => useRunStore.getState().handleRunOutput({
-            type: 'replanning',
-            telemetry: { status: 'success', trigger: 'drift', reason: 'page changed' },
-        } as unknown as RunOutput));
-
-        expect(useRunStore.getState().replanningEvents).toHaveLength(1);
-        expect(useRunStore.getState().replanningEvents[0]!.reason).toBe('page changed');
-    });
-
     it('reset restores initial state', () => {
         act(() => useRunStore.getState().handleRunOutput({ type: 'started', runId: RUN_1 }));
         act(() => useRunStore.getState().reset());

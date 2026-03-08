@@ -209,6 +209,10 @@ export class ElectronDriver implements IAppDriver {
         return this.adapter;
     }
 
+    getBrowserWsEndpoint(): string | null {
+        return this.browser?.wsEndpoint() ?? null;
+    }
+
     switchToWindow(windowId: string): void {
         const win = this.windowManager.getWindow(windowId);
         if (win.isErr()) {

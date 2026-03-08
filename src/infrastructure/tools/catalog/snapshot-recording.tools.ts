@@ -5,18 +5,6 @@ import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 import { MAX_MUTATION_LOG_ENTRIES, MAX_RECORDING_UNIQUE_VALUES, RECORDING_TIMELINE_ENTRIES } from '@shared/defaults';
 import { errorMsg } from '../toolResult';
 
-/**
- * JavaScript injected into the page to start the MutationObserver.
- *
- * The observer watches the entire document for:
- *   - childList mutations (nodes added/removed)
- *   - characterData mutations (text content changes)
- *
- * Each mutation batch is flattened into a timestamped log entry with
- * the text of added and removed nodes.  This captures DOM changes at
- * browser speed — even 1 ms intervals — because the observer runs
- * in-page, not via external polling.
- */
 const INJECT_OBSERVER_SCRIPT = `
 (() => {
     // Prevent double-injection
@@ -69,9 +57,6 @@ const INJECT_OBSERVER_SCRIPT = `
 })()
 `;
 
-/**
- * JavaScript injected into the page to stop the observer and retrieve the log.
- */
 const RETRIEVE_AND_STOP_SCRIPT = `
 (() => {
     const rec = window.__domia_recording;
@@ -87,36 +72,27 @@ const RETRIEVE_AND_STOP_SCRIPT = `
 `;
 
 
-/** @internal — exported for unit tests */
+/** @internal */
 export interface LogEntry {
     t: number;
     a: string[];
     r: string[];
 }
 
-/** @internal — exported for unit tests */
+/** @internal */
 export interface RecordingSummary {
     status: string;
     durationMs: number;
     totalEntries: number;
-    /** Every unique text value that was added to the DOM during recording. */
     allAddedValues: string[];
-    /** Every unique text value that was removed from the DOM during recording. */
     allRemovedValues: string[];
-    /** Values that were added but never removed — still on the page. */
     netPresentValues: string[];
-    /** Values that were added AND later removed — transient/flashing. */
     transientValues: string[];
-    /** Values that were only removed (were already on the page before recording). */
     onlyRemovedValues: string[];
-    /**
-     * Condensed timeline — first 60 log entries showing the mutation flow.
-     * Each entry: { offsetMs, added: string[], removed: string[] }.
-     */
     timeline: Array<{ offsetMs: number; added: string[]; removed: string[] }>;
 }
 
-/** @internal — exported for unit tests */
+/** @internal */
 export function analyzeLog(log: LogEntry[], durationMs: number): RecordingSummary {
     const addedSet = new Set<string>();
     const removedSet = new Set<string>();
@@ -129,14 +105,10 @@ export function analyzeLog(log: LogEntry[], durationMs: number): RecordingSummar
     const allAdded = [...addedSet].slice(0, MAX_RECORDING_UNIQUE_VALUES);
     const allRemoved = [...removedSet].slice(0, MAX_RECORDING_UNIQUE_VALUES);
 
-    // Net = added but never removed
     const netPresent = allAdded.filter(v => !removedSet.has(v));
-    // Transient = added AND removed (appeared then disappeared)
     const transient = allAdded.filter(v => removedSet.has(v));
-    // Only removed = removed but never added (were already on page)
     const onlyRemoved = allRemoved.filter(v => !addedSet.has(v));
 
-    // Condensed timeline — take first N entries
     const timeline = log.slice(0, RECORDING_TIMELINE_ENTRIES).map(e => ({
         offsetMs: e.t,
         added: e.a,
@@ -157,14 +129,6 @@ export function analyzeLog(log: LogEntry[], durationMs: number): RecordingSummar
 }
 
 
-/**
- * Creates the snapshot recording tools.
- *
- * These tools let the agent record and review DOM mutations at browser speed,
- * enabling analysis of transient/fast UIs that change between discrete observe
- * calls.  Works like DevTools Performance recording — the agent decides when
- * to start, the browser captures everything, and the agent reviews the history.
- */
 export function createSnapshotRecordingTools(
     perceptionSource: IPerceptionSource,
 ): ToolSpec[] {

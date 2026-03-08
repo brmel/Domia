@@ -1,5 +1,6 @@
 {
   "headless": true,
+  "viewMode": "embedded",
   "viewport": {
     "width": 1280,
     "height": 720

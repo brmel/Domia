@@ -24,11 +24,6 @@ export interface Step {
 
 export interface CheckpointLineageInput {
     readonly checkpointId: string;
-    readonly parentCheckpointId: string | null;
-    readonly branchId: string;
-    readonly sequenceNumber: number;
-    readonly commitBoundary: boolean;
-    readonly sideEffectSetHash: string | null;
 }
 
 export interface IPersistenceAdapter extends IRunRepository, ICheckpointRepository, IWorkflowRepository {}

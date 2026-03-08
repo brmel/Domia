@@ -1,5 +1,5 @@
 
-export type PlanStatus = 'planning' | 'executing' | 'completed' | 'failed';
+export type PlanStatus = 'executing' | 'completed' | 'failed';
 export type PlanItemStatus = 'pending' | 'active' | 'completed' | 'failed';
 export type PlanItemType = 'general' | 'vision' | 'code' | 'app';
 
@@ -8,9 +8,7 @@ export interface PlanItem {
     description: string;
     status: PlanItemStatus;
     type: PlanItemType;
-    subItems?: PlanItem[];
     metadata?: Record<string, unknown>;
-    result?: string; // Output of this step
     error?: string;
 }
 
@@ -22,11 +20,11 @@ export const PlanItem = {
         return { ...item, status: 'active' };
     },
 
-    complete(item: PlanItem, result?: string): PlanItem {
+    complete(item: PlanItem): PlanItem {
         if (item.status !== 'active') {
             throw new Error(`Cannot complete a plan item in '${item.status}' state`);
         }
-        return { ...item, status: 'completed', ...(result ? { result } : {}) };
+        return { ...item, status: 'completed' };
     },
 
     fail(item: PlanItem, error?: string): PlanItem {

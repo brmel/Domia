@@ -61,7 +61,6 @@ export function RunPanel(): ReactElement {
                                 statusLabel={vm.status}
                                 actionTypes={vm.history.map(action => action.type)}
                                 checkpoints={vm.checkpointRecords}
-                                replanningEvents={vm.replanningEvents}
                             />
                         )}
 

@@ -3,11 +3,10 @@ import { ok, okAsync } from 'neverthrow';
 import type { IStructuredAutomation, ILogger } from '@domain/ports';
 import type { IRunRepository } from '@domain/ports/IRunRepository';
 import type { ITraceService } from '@domain/ports/ITraceService';
+import type { IStorageService } from '@domain/ports/IStorageService';
+import type { IAgentRunner } from '@domain/ports/IAgentRunner';
 import { RunUseCase } from '@application/use-cases/RunUseCase';
-import { CheckpointCompactionService } from '@application/services/execution/CheckpointCompactionService';
-import { ReplanningPolicyService } from '@application/services/execution/ReplanningPolicyService';
 import { StepExecutionKernelService } from '@application/services/execution/StepExecutionKernelService';
-import { StepExecutor } from '@application/services/execution/StepExecutor';
 import { RunBudgetPolicyService } from '@application/services/execution/RunBudgetPolicyService';
 import { RunDurabilityService } from '@application/services/execution/RunDurabilityService';
 import type { RunExecutionLaneService } from '@application/services/execution/RunExecutionLaneService';
@@ -44,6 +43,7 @@ function createPersistenceMock() {
 
 function createTraceMock() {
     return {
+        startTrace: vi.fn().mockResolvedValue(undefined),
         endTrace: vi.fn().mockResolvedValue(undefined),
     };
 }
@@ -76,7 +76,6 @@ function createLaneServiceMock(releaseLane: ReturnType<typeof vi.fn>) {
 
 function createDurabilityMock(checkpointRecords: readonly unknown[] = []) {
     return {
-        transition: vi.fn((_: string, __: string, next: string) => next),
         checkpoint: vi.fn().mockResolvedValue(undefined),
         getCheckpointRecords: vi.fn().mockResolvedValue(checkpointRecords),
     };
@@ -147,11 +146,15 @@ export function createRunUseCaseContext(overrides: UseCaseContextOverrides = {})
     const budgetPolicy = overrides.budgetPolicy ?? createBudgetPolicyReal(logger);
     const readinessPolicy = overrides.readinessPolicy ?? createReadinessPolicyReal(logger);
 
-    const checkpointCompaction = new CheckpointCompactionService();
-    const replanningPolicy = new ReplanningPolicyService();
+    const storageMock = {
+        saveStepTrace: vi.fn().mockResolvedValue(undefined),
+    };
 
     const kernel = new StepExecutionKernelService(
-        executor as unknown as StepExecutor,
+        executor as unknown as IAgentRunner,
+        trace as unknown as ITraceService,
+        storageMock as unknown as IStorageService,
+        logger,
         persistence as unknown as IRunRepository,
         durability as unknown as RunDurabilityService,
         budgetPolicy as RunBudgetPolicyService,
@@ -164,8 +167,6 @@ export function createRunUseCaseContext(overrides: UseCaseContextOverrides = {})
         laneService as unknown as RunExecutionLaneService,
         durability as unknown as RunDurabilityService,
         budgetPolicy as RunBudgetPolicyService,
-        checkpointCompaction,
-        replanningPolicy,
         readinessPolicy as RuntimeReadinessPolicyService,
         logger,
         kernel,

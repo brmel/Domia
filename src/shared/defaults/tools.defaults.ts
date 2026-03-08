@@ -1,9 +1,5 @@
 
-// ── Wait tool ────────────────────────────────────────────────────────
-
 export const DEFAULT_WAIT_DURATION_MS = 1000;
-
-// ── Polling / waitForCondition ───────────────────────────────────────
 
 export const MAX_POLL_DURATION_MS = 10 * 60 * 1000;
 export const MIN_POLL_INTERVAL_MS = 200;
@@ -12,18 +8,12 @@ export const DEFAULT_POLL_INTERVAL_MS = 2_000;
 export const DEFAULT_POLL_TIMEOUT_MS = 30_000;
 export const POLL_TIMEOUT_SNAPSHOT_CHARS = 500;
 
-// ── Observation / extract ────────────────────────────────────────────
-
 export const MAX_EXTRACT_TEXT_LENGTH = 2000;
 export const MAX_PAGE_CONTENT_LENGTH = 16_000;
-
-// ── Snapshot recording (DOM mutation) ────────────────────────────────
 
 export const MAX_MUTATION_LOG_ENTRIES = 50_000;
 export const MAX_RECORDING_UNIQUE_VALUES = 2_000;
 export const RECORDING_TIMELINE_ENTRIES = 60;
-
-// ── Action recording (screenshot frames) ─────────────────────────────
 
 export const DEFAULT_RECORDING_MAX_DURATION_MS = 100;
 export const DEFAULT_RECORDING_INTERVAL_MS = 25;
@@ -32,7 +22,6 @@ export const MIN_RECORDING_DURATION_MS = 10;
 export const MAX_RECORDING_DURATION_MS = 5000;
 export const MAX_RECORDING_INTERVAL_MS = 1000;
 
-// ── Shell tool ───────────────────────────────────────────────────────
 
 export const DEFAULT_SHELL_TIMEOUT_MS = 30_000;
 export const MAX_SHELL_OUTPUT_LENGTH = 4096;
