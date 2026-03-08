@@ -34,14 +34,14 @@ export type AgentAction =
 interface ClickAction {
     readonly type: ActionType.CLICK;
     readonly ref: string;
-    readonly elementDescriptor?: string | undefined;
+    readonly elementDescriptor?: string;
     readonly thought: string;
 }
 
 interface TypeAction {
     readonly type: ActionType.TYPE;
     readonly ref: string;
-    readonly elementDescriptor?: string | undefined;
+    readonly elementDescriptor?: string;
     readonly text: string;
     readonly submit?: boolean;
     readonly thought: string;
@@ -142,7 +142,7 @@ interface PressKeyAction {
 interface ExtractAction {
     readonly type: ActionType.EXTRACT;
     readonly ref: string;
-    readonly elementDescriptor?: string | undefined;
+    readonly elementDescriptor?: string;
     readonly thought: string;
 }
 

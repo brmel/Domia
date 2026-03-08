@@ -9,7 +9,6 @@ import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } fro
 import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { RunCheckpointReason } from '@domain/value-objects/RunLifecycle';
-import type { CheckpointLineageInput } from '@domain/ports/IPersistenceAdapter';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 import { PersistenceError } from '@domain/errors';
 import { ConfigService } from '../ConfigService';
@@ -103,10 +102,9 @@ export class SQLiteAdapter implements IPersistenceAdapter {
     saveCheckpoint(
         runId: string,
         state: WorkflowState,
-        reason: RunCheckpointReason,
-        lineage: CheckpointLineageInput
+        reason: RunCheckpointReason
     ): ResultAsync<void, PersistenceError> {
-        return this.withPersist(() => this.checkpoints.saveCheckpoint(runId, state, reason, lineage));
+        return this.withPersist(() => this.checkpoints.saveCheckpoint(runId, state, reason));
     }
 
     getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError> {

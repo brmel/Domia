@@ -50,7 +50,7 @@ export class WorkflowDefinitionService {
             status: 'draft',
             version: 1,
             platformConfig: request.platformConfig,
-            steps: this.normalizeNewSteps(id, request.steps),
+            steps: this.normalizeSteps(id, request.steps),
             createdAt: now,
             updatedAt: now
         };
@@ -83,7 +83,7 @@ export class WorkflowDefinitionService {
             name: request.name.trim(),
             ...(request.description?.trim() ? { description: request.description.trim() } : {}),
             ...(request.platformConfig ? { platformConfig: request.platformConfig } : {}),
-            steps: this.normalizeExistingSteps(existing.id, request.steps),
+            steps: this.normalizeSteps(existing.id, request.steps),
             updatedAt: new Date().toISOString()
         };
 
@@ -163,25 +163,7 @@ export class WorkflowDefinitionService {
         return next;
     }
 
-    private normalizeNewSteps(
-        workflowId: string,
-        steps: ReadonlyArray<{
-            readonly name: string;
-            readonly prompt: string;
-            readonly continueOnFailure: boolean;
-            readonly options?: RunOptions;
-        }>
-    ): ReadonlyArray<WorkflowStepDefinition> {
-        return steps.map((step, index) => ({
-            id: `${workflowId}-step-${index + 1}`,
-            name: step.name.trim(),
-            prompt: step.prompt.trim(),
-            continueOnFailure: step.continueOnFailure,
-            ...(step.options ? { options: step.options } : {})
-        }));
-    }
-
-    private normalizeExistingSteps(
+    private normalizeSteps(
         workflowId: string,
         steps: ReadonlyArray<{
             readonly id?: string;

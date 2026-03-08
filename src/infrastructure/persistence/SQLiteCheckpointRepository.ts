@@ -1,8 +1,8 @@
 import { Kysely } from 'kysely';
+import { randomUUID } from 'crypto';
 import type { ResultAsync } from 'neverthrow';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { RunCheckpointReason } from '@domain/value-objects/RunLifecycle';
-import type { CheckpointLineageInput } from '@domain/ports/IPersistenceAdapter';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 import type { PersistenceError } from '@domain/errors';
 import type { DatabaseSchema } from './DatabaseSchema';
@@ -14,19 +14,13 @@ export class SQLiteCheckpointRepository {
     saveCheckpoint(
         runId: string,
         state: WorkflowState,
-        reason: RunCheckpointReason,
-        lineage: CheckpointLineageInput
+        reason: RunCheckpointReason
     ): ResultAsync<void, PersistenceError> {
         return dbOp(
             this.db.insertInto('workflow_checkpoints')
                 .values({
                     run_id: runId,
-                    checkpoint_id: lineage.checkpointId,
-                    parent_checkpoint_id: null,
-                    branch_id: '',
-                    sequence_number: 0,
-                    commit_boundary: 0,
-                    side_effect_set_hash: null,
+                    checkpoint_id: randomUUID(),
                     state_json: JSON.stringify(state),
                     reason,
                     created_at: new Date().toISOString()

@@ -22,8 +22,4 @@ export interface Step {
     timestamp: string;
 }
 
-export interface CheckpointLineageInput {
-    readonly checkpointId: string;
-}
-
 export interface IPersistenceAdapter extends IRunRepository, ICheckpointRepository, IWorkflowRepository {}

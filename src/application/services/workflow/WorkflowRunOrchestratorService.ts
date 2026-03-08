@@ -5,8 +5,6 @@ import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
 import type { ILogger } from '@domain/ports';
 import { RunState } from '@domain/enums';
 import type { WorkflowDefinition } from '@domain/entities/Workflow';
-import type { WorkflowExecutionGraph } from '@domain/value-objects';
-import { ExecutionGraph } from '@domain/value-objects';
 import { ExecutionController } from '@application/ExecutionController';
 import { WorkflowStepPolicyService } from './WorkflowStepPolicyService';
 import { WorkflowStepGovernanceService } from './WorkflowStepGovernanceService';
@@ -91,86 +89,50 @@ export class WorkflowRunOrchestratorService {
         }
 
         let shouldNavigateSharedSession = sharedSession.shouldNavigate;
-
         let completedSteps = 0;
-        let failedReason: string | null = null;
-        let executionGraph = this.createWorkflowGraph(definition);
-        const stepById = new Map(definition.steps.map((step) => [step.id, step]));
 
         try {
-            while (true) {
-                const nextNode = ExecutionGraph.selectNextReadyNode(executionGraph);
-                if (!nextNode) {
-                    break;
-                }
-
-                executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'running');
-
-                const step = stepById.get(nextNode.id);
-                if (!step) {
-                    failedReason = `Workflow graph node '${nextNode.id}' has no matching step definition.`;
-                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
-                    break;
-                }
-
-                const stepIndex = definition.steps.findIndex((candidate) => candidate.id === step.id);
-                if (stepIndex < 0) {
-                    failedReason = `Workflow step index resolution failed for step '${step.id}'.`;
-                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
-                    break;
-                }
-
+            for (const [stepIndex, step] of definition.steps.entries()) {
                 if (controller.state === RunState.CANCELLED) {
-                    failedReason = 'Workflow cancelled by operator.';
-                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
-                    break;
+                    await this.persistTerminalWorkflowStatus(workflowRunId, 'cancelled', 'Workflow cancelled by operator.');
+                    yield { type: 'workflow_completed', workflowRunId, success: false, summary: 'Workflow cancelled by operator.' };
+                    return;
                 }
 
                 const stepRunId = randomUUID();
-                const stepStartedAt = new Date().toISOString();
                 const saveStepRunResult = await this.persistence.saveWorkflowStepRun({
                     id: stepRunId,
                     workflowRunId,
                     stepId: step.id,
                     stepIndex,
                     status: 'running',
-                    startedAt: stepStartedAt
+                    startedAt: new Date().toISOString()
                 });
 
                 if (saveStepRunResult.isErr()) {
-                    failedReason = saveStepRunResult.error.message;
-                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
-                    break;
+                    await this.persistTerminalWorkflowStatus(workflowRunId, 'failed', saveStepRunResult.error.message);
+                    yield { type: 'workflow_failed', workflowRunId, reason: saveStepRunResult.error.message };
+                    return;
                 }
 
-                yield {
-                    type: 'workflow_step_started',
-                    workflowRunId,
-                    stepId: step.id,
-                    stepIndex
-                };
+                yield { type: 'workflow_step_started', workflowRunId, stepId: step.id, stepIndex };
 
                 const governanceDecision = this.governance.assess(step, definition);
                 if (!governanceDecision.allowed) {
-                    const blockedReason = governanceDecision.reason;
-                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
-
-                    yield* this.yieldBlockedTransition(workflowRunId, stepRunId, step.id, stepIndex, blockedReason, 'governance');
+                    yield* this.yieldBlockedTransition(workflowRunId, stepRunId, step.id, stepIndex, governanceDecision.reason, 'governance');
                     return;
                 }
 
                 const capabilityAssessment = this.capabilityNegotiation.assessStep(step, definition.platformConfig.platform);
                 if (capabilityAssessment.blocked) {
                     const blockedReason = capabilityAssessment.reason ?? `Step '${step.name}' blocked by platform capability policy.`;
-                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
-
                     yield* this.yieldBlockedTransition(workflowRunId, stepRunId, step.id, stepIndex, blockedReason, 'capability');
                     return;
                 }
 
-                const degradedCapabilities = capabilityAssessment.decisions.filter((decision) => decision.support === 'degraded');
+                const degradedCapabilities = capabilityAssessment.decisions.filter((d) => d.support === 'degraded');
                 const degradationSummary = degradedCapabilities.length > 0
-                    ? `Capability degradation: ${degradedCapabilities.map((decision) => decision.capability).join(', ')}`
+                    ? `Capability degradation: ${degradedCapabilities.map((d) => d.capability).join(', ')}`
                     : undefined;
 
                 const stepResult = await this.stepPolicy.runWithPolicy(step, async () =>
@@ -183,63 +145,38 @@ export class WorkflowRunOrchestratorService {
                 shouldNavigateSharedSession = false;
 
                 if (stepResult.runId) {
-                    yield {
-                        type: 'workflow_step_bound',
-                        workflowRunId,
-                        stepId: step.id,
-                        stepIndex,
-                        runId: stepResult.runId
-                    };
+                    yield { type: 'workflow_step_bound', workflowRunId, stepId: step.id, stepIndex, runId: stepResult.runId };
                 }
+
+                const combinedSummary = [stepResult.summary, degradationSummary].filter(Boolean).join(' | ') || undefined;
 
                 const updateStepRunResult = await this.persistence.updateWorkflowStepRun(stepRunId, {
                     status: stepResult.success ? 'completed' : 'failed',
-                    ...((stepResult.summary || degradationSummary)
-                        ? {
-                            summary: [stepResult.summary, degradationSummary].filter(Boolean).join(' | ')
-                        }
-                        : {}),
+                    ...(combinedSummary ? { summary: combinedSummary } : {}),
                     ...(stepResult.runId ? { runId: stepResult.runId } : {}),
                     completedAt: new Date().toISOString()
                 });
 
                 if (updateStepRunResult.isErr()) {
                     this.logger.warn('[WorkflowRunOrchestratorService] Failed to update workflow step run', {
-                        workflowRunId,
-                        stepRunId,
-                        reason: updateStepRunResult.error.message
+                        workflowRunId, stepRunId, reason: updateStepRunResult.error.message
                     });
                 }
 
                 yield {
-                    type: 'workflow_step_completed',
-                    workflowRunId,
-                    stepId: step.id,
-                    stepIndex,
+                    type: 'workflow_step_completed', workflowRunId, stepId: step.id, stepIndex,
                     success: stepResult.success,
-                    ...((stepResult.summary || degradationSummary)
-                        ? {
-                            summary: [stepResult.summary, degradationSummary].filter(Boolean).join(' | ')
-                        }
-                        : {})
+                    ...(combinedSummary ? { summary: combinedSummary } : {})
                 };
 
                 if (!stepResult.success) {
-                    if (step.continueOnFailure) {
-                        executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'skipped');
-                        continue;
-                    }
+                    if (step.continueOnFailure) continue;
 
-                    executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'failed');
                     const terminalReason = stepResult.summary ?? `Step failed: ${step.name}`;
                     const completedAt = new Date().toISOString();
                     const terminalResult = await this.persistence.commitAtomicWorkflowTransition({
                         workflowRunId,
-                        workflowRunUpdates: {
-                            status: 'failed',
-                            summary: terminalReason,
-                            completedAt
-                        },
+                        workflowRunUpdates: { status: 'failed', summary: terminalReason, completedAt },
                         workflowStepRunId: stepRunId,
                         workflowStepRunUpdates: {
                             status: 'failed',
@@ -251,106 +188,42 @@ export class WorkflowRunOrchestratorService {
 
                     if (terminalResult.isErr()) {
                         this.logger.warn('[WorkflowRunOrchestratorService] Failed to atomically persist terminal transition', {
-                            workflowRunId,
-                            stepRunId,
-                            reason: terminalResult.error.message
+                            workflowRunId, stepRunId, reason: terminalResult.error.message
                         });
                     }
 
-                    yield {
-                        type: 'workflow_failed',
-                        workflowRunId,
-                        reason: terminalReason
-                    };
-
+                    yield { type: 'workflow_failed', workflowRunId, reason: terminalReason };
                     return;
                 }
 
-                executionGraph = ExecutionGraph.updateNodeState(executionGraph, nextNode.id, 'completed');
                 completedSteps += 1;
             }
 
-            if (!failedReason) {
-                const summary = `Workflow completed (${completedSteps}/${definition.steps.length} steps succeeded).`;
-                await this.persistence.updateWorkflowRun(workflowRunId, {
-                    status: 'completed',
-                    summary,
-                    completedAt: new Date().toISOString()
-                });
-
-                yield {
-                    type: 'workflow_completed',
-                    workflowRunId,
-                    success: true,
-                    summary
-                };
-                return;
-            }
-
-            const terminalStatus = controller.state === RunState.CANCELLED ? 'cancelled' : 'failed';
+            const summary = `Workflow completed (${completedSteps}/${definition.steps.length} steps succeeded).`;
             await this.persistence.updateWorkflowRun(workflowRunId, {
-                status: terminalStatus,
-                summary: failedReason,
-                completedAt: new Date().toISOString()
+                status: 'completed', summary, completedAt: new Date().toISOString()
             });
 
-            if (controller.state === RunState.CANCELLED) {
-                yield {
-                    type: 'workflow_completed',
-                    workflowRunId,
-                    success: false,
-                    summary: failedReason
-                };
-                return;
-            }
-
-            yield {
-                type: 'workflow_failed',
-                workflowRunId,
-                reason: failedReason
-            };
+            yield { type: 'workflow_completed', workflowRunId, success: true, summary };
         } finally {
             await sharedSession.dispose().catch((error: unknown) => {
                 const reason = error instanceof Error ? error.message : String(error);
                 this.logger.warn('[WorkflowRunOrchestratorService] Failed to dispose shared workflow session', {
-                    workflowRunId,
-                    reason
+                    workflowRunId, reason
                 });
             });
         }
     }
 
-    private createWorkflowGraph(definition: WorkflowDefinition): WorkflowExecutionGraph {
-        const nodes = definition.steps.map((step) => ({
-            id: step.id,
-            description: step.name,
-            kind: 'action' as const,
-            state: 'pending' as const,
-            type: 'general' as const,
-            metadata: {
-                workflowStepPrompt: step.prompt
-            }
-        }));
-
-        const edges = definition.steps.flatMap((step, index) => {
-            const next = definition.steps[index + 1];
-            if (!next) {
-                return [];
-            }
-
-            return [{ fromNodeId: step.id, toNodeId: next.id }];
+    private async persistTerminalWorkflowStatus(workflowRunId: string, status: string, summary: string): Promise<void> {
+        const result = await this.persistence.updateWorkflowRun(workflowRunId, {
+            status, summary, completedAt: new Date().toISOString()
         });
-
-        return {
-            id: `workflow-graph:${definition.id}:${definition.version}`,
-            sourcePlanId: definition.id,
-            version: definition.version,
-            createdAt: new Date().toISOString(),
-            nodes,
-            edges,
-            entryNodeIds: definition.steps[0] ? [definition.steps[0].id] : [],
-            terminalNodeIds: definition.steps.length > 0 ? [definition.steps[definition.steps.length - 1]!.id] : []
-        };
+        if (result.isErr()) {
+            this.logger.warn('[WorkflowRunOrchestratorService] Failed to persist terminal workflow status', {
+                workflowRunId, reason: result.error.message
+            });
+        }
     }
 
     private async *yieldBlockedTransition(

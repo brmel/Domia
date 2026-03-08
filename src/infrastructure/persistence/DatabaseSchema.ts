@@ -25,11 +25,6 @@ export interface WorkflowCheckpointTable {
     id: Generated<number>;
     run_id: string;
     checkpoint_id: string;
-    parent_checkpoint_id: string | null;
-    branch_id: string;
-    sequence_number: number;
-    commit_boundary: number;
-    side_effect_set_hash: string | null;
     state_json: string;
     reason: string;
     created_at: string;

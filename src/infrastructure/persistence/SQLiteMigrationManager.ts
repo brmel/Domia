@@ -46,37 +46,13 @@ function applyMigrations(database: SqlJsDatabase): void {
                         FOREIGN KEY(run_id) REFERENCES runs(id)
                     );
 
-                    CREATE TABLE IF NOT EXISTS logs (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        run_id TEXT NOT NULL,
-                        level TEXT NOT NULL,
-                        message TEXT NOT NULL,
-                        metadata JSON,
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY(run_id) REFERENCES runs(id)
-                    );
-
                     CREATE TABLE IF NOT EXISTS workflow_checkpoints (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         run_id TEXT NOT NULL,
                         checkpoint_id TEXT NOT NULL,
-                        parent_checkpoint_id TEXT,
-                        branch_id TEXT NOT NULL,
-                        sequence_number INTEGER NOT NULL,
-                        commit_boundary INTEGER NOT NULL,
-                        side_effect_set_hash TEXT,
                         state_json JSON NOT NULL,
                         reason TEXT NOT NULL DEFAULT 'action_applied',
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY(run_id) REFERENCES runs(id)
-                    );
-
-                    CREATE TABLE IF NOT EXISTS replay_idempotency_keys (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        run_id TEXT NOT NULL,
-                        idempotency_key TEXT NOT NULL,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        UNIQUE(run_id, idempotency_key),
                         FOREIGN KEY(run_id) REFERENCES runs(id)
                     );
 
@@ -123,7 +99,6 @@ function applyMigrations(database: SqlJsDatabase): void {
                     CREATE INDEX IF NOT EXISTS idx_workflow_runs_started_at ON workflow_runs(started_at);
                     CREATE INDEX IF NOT EXISTS idx_workflow_step_runs_run_idx ON workflow_step_runs(workflow_run_id, step_index);
                     CREATE INDEX IF NOT EXISTS idx_workflow_checkpoints_run_created ON workflow_checkpoints(run_id, created_at);
-                    CREATE INDEX IF NOT EXISTS idx_workflow_checkpoints_run_branch_seq ON workflow_checkpoints(run_id, branch_id, sequence_number);
                 `);
             }
         },

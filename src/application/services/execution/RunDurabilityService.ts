@@ -1,5 +1,4 @@
 import { inject, injectable } from 'tsyringe';
-import { randomUUID } from 'crypto';
 import type { ICheckpointRepository } from '@domain/ports/ICheckpointRepository';
 import type { ILogger } from '@domain/ports';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
@@ -19,9 +18,7 @@ export class RunDurabilityService {
         const signature = `${reason}:${state.stepNumber}:${state.status}:${state.history.length}`;
         if (this.lastSignatureByRun.get(runId) === signature) return;
 
-        const result = await this.persistence.saveCheckpoint(runId, state, reason, {
-            checkpointId: randomUUID(),
-        });
+        const result = await this.persistence.saveCheckpoint(runId, state, reason);
 
         if (result.isErr()) {
             this.logger.warn(`[RunDurabilityService] Checkpoint failed: ${result.error.message}`, { runId, reason });

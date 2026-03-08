@@ -3,8 +3,6 @@ export { UrlFactory, RunIdFactory } from './Brand';
 export type { AgentAction } from './AgentAction';
 export type { RoleRef, RoleRefMap } from './RoleRef';
 export type { CheckpointRecord } from './CheckpointReadModel';
-export type { WorkflowExecutionGraph } from './ExecutionGraph';
-export { ExecutionGraph } from './ExecutionGraph';
 export type { PerceptionFrame } from './PerceptionFrame';
 export type { RunCheckpointReason } from './RunLifecycle';
 export { VisualContext } from './VisualContext';
