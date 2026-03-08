@@ -40,7 +40,12 @@ const OPTIONAL_TOOL_FACTORIES: ReadonlyArray<(deps: ToolDependencies) => ToolSpe
     (deps) => deps.tabManager ? createTabTools(deps.tabManager) : [],
 ];
 
-export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] = [], promptService?: IPromptService): ToolSpec[] {
+export interface ToolCatalogResult {
+    catalog: ToolSpec[];
+    captureMiddleware: PostActionCaptureMiddleware;
+}
+
+export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] = [], promptService?: IPromptService): ToolCatalogResult {
     const middleware = new PostActionCaptureMiddleware(
         deps.perceptionSource,
         deps.perception,
@@ -90,10 +95,13 @@ export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] 
         });
     }
 
-    if (!promptService) return filtered;
+    if (!promptService) return { catalog: filtered, captureMiddleware: middleware };
 
-    return filtered.map((spec) => ({
-        ...spec,
-        description: promptService.getToolDescription(spec.name) ?? spec.description,
-    }));
+    return {
+        catalog: filtered.map((spec) => ({
+            ...spec,
+            description: promptService.getToolDescription(spec.name) ?? spec.description,
+        })),
+        captureMiddleware: middleware,
+    };
 }

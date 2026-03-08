@@ -1,6 +1,6 @@
 import type { Database as SqlJsDatabase } from 'sql.js';
 
-export const SQLITE_MIGRATION_IDS = ['20260213_baseline_v1', '20260213_workflow_indexes_v1', '20260214_rename_legacy_tables_v1'] as const;
+export const SQLITE_MIGRATION_IDS = ['20260308_baseline_v2'] as const;
 
 export function initializeSchema(database: SqlJsDatabase): void {
     database.run(`
@@ -99,43 +99,12 @@ function applyMigrations(database: SqlJsDatabase): void {
                     CREATE INDEX IF NOT EXISTS idx_workflow_runs_started_at ON workflow_runs(started_at);
                     CREATE INDEX IF NOT EXISTS idx_workflow_step_runs_run_idx ON workflow_step_runs(workflow_run_id, step_index);
                     CREATE INDEX IF NOT EXISTS idx_workflow_checkpoints_run_created ON workflow_checkpoints(run_id, created_at);
-                `);
-            }
-        },
-        {
-            id: SQLITE_MIGRATION_IDS[1],
-            apply: (): void => {
-                database.exec(`
                     CREATE INDEX IF NOT EXISTS idx_workflow_definitions_status ON workflow_definitions(status);
                     CREATE INDEX IF NOT EXISTS idx_workflow_runs_definition ON workflow_runs(workflow_definition_id, started_at);
                     CREATE INDEX IF NOT EXISTS idx_workflow_step_runs_run ON workflow_step_runs(run_id);
                 `);
             }
         },
-        {
-            id: SQLITE_MIGRATION_IDS[2],
-            apply: (): void => {
-                const result = database.exec(
-                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='test_runs'"
-                );
-
-                if (result.length === 0) return;
-
-                database.run(`ALTER TABLE test_runs RENAME TO runs`);
-                database.run(`ALTER TABLE test_steps RENAME TO steps`);
-                database.run(`ALTER TABLE steps RENAME COLUMN test_run_id TO run_id`);
-                database.run(`ALTER TABLE logs RENAME COLUMN test_run_id TO run_id`);
-                database.run(`ALTER TABLE workflow_step_runs RENAME COLUMN test_run_id TO run_id`);
-
-                database.run(`DROP INDEX IF EXISTS idx_test_runs_started_at`);
-                database.run(`DROP INDEX IF EXISTS idx_test_steps_run_step`);
-                database.run(`DROP INDEX IF EXISTS idx_workflow_step_runs_test_run`);
-
-                database.run(`CREATE INDEX IF NOT EXISTS idx_runs_started_at ON runs(started_at)`);
-                database.run(`CREATE INDEX IF NOT EXISTS idx_steps_run_step ON steps(run_id, step_number)`);
-                database.run(`CREATE INDEX IF NOT EXISTS idx_workflow_step_runs_run ON workflow_step_runs(run_id)`);
-            }
-        }
     ];
 
     database.run('BEGIN TRANSACTION');

@@ -3,9 +3,11 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { createInMemoryDatabase } from '@infrastructure/persistence/SqlJsProvider';
 import { initializeSchema } from '@infrastructure/persistence/SQLiteMigrationManager';
 import { SQLiteRunRepository } from '@infrastructure/persistence/SQLiteRunRepository';
+import { SQLiteCheckpointRepository } from '@infrastructure/persistence/SQLiteCheckpointRepository';
 import type { Step } from '@domain/ports';
 import { Run } from '@domain/entities/Run';
 import { RunIdFactory, UrlFactory } from '@domain/value-objects';
+import { WorkflowState } from '@domain/value-objects/WorkflowState';
 import { ActionType } from '@domain/enums';
 import { createInMemoryDb } from '../../../helpers/createInMemoryTestDb';
 
@@ -238,9 +240,111 @@ describe('SQLite persistence round-trip', () => {
 
         const result = raw2.exec('SELECT id FROM schema_migrations');
         const migrations = (result[0]?.values ?? []).map(row => ({ id: row[0] as string }));
-        expect(migrations.length).toBeGreaterThanOrEqual(2);
+        expect(migrations.length).toBeGreaterThanOrEqual(1);
 
         const unique = new Set(migrations.map(m => m.id));
         expect(unique.size).toBe(migrations.length);
+    });
+
+    it('full run lifecycle: run → steps → checkpoints persisted to history', async () => {
+        const { db } = await createInMemoryDb();
+        const runRepo = new SQLiteRunRepository(db);
+        const checkpointRepo = new SQLiteCheckpointRepository(db);
+
+        // 1. Create and save a new run
+        const runId = RunIdFactory.create();
+        const run = Run.create({
+            id: runId,
+            url: UrlFactory.unsafe('https://example.com'),
+            prompt: 'Verify the homepage loads correctly',
+        });
+        expect((await runRepo.saveRun(run)).isOk()).toBe(true);
+
+        // 2. Transition to running
+        const started = Run.start(run);
+        await runRepo.updateRun(run.id, {
+            status: started.status,
+            ...(started.startedAt && { startedAt: started.startedAt }),
+        });
+
+        // 3. Save action steps
+        const steps: Step[] = [
+            {
+                id: 'step-observe-1',
+                runId: runId as string,
+                stepNumber: 1,
+                actionType: ActionType.OBSERVE,
+                actionPayload: {} as never,
+                assets: { screenshot: '/artifacts/screenshot_1.jpg' },
+                timestamp: new Date().toISOString(),
+            },
+            {
+                id: 'step-click-2',
+                runId: runId as string,
+                stepNumber: 2,
+                actionType: ActionType.CLICK,
+                actionPayload: { ref: 'e3' } as never,
+                timestamp: new Date().toISOString(),
+            },
+            {
+                id: 'step-pass-3',
+                runId: runId as string,
+                stepNumber: 3,
+                actionType: ActionType.PASS,
+                actionPayload: { summary: 'Homepage verified' } as never,
+                timestamp: new Date().toISOString(),
+            },
+        ];
+        for (const step of steps) {
+            expect((await runRepo.saveStep(step)).isOk()).toBe(true);
+        }
+
+        // 4. Save checkpoints (verifies checkpoint_id column works)
+        const state = WorkflowState.initial();
+        expect((await checkpointRepo.saveCheckpoint(runId as string, state, 'run_initialized')).isOk()).toBe(true);
+        expect((await checkpointRepo.saveCheckpoint(runId as string, state, 'action_applied')).isOk()).toBe(true);
+        expect((await checkpointRepo.saveCheckpoint(runId as string, state, 'terminal_success')).isOk()).toBe(true);
+
+        // 5. Mark run as passed
+        const passed = Run.pass(started, 'Homepage loaded and verified');
+        await runRepo.updateRun(run.id, { status: passed.status });
+
+        // ── Validate full history ──
+
+        // Runs list shows the new entry
+        const allRuns = (await runRepo.getRuns(50))._unsafeUnwrap();
+        expect(allRuns.length).toBeGreaterThanOrEqual(1);
+        const savedRun = allRuns.find(r => r.id === runId);
+        expect(savedRun).toBeDefined();
+        expect(savedRun!.status.type).toBe('passed');
+        expect(savedRun!.prompt).toBe('Verify the homepage loads correctly');
+        expect(savedRun!.url).toBe('https://example.com');
+
+        // Steps are persisted in order
+        const savedSteps = (await runRepo.getSteps(runId as string))._unsafeUnwrap();
+        expect(savedSteps).toHaveLength(3);
+        expect(savedSteps.map(s => s.actionType)).toEqual([
+            ActionType.OBSERVE,
+            ActionType.CLICK,
+            ActionType.PASS,
+        ]);
+        expect(savedSteps[0]!.assets).toEqual({ screenshot: '/artifacts/screenshot_1.jpg' });
+
+        // Individual step retrieval works
+        const step2 = (await runRepo.getStep(runId as string, 2))._unsafeUnwrap();
+        expect(step2).not.toBeNull();
+        expect(step2!.actionPayload).toEqual({ ref: 'e3' });
+
+        // Checkpoints are persisted with correct checkpoint_id column
+        const checkpoints = (await checkpointRepo.getCheckpointRecords(runId as string))._unsafeUnwrap();
+        expect(checkpoints).toHaveLength(3);
+        expect(checkpoints.map(c => c.reason)).toEqual([
+            'run_initialized',
+            'action_applied',
+            'terminal_success',
+        ]);
+        // Each checkpoint has a unique ID
+        const cpIds = new Set(checkpoints.map(c => c.checkpointId));
+        expect(cpIds.size).toBe(3);
     });
 });

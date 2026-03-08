@@ -22,7 +22,7 @@ export const CHROMIUM_LAUNCH_ARGS: readonly string[] = [
 
 export const DEFAULT_SCREENSHOT_QUALITY = 60;
 
-export const DEFAULT_MAX_SCROLL_SCREENSHOTS = 3;
+export const DEFAULT_MAX_SCROLL_SCREENSHOTS = 5;
 export const SCROLL_OVERLAP_PX = 100;
 export const SCROLL_CAPTURE_QUALITY = 60;
 

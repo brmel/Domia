@@ -15,7 +15,7 @@ import { ok } from 'neverthrow';
 
 describe('buildToolCatalog', () => {
     it('returns interaction, mouse, observe, and control tools by default', () => {
-        const catalog = buildToolCatalog(createStubToolDeps());
+        const { catalog } = buildToolCatalog(createStubToolDeps());
 
         expect(catalog.length).toBeGreaterThan(0);
         expect(catalog.some(t => t.category === 'interaction')).toBe(true);
@@ -31,8 +31,8 @@ describe('buildToolCatalog', () => {
     it('includes shell tools only when shellExecutor is provided', () => {
         const shellExecutor = { executeCommand: vi.fn(async () => ok({ stdout: '', stderr: '', exitCode: 0 })) } as unknown as NonNullable<ToolDependencies['shellExecutor']>;
 
-        const withoutShell = buildToolCatalog(createStubToolDeps());
-        const withShell = buildToolCatalog(createStubToolDeps({ shellExecutor }));
+        const { catalog: withoutShell } = buildToolCatalog(createStubToolDeps());
+        const { catalog: withShell } = buildToolCatalog(createStubToolDeps({ shellExecutor }));
 
         expect(withoutShell.some(t => t.category === 'shell')).toBe(false);
         expect(withShell.some(t => t.category === 'shell')).toBe(true);
@@ -40,7 +40,7 @@ describe('buildToolCatalog', () => {
     });
 
     it('every tool has name, description, actionType, parameters, and execute', () => {
-        const catalog = buildToolCatalog(createStubToolDeps());
+        const { catalog } = buildToolCatalog(createStubToolDeps());
 
         for (const tool of catalog) {
             expect(tool.name).toBeTruthy();
@@ -52,7 +52,7 @@ describe('buildToolCatalog', () => {
     });
 
     it('only waitForCondition is marked as isLongRunning', () => {
-        const catalog = buildToolCatalog(createStubToolDeps());
+        const { catalog } = buildToolCatalog(createStubToolDeps());
 
         const longRunning = catalog.filter(t => t.isLongRunning);
         expect(longRunning).toHaveLength(1);
@@ -60,7 +60,7 @@ describe('buildToolCatalog', () => {
     });
 
     it('filters tools by platform', () => {
-        const catalog = buildToolCatalog(createStubToolDeps({ platform: 'web' }));
+        const { catalog } = buildToolCatalog(createStubToolDeps({ platform: 'web' }));
 
         const names = catalog.map(t => t.name);
         // Web should include ref-based and mouse tools
@@ -86,7 +86,7 @@ describe('buildToolCatalog', () => {
             getOverrides: vi.fn(() => ({})),
         };
 
-        const catalog = buildToolCatalog(createStubToolDeps(), [], promptService as never);
+        const { catalog } = buildToolCatalog(createStubToolDeps(), [], promptService as never);
 
         const clickTool = catalog.find(t => t.name === 'click');
         expect(clickTool!.description).toBe('Custom click description');
@@ -103,7 +103,7 @@ describe('buildToolCatalog', () => {
             recording: { enabled: true, options: { maxDurationMs: 30, intervalMs: 10 } },
             onRecording: async (rec) => { recordings.push(rec); },
         });
-        const catalog = buildToolCatalog(deps);
+        const { catalog } = buildToolCatalog(deps);
 
         // click should be wrapped (it's a recordable action type)
         const clickTool = catalog.find(t => t.name === 'click');
@@ -122,7 +122,7 @@ describe('buildToolCatalog', () => {
             recording: { enabled: true },
             onRecording: async (rec) => { recordings.push(rec); },
         });
-        const catalog = buildToolCatalog(deps);
+        const { catalog } = buildToolCatalog(deps);
 
         // observe should NOT be wrapped
         const observeTool = catalog.find(t => t.name === 'observe');
@@ -145,13 +145,13 @@ describe('buildToolCatalog', () => {
             execute: async () => ({ status: 'success' as const }),
         };
 
-        const catalog = buildToolCatalog(createStubToolDeps(), [extra as never]);
+        const { catalog } = buildToolCatalog(createStubToolDeps(), [extra as never]);
         const names = catalog.map(t => t.name);
         expect(names).toContain('custom_tool');
     });
 
     it('excludes electron-only tools when platform is web', () => {
-        const catalog = buildToolCatalog(createStubToolDeps({ platform: 'web' }));
+        const { catalog } = buildToolCatalog(createStubToolDeps({ platform: 'web' }));
         const names = catalog.map(t => t.name);
 
         expect(names).not.toContain('list_windows');
@@ -165,7 +165,7 @@ describe('buildToolCatalog', () => {
             setActiveWindow: vi.fn(() => ok(undefined)),
         } as unknown as NonNullable<ToolDependencies['windowManager']>;
 
-        const catalog = buildToolCatalog(createStubToolDeps({ platform: 'electron', windowManager }));
+        const { catalog } = buildToolCatalog(createStubToolDeps({ platform: 'electron', windowManager }));
         const names = catalog.map(t => t.name);
 
         expect(names).toContain('list_windows');
@@ -173,7 +173,7 @@ describe('buildToolCatalog', () => {
     });
 
     it('omits electron tools when windowManager is not provided even on electron platform', () => {
-        const catalog = buildToolCatalog(createStubToolDeps({ platform: 'electron' }));
+        const { catalog } = buildToolCatalog(createStubToolDeps({ platform: 'electron' }));
         const names = catalog.map(t => t.name);
 
         expect(names).not.toContain('list_windows');

@@ -24,11 +24,13 @@ export default defineConfig({
               external: [
                 'playwright',
                 'sql.js',
+                'kysely-wasm',
                 'keytar',
                 'bufferutil',
                 'utf-8-validate',
                 'protobufjs',
                 '@protobufjs/inquire',
+                'junit-report-builder',
               ],
             },
           },

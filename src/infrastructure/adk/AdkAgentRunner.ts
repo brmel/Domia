@@ -105,7 +105,7 @@ export class AdkAgentRunner implements IAgentRunner {
         const windowManager = config.extras?.['windowManager'] as ElectronWindowManager | undefined;
 
         const toolDeps = this.buildToolDeps(config, automation, perceptionSource, vision, windowManager, () => actionCount);
-        const { tools, catalog } = createAdkTools(toolDeps, this.pluginRegistry.getAllTools(), this.promptService);
+        const { tools, catalog, captureMiddleware } = createAdkTools(toolDeps, this.pluginRegistry.getAllTools(), this.promptService);
 
         const actionMapper = new ActionMapper(catalog);
         const loopGuard = new AgentLoopGuard(DEFAULT_LOOP_GUARD_THRESHOLD, this.promptService);
@@ -263,6 +263,25 @@ export class AdkAgentRunner implements IAgentRunner {
                     llmTurnStartMs = Date.now();
 
                     continue;
+                }
+
+                // Inject pending screenshot media into function response events.
+                // The event is already stored in session.events[] by reference;
+                // mutating its parts here ensures getContents() picks up the images
+                // before the next LLM call (the generator is paused between yields).
+                if (vision && event.content?.parts?.some((p: Part) => 'functionResponse' in p)) {
+                    const media = captureMiddleware.consumeMedia();
+                    for (const m of media) {
+                        (event.content!.parts as unknown[]).push({
+                            inlineData: {
+                                data: m.data.toString('base64'),
+                                mimeType: m.mimeType,
+                            },
+                        });
+                    }
+                    if (media.length > 0) {
+                        this.logger.info(`[AdkAgentRunner] Injected ${media.length} screenshot(s) as inlineData into function response event`);
+                    }
                 }
 
                 if (isFinalResponse(event)) {

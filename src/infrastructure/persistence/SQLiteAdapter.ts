@@ -20,8 +20,6 @@ import { SQLiteWorkflowRepository } from './SQLiteWorkflowRepository';
 import { openDatabase, saveDatabase } from './SqlJsProvider';
 import { DEFAULT_RUNS_QUERY_LIMIT, DEFAULT_WORKFLOWS_QUERY_LIMIT } from '@shared/defaults';
 
-export { SQLITE_MIGRATION_IDS } from './SQLiteMigrationManager';
-
 @injectable()
 export class SQLiteAdapter implements IPersistenceAdapter {
     private db!: Kysely<DatabaseSchema>;

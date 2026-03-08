@@ -8,8 +8,8 @@
   "ai": {
     "provider": "google",
     "model": "gemini-2.0-flash",
-    "visionEnabled": false,
-    "debugScreenshots": false
+    "visionEnabled": true,
+    "debugScreenshots": true
   },
   "paths": {
     "artifactsDir": "./artifacts",
@@ -17,12 +17,11 @@
   },
   "limits": {
     "maxSteps": 20,
-    "delayBetweenSteps": 1000,
-    "maxReplansPerRun": 2
+    "delayBetweenSteps": 1000
   },
   "plugins": {
     "shell": {
-      "enabled": true
+      "enabled": false
     }
   },
   "reporting": {

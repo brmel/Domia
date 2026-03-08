@@ -67,14 +67,14 @@ describe('createShellTools', () => {
 
 describe('buildToolCatalog with shell', () => {
     it('includes shell_exec when shellExecutor is provided', () => {
-        const catalog = buildToolCatalog(createStubToolDeps({ shellExecutor: createMockExecutor() }));
+        const { catalog } = buildToolCatalog(createStubToolDeps({ shellExecutor: createMockExecutor() }));
         const names = catalog.map(t => t.name);
 
         expect(names).toContain('shell_exec');
     });
 
     it('omits shell_exec when shellExecutor is not provided', () => {
-        const catalog = buildToolCatalog(createStubToolDeps());
+        const { catalog } = buildToolCatalog(createStubToolDeps());
         const names = catalog.map(t => t.name);
 
         expect(names).not.toContain('shell_exec');
@@ -82,7 +82,7 @@ describe('buildToolCatalog with shell', () => {
 
     it('shell_exec survives platform filtering for all platforms', () => {
         for (const platform of ['web', 'electron', 'android', 'ios'] as const) {
-            const catalog = buildToolCatalog(createStubToolDeps({ shellExecutor: createMockExecutor(), platform }));
+            const { catalog } = buildToolCatalog(createStubToolDeps({ shellExecutor: createMockExecutor(), platform }));
             const names = catalog.map(t => t.name);
 
             expect(names).toContain('shell_exec');
@@ -91,7 +91,7 @@ describe('buildToolCatalog with shell', () => {
 
     it('shell_exec is NOT wrapped by recording', async () => {
         const recordings: unknown[] = [];
-        const catalog = buildToolCatalog(createStubToolDeps({
+        const { catalog } = buildToolCatalog(createStubToolDeps({
             shellExecutor: createMockExecutor({ stdout: 'ok' }),
             recording: { enabled: true },
             onRecording: async (rec) => { recordings.push(rec); },

@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
+    "start": "vite",
     "dev": "vite",
     "build": "tsc && vite build && electron-builder",
     "preview": "vite preview",
@@ -106,5 +107,6 @@
     "@opentelemetry/sdk-metrics": "^2.5.1",
     "@opentelemetry/sdk-trace-base": "^2.5.1",
     "@opentelemetry/sdk-trace-node": "^2.5.1"
-  }
+  },
+  "overrides": {}
 }
