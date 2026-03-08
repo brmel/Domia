@@ -9,7 +9,6 @@ import readline from 'readline';
 import { RunUseCase } from '../application/use-cases';
 import { ExecutionController } from '../application/ExecutionController';
 import { RunState, LogLevel } from '../domain/enums';
-import { configureVerboseTracing } from '../composition/ContainerBuilder';
 import { buildPlatformConfig } from './platformUtils';
 import type { ILogger } from '../domain/ports';
 import {
@@ -147,7 +146,6 @@ export class RunCommand {
 
                 if (verbose) {
                     process.env['DOMIA_VERBOSE'] = 'true';
-                    configureVerboseTracing();
                     console.log(chalk.gray('[Verbose Mode Enabled: Saving artifacts]'));
                 }
 

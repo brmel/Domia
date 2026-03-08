@@ -1,8 +1,5 @@
+import builder from 'junit-report-builder';
 import type { IReportGenerator, RunReport } from '@domain/ports/IReportGenerator';
-
-function escapeXml(str: string): string {
-    return str. replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
-}
 
 export class JUnitXmlReportGenerator implements IReportGenerator {
     readonly format = 'junit';
@@ -10,38 +7,25 @@ export class JUnitXmlReportGenerator implements IReportGenerator {
     generate(report: RunReport): string {
         const { run, steps } = report;
         const status = run.status;
-        const duration = 'duration' in status ? (status.duration / 1000).toFixed(3) : '0.000';
-        const failures = status.type === 'failed' ? 1 : 0;
-        const testCount = Math.max(steps.length, 1);
+        const durationSec = 'duration' in status ? status.duration / 1000 : 0;
 
-        const lines: string[] = [
-            '<?xml version="1.0" encoding="UTF-8"?>',
-            `<testsuites tests="${testCount}" failures="${failures}" time="${duration}">`,
-            `  <testsuite name="${escapeXml(run.prompt)}" tests="${testCount}" failures="${failures}" time="${duration}">`,
-        ];
+        const b = builder.newBuilder();
+        const suite = b.testSuite().name(run.prompt).time(durationSec);
 
         if (steps.length === 0) {
-            lines.push(`    <testcase name="${escapeXml(run.prompt)}" time="${duration}">`);
-            if (status.type === 'failed') {
-                lines.push(`      <failure message="${escapeXml(status.error)}" />`);
-            }
-            lines.push('    </testcase>');
+            const tc = suite.testCase().name(run.prompt).time(durationSec);
+            if (status.type === 'failed') tc.failure(status.error);
         } else {
             for (const step of steps) {
-                const name = `Step ${step.stepNumber}: ${step.actionType}`;
-                lines.push(`    <testcase name="${escapeXml(name)}" classname="${escapeXml(run.id)}">`);
-                lines.push('    </testcase>');
+                suite.testCase()
+                    .name(`Step ${step.stepNumber}: ${step.actionType}`)
+                    .className(run.id);
             }
-
             if (status.type === 'failed') {
-                lines.push(`    <testcase name="result" classname="${escapeXml(run.id)}">`);
-                lines.push(`      <failure message="${escapeXml(status.error)}" />`);
-                lines.push('    </testcase>');
+                suite.testCase().name('result').className(run.id).failure(status.error);
             }
         }
 
-        lines.push('  </testsuite>');
-        lines.push('</testsuites>');
-        return lines.join('\n');
+        return b.build();
     }
 }

@@ -37,6 +37,7 @@
     "figlet": "^1.10.0",
     "fs-extra": "^11.3.3",
     "inquirer": "^13.2.2",
+    "junit-report-builder": "^5.1.1",
     "kysely": "^0.28.11",
     "kysely-wasm": "^1.2.1",
     "nanoid": "^5.0.0",

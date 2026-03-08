@@ -5,7 +5,6 @@ import { IPersistenceAdapter } from '../../src/domain/ports';
 import { ExecutionController } from '../../src/application/ExecutionController';
 import { observable } from '@trpc/server/observable';
 import { RunInput } from '../../src/application/dtos';
-import { configureVerboseTracing } from '../../src/composition/ContainerBuilder';
 import { RunInputSchema } from '../../src/shared/validation';
 import { RuntimeReadinessPolicyService } from '../../src/application/services/hardening/RuntimeReadinessPolicyService';
 import type { RunOutput } from '../../src/application/dtos';
@@ -28,10 +27,6 @@ export const runRouter = t.router({
 
             if (input.options?.debug) {
                 debug.enable('domia:*');
-            }
-
-            if (input.options?.verbose) {
-                configureVerboseTracing();
             }
 
             const generator = useCase.execute(input as RunInput, activeRunState.current);

@@ -1,4 +1,5 @@
 import { inject, injectable } from 'tsyringe';
+import { z } from 'zod';
 import type { ILogger } from '@domain/ports';
 import type { RunInput } from '@application/dtos';
 import { DEFAULT_MAX_ACTIONS, DEFAULT_MAX_DURATION_MS, DEFAULT_MAX_ESTIMATED_TOKENS } from '@shared/defaults';
@@ -22,69 +23,51 @@ interface RunBudgetAssessment {
     readonly exceeded: readonly RunBudgetDimension[];
 }
 
-const DEFAULT_LIMITS: RunBudgetLimits = {
-    maxActions: DEFAULT_MAX_ACTIONS,
-    maxDurationMs: DEFAULT_MAX_DURATION_MS,
-    maxEstimatedTokens: DEFAULT_MAX_ESTIMATED_TOKENS
-};
+const safePositiveInt = (fallback: number) =>
+    z.number().finite().positive().transform(Math.floor).catch(fallback);
+
+const LimitsSchema = z.object({
+    maxSteps: safePositiveInt(DEFAULT_MAX_ACTIONS),
+    maxDurationMs: safePositiveInt(DEFAULT_MAX_DURATION_MS),
+    maxEstimatedTokens: safePositiveInt(DEFAULT_MAX_ESTIMATED_TOKENS),
+}).transform(({ maxSteps, ...rest }) => ({ maxActions: maxSteps, ...rest }));
+
+const CHECKS: ReadonlyArray<[RunBudgetDimension, keyof RunBudgetSnapshot, keyof RunBudgetLimits]> = [
+    ['actions', 'actionsTaken', 'maxActions'],
+    ['duration', 'elapsedMs', 'maxDurationMs'],
+    ['tokens', 'estimatedTokensUsed', 'maxEstimatedTokens'],
+];
 
 @injectable()
 export class RunBudgetPolicyService {
     constructor(@inject('ILogger') private readonly logger: ILogger) {}
 
     resolveLimits(options: RunInput['options'] | undefined): RunBudgetLimits {
-        return {
-            maxActions: this.safePositiveInt(options?.maxSteps, DEFAULT_LIMITS.maxActions),
-            maxDurationMs: this.safePositiveInt(options?.maxDurationMs, DEFAULT_LIMITS.maxDurationMs),
-            maxEstimatedTokens: this.safePositiveInt(options?.maxEstimatedTokens, DEFAULT_LIMITS.maxEstimatedTokens)
-        };
+        return LimitsSchema.parse({
+            maxSteps: options?.maxSteps,
+            maxDurationMs: options?.maxDurationMs,
+            maxEstimatedTokens: options?.maxEstimatedTokens,
+        });
     }
 
     assess(limits: RunBudgetLimits, snapshot: RunBudgetSnapshot): RunBudgetAssessment {
-        const exceeded: RunBudgetDimension[] = [];
-
-        if (snapshot.actionsTaken > limits.maxActions) {
-            exceeded.push('actions');
-        }
-
-        if (snapshot.elapsedMs > limits.maxDurationMs) {
-            exceeded.push('duration');
-        }
-
-        if (snapshot.estimatedTokensUsed > limits.maxEstimatedTokens) {
-            exceeded.push('tokens');
-        }
-
-        return {
-            status: exceeded.length > 0 ? 'exceeded' : 'ok',
-            exceeded
-        };
+        const exceeded = CHECKS
+            .filter(([, s, l]) => snapshot[s] > limits[l])
+            .map(([d]) => d);
+        return { status: exceeded.length ? 'exceeded' : 'ok', exceeded };
     }
 
     evaluate(runId: string, limits: RunBudgetLimits, snapshot: RunBudgetSnapshot): RunBudgetAssessment {
         const assessment = this.assess(limits, snapshot);
         if (assessment.status === 'exceeded') {
             this.logger.warn('[RunBudgetPolicyService] Run budget exceeded', {
-                runId,
-                exceeded: assessment.exceeded,
-                limits,
-                snapshot
+                runId, exceeded: assessment.exceeded, limits, snapshot
             });
         }
-
         return assessment;
     }
 
     formatExceededMessage(limits: RunBudgetLimits, snapshot: RunBudgetSnapshot, assessment: RunBudgetAssessment): string {
         return `Run budget exceeded (${assessment.exceeded.join(', ')}). actions=${snapshot.actionsTaken}/${limits.maxActions}, durationMs=${snapshot.elapsedMs}/${limits.maxDurationMs}, tokens=${snapshot.estimatedTokensUsed}/${limits.maxEstimatedTokens}`;
     }
-
-    private safePositiveInt(value: number | undefined, defaultValue: number): number {
-        if (!Number.isFinite(value) || !value || value <= 0) {
-            return defaultValue;
-        }
-
-        return Math.floor(value);
-    }
-
 }

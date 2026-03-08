@@ -30,6 +30,4 @@ export interface StepTrace {
 export interface ITraceService {
     startTrace(runId: string): Promise<void>;
     endTrace(): Promise<void>;
-    tracePerception(runId: string, stepNumber: number, data: Partial<StepTrace>): Promise<void>;
-    traceReasoning(runId: string, stepNumber: number, data: Partial<StepTrace>): Promise<void>;
 }
