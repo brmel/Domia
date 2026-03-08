@@ -24,7 +24,7 @@ export class SmartScrollCapture {
                 client = await source.createCDPSession() as CDPSessionLike;
             }
 
-            const decision = this.decideCaptureMode(source);
+            const decision = await this.decideCaptureMode(source);
             if (decision.mode === 'single' || !decision.viewport) {
                 this.logger.warn('[SmartScrollCapture] Single capture mode selected: viewport unavailable');
                 return [await this.captureFrame(client, source)];
@@ -72,10 +72,22 @@ export class SmartScrollCapture {
         return screenshots;
     }
 
-    private decideCaptureMode(source: IPerceptionSource): { mode: 'single' | 'multi'; viewport?: { width: number; height: number } } {
+    private async decideCaptureMode(source: IPerceptionSource): Promise<{ mode: 'single' | 'multi'; viewport?: { width: number; height: number } }> {
         const viewport = source.getViewportSize();
         if (viewport && viewport.width > 0 && viewport.height > 0) {
             return { mode: 'multi', viewport };
+        }
+        // Fallback: query the DOM directly (covers CDP-connected pages where
+        // Playwright doesn't control the viewport, e.g. embedded Electron views)
+        try {
+            const domViewport = await source.evaluateScript(
+                () => ({ width: window.innerWidth, height: window.innerHeight })
+            );
+            if (domViewport && domViewport.width > 0 && domViewport.height > 0) {
+                return { mode: 'multi', viewport: domViewport };
+            }
+        } catch {
+            // evaluateScript may fail on about:blank or detached pages
         }
         return { mode: 'single' };
     }
