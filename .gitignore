@@ -69,3 +69,4 @@ tmp/
 *.ntvs*
 *.njsproj
 *.sln
+/article/snippets/__pycache__
