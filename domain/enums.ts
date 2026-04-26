@@ -1,0 +1,47 @@
+export enum ActionType {
+    CLICK = 'click',
+    TYPE = 'type',
+    HOVER = 'hover',
+    SELECT_OPTION = 'selectOption',
+    DRAG_TO = 'dragTo',
+    SCROLL = 'scroll',
+    MOUSE_MOVE = 'mouse_move',
+    MOUSE_CLICK_LEFT = 'mouse_click_left',
+    MOUSE_CLICK_RIGHT = 'mouse_click_right',
+    MOUSE_DOUBLE_CLICK = 'mouse_double_click',
+    MOUSE_DRAG = 'mouse_drag',
+    MOUSE_SCROLL = 'mouse_scroll',
+    WAIT = 'wait',
+    PRESS_KEY = 'pressKey',
+    EXTRACT = 'extract',
+    NAVIGATE = 'navigate',
+    OBSERVE = 'observe',
+    WAIT_FOR_CONDITION = 'waitForCondition',
+    START_RECORDING = 'startRecording',
+    STOP_AND_REVIEW_RECORDING = 'stopAndReviewRecording',
+    FINISH = 'finish',
+    SHELL_EXEC = 'shell_exec',
+    LIST_WINDOWS = 'list_windows',
+    SWITCH_WINDOW = 'switch_window',
+    OPEN_TAB = 'open_tab',
+    LIST_BROWSER_TABS = 'list_browser_tabs',
+    SWITCH_BROWSER_TAB = 'switch_browser_tab',
+    CLOSE_BROWSER_TAB = 'close_browser_tab',
+}
+
+export enum LogLevel {
+    ERROR = 0,
+    WARN = 1,
+    INFO = 2,
+    DEBUG = 3,
+}
+
+export enum RunState {
+    IDLE = 'idle',
+    RUNNING = 'running',
+    PAUSED = 'paused',
+    COMPLETED = 'completed',
+    FINISHED = 'finished',
+    FAILED = 'failed',
+    CANCELLED = 'cancelled',
+}

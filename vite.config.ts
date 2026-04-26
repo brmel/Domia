@@ -3,13 +3,13 @@ import path from 'node:path'
 import electron from 'vite-plugin-electron/simple'
 import react from '@vitejs/plugin-react'
 
-// Path aliases used by all builds
 const pathAliases = {
-  '@domain': path.resolve(__dirname, './src/domain'),
-  '@application': path.resolve(__dirname, './src/application'),
-  '@infrastructure': path.resolve(__dirname, './src/infrastructure'),
-  '@presentation': path.resolve(__dirname, './src/presentation'),
-  '@shared': path.resolve(__dirname, './src/shared'),
+  '@domain': path.resolve(__dirname, './domain'),
+  '@backend': path.resolve(__dirname, './backend'),
+  '@infrastructure': path.resolve(__dirname, './infrastructure'),
+  '@frontend': path.resolve(__dirname, './frontend'),
+  '@shared': path.resolve(__dirname, './shared'),
+  '@apps': path.resolve(__dirname, './apps'),
 }
 
 export default defineConfig({
@@ -17,7 +17,7 @@ export default defineConfig({
     react(),
     electron({
       main: {
-        entry: 'electron/main.ts',
+        entry: 'apps/desktop/main.ts',
         vite: {
           build: {
             rollupOptions: {
@@ -34,20 +34,15 @@ export default defineConfig({
               ],
             },
           },
-          resolve: {
-            alias: pathAliases,
-          },
+          resolve: { alias: pathAliases },
         },
       },
       preload: {
-        input: path.join(__dirname, 'electron/preload.ts'),
+        input: path.join(__dirname, 'apps/desktop/preload.ts'),
         vite: {
           build: {
             rollupOptions: {
-              output: {
-                format: 'cjs',
-                entryFileNames: 'preload.cjs',
-              },
+              output: { format: 'cjs', entryFileNames: 'preload.cjs' },
             },
           },
         },
@@ -55,9 +50,7 @@ export default defineConfig({
       renderer: process.env.NODE_ENV === 'test' ? undefined : {},
     }),
   ],
-  resolve: {
-    alias: pathAliases,
-  },
+  resolve: { alias: pathAliases },
   optimizeDeps: {
     include: ['zod', 'react', 'react-dom', '@tanstack/react-query', 'trpc-electron/renderer', 'zustand'],
   },

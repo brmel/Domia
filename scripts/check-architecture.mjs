@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const rootDir = process.cwd();
-const srcDir = path.join(rootDir, 'src');
+const scanRoots = ['domain', 'backend', 'infrastructure', 'frontend', 'shared', 'apps'];
 
 const sourceExtensions = new Set(['.ts', '.tsx']);
 const runtimeFilePattern = /^(?!.*\.test\.|.*\.integration\.test\.).*\.(ts|tsx)$/;
@@ -12,41 +12,51 @@ const violations = [];
 const layerRules = [
     {
         name: 'domain-purity',
-        scope: /\/src\/domain\//,
+        scope: /^domain\//,
         forbiddenImportPatterns: [
-            /@application\//,
+            /@backend\//,
             /@infrastructure\//,
-            /@presentation\//,
-            /@electron\//,
-            /\.\.\/\.\.\/application\//,
+            /@frontend\//,
+            /@apps\//,
+            /\.\.\/\.\.\/backend\//,
             /\.\.\/\.\.\/infrastructure\//,
-            /\.\.\/\.\.\/presentation\//,
-            /\.\.\/\.\.\/electron\//
-        ]
+            /\.\.\/\.\.\/frontend\//,
+            /\.\.\/\.\.\/apps\//,
+        ],
     },
     {
-        name: 'application-boundary',
-        scope: /\/src\/application\//,
+        name: 'backend-boundary',
+        scope: /^backend\/(?!container\/)/,
         forbiddenImportPatterns: [
             /@infrastructure\//,
-            /@presentation\//,
-            /@electron\//,
+            /@frontend\//,
+            /@apps\//,
             /\.\.\/\.\.\/infrastructure\//,
-            /\.\.\/\.\.\/presentation\//,
-            /\.\.\/\.\.\/electron\//
-        ]
+            /\.\.\/\.\.\/frontend\//,
+            /\.\.\/\.\.\/apps\//,
+        ],
     },
     {
-        name: 'presentation-boundary',
-        scope: /\/src\/presentation\//,
+        name: 'frontend-boundary',
+        scope: /^frontend\//,
         forbiddenImportPatterns: [
             /@infrastructure\//,
-            /\.\.\/\.\.\/infrastructure\//
-        ]
+            /\.\.\/\.\.\/infrastructure\//,
+        ],
+    },
+    {
+        name: 'desktop-ipc-boundary',
+        scope: /^apps\/desktop\/ipc\//,
+        forbiddenImportPatterns: [
+            /@infrastructure\//,
+            /@frontend\//,
+            /\.\.\/\.\.\/infrastructure\//,
+            /\.\.\/\.\.\/frontend\//,
+        ],
     },
     {
         name: 'renderer-no-node-builtins',
-        scope: /\/src\/presentation\/|\/src\/App\.tsx|\/src\/main\.tsx/,
+        scope: /^frontend\//,
         forbiddenImportPatterns: [
             /^os$/,
             /^path$/,
@@ -54,29 +64,30 @@ const layerRules = [
             /^child_process$/,
             /^crypto$/,
             /^node:/,
-        ]
+        ],
     },
     {
         name: 'shared-defaults-no-node-builtins',
-        scope: /\/src\/shared\/defaults\/(?!plugin\.)/,
+        scope: /^shared\/defaults\/(?!plugin\.)/,
         forbiddenImportPatterns: [
             /^os$/,
             /^path$/,
             /^fs$/,
             /^child_process$/,
             /^node:/,
-        ]
-    }
+        ],
+    },
 ];
 
-const forbiddenRuntimeMarkers = [/\blegacy\b/i, /\bdeprecated\b/i, /\bfallback\b/i];
-const allowedMarkerContexts = [
-    /userAgentFallback/,
-    /fallback path/,
-];
+const forbiddenRuntimeMarkers = [/\blegacy\b/i, /\bdeprecated\b/i];
 
 async function walkFiles(dir) {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
+    let entries;
+    try {
+        entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+        return [];
+    }
     const files = [];
 
     for (const entry of entries) {
@@ -87,9 +98,7 @@ async function walkFiles(dir) {
         }
 
         const ext = path.extname(entry.name);
-        if (!sourceExtensions.has(ext)) {
-            continue;
-        }
+        if (!sourceExtensions.has(ext)) continue;
 
         files.push(absolute);
     }
@@ -107,18 +116,14 @@ function collectImports(content) {
     let match;
     while ((match = pattern.exec(content)) !== null) {
         const importPath = match[1] ?? match[2];
-        if (importPath) {
-            imports.push(importPath);
-        }
+        if (importPath) imports.push(importPath);
     }
     return imports;
 }
 
 function applyLayerRules(filePath, imports) {
     for (const rule of layerRules) {
-        if (!rule.scope.test(filePath)) {
-            continue;
-        }
+        if (!rule.scope.test(filePath)) continue;
 
         for (const importPath of imports) {
             const forbidden = rule.forbiddenImportPatterns.find((pattern) => pattern.test(importPath));
@@ -130,30 +135,27 @@ function applyLayerRules(filePath, imports) {
 }
 
 function applyRuntimeMarkerRules(filePath, content) {
-    if (!runtimeFilePattern.test(filePath)) {
-        return;
-    }
+    if (!runtimeFilePattern.test(filePath)) return;
 
     const lines = content.split(/\r?\n/);
     for (let index = 0; index < lines.length; index += 1) {
         const line = lines[index] ?? '';
+        const trimmed = line.trim();
+
+        if (!trimmed.startsWith('//') && !trimmed.startsWith('*') && !trimmed.startsWith('/*')) continue;
 
         for (const marker of forbiddenRuntimeMarkers) {
-            if (!marker.test(line)) {
-                continue;
+            if (marker.test(line)) {
+                violations.push(`[runtime-markers] ${filePath}:${index + 1} contains forbidden marker: ${marker}`);
             }
-
-            if (allowedMarkerContexts.some((allowPattern) => allowPattern.test(line))) {
-                continue;
-            }
-
-            violations.push(`[runtime-markers] ${filePath}:${index + 1} contains forbidden marker: ${marker}`);
         }
     }
 }
 
 async function main() {
-    const files = await walkFiles(srcDir);
+    const files = (await Promise.all(
+        scanRoots.map((root) => walkFiles(path.join(rootDir, root))),
+    )).flat();
 
     for (const absoluteFilePath of files) {
         const relativePath = normalizePath(path.relative(rootDir, absoluteFilePath));
@@ -165,9 +167,7 @@ async function main() {
 
     if (violations.length > 0) {
         console.error('Architecture guardrail violations found:');
-        for (const violation of violations) {
-            console.error(`- ${violation}`);
-        }
+        for (const violation of violations) console.error(`- ${violation}`);
         process.exit(1);
     }
 

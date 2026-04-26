@@ -1,0 +1,28 @@
+{
+    "$schema": "https://unpkg.com/knip@5/schema.json",
+    "entry": [
+        "apps/cli/index.ts",
+        "apps/desktop/main.ts",
+        "apps/desktop/preload.ts",
+        "apps/desktop/ipc/router.ts",
+        "frontend/lib/logger.ts",
+        "tests/e2e/**/*.test.ts",
+        "tests/e2e/cli/web-test.ts",
+        "tests/e2e/cli/web-features-test.ts",
+        "tests/e2e/cli/electron-test.ts",
+        "tests/e2e/cli/counter-scenario-test.ts",
+        "tests/e2e/cli/recording-scenario-test.ts",
+        "tests/e2e/cli/shell-capability-test.ts",
+        "tests/fixtures/electron-app/main.cjs",
+        "tests/support/**/*.ts"
+    ],
+    "project": [
+        "domain/**/*.ts",
+        "backend/**/*.ts",
+        "infrastructure/**/*.ts",
+        "frontend/**/*.{ts,tsx}",
+        "shared/**/*.ts",
+        "apps/**/*.ts",
+        "tests/**/*.ts"
+    ]
+}
