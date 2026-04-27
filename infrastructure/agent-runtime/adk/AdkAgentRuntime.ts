@@ -4,6 +4,7 @@ import { LlmConversationCompactor } from './LlmConversationCompactor';
 import { buildCompactionCallback } from './buildCompactionCallback';
 import { buildInstructionProvider } from './buildInstructionProvider';
 import { RunMetricsPlugin, type RunMetricsState } from './RunMetricsPlugin';
+import { AutoProfileSelectorPlugin } from './AutoProfileSelectorPlugin';
 import type { IAdkLlmFactory } from './IAdkLlmFactory';
 import { RunArtifactSink } from './RunArtifactSink';
 import { DEFAULT_ARTIFACT_RETENTION } from '@domain/value-objects/ArtifactRetention';
@@ -308,6 +309,10 @@ export class AdkAgentRuntime implements IAgentRuntime {
 
         const compactor = new LlmConversationCompactor(llm, this.promptService);
         const metricsPlugin = new RunMetricsPlugin(input.runId as RunId, state, this.logger, this.healthMonitor);
+        const plugins: import('@google/adk').BasePlugin[] = [metricsPlugin];
+        if (observation) {
+            plugins.push(new AutoProfileSelectorPlugin(observation, observation.currentProfile()));
+        }
         const agent = new LlmAgent({
             name: 'app_agent',
             description: 'Domia application-driving agent: perceives a target app, calls tools, and reports a verdict.',
@@ -321,7 +326,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
             beforeModelCallback: buildCompactionCallback(compactor, this.logger),
         });
 
-        const runner = new InMemoryRunner({ agent, appName: APP_NAME, plugins: [metricsPlugin] });
+        const runner = new InMemoryRunner({ agent, appName: APP_NAME, plugins });
         const session = await runner.sessionService.createSession({
             appName: APP_NAME, userId: 'domia', sessionId: input.runId,
         });

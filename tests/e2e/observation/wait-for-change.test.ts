@@ -15,10 +15,8 @@ import { createPollingTools } from '@infrastructure/tools/catalog/polling.tools'
 import { PostActionCaptureMiddleware } from '@infrastructure/tools/PostActionCaptureMiddleware';
 import { ObservationProfile } from '@domain/value-objects';
 import type { RunId } from '@domain/value-objects';
-import type { IPerceptionPipeline, IPerceptionSource } from '@domain/ports';
 import { UrlFactory } from '@domain/value-objects/Brand';
 import { startFixtureServer, type FixtureServerHandle } from '../cli/helpers/web-fixture-server';
-import { ResultAsync } from 'neverthrow';
 
 const FIXTURE_DIR = path.resolve(__dirname, '../../fixtures/pages/dom-tools');
 
@@ -40,15 +38,6 @@ afterAll(async () => {
     await adapter?.close();
     await server?.stop();
 });
-
-function lightPipeline(): IPerceptionPipeline {
-    return {
-        capture: (_source: IPerceptionSource) => ResultAsync.fromPromise(
-            Promise.resolve({} as never),
-            () => new Error('not used'),
-        ),
-    } as unknown as IPerceptionPipeline;
-}
 
 describe('wait_for_change tool (e2e)', () => {
     it('returns timeout status when no matching frame arrives in window', async () => {
