@@ -69,6 +69,7 @@ export class RunCommand {
             .option('--report <format>', 'Generate report after run: junit, html, all')
             .option('--report-output <dir>', 'Report output directory')
             .option('--json', 'Emit run events as NDJSON (one JSON object per line, machine-readable)', false)
+            .option('--observation-profile <profile>', 'Observation profile: off, on-demand, long-wait, quick-action, high-fidelity')
             .action(async (options) => {
                 const jsonMode = !!options.json;
                 const log = (msg: string): void => { if (!jsonMode) console.log(msg); };
@@ -273,6 +274,7 @@ export class RunCommand {
                             recording: !!recording,
                             ...(recordingMaxDuration !== undefined ? { recordingMaxDurationMs: recordingMaxDuration as number } : {}),
                             ...(recordingInterval !== undefined ? { recordingIntervalMs: recordingInterval as number } : {}),
+                            ...(options.observationProfile ? { observationProfile: options.observationProfile as 'off' | 'on-demand' | 'long-wait' | 'quick-action' | 'high-fidelity' } : {}),
                         },
                     };
 

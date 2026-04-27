@@ -18,6 +18,11 @@ import { RunSessionService, type RunExecutionContext } from './RunSessionService
 import { RunTerminalizationService } from './RunTerminalizationService';
 import { RunPlanCoordinator } from './RunPlanCoordinator';
 import { RunControlGateService } from './RunControlGateService';
+import { ObservationCoordinator } from '@backend/observation/ObservationCoordinator';
+import { ObservationProfile, DEFAULT_OBSERVATION_PROFILE, type RunId } from '@domain/value-objects';
+import type { IEventBus } from '@domain/ports/IEventBus';
+import type { ILogger } from '@domain/ports';
+import type { IPerceptionPipeline } from '@domain/ports';
 
 @injectable()
 export class RunUseCase {
@@ -33,6 +38,9 @@ export class RunUseCase {
         @inject(RunTerminalizationService) private readonly terminalization: RunTerminalizationService,
         @inject(RunPlanCoordinator) private readonly planCoordinator: RunPlanCoordinator,
         @inject(RunControlGateService) private readonly controlGate: RunControlGateService,
+        @inject('IPerceptionPipeline') private readonly perception: IPerceptionPipeline,
+        @inject('IEventBus') private readonly events: IEventBus,
+        @inject('ILogger') private readonly logger: ILogger,
     ) {}
 
     async *execute(
@@ -87,6 +95,18 @@ export class RunUseCase {
         let completed = false;
         let outcome: AgentOutcome | undefined;
         let terminalError: Error | null = null;
+
+        const initialProfile = (input.options?.observationProfile as ObservationProfile | undefined) ?? DEFAULT_OBSERVATION_PROFILE;
+        const visionEnabled = input.options?.vision ?? true;
+        const observation = new ObservationCoordinator({
+            runId: runId as RunId,
+            sampler: preparedSession.createObservationSampler({ perception: this.perception, vision: visionEnabled }),
+            stream: preparedSession.createObservationStream(),
+            events: this.events,
+            logger: this.logger,
+            initialProfile,
+        });
+        await observation.start();
 
         try {
             const urlResult = UrlFactory.create(url);
@@ -153,6 +173,7 @@ export class RunUseCase {
             terminalError = error instanceof Error ? error : new Error(msg);
             await this.terminalization.recordMidRunFailure(runId, msg);
         } finally {
+            await observation.stop();
             if (preparedSession) {
                 await this.runSessionService.dispose(preparedSession);
             }

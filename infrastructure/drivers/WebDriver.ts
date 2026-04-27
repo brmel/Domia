@@ -1,6 +1,10 @@
 import { ResultAsync } from 'neverthrow';
-import { IAppDriver, AppCapabilities } from '@domain/ports/IAppDriver';
+import type { IAppDriver, AppCapabilities, ObservationFactoryDeps } from '@domain/ports/IAppDriver';
+import type { IObservationSampler } from '@domain/ports/IObservationSampler';
+import type { IObservationStream } from '@domain/ports/IObservationStream';
 import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
+import { PlaywrightSampler } from '../playwright/observation/PlaywrightSampler';
+import { PlaywrightStream } from '../playwright/observation/PlaywrightStream';
 import type { ILogger } from '@domain/ports';
 
 export class WebDriver implements IAppDriver {
@@ -36,5 +40,15 @@ export class WebDriver implements IAppDriver {
 
     getSessionExtras(): Readonly<Record<string, unknown>> | undefined {
         return undefined;
+    }
+
+    createObservationSampler(deps: ObservationFactoryDeps): IObservationSampler {
+        const source = this.playwright.getPerceptionSource();
+        if (!source) throw new Error('[WebDriver] Cannot create sampler before page is open');
+        return new PlaywrightSampler(deps.perception, source, deps.vision);
+    }
+
+    createObservationStream(): IObservationStream {
+        return new PlaywrightStream(() => this.playwright.getPlaywrightPage(), this.logger);
     }
 }

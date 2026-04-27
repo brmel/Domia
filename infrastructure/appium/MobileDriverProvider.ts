@@ -3,7 +3,11 @@ import type { ILogger } from '@domain/ports';
 import type { IAppDriver, AppCapabilities } from '@domain/ports/IAppDriver';
 import type { IAppDriverProvider, AppDriverCreateConfig } from '@domain/ports/IAppDriverFactory';
 import type { IStructuredAutomation } from '@domain/ports';
+import type { IObservationSampler } from '@domain/ports/IObservationSampler';
+import type { IObservationStream } from '@domain/ports/IObservationStream';
 import { AppiumAdapter } from './AppiumAdapter';
+import { AppiumSampler } from './observation/AppiumSampler';
+import { AppiumStream } from './observation/AppiumStream';
 
 @injectable()
 export class MobileDriverProvider implements IAppDriverProvider {
@@ -42,5 +46,11 @@ class MobileAppDriver implements IAppDriver {
     }
     getSessionExtras(): Readonly<Record<string, unknown>> | undefined {
         return undefined;
+    }
+    createObservationSampler(): IObservationSampler {
+        return new AppiumSampler();
+    }
+    createObservationStream(): IObservationStream {
+        return new AppiumStream();
     }
 }

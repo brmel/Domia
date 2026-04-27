@@ -51,6 +51,8 @@ export class PlatformSessionFactory {
             automation,
             driver,
             ...(extras ? { extras } : {}),
+            createObservationSampler: (deps) => driver.createObservationSampler(deps),
+            createObservationStream: () => driver.createObservationStream(),
             dispose: async (): Promise<void> => {
                 await driver.disconnect().catch((err): void => {
                     this.logger.warn(`[PlatformSessionFactory] Error disconnecting driver: ${String(err)}`);

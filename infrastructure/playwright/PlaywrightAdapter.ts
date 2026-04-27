@@ -339,6 +339,10 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         return this.page ? new PlaywrightPerceptionSource(this.page) : null;
     }
 
+    getPlaywrightPage(): Page | null {
+        return this.page;
+    }
+
     setAttachedPage(page: Page): void {
         this.page = page;
         this.browser = page.context().browser();

@@ -13,6 +13,11 @@ import type { RetryOptions } from '@shared/reliability/retry';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
 import { PlaywrightAdapter } from '../PlaywrightAdapter';
+import { PlaywrightSampler } from '../observation/PlaywrightSampler';
+import { PlaywrightStream } from '../observation/PlaywrightStream';
+import type { ObservationFactoryDeps } from '@domain/ports/IAppDriver';
+import type { IObservationSampler } from '@domain/ports/IObservationSampler';
+import type { IObservationStream } from '@domain/ports/IObservationStream';
 
 export interface ElectronConnectionConfig {
     readonly cdpUrl?: string;
@@ -215,6 +220,18 @@ export class ElectronDriver implements IAppDriver {
 
     getSessionExtras(): Readonly<Record<string, unknown>> {
         return { windowManager: this.windowManager };
+    }
+
+    createObservationSampler(deps: ObservationFactoryDeps): IObservationSampler {
+        const automation = this.getAutomation() as PlaywrightAdapter;
+        const source = automation.getPerceptionSource();
+        if (!source) throw new Error(`${ElectronDriver.TAG} Cannot create sampler before window is open`);
+        return new PlaywrightSampler(deps.perception, source, deps.vision);
+    }
+
+    createObservationStream(): IObservationStream {
+        const automation = this.getAutomation() as PlaywrightAdapter;
+        return new PlaywrightStream(() => automation.getPlaywrightPage(), this.logger);
     }
 
     switchToWindow(windowId: string): void {

@@ -29,6 +29,7 @@ export const RunOptionsSchema = z.object({
     recordingMaxDurationMs: z.number().int().min(MIN_RECORDING_DURATION_MS).max(MAX_RECORDING_DURATION_MS).optional(),
     recordingIntervalMs: z.number().int().min(MIN_RECORDING_DURATION_MS).max(MAX_RECORDING_INTERVAL_MS).optional(),
     persistArtifacts: z.enum(['all', 'on-failure', 'none']).optional(),
+    observationProfile: z.enum(['off', 'on-demand', 'long-wait', 'quick-action', 'high-fidelity']).optional(),
 });
 
 const RunIntentSchema = z.enum(['task', 'assertion', 'extraction']);

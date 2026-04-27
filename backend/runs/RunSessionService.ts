@@ -4,6 +4,9 @@ import type { ILogger, IStructuredAutomation } from '@domain/ports';
 import { SessionError } from '@domain/errors';
 import { PlatformSessionFactory } from '@backend/platform/PlatformSessionFactory';
 import type { PlatformSession } from '@backend/platform/PlatformSession';
+import type { ObservationFactoryDeps } from '@domain/ports/IAppDriver';
+import type { IObservationSampler } from '@domain/ports/IObservationSampler';
+import type { IObservationStream } from '@domain/ports/IObservationStream';
 
 export interface RunExecutionContext {
     readonly session?: PlatformSession;
@@ -17,6 +20,8 @@ export interface PreparedRunSession {
     readonly shouldNavigate: boolean;
     readonly ownsSession: boolean;
     readonly sessionExtras?: Readonly<Record<string, unknown>>;
+    readonly createObservationSampler: (deps: ObservationFactoryDeps) => IObservationSampler;
+    readonly createObservationStream: () => IObservationStream;
 }
 
 @injectable()
@@ -43,6 +48,8 @@ export class RunSessionService {
                 shouldNavigate: runContext?.shouldNavigate ?? session.shouldNavigate,
                 ownsSession,
                 ...(session.extras ? { sessionExtras: session.extras } : {}),
+                createObservationSampler: session.createObservationSampler.bind(session),
+                createObservationStream: session.createObservationStream.bind(session),
             };
         } catch (error) {
             if (disposeSession && ownsSession) {

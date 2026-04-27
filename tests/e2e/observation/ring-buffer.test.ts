@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, it, expect } from 'vitest';
-import { ObservationRingBuffer } from '@infrastructure/observation/ObservationRingBuffer';
+import { ObservationRingBuffer } from '@backend/observation/ObservationRingBuffer';
 import type { ObservationFrame } from '@domain/value-objects/ObservationFrame';
 import type { RunId } from '@domain/value-objects';
 
