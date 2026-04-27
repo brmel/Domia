@@ -3,7 +3,7 @@ import { Result, ok, err } from 'neverthrow';
 import type { ILogger } from '@domain/ports';
 import { CDPValidator } from '@domain/CDPValidator';
 import { ValidationError } from '@domain/errors';
-import type { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
+import type { PlaywrightAdapter } from '../PlaywrightAdapter';
 
 export interface ElectronWindow {
     readonly id: string;

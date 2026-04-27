@@ -1,0 +1,1 @@
+shell_exec is available and gives you full terminal access — file ops, code execution (python3, node, bash), package management, git, process management, data tools, build tools. Anything achievable in a terminal is achievable with shell_exec.

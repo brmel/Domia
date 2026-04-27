@@ -9,10 +9,10 @@ export class WebDriver implements IAppDriver {
         private readonly logger: ILogger
     ) { }
 
-    connect(config?: { headless?: boolean }): ResultAsync<void, Error> {
+    connect(config?: { headless?: boolean; device?: string }): ResultAsync<void, Error> {
         this.logger.debug('[WebDriver] Connecting via PlaywrightAdapter');
         const headless = config?.headless ?? true;
-        return this.playwright.launch({ headless })
+        return this.playwright.launch({ headless, ...(config?.device ? { device: config.device } : {}) })
             .mapErr((e: Error) => new Error(`WebDriver connect failed: ${e.message}`));
     }
 

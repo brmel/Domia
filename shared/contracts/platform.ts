@@ -1,8 +1,12 @@
 import { z } from 'zod';
 
+export const MOBILE_DEVICE_PRESETS = ['iPhone 13', 'iPhone 14 Pro', 'Pixel 7', 'Galaxy S23'] as const;
+export type MobileDevicePreset = typeof MOBILE_DEVICE_PRESETS[number];
+
 export const WebConfigSchema = z.object({
     platform: z.literal('web'),
     url: z.string().trim().min(1, 'URL is required'),
+    device: z.enum(MOBILE_DEVICE_PRESETS).optional(),
 });
 
 export function normalizeWebUrl(url: string): string {
@@ -38,5 +42,30 @@ export const ElectronConfigSchema = z.object({
     connection: z.discriminatedUnion('type', [
         ElectronCDPConnectionSchema,
         ElectronExecutableConnectionSchema,
+    ]),
+});
+
+const MobileIosCapabilitiesSchema = z.object({
+    os: z.literal('ios'),
+    bundleId: z.string().min(1),
+    deviceName: z.string().min(1),
+    platformVersion: z.string().min(1),
+    udid: z.string().optional(),
+});
+
+const MobileAndroidCapabilitiesSchema = z.object({
+    os: z.literal('android'),
+    appPackage: z.string().min(1),
+    appActivity: z.string().min(1),
+    deviceName: z.string().min(1),
+    platformVersion: z.string().min(1),
+});
+
+export const MobileConfigSchema = z.object({
+    platform: z.literal('mobile'),
+    appiumServerUrl: z.string().url().default('http://127.0.0.1:4723'),
+    capabilities: z.discriminatedUnion('os', [
+        MobileIosCapabilitiesSchema,
+        MobileAndroidCapabilitiesSchema,
     ]),
 });

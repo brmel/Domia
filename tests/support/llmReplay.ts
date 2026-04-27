@@ -1,10 +1,7 @@
 import fs from 'fs-extra';
-import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 const FIXTURE_DIR = path.resolve(__dirname, '../fixtures/llm-recordings');
-
-export type ReplayMode = 'record' | 'replay' | 'auto';
 
 interface RecordedTurn {
     readonly hash: string;
@@ -16,7 +13,7 @@ export class LlmReplay {
     private readonly file: string;
     private dirty = false;
 
-    constructor(name: string, private readonly mode: ReplayMode = 'auto') {
+    constructor(name: string) {
         this.file = path.join(FIXTURE_DIR, `${name}.json`);
     }
 
@@ -28,18 +25,17 @@ export class LlmReplay {
         }
     }
 
-    hash(prompt: string, tools: readonly string[]): string {
-        return createHash('sha256').update(prompt + '\n' + tools.join('|')).digest('hex').slice(0, 16);
+    peek(hash: string): unknown {
+        return this.turns.get(hash);
     }
 
-    async resolve(hash: string, generator: () => Promise<unknown>): Promise<unknown> {
-        const cached = this.turns.get(hash);
-        if (cached !== undefined) return cached;
-        if (this.mode === 'replay') throw new Error(`No replay fixture for hash ${hash}`);
-        const fresh = await generator();
-        this.turns.set(hash, fresh);
+    poke(hash: string, value: unknown): void {
+        this.turns.set(hash, value);
         this.dirty = true;
-        return fresh;
+    }
+
+    get size(): number {
+        return this.turns.size;
     }
 
     async flush(): Promise<void> {

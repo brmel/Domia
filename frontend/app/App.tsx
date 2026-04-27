@@ -6,15 +6,17 @@ import { RunsWorkspace } from '@frontend/features/runs/components/RunsWorkspace'
 import { ComposeWorkspace } from '@frontend/features/runs/components/ComposeWorkspace';
 import { WorkflowWorkspace } from '@frontend/features/workflows/components/WorkflowWorkspace';
 import { PluginsWorkspace } from '@frontend/features/plugins/components/PluginsWorkspace';
+import { SkillsWorkspace } from '@frontend/features/skills/components/SkillsWorkspace';
 import { StepInspector } from '@frontend/features/runs/components/StepInspector';
 import { RunState } from '@domain/enums';
 
-type AppSection = 'runs' | 'compose' | 'workflow' | 'plugins';
+type AppSection = 'runs' | 'compose' | 'workflow' | 'skills' | 'plugins';
 
 const SECTION_TABS: ReadonlyArray<{ id: AppSection; label: string }> = [
     { id: 'runs', label: 'Runs' },
     { id: 'compose', label: 'Compose' },
     { id: 'workflow', label: 'Workflow' },
+    { id: 'skills', label: 'Skills' },
     { id: 'plugins', label: 'Plugins' },
 ];
 
@@ -47,6 +49,8 @@ function App(): JSX.Element {
                 );
             case 'workflow':
                 return <WorkflowWorkspace />;
+            case 'skills':
+                return <SkillsWorkspace />;
             case 'plugins':
                 return <PluginsWorkspace />;
         }

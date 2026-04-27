@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { ActionType } from '@domain/enums';
+import type { IStructuredAutomation } from '@domain/ports';
 import type { ToolSpec } from '../ToolSpec';
 import type { PostActionCaptureMiddleware } from '../PostActionCaptureMiddleware';
+import { sleep } from '@shared/reliability/sleep';
 import {
     MAX_POLL_DURATION_MS,
     MIN_POLL_INTERVAL_MS,
@@ -10,8 +12,10 @@ import {
     DEFAULT_POLL_TIMEOUT_MS,
     POLL_TIMEOUT_SNAPSHOT_CHARS,
 } from '@shared/defaults';
+import { toolError, toolSuccess } from '../toolResult';
 
 export function createPollingTools(
+    automation: IStructuredAutomation,
     captureMiddleware: PostActionCaptureMiddleware,
 ): ToolSpec[] {
     return [
@@ -99,7 +103,7 @@ export function createPollingTools(
                         };
                     }
 
-                    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+                    await sleep(pollIntervalMs);
                 }
 
                 return {
@@ -108,6 +112,57 @@ export function createPollingTools(
                     polls,
                     lastSnapshot: lastSnapshot.slice(0, POLL_TIMEOUT_SNAPSHOT_CHARS),
                 };
+            },
+        } satisfies ToolSpec,
+        {
+            name: 'wait_for_url',
+            description:
+                'Poll the current URL until it matches a substring or regex pattern, or a timeout is reached. ' +
+                'Use after triggering navigation, form submission, or OAuth flows where the app routes to a new URL on success. ' +
+                'Counts as a single action regardless of how many polls it takes. ' +
+                'Input: { pattern: string, isRegex?: boolean, timeoutMs?: number (default 30 000), pollIntervalMs?: number (default 500) }. ' +
+                'Output: { status: "matched", url: string, elapsedMs: number, polls: number } or ' +
+                '{ status: "timeout", url: string, elapsedMs: number, polls: number }.',
+            actionType: ActionType.WAIT_FOR_URL,
+            isLongRunning: true,
+            parameters: z.object({
+                pattern: z.string().describe('URL substring or regex (case-insensitive when isRegex). Examples: "/dashboard", "^https://app\\\\.example\\\\.com/orders/\\\\d+$".'),
+                isRegex: z.boolean().optional().describe('Treat pattern as regex. Default false.'),
+                timeoutMs: z.number().int().min(1000).max(MAX_POLL_DURATION_MS).optional(),
+                pollIntervalMs: z.number().int().min(MIN_POLL_INTERVAL_MS).max(MAX_POLL_INTERVAL_MS).optional(),
+            }),
+            execute: async (args) => {
+                const pattern = args['pattern'] as string;
+                const isRegex = (args['isRegex'] as boolean | undefined) ?? false;
+                const timeoutMs = Math.min(
+                    (args['timeoutMs'] as number | undefined) ?? DEFAULT_POLL_TIMEOUT_MS,
+                    MAX_POLL_DURATION_MS,
+                );
+                const pollIntervalMs = Math.max(
+                    MIN_POLL_INTERVAL_MS,
+                    Math.min((args['pollIntervalMs'] as number | undefined) ?? MIN_POLL_INTERVAL_MS, MAX_POLL_INTERVAL_MS),
+                );
+
+                let regex: RegExp | null = null;
+                if (isRegex) {
+                    try { regex = new RegExp(pattern, 'i'); } catch { return toolError(`Invalid regex pattern: ${pattern}`); }
+                }
+
+                const startMs = Date.now();
+                let polls = 0;
+                let url = automation.getCurrentUrl() ?? '';
+
+                while (Date.now() - startMs < timeoutMs) {
+                    polls++;
+                    url = automation.getCurrentUrl() ?? '';
+                    const matched = regex ? regex.test(url) : url.toLowerCase().includes(pattern.toLowerCase());
+                    if (matched) {
+                        return toolSuccess({ url, elapsedMs: Date.now() - startMs, polls, matched: true });
+                    }
+                    await sleep(pollIntervalMs);
+                }
+
+                return { status: 'timeout', url, elapsedMs: Date.now() - startMs, polls };
             },
         } satisfies ToolSpec,
     ];

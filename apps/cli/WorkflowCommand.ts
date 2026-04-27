@@ -16,10 +16,38 @@ import { buildPlatformConfig } from './platformUtils';
 
 interface WorkflowStepFileRecord {
     id?: string;
+    kind?: 'agent' | 'foreach';
     name: string;
-    prompt: string;
+    prompt?: string;
+    items?: string[];
+    bodyPrompt?: string;
     continueOnFailure?: boolean;
     options?: Record<string, unknown>;
+}
+
+function stepRecordToInput(step: WorkflowStepFileRecord): Record<string, unknown> {
+    const continueOnFailure = step.continueOnFailure ?? false;
+    const optionsBlock = step.options ? { options: step.options } : {};
+    const idBlock = step.id ? { id: step.id } : {};
+    if (step.kind === 'foreach') {
+        return {
+            kind: 'foreach',
+            ...idBlock,
+            name: step.name,
+            items: step.items ?? [],
+            bodyPrompt: step.bodyPrompt ?? '',
+            continueOnFailure,
+            ...optionsBlock,
+        };
+    }
+    return {
+        kind: 'agent',
+        ...idBlock,
+        name: step.name,
+        prompt: step.prompt ?? '',
+        continueOnFailure,
+        ...optionsBlock,
+    };
 }
 
 export class WorkflowCommand {
@@ -83,8 +111,10 @@ export class WorkflowCommand {
                 }
                 console.log('Steps:');
                 definition.steps.forEach((step, index) => {
-                    console.log(`  [${index + 1}] ${step.name}`);
-                    console.log(chalk.dim(`      ${step.prompt}`));
+                    const label = step.kind === 'foreach' ? `${step.name} (for-each ×${step.items.length})` : step.name;
+                    const body = step.kind === 'foreach' ? step.bodyPrompt : step.prompt;
+                    console.log(`  [${index + 1}] ${label}`);
+                    console.log(chalk.dim(`      ${body}`));
                     if (step.continueOnFailure) {
                         console.log(chalk.dim('      continueOnFailure: true'));
                     }
@@ -112,24 +142,14 @@ export class WorkflowCommand {
                     name: options.name,
                     ...(options.description ? { description: options.description } : {}),
                     platformConfig,
-                    steps: steps.map((step) => ({
-                        name: step.name,
-                        prompt: step.prompt,
-                        continueOnFailure: step.continueOnFailure ?? false,
-                        ...(step.options ? { options: step.options } : {})
-                    }))
+                    steps: steps.map(stepRecordToInput),
                 });
 
                 const created = await definitionService.createDraft({
                     name: payload.name,
                     ...(payload.description ? { description: payload.description } : {}),
                     platformConfig,
-                    steps: payload.steps.map((step) => ({
-                        name: step.name,
-                        prompt: step.prompt,
-                        continueOnFailure: step.continueOnFailure,
-                        ...(step.options ? { options: step.options } : {})
-                    }))
+                    steps: payload.steps as Parameters<typeof definitionService.createDraft>[0]['steps'],
                 });
 
                 console.log(chalk.green(`Created workflow draft: ${created.id}`));
@@ -169,13 +189,7 @@ export class WorkflowCommand {
                     name: options.name,
                     ...(options.description ? { description: options.description } : {}),
                     platformConfig,
-                    steps: steps.map((step) => ({
-                        ...(step.id ? { id: step.id } : {}),
-                        name: step.name,
-                        prompt: step.prompt,
-                        continueOnFailure: step.continueOnFailure ?? false,
-                        ...(step.options ? { options: step.options } : {})
-                    }))
+                    steps: steps.map(stepRecordToInput),
                 });
 
                 const updated = await definitionService.updateDraft({
@@ -183,13 +197,7 @@ export class WorkflowCommand {
                     name: payload.name,
                     ...(payload.description ? { description: payload.description } : {}),
                     platformConfig,
-                    steps: payload.steps.map((step) => ({
-                        ...(step.id ? { id: step.id } : {}),
-                        name: step.name,
-                        prompt: step.prompt,
-                        continueOnFailure: step.continueOnFailure,
-                        ...(step.options ? { options: step.options } : {})
-                    }))
+                    steps: payload.steps as Parameters<typeof definitionService.updateDraft>[0]['steps'],
                 });
 
                 console.log(chalk.green(`Updated workflow draft: ${updated.id}`));

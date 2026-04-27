@@ -25,9 +25,19 @@ afterAll(async () => {
     await server?.stop();
 });
 
+function seedRefs(): void {
+    adapter.updateRefs({
+        heading: { role: 'heading', name: 'DOM Tools' },
+        nameInput: { role: 'textbox' },
+        submitBtn: { role: 'button', name: 'Submit' },
+        resultPara: { role: 'status' },
+    });
+}
+
 describe('DOM tools (e2e)', () => {
     it('extracts visible heading text', async () => {
-        const result = await adapter.extractText('h1#heading');
+        seedRefs();
+        const result = await adapter.extractText('heading');
         expect(result.isOk()).toBe(true);
         if (result.isOk()) expect(result.value).toContain('DOM Tools');
     });
@@ -35,5 +45,22 @@ describe('DOM tools (e2e)', () => {
     it('navigates to a hash section', async () => {
         const navResult = await adapter.navigateTo(UrlFactory.unsafe(`${server.baseUrl}/#section`));
         expect(navResult.isOk()).toBe(true);
+    });
+
+    it('types into an input and clicks a button to mutate the DOM', async () => {
+        const navResult = await adapter.navigateTo(UrlFactory.unsafe(server.baseUrl));
+        expect(navResult.isOk()).toBe(true);
+
+        seedRefs();
+
+        const typed = await adapter.type('nameInput', 'Brahim');
+        expect(typed.isOk()).toBe(true);
+
+        const clicked = await adapter.click('submitBtn');
+        expect(clicked.isOk()).toBe(true);
+
+        const result = await adapter.extractText('resultPara');
+        expect(result.isOk()).toBe(true);
+        if (result.isOk()) expect(result.value).toBe('Hello, Brahim');
     });
 });

@@ -4,6 +4,7 @@ import {
     DEFAULT_RECORDING_INTERVAL_MS,
     DEFAULT_RECORDING_QUALITY,
 } from '@shared/defaults';
+import { sleep } from '@shared/reliability/sleep';
 
 interface RecordingFrame {
     readonly offsetMs: number;
@@ -64,11 +65,7 @@ export class ActionRecordingService {
                 } catch {
                 }
 
-                if (capturing) {
-                    await new Promise<void>((resolve) =>
-                        setTimeout(resolve, opts.intervalMs)
-                    );
-                }
+                if (capturing) await sleep(opts.intervalMs);
             }
         })();
 

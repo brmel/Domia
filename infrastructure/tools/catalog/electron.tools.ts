@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ActionType } from '@domain/enums';
 import type { ToolSpec } from '../ToolSpec';
-import type { ElectronWindowManager } from '../../drivers/ElectronWindowManager';
+import type { ElectronWindowManager } from '@infrastructure/playwright/electron/ElectronWindowManager';
 import { toolSuccess, toolError } from '../toolResult';
 
 export function createElectronTools(windowManager: ElectronWindowManager): ToolSpec[] {

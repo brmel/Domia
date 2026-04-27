@@ -7,8 +7,8 @@ import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import { SnapshotError } from '@domain/errors';
 import { randomUUID } from 'crypto';
 import { VisionSensor } from './sensors/VisionSensor';
-import { AriaSensor } from './sensors/AriaSensor';
-import { buildRoleSnapshot } from './RoleRefResolver';
+import { AriaSensor } from '@infrastructure/playwright/perception/AriaSensor';
+import { buildRoleSnapshot } from '@infrastructure/playwright/perception/RoleRefResolver';
 import { VisualContext } from '@domain/value-objects/VisualContext';
 
 @injectable()
@@ -48,6 +48,7 @@ export class PerceptionPipeline implements IPerceptionPipeline {
             const frame: PerceptionFrame = {
                 id: randomUUID(),
                 timestamp: Date.now(),
+                captureDurationMs: Date.now() - start,
                 metadata: {
                     url: source.getUrl(),
                     title,

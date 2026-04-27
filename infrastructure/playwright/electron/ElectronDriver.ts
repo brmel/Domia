@@ -8,10 +8,11 @@ import { CDP_DEFAULT_URL, CDP_DEFAULT_PORT, CDP_CONNECTION_TIMEOUT_MS, WINDOW_WA
 import { CDPValidator } from '@domain/CDPValidator';
 import { retryAsync } from '@shared/reliability/retry';
 import { RETRY_PROFILES, isTransientElectronConnectError } from '@shared/reliability/retryProfiles';
+import { sleep } from '@shared/reliability/sleep';
 import type { RetryOptions } from '@shared/reliability/retry';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
-import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
+import { PlaywrightAdapter } from '../PlaywrightAdapter';
 
 export interface ElectronConnectionConfig {
     readonly cdpUrl?: string;
@@ -254,7 +255,7 @@ export class ElectronDriver implements IAppDriver {
         const startTime = Date.now();
 
         while (this.windowManager.getWindowCount() === 0 && Date.now() - startTime < timeoutMs) {
-            await new Promise((resolve) => setTimeout(resolve, WINDOW_POLL_INTERVAL_MS));
+            await sleep(WINDOW_POLL_INTERVAL_MS);
             await this.discoverWindows();
         }
 

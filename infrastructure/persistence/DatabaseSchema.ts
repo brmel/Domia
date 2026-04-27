@@ -9,6 +9,8 @@ export interface RunTable {
     duration_ms: number | null;
     goal: string | null;
     summary: string | null;
+    platform_config_json: string | null;
+    parent_run_id: string | null;
 }
 
 export interface StepTable {
@@ -64,6 +66,17 @@ export interface WorkflowStepRunTable {
     completed_at: string | null;
 }
 
+export interface SkillTable {
+    id: string;
+    name: string;
+    description: string;
+    parameters_json: string;
+    steps_json: string;
+    created_from_run_id: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
 export interface DatabaseSchema {
     runs: RunTable;
     steps: StepTable;
@@ -71,4 +84,5 @@ export interface DatabaseSchema {
     workflow_definitions: WorkflowDefinitionTable;
     workflow_runs: WorkflowRunTable;
     workflow_step_runs: WorkflowStepRunTable;
+    skills: SkillTable;
 }

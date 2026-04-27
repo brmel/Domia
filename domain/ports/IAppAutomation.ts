@@ -7,6 +7,7 @@ import type { IPerceptionSource } from './IPerceptionSource';
 export interface LaunchOptions {
     readonly headless: boolean;
     readonly timeout?: number;
+    readonly device?: string;
 }
 
 export interface IAppAutomation {

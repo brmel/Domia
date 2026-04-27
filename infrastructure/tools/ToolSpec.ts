@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ToolName, ToolCategory, ToolResult } from '@domain/types/ToolTypes';
+import type { ToolNameValue, ToolCategory, ToolResult } from '@domain/types/ToolTypes';
 import type { PlatformType } from '@domain/types/PlatformConfig';
 import type { IStructuredAutomation, IPerceptionPipeline, IPerceptionSource } from '@domain/ports';
 import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
@@ -7,11 +7,11 @@ import type { ActionRecordingData } from '@domain/types/ActionRecordingTypes';
 import type { ActionRecordingOptions } from '../ActionRecordingService';
 import type { ShellExecutor } from '../shell/ShellExecutor';
 import type { IShellPolicy } from '@domain/ports/IShellPolicy';
-import type { ElectronWindowManager } from '../drivers/ElectronWindowManager';
+import type { ElectronWindowManager } from '@infrastructure/playwright/electron/ElectronWindowManager';
 import type { ITabManager } from '@domain/ports/ITabManager';
 
 export interface ToolSpec {
-    readonly name: ToolName;
+    readonly name: ToolNameValue;
     readonly category?: ToolCategory;
     readonly description: string;
     readonly actionType: import('@domain/enums').ActionType;

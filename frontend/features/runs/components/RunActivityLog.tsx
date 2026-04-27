@@ -1,10 +1,24 @@
 import type { ReactElement } from 'react';
 import { cn } from '@frontend/lib/cn';
 import { getThought } from '@frontend/lib/actionUtils';
-import { RunState } from '@domain/enums';
+import { RunState, ActionType } from '@domain/enums';
 import type { AgentAction } from '@domain/value-objects';
 import { Button } from '@frontend/ui/Button';
 import { trpc } from '@frontend/api/trpc';
+
+const FINISH_BADGE_CLASS_BY_VERDICT: Record<'pass' | 'fail' | 'none', string> = {
+    pass: 'bg-green-100 text-green-700',
+    fail: 'bg-red-100 text-red-700',
+    none: 'bg-blue-100 text-blue-700',
+};
+
+const DEFAULT_BADGE_CLASS = 'bg-gray-100 text-gray-600';
+
+function badgeClassNameFor(action: AgentAction): string {
+    if (action.type !== ActionType.FINISH) return DEFAULT_BADGE_CLASS;
+    const verdict = (action as { verdict?: 'pass' | 'fail' }).verdict ?? 'none';
+    return FINISH_BADGE_CLASS_BY_VERDICT[verdict];
+}
 
 interface RunActivityLogProps {
     status: RunState;
@@ -67,14 +81,19 @@ export function RunActivityLog({
                     </Button>
                 )}
 
-                {(status === RunState.COMPLETED || status === RunState.FAILED) && runId && onGenerateReport && (
+                {(status === RunState.COMPLETED || status === RunState.FAILED) && runId && (
                     <div className="flex gap-2">
-                        <Button type="button" variant="ghost" size="sm" onClick={() => onGenerateReport(['junit'])} disabled={!!reportPending}>
-                            {reportPending ? '...' : 'JUnit'}
-                        </Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => onGenerateReport(['html'])} disabled={!!reportPending}>
-                            {reportPending ? '...' : 'HTML'}
-                        </Button>
+                        <ReplayButton parentRunId={runId} />
+                        {onGenerateReport && (
+                            <>
+                                <Button type="button" variant="ghost" size="sm" onClick={() => onGenerateReport(['junit'])} disabled={!!reportPending}>
+                                    {reportPending ? '...' : 'JUnit'}
+                                </Button>
+                                <Button type="button" variant="ghost" size="sm" onClick={() => onGenerateReport(['html'])} disabled={!!reportPending}>
+                                    {reportPending ? '...' : 'HTML'}
+                                </Button>
+                            </>
+                        )}
                     </div>
                 )}
             </div>
@@ -134,16 +153,7 @@ export function RunActivityLog({
 
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <span className={cn(
-                                        'text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider',
-                                        action.type === 'finish' && 'verdict' in action && (action as { verdict?: string }).verdict === 'fail'
-                                            ? 'bg-red-100 text-red-700'
-                                            : action.type === 'finish' && 'verdict' in action && (action as { verdict?: string }).verdict === 'pass'
-                                                ? 'bg-green-100 text-green-700'
-                                                : action.type === 'finish'
-                                                    ? 'bg-blue-100 text-blue-700'
-                                                    : 'bg-gray-100 text-gray-600',
-                                    )}>
+                                    <span className={cn('text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider', badgeClassNameFor(action))}>
                                         {action.type}
                                     </span>
 
@@ -190,5 +200,21 @@ function StepThumbnail({ runId, stepNumber }: { runId: string; stepNumber: numbe
             alt={`Step ${stepNumber}`}
             className="w-16 h-10 rounded border border-gray-200 object-cover shrink-0 mt-0.5"
         />
+    );
+}
+
+function ReplayButton({ parentRunId }: { parentRunId: string }): ReactElement {
+    const replay = trpc.run.replay.useMutation();
+    return (
+        <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => replay.mutate({ parentRunId })}
+            disabled={replay.isPending}
+            title="Re-run with the same prompt and platform"
+        >
+            {replay.isPending ? 'Starting...' : 'Replay'}
+        </Button>
     );
 }

@@ -16,10 +16,39 @@ import { WorkflowDefinitionService } from '@backend/workflows/WorkflowDefinition
 import type { PlatformConfig } from '@domain/types/PlatformConfig';
 import type { WorkflowEvent } from '@domain/WorkflowEvent';
 import { RunInputSchema } from '@shared/contracts/run';
+import { WorkflowStepKind } from '@domain/value-objects/WorkflowStepKind';
 import { t, eventEmitter, workflowControllerState } from './shared';
 
 function toPlatformConfig(value: z.infer<typeof RunInputSchema.shape.platformConfig>): PlatformConfig {
     return value as PlatformConfig;
+}
+
+type IncomingStep =
+    | { kind: typeof WorkflowStepKind.Agent; id?: string; name: string; prompt: string; continueOnFailure: boolean; options?: Record<string, unknown> }
+    | { kind: typeof WorkflowStepKind.ForEach; id?: string; name: string; items: readonly string[]; bodyPrompt: string; continueOnFailure: boolean; options?: Record<string, unknown> };
+
+function mapStepInput(step: IncomingStep, includeId: boolean): Record<string, unknown> {
+    const idBlock = includeId && step.id ? { id: step.id } : {};
+    const optionsBlock = step.options ? { options: step.options } : {};
+    if (step.kind === WorkflowStepKind.ForEach) {
+        return {
+            kind: WorkflowStepKind.ForEach,
+            ...idBlock,
+            name: step.name,
+            items: step.items,
+            bodyPrompt: step.bodyPrompt,
+            continueOnFailure: step.continueOnFailure,
+            ...optionsBlock,
+        };
+    }
+    return {
+        kind: WorkflowStepKind.Agent,
+        ...idBlock,
+        name: step.name,
+        prompt: step.prompt,
+        continueOnFailure: step.continueOnFailure,
+        ...optionsBlock,
+    };
 }
 
 export const workflowRouter = t.router({
@@ -31,12 +60,7 @@ export const workflowRouter = t.router({
                 name: input.name,
                 ...(input.description ? { description: input.description } : {}),
                 platformConfig: toPlatformConfig(input.platformConfig),
-                steps: input.steps.map((step) => ({
-                    name: step.name,
-                    prompt: step.prompt,
-                    continueOnFailure: step.continueOnFailure,
-                    ...(step.options ? { options: step.options } : {})
-                }))
+                steps: input.steps.map((step) => mapStepInput(step as IncomingStep, false)) as never,
             });
             return { id: definition.id };
         }),
@@ -50,13 +74,7 @@ export const workflowRouter = t.router({
                 name: input.name,
                 ...(input.description ? { description: input.description } : {}),
                 ...(input.platformConfig ? { platformConfig: toPlatformConfig(input.platformConfig) } : {}),
-                steps: input.steps.map((step) => ({
-                    ...(step.id ? { id: step.id } : {}),
-                    name: step.name,
-                    prompt: step.prompt,
-                    continueOnFailure: step.continueOnFailure,
-                    ...(step.options ? { options: step.options } : {})
-                }))
+                steps: input.steps.map((step) => mapStepInput(step as IncomingStep, true)) as never,
             });
 
             return definition;

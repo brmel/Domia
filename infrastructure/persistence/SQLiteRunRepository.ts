@@ -20,7 +20,7 @@ function extractStatusFields(status: RunStatus): { summary: string | null; durat
 export class SQLiteRunRepository {
     constructor(private readonly db: Kysely<DatabaseSchema>) {}
 
-    saveRun(run: Run): ResultAsync<void, PersistenceError> {
+    saveRun(run: Run, platformConfigJson?: string): ResultAsync<void, PersistenceError> {
         const { summary, durationMs } = extractStatusFields(run.status);
         const startedAt = run.startedAt ? run.startedAt.toISOString() : run.createdAt.toISOString();
 
@@ -34,7 +34,9 @@ export class SQLiteRunRepository {
                     completed_at: null,
                     duration_ms: durationMs,
                     goal: run.prompt,
-                    summary: summary
+                    summary: summary,
+                    platform_config_json: platformConfigJson ?? null,
+                    parent_run_id: run.parentRunId ?? null,
                 })
                 .execute(),
             'save run'
@@ -147,10 +149,18 @@ export class SQLiteRunRepository {
             url: row.url as Url,
             prompt: row.goal || '',
             status,
+            ...(row.parent_run_id ? { parentRunId: row.parent_run_id as RunId } : {}),
             createdAt: new Date(row.started_at),
             startedAt: new Date(row.started_at),
             updatedAt: row.completed_at ? new Date(row.completed_at) : new Date(row.started_at),
         };
+    }
+
+    getPlatformConfigJson(id: string): ResultAsync<string | null, PersistenceError> {
+        return dbOp(
+            this.db.selectFrom('runs').select('platform_config_json').where('id', '=', id).executeTakeFirst(),
+            'get platform config',
+        ).map((row) => row?.platform_config_json ?? null);
     }
 
     private static readonly STATUS_BUILDERS: Record<string, (row: RunTable) => RunStatus> = {

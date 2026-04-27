@@ -1,6 +1,7 @@
 import { injectable } from 'tsyringe';
 import type { BuiltInPlatformType } from '@domain/types/PlatformConfig';
 import type { WorkflowStepDefinition } from '@domain/entities/Workflow';
+import { WorkflowStepKind } from '@domain/value-objects/WorkflowStepKind';
 
 type Capability = 'navigate' | 'locate' | 'interact' | 'extract' | 'validate' | 'app-control' | 'system-control';
 type Support = 'supported' | 'degraded' | 'unsupported';
@@ -8,6 +9,7 @@ type Support = 'supported' | 'degraded' | 'unsupported';
 const MATRIX: Record<BuiltInPlatformType, Record<Capability, Support>> = {
     web:      { navigate: 'supported', locate: 'supported', interact: 'supported', extract: 'supported', validate: 'supported', 'app-control': 'unsupported', 'system-control': 'unsupported' },
     electron: { navigate: 'degraded',  locate: 'supported', interact: 'supported', extract: 'supported', validate: 'supported', 'app-control': 'supported',   'system-control': 'degraded' },
+    mobile:   { navigate: 'degraded',  locate: 'degraded',  interact: 'degraded',  extract: 'degraded',  validate: 'degraded',  'app-control': 'supported',   'system-control': 'unsupported' },
 };
 
 const CAPABILITY_PATTERNS: readonly [Capability, RegExp][] = [
@@ -25,7 +27,8 @@ export class PlatformCapabilityNegotiationService {
     }
 
     assessStep(step: WorkflowStepDefinition, platform: BuiltInPlatformType) {
-        const prompt = step.prompt.toLowerCase();
+        const promptText = step.kind === WorkflowStepKind.Agent ? step.prompt : step.bodyPrompt;
+        const prompt = promptText.toLowerCase();
         const required: Capability[] = ['interact'];
         for (const [cap, pattern] of CAPABILITY_PATTERNS) {
             if (pattern.test(prompt)) required.push(cap);

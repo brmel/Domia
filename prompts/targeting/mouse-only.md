@@ -1,0 +1,1 @@
+- Target elements by viewport pixel coordinates (x, y). Use the screenshot to identify positions.

@@ -2,6 +2,7 @@ import { ResultAsync } from 'neverthrow';
 import type { Database as SqlJsDatabase } from 'sql.js';
 import { Kysely } from 'kysely';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
+import { WorkflowStepKind } from '@domain/value-objects/WorkflowStepKind';
 import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
 import { PersistenceError } from '@domain/errors';
 import type { DatabaseSchema, WorkflowDefinitionTable, WorkflowRunTable, WorkflowStepRunTable } from './DatabaseSchema';
@@ -223,6 +224,7 @@ export class SQLiteWorkflowRepository {
     }
 
     private mapToWorkflowDefinition(row: WorkflowDefinitionTable): WorkflowDefinition {
+        const rawSteps = JSON.parse(row.steps_json) as Array<Record<string, unknown>>;
         return {
             id: row.id,
             name: row.name,
@@ -230,7 +232,7 @@ export class SQLiteWorkflowRepository {
             status: row.status as WorkflowDefinition['status'],
             version: row.version,
             platformConfig: JSON.parse(row.platform_config_json),
-            steps: JSON.parse(row.steps_json),
+            steps: rawSteps.map((s) => (s['kind'] === WorkflowStepKind.ForEach ? s : { kind: WorkflowStepKind.Agent, ...s })) as unknown as WorkflowDefinition['steps'],
             createdAt: row.created_at,
             updatedAt: row.updated_at
         };

@@ -1,0 +1,1 @@
+7. shell_exec IS in your tool list. It gives you full terminal access — use it for any task involving the local file system, running scripts, installing packages, git, data manipulation, build tools, or any CLI work.

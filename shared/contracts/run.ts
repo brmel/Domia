@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { WebConfigSchema, ElectronConfigSchema } from './platform';
+import { WebConfigSchema, ElectronConfigSchema, MobileConfigSchema } from './platform';
 import {
     MIN_RECORDING_DURATION_MS,
     MAX_RECORDING_DURATION_MS,
@@ -9,6 +9,7 @@ import {
 export const PlatformConfigSchema = z.discriminatedUnion('platform', [
     WebConfigSchema,
     ElectronConfigSchema,
+    MobileConfigSchema,
 ]);
 
 export const RunOptionsSchema = z.object({
@@ -27,6 +28,7 @@ export const RunOptionsSchema = z.object({
     recording: z.boolean().optional(),
     recordingMaxDurationMs: z.number().int().min(MIN_RECORDING_DURATION_MS).max(MAX_RECORDING_DURATION_MS).optional(),
     recordingIntervalMs: z.number().int().min(MIN_RECORDING_DURATION_MS).max(MAX_RECORDING_INTERVAL_MS).optional(),
+    persistArtifacts: z.enum(['all', 'on-failure', 'none']).optional(),
 });
 
 const RunIntentSchema = z.enum(['task', 'assertion', 'extraction']);

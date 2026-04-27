@@ -3,6 +3,7 @@ import type { IStructuredAutomation } from '@domain/ports/IAppAutomation';
 import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import type { MediaAttachment } from '@domain/value-objects/MediaAttachment';
 import type { IPerceptionPipeline } from '@domain/ports';
+import { sleep } from '@shared/reliability/sleep';
 import { toolError, TOOL_SUCCESS } from './toolResult';
 
 export class PostActionCaptureMiddleware {
@@ -23,9 +24,7 @@ export class PostActionCaptureMiddleware {
     }
 
     async capture(delayMs?: number, visionOverride?: boolean): Promise<Record<string, unknown>> {
-        if (delayMs && delayMs > 0) {
-            await new Promise((resolve) => setTimeout(resolve, delayMs));
-        }
+        if (delayMs && delayMs > 0) await sleep(delayMs);
 
         const useVision = this.vision && (visionOverride ?? true);
         const frameResult = await this.perception.capture(this.perceptionSource, { aria: true, vision: useVision });

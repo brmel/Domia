@@ -1,0 +1,42 @@
+[
+  {
+    "hash": "f56072f6220ba330",
+    "response": [
+      {
+        "content": {
+          "parts": [
+            {
+              "text": "Okay, I will start by observing the current page state to understand the layout and identify the image of Ibrahim."
+            },
+            {
+              "functionCall": {
+                "name": "observe",
+                "args": {},
+                "id": "adk-e8da039e-6764-42ae-b645-aec80af69b85"
+              }
+            }
+          ],
+          "role": "model"
+        },
+        "usageMetadata": {
+          "promptTokenCount": 3687,
+          "candidatesTokenCount": 23,
+          "totalTokenCount": 3710,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 3687
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 23
+            }
+          ]
+        },
+        "finishReason": "STOP"
+      }
+    ]
+  }
+]

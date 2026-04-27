@@ -1,4 +1,6 @@
-export type BuiltInPlatformType = 'web' | 'electron';
+import type { MobileDevicePreset } from '@shared/contracts/platform';
+
+export type BuiltInPlatformType = 'web' | 'electron' | 'mobile';
 
 export type PlatformType = BuiltInPlatformType | (string & {});
 
@@ -9,6 +11,7 @@ export interface BasePlatformConfig {
 export interface WebPlatformConfig extends BasePlatformConfig {
     platform: 'web';
     url: string;
+    device?: MobileDevicePreset;
 }
 
 export interface ElectronCDPConnection {
@@ -33,4 +36,28 @@ export interface ElectronPlatformConfig extends BasePlatformConfig {
     startUrl?: string;
 }
 
-export type PlatformConfig = WebPlatformConfig | ElectronPlatformConfig;
+export interface MobileIosCapabilities {
+    os: 'ios';
+    bundleId: string;
+    deviceName: string;
+    platformVersion: string;
+    udid?: string;
+}
+
+export interface MobileAndroidCapabilities {
+    os: 'android';
+    appPackage: string;
+    appActivity: string;
+    deviceName: string;
+    platformVersion: string;
+}
+
+export type MobileCapabilities = MobileIosCapabilities | MobileAndroidCapabilities;
+
+export interface MobilePlatformConfig extends BasePlatformConfig {
+    platform: 'mobile';
+    appiumServerUrl: string;
+    capabilities: MobileCapabilities;
+}
+
+export type PlatformConfig = WebPlatformConfig | ElectronPlatformConfig | MobilePlatformConfig;

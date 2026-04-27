@@ -5,17 +5,17 @@ import type { ILogger } from '@domain/ports';
 import type { WorkflowDefinition, WorkflowStepDefinition } from '@domain/entities/Workflow';
 import type { PlatformConfig } from '@domain/types/PlatformConfig';
 import type { RunOptions } from '@shared/contracts/run';
+import { WorkflowStepKind } from '@domain/value-objects/WorkflowStepKind';
+
+type StepRequest =
+    | { kind?: typeof WorkflowStepKind.Agent; id?: string; name: string; prompt: string; continueOnFailure: boolean; options?: RunOptions }
+    | { kind: typeof WorkflowStepKind.ForEach; id?: string; name: string; items: readonly string[]; bodyPrompt: string; continueOnFailure: boolean; options?: RunOptions };
 
 interface CreateWorkflowDefinitionRequest {
     readonly name: string;
     readonly description?: string;
     readonly platformConfig: PlatformConfig;
-    readonly steps: ReadonlyArray<{
-        readonly name: string;
-        readonly prompt: string;
-        readonly continueOnFailure: boolean;
-        readonly options?: RunOptions;
-    }>;
+    readonly steps: ReadonlyArray<StepRequest>;
 }
 
 interface UpdateWorkflowDefinitionRequest {
@@ -23,13 +23,7 @@ interface UpdateWorkflowDefinitionRequest {
     readonly name: string;
     readonly description?: string;
     readonly platformConfig?: PlatformConfig;
-    readonly steps: ReadonlyArray<{
-        readonly id?: string;
-        readonly name: string;
-        readonly prompt: string;
-        readonly continueOnFailure: boolean;
-        readonly options?: RunOptions;
-    }>;
+    readonly steps: ReadonlyArray<StepRequest>;
 }
 
 @injectable()
@@ -165,20 +159,30 @@ export class WorkflowDefinitionService {
 
     private normalizeSteps(
         workflowId: string,
-        steps: ReadonlyArray<{
-            readonly id?: string;
-            readonly name: string;
-            readonly prompt: string;
-            readonly continueOnFailure: boolean;
-            readonly options?: RunOptions;
-        }>
+        steps: ReadonlyArray<StepRequest>,
     ): ReadonlyArray<WorkflowStepDefinition> {
-        return steps.map((step, index) => ({
-            id: step.id?.trim() || `${workflowId}-step-${index + 1}`,
-            name: step.name.trim(),
-            prompt: step.prompt.trim(),
-            continueOnFailure: step.continueOnFailure,
-            ...(step.options ? { options: step.options } : {})
-        }));
+        return steps.map((step, index) => {
+            const id = step.id?.trim() || `${workflowId}-step-${index + 1}`;
+            const optionsBlock = step.options ? { options: step.options } : {};
+            if (step.kind === WorkflowStepKind.ForEach) {
+                return {
+                    kind: WorkflowStepKind.ForEach,
+                    id,
+                    name: step.name.trim(),
+                    items: step.items.map((s) => s.trim()).filter(Boolean),
+                    bodyPrompt: step.bodyPrompt.trim(),
+                    continueOnFailure: step.continueOnFailure,
+                    ...optionsBlock,
+                };
+            }
+            return {
+                kind: WorkflowStepKind.Agent,
+                id,
+                name: step.name.trim(),
+                prompt: step.prompt.trim(),
+                continueOnFailure: step.continueOnFailure,
+                ...optionsBlock,
+            };
+        });
     }
 }

@@ -3,3 +3,6 @@ export * from './tools.defaults';
 export * from './platform.defaults';
 export * from './persistence.defaults';
 export * from './logging.defaults';
+export * from './identity.defaults';
+export * from './plugin.defaults';
+export * from './compaction.defaults';

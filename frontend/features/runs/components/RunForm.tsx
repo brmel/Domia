@@ -9,6 +9,7 @@ import { PlatformSelector } from './platform/PlatformSelector';
 import { platformRegistry, type PlatformFieldValue, type UIPlatformType } from '@frontend/lib/platformRegistry';
 import { buildPlatformConfig } from '@frontend/lib/buildPlatformConfig';
 import { DomiaConfigSchema } from '@shared/contracts/config';
+import { logger } from '@frontend/lib/logger';
 
 interface RunFormProps {
     onOpenHistory: () => void;
@@ -34,7 +35,7 @@ export function RunForm({ onOpenHistory, onOpenDebugSettings }: RunFormProps): R
     const { handleRunOutput } = useRunStore();
     const runMutation = trpc.run.run.useMutation({
         onError: (err) => {
-            console.error('[RunForm] mutation error:', err.message);
+            logger.error({ err: err.message }, '[RunForm] mutation error');
             handleRunOutput({
                 type: 'error',
                 error: { name: 'TRPCClientError', message: err.message } as unknown as Error,

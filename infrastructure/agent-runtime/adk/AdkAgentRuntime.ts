@@ -1,5 +1,15 @@
 import { injectable, inject } from 'tsyringe';
-import { LlmAgent, Gemini, Runner, InMemorySessionService, getFunctionCalls, isFinalResponse, stringifyContent } from '@google/adk';
+import { LlmAgent, InMemoryRunner, Runner, getFunctionCalls, isFinalResponse, stringifyContent } from '@google/adk';
+import { LlmConversationCompactor } from './LlmConversationCompactor';
+import { buildCompactionCallback } from './buildCompactionCallback';
+import { buildInstructionProvider } from './buildInstructionProvider';
+import { RunMetricsPlugin, type RunMetricsState } from './RunMetricsPlugin';
+import type { IAdkLlmFactory } from './IAdkLlmFactory';
+import { RunArtifactSink } from './RunArtifactSink';
+import { DEFAULT_ARTIFACT_RETENTION } from '@domain/value-objects/ArtifactRetention';
+import { RunHealthMonitorService } from '@backend/runs/RunHealthMonitorService';
+import { SkillRunnerService } from '@infrastructure/skills/SkillRunnerService';
+import type { RunId } from '@domain/value-objects';
 import type { Content, Part } from '@google/genai';
 import { FunctionCallingConfigMode } from '@google/genai';
 import type { IStructuredAutomation, IPerceptionPipeline, ILogger, IStorageService } from '@domain/ports';
@@ -10,18 +20,17 @@ import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigRe
 import { createAdkTools } from './AdkToolFactory';
 import { ActionMapper } from '@infrastructure/agent/common/ActionMapper';
 import { buildAgentInstruction } from '@infrastructure/agent/common/AgentInstructionBuilder';
-import { interpolate } from '@infrastructure/prompts/interpolate';
+import { PromptKey } from '@domain/ports/IPromptService';
 import { PluginRegistry } from '@infrastructure/plugins/PluginRegistry';
 import { ShellExecutor } from '@infrastructure/shell/ShellExecutor';
 import { ShellCommandPolicyService } from '@infrastructure/shell/ShellCommandPolicyService';
 import type { IConfigService } from '@domain/ports/IConfigService';
-import type { ElectronWindowManager } from '@infrastructure/drivers/ElectronWindowManager';
+import type { ElectronWindowManager } from '@infrastructure/playwright/electron/ElectronWindowManager';
 import type { ITabManager } from '@domain/ports/ITabManager';
 import type { ToolDependencies } from '@infrastructure/tools/ToolSpec';
 import type { PostActionCaptureMiddleware } from '@infrastructure/tools/PostActionCaptureMiddleware';
-import { DEFAULT_LLM_MODEL, LLM_CALL_BUDGET_OFFSET, FINAL_RESPONSE_LOG_CHARS, TOOL_TIME_LOG_THRESHOLD_MS } from '@shared/defaults';
+import { DEFAULT_LLM_MODEL, LLM_CALL_BUDGET_OFFSET, FINAL_RESPONSE_LOG_CHARS, TOOL_TIME_LOG_THRESHOLD_MS, APP_NAME } from '@shared/defaults';
 
-const APP_NAME = 'domia';
 const LOG_TAG = '[AdkAgentRuntime]';
 
 function extractThought(event: { content?: { parts?: Array<{ text?: string }> } }): string {
@@ -32,11 +41,9 @@ function extractThought(event: { content?: { parts?: Array<{ text?: string }> } 
         .join('\n');
 }
 
-interface StepExecutionState {
+interface StepExecutionState extends RunMetricsState {
     actionCount: number;
-    lastToolResult: { name: string; result: Record<string, unknown>; durationMs: number } | null;
     pendingYield: AgentEvent | null;
-    lastObservedUrl: string;
     llmTurnStartMs: number;
 }
 
@@ -51,79 +58,19 @@ export class AdkAgentRuntime implements IAgentRuntime {
         @inject('IPromptService') private readonly promptService: IPromptService,
         @inject(ShellExecutor) private readonly shellExecutor: ShellExecutor,
         @inject('IConfigService') private readonly configService: IConfigService,
+        @inject('IAdkLlmFactory') private readonly llmFactory: IAdkLlmFactory,
+        @inject(RunHealthMonitorService) private readonly healthMonitor: RunHealthMonitorService,
+        @inject(SkillRunnerService) private readonly skillRunner: SkillRunnerService,
     ) {}
 
     async *run(
         input: AgentInput,
         automation: IStructuredAutomation,
     ): AsyncGenerator<AgentEvent, AgentOutcome, unknown> {
-        const { stepGoal, url, maxActions, vision } = input;
-
-        const llmConfig = this.llmConfigResolver.resolve();
-        if (!llmConfig.apiKey) {
-            return { kind: 'error', cause: new Error('No API key configured. Set GOOGLE_API_KEY, GEMINI_API_KEY, or DOMIA_LLM_API_KEY.') };
-        }
-        const model = llmConfig.model || DEFAULT_LLM_MODEL;
-
-        const perceptionSource = automation.getPerceptionSource();
-        if (!perceptionSource) {
-            return { kind: 'error', cause: new Error('Automation adapter does not expose a perception source.') };
-        }
-
-        const viewport = await automation.getViewportSize();
-
-        const state: StepExecutionState = {
-            actionCount: 0,
-            lastToolResult: null,
-            pendingYield: null,
-            lastObservedUrl: url,
-            llmTurnStartMs: Date.now(),
-        };
-        const toolTimers = new Map<string, number>();
-
-        const windowManager = input.extras?.['windowManager'] as ElectronWindowManager | undefined;
-
-        const toolDeps = this.buildToolDeps(input, automation, perceptionSource, vision, windowManager, () => state.actionCount);
-        const { tools, catalog, captureMiddleware } = createAdkTools(toolDeps, this.pluginRegistry.getAllTools(), this.promptService);
-
-        const actionMapper = new ActionMapper(catalog);
-        const instruction = buildAgentInstruction(catalog, this.promptService);
-
-        const stepGoalText = interpolate(this.promptService.getPrompt('stepGoal'), {
-            stepGoal, viewportWidth: viewport.width, viewportHeight: viewport.height, url, maxActions,
-        });
-
-        const initialMessage: Content = { role: 'user', parts: [{ text: stepGoalText }] };
-
-        const agent = new LlmAgent({
-            name: 'app_agent',
-            model: new Gemini({ model, apiKey: llmConfig.apiKey }),
-            instruction,
-            tools,
-            generateContentConfig: {
-                temperature: 0,
-                toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
-            },
-            beforeToolCallback: ({ tool }) => {
-                toolTimers.set(tool.name, Date.now());
-                return undefined;
-            },
-            afterToolCallback: ({ tool, response }) => {
-                const durationMs = Date.now() - (toolTimers.get(tool.name) ?? Date.now());
-                toolTimers.delete(tool.name);
-                const res = response as Record<string, unknown>;
-                state.lastToolResult = { name: tool.name, result: res, durationMs };
-                state.lastObservedUrl = (res?.['currentUrl'] ?? res?.['navigatedUrl'] ?? state.lastObservedUrl) as string;
-                this.logger.debug(`${LOG_TAG} Tool ${tool.name} completed in ${durationMs}ms`, { status: res?.['status'] });
-                return undefined;
-            },
-        });
-
-        const sessionService = new InMemorySessionService();
-        const runner = new Runner({ appName: APP_NAME, agent, sessionService });
-        const session = await sessionService.createSession({
-            appName: APP_NAME, userId: 'domia', sessionId: input.runId,
-        });
+        const setup = await this.prepareRunContext(input, automation);
+        if (setup.kind === 'error') return setup;
+        const { state, captureMiddleware, actionMapper, runner, session, initialMessage, sink } = setup;
+        const { stepGoal, maxActions, vision } = input;
 
         try {
             state.llmTurnStartMs = Date.now();
@@ -199,6 +146,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
         } catch (error) {
             const cause = error instanceof Error ? error : new Error(String(error));
             this.logger.error(`${LOG_TAG} Agent error: ${cause.message}`);
+            await sink.flushOnFailure();
             return { kind: 'error', cause };
         }
 
@@ -298,6 +246,88 @@ export class AdkAgentRuntime implements IAgentRuntime {
         }
     }
 
+    private async prepareRunContext(
+        input: AgentInput,
+        automation: IStructuredAutomation,
+    ): Promise<
+        | { kind: 'error'; cause: Error }
+        | {
+            kind: 'ok';
+            state: StepExecutionState;
+            captureMiddleware: PostActionCaptureMiddleware;
+            actionMapper: ActionMapper;
+            runner: Runner;
+            session: { userId: string; id: string };
+            initialMessage: Content;
+            sink: RunArtifactSink;
+        }
+    > {
+        const { stepGoal, url, maxActions, vision } = input;
+
+        const llmConfig = this.llmConfigResolver.resolve();
+        const model = llmConfig.model || DEFAULT_LLM_MODEL;
+        let llm;
+        try {
+            llm = this.llmFactory.create({ model, apiKey: llmConfig.apiKey });
+        } catch (err) {
+            return { kind: 'error', cause: err instanceof Error ? err : new Error(String(err)) };
+        }
+
+        const perceptionSource = automation.getPerceptionSource();
+        if (!perceptionSource) {
+            return { kind: 'error', cause: new Error('Automation adapter does not expose a perception source.') };
+        }
+
+        const viewport = await automation.getViewportSize();
+
+        const state: StepExecutionState = {
+            actionCount: 0,
+            lastToolResult: null,
+            pendingYield: null,
+            lastObservedUrl: url,
+            llmTurnStartMs: Date.now(),
+        };
+        const windowManager = input.extras?.['windowManager'] as ElectronWindowManager | undefined;
+        const sink = new RunArtifactSink(
+            input.runId,
+            input.persistArtifacts ?? DEFAULT_ARTIFACT_RETENTION,
+            this.storage,
+            this.logger,
+        );
+        const toolDeps = this.buildToolDeps(input, automation, perceptionSource, vision, windowManager, () => state.actionCount, sink);
+        const skillTools = await this.skillRunner.buildToolsForSession(toolDeps);
+        const extraTools = [...this.pluginRegistry.getAllTools(), ...skillTools];
+        const { tools, catalog, captureMiddleware } = createAdkTools(toolDeps, extraTools, this.promptService);
+        const actionMapper = new ActionMapper(catalog);
+        const instruction = buildAgentInstruction(catalog, this.promptService);
+        const stepGoalText = this.promptService.renderPrompt(PromptKey.StepGoal, {
+            stepGoal, viewportWidth: viewport.width, viewportHeight: viewport.height, url, maxActions,
+        });
+        const initialMessage: Content = { role: 'user', parts: [{ text: stepGoalText }] };
+
+        const compactor = new LlmConversationCompactor(llm, this.promptService);
+        const metricsPlugin = new RunMetricsPlugin(input.runId as RunId, state, this.logger, this.healthMonitor);
+        const agent = new LlmAgent({
+            name: 'app_agent',
+            description: 'Domia application-driving agent: perceives a target app, calls tools, and reports a verdict.',
+            model: llm,
+            instruction: buildInstructionProvider(instruction),
+            tools,
+            generateContentConfig: {
+                temperature: 0,
+                toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
+            },
+            beforeModelCallback: buildCompactionCallback(compactor, this.logger),
+        });
+
+        const runner = new InMemoryRunner({ agent, appName: APP_NAME, plugins: [metricsPlugin] });
+        const session = await runner.sessionService.createSession({
+            appName: APP_NAME, userId: 'domia', sessionId: input.runId,
+        });
+
+        return { kind: 'ok', state, captureMiddleware, actionMapper, runner, session, initialMessage, sink };
+    }
+
     private buildToolDeps(
         input: AgentInput,
         automation: IStructuredAutomation,
@@ -305,6 +335,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
         vision: boolean,
         windowManager: ElectronWindowManager | undefined,
         getActionCount: () => number,
+        sink: RunArtifactSink,
     ): ToolDependencies {
         return {
             automation,
@@ -321,13 +352,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
             }),
             ...(windowManager && { windowManager }),
             ...('newTab' in automation && { tabManager: automation as unknown as ITabManager }),
-            onCapture: async (capturedFrame) => {
-                try {
-                    await this.storage.savePerceptionAssets(input.runId, getActionCount(), capturedFrame);
-                } catch {
-                    this.logger.warn(`${LOG_TAG} Failed to save perception assets for action ${getActionCount()}`);
-                }
-            },
+            onCapture: (capturedFrame) => sink.onPerceptionFrame(getActionCount(), capturedFrame),
             ...(input.recording?.enabled && {
                 recording: {
                     enabled: true as const,
@@ -337,13 +362,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
                     },
                 },
             }),
-            onRecording: async (recording) => {
-                try {
-                    await this.storage.saveActionRecording(input.runId, getActionCount(), recording);
-                } catch {
-                    this.logger.warn(`${LOG_TAG} Failed to save action recording for action ${getActionCount()}`);
-                }
-            },
+            onRecording: (recording) => sink.onActionRecording(getActionCount(), recording),
         };
     }
 }

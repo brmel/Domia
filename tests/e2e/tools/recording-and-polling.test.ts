@@ -14,7 +14,7 @@ import { PlaywrightPerceptionSource } from '@infrastructure/playwright/Playwrigh
 import { createSnapshotRecordingTools } from '@infrastructure/tools/catalog/snapshot-recording.tools';
 import { createPollingTools } from '@infrastructure/tools/catalog/polling.tools';
 import { PostActionCaptureMiddleware } from '@infrastructure/tools/PostActionCaptureMiddleware';
-import { buildRoleSnapshot } from '@infrastructure/perception/RoleRefResolver';
+import { buildRoleSnapshot } from '@infrastructure/playwright/perception/RoleRefResolver';
 import { startFixtureServer, type FixtureServerHandle } from '../cli/helpers/web-fixture-server';
 import { join } from 'path';
 import { ResultAsync } from 'neverthrow';
@@ -56,7 +56,7 @@ let server: FixtureServerHandle;
 
 beforeAll(async () => {
     browser = await chromium.launch({ headless: true });
-    server = await startFixtureServer(join(process.cwd(), 'tests/cli/fixtures/recording-test'));
+    server = await startFixtureServer(join(process.cwd(), 'tests/e2e/cli/fixtures/recording-test'));
 }, 30_000);
 
 afterAll(async () => {
@@ -236,7 +236,7 @@ describe('waitForCondition — real Playwright browser', () => {
             const pipeline = createLightPipeline();
             const automation = { updateRefs: () => {} } as unknown as import('@domain/ports').IStructuredAutomation;
             const middleware = new PostActionCaptureMiddleware(source, pipeline, automation, false);
-            const tools = createPollingTools(middleware);
+            const tools = createPollingTools(automation, middleware);
             const waitTool = tools[0]!;
 
             // Click start to begin counter
@@ -263,7 +263,7 @@ describe('waitForCondition — real Playwright browser', () => {
             const pipeline = createLightPipeline();
             const automation = { updateRefs: () => {} } as unknown as import('@domain/ports').IStructuredAutomation;
             const middleware = new PostActionCaptureMiddleware(source, pipeline, automation, false);
-            const tools = createPollingTools(middleware);
+            const tools = createPollingTools(automation, middleware);
             const waitTool = tools[0]!;
 
             // Don't click start — page stays at "Idle", never shows "Complete"
@@ -287,7 +287,7 @@ describe('waitForCondition — real Playwright browser', () => {
             const pipeline = createLightPipeline();
             const automation = { updateRefs: () => {} } as unknown as import('@domain/ports').IStructuredAutomation;
             const middleware = new PostActionCaptureMiddleware(source, pipeline, automation, false);
-            const tools = createPollingTools(middleware);
+            const tools = createPollingTools(automation, middleware);
             const waitTool = tools[0]!;
 
             await page.click('#start-btn');

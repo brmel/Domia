@@ -71,8 +71,8 @@ describe('Workflow execution integration', () => {
         version: 1,
         platformConfig: { platform: 'web', url: 'https://example.com' },
         steps: [
-            { id: 's1', name: 'First Step', prompt: 'do first thing', continueOnFailure: false },
-            { id: 's2', name: 'Second Step', prompt: 'do second thing', continueOnFailure: false },
+            { kind: 'agent', id: 's1', name: 'First Step', prompt: 'do first thing', continueOnFailure: false },
+            { kind: 'agent', id: 's2', name: 'Second Step', prompt: 'do second thing', continueOnFailure: false },
         ],
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',

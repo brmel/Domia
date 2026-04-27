@@ -7,6 +7,7 @@ import figlet from 'figlet';
 import readline from 'readline';
 import { RunUseCase } from '@backend/runs';
 import { ExecutionController } from '@backend/ExecutionController';
+import { serializeRunOutput } from '@backend/dto';
 import { RunState, LogLevel } from '@domain/enums';
 import { buildPlatformConfig } from './platformUtils';
 import type { ILogger } from '@domain/ports';
@@ -67,8 +68,13 @@ export class RunCommand {
             .option('--no-shell', 'Disable the shell_exec plugin for this run')
             .option('--report <format>', 'Generate report after run: junit, html, all')
             .option('--report-output <dir>', 'Report output directory')
+            .option('--json', 'Emit run events as NDJSON (one JSON object per line, machine-readable)', false)
             .action(async (options) => {
-                console.log(chalk.cyan(figlet.textSync('Domia Agent', { horizontalLayout: 'full' })));
+                const jsonMode = !!options.json;
+                const log = (msg: string): void => { if (!jsonMode) console.log(msg); };
+                if (!jsonMode) {
+                    console.log(chalk.cyan(figlet.textSync('Domia Agent', { horizontalLayout: 'full' })));
+                }
 
                 let { url, prompt, steps } = options;
 
@@ -112,10 +118,10 @@ export class RunCommand {
 
                 if (shellEnabled === false) {
                     configService.updateTransient({ plugins: { shell: { enabled: false } } });
-                    console.log(chalk.gray('[Shell plugin disabled for this run]'));
+                    log(chalk.gray('[Shell plugin disabled for this run]'));
                 }
 
-                console.log(chalk.gray(`[LLM] provider=google model=${resolvedModel}`));
+                log(chalk.gray(`[LLM] provider=google model=${resolvedModel}`));
 
                 const effectiveLogLevel = debug ? 'debug' as LogLevelChoice : parseLogLevel(logLevelRaw as string);
                 const logger = container.resolve<ILogger>('ILogger');
@@ -124,12 +130,12 @@ export class RunCommand {
                 if (debug) {
                     const debugModule = await import('debug');
                     debugModule.default.enable('domia:*');
-                    console.log(chalk.gray('[Debug Mode Enabled]'));
+                    log(chalk.gray('[Debug Mode Enabled]'));
                 }
 
                 if (verbose) {
                     process.env['DOMIA_VERBOSE'] = 'true';
-                    console.log(chalk.gray('[Verbose Mode Enabled: Saving artifacts]'));
+                    log(chalk.gray('[Verbose Mode Enabled: Saving artifacts]'));
                 }
 
                 {
@@ -172,7 +178,7 @@ export class RunCommand {
                     steps = steps || answers['steps'];
                 }
 
-                const spinner = ora('Initializing Agent...').start();
+                const spinner = ora({ text: 'Initializing Agent...', isSilent: jsonMode }).start();
 
                 try {
                     const useCase = container.resolve(RunUseCase);
@@ -203,7 +209,7 @@ export class RunCommand {
                         process.stdin.resume();
                         rawModeEnabled = true;
 
-                        console.log(chalk.gray('Controls: [p] pause/resume, [s] stop, [q] quit'));
+                        log(chalk.gray('Controls: [p] pause/resume, [s] stop, [q] quit'));
 
                         interactiveKeyHandler = (_str: string, key: readline.Key): void => {
                             if (key.ctrl && key.name === 'c') {
@@ -271,14 +277,28 @@ export class RunCommand {
                     };
 
                     spinner.succeed(`Starting session on ${chalk.green(platformLabel)}`);
-                    console.log(chalk.gray(`Goal: ${prompt}\n`));
+                    log(chalk.gray(`Goal: ${prompt}\n`));
 
                     setupInteractiveControls();
 
                     const generator = useCase.execute(input, controller);
                     let capturedRunId: string | undefined;
+                    const jsonMode = !!options.json;
 
                     for await (const event of generator) {
+                        if (jsonMode) {
+                            process.stdout.write(JSON.stringify(serializeRunOutput(event)) + '\n');
+                            if (event.type === 'started') capturedRunId = event.runId;
+                            if (event.type === 'completed') {
+                                teardownInteractiveControls();
+                                process.exit(event.success ? 0 : 1);
+                            }
+                            if (event.type === 'error') {
+                                teardownInteractiveControls();
+                                process.exit(1);
+                            }
+                            continue;
+                        }
                         switch (event.type) {
                             case 'started':
                                 capturedRunId = event.runId;
@@ -349,6 +369,36 @@ export class RunCommand {
                 } catch (error) {
                     spinner.fail('Fatal Error');
                     console.error(error);
+                    process.exit(1);
+                }
+            });
+
+        program
+            .command('replay <runId>')
+            .description('Re-run an existing run, optionally with a new prompt')
+            .option('--prompt <prompt>', 'Override the prompt for this replay')
+            .action(async (runId: string, options: { prompt?: string }) => {
+                const { RunReplayService } = await import('@backend/runs/RunReplayService');
+                const replayService = container.resolve(RunReplayService);
+                const useCase = container.resolve(RunUseCase);
+                const controller = new ExecutionController();
+                controller.start();
+                try {
+                    const built = await replayService.build(runId, options.prompt ? { promptOverride: options.prompt } : {});
+                    console.log(chalk.gray(`Replaying ${runId} → new run`));
+                    for await (const event of useCase.execute(built.input, controller)) {
+                        if (event.type === 'started') console.log(chalk.cyan(`Started: ${event.runId}`));
+                        if (event.type === 'completed') {
+                            console.log(event.success ? chalk.green('Completed') : chalk.red(`Failed: ${event.summary ?? ''}`));
+                            process.exit(event.success ? 0 : 1);
+                        }
+                        if (event.type === 'error') {
+                            console.error(chalk.red(`Error: ${event.error.message}`));
+                            process.exit(1);
+                        }
+                    }
+                } catch (e) {
+                    console.error(chalk.red(`Replay failed: ${e instanceof Error ? e.message : e}`));
                     process.exit(1);
                 }
             });

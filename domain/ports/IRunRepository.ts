@@ -4,7 +4,8 @@ import { Run } from '@domain/entities/Run';
 import type { Step } from './IPersistenceAdapter';
 
 export interface IRunRepository {
-    saveRun(run: Run): ResultAsync<void, PersistenceError>;
+    saveRun(run: Run, platformConfigJson?: string): ResultAsync<void, PersistenceError>;
+    getPlatformConfigJson(runId: string): ResultAsync<string | null, PersistenceError>;
     updateRun(id: string, updates: Partial<Run>): ResultAsync<void, PersistenceError>;
     getRun(id: string): ResultAsync<Run | null, PersistenceError>;
     getRuns(limit?: number): ResultAsync<Run[], PersistenceError>;

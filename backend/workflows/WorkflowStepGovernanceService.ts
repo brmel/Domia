@@ -1,5 +1,6 @@
 import { inject, injectable } from 'tsyringe';
 import type { WorkflowDefinition, WorkflowStepDefinition } from '@domain/entities/Workflow';
+import { WorkflowStepKind } from '@domain/value-objects/WorkflowStepKind';
 import { RuntimeReadinessPolicyService } from '@backend/policy/RuntimeReadinessPolicyService';
 
 type StepGovernanceDecision =
@@ -38,9 +39,10 @@ export class WorkflowStepGovernanceService {
             return null;
         }
 
+        const promptText = step.kind === WorkflowStepKind.Agent ? step.prompt : step.bodyPrompt;
         const decision = this.readinessPolicy.assess(
             {
-                prompt: step.prompt,
+                prompt: promptText,
                 ...(step.options ? { options: step.options } : {})
             },
             definition.platformConfig.url

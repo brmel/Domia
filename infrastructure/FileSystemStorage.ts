@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import fs from 'fs-extra';
 import path from 'path';
-import { ConfigService } from './ConfigService';
+import type { PathsConfigProvider } from '@shared/contracts/config';
 import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 
 import type { StepTrace } from '@domain/ports/ITraceService';
@@ -12,12 +12,11 @@ import { IStorageService, StepArtifacts } from '@domain/ports/IStorageService';
 export class FileSystemStorage implements IStorageService {
 
     constructor(
-        @inject(ConfigService) private configService: ConfigService
+        @inject('PathsConfigProvider') private readonly paths: PathsConfigProvider
     ) { }
 
     async savePerceptionAssets(runId: string, stepNumber: number, frame: PerceptionFrame): Promise<Record<string, string>> {
-        const config = this.configService.get();
-        const baseDir = path.resolve(config.paths.artifactsDir, runId, 'steps');
+        const baseDir = path.resolve(this.paths().artifactsDir, runId, 'steps');
         await fs.ensureDir(baseDir);
 
         const assets: Record<string, string> = {};
@@ -58,8 +57,7 @@ export class FileSystemStorage implements IStorageService {
     }
 
     async saveStepTrace(runId: string, stepNumber: number, trace: Partial<StepTrace>): Promise<void> {
-        const config = this.configService.get();
-        const baseDir = path.resolve(config.paths.artifactsDir, runId, 'steps');
+        const baseDir = path.resolve(this.paths().artifactsDir, runId, 'steps');
         await fs.ensureDir(baseDir);
 
         const filename = `${stepNumber}_trace.json`;
@@ -81,10 +79,10 @@ export class FileSystemStorage implements IStorageService {
     }
 
     async getStepArtifacts(runId: string, stepNumber: number): Promise<StepArtifacts> {
-        const config = this.configService.get();
-        const baseDir = path.resolve(config.paths.artifactsDir, runId, 'steps');
+        const artifactsDir = this.paths().artifactsDir;
+        const baseDir = path.resolve(artifactsDir, runId, 'steps');
 
-        if (!baseDir.startsWith(path.resolve(config.paths.artifactsDir))) {
+        if (!baseDir.startsWith(path.resolve(artifactsDir))) {
             throw new Error("Invalid runId");
         }
 
@@ -127,8 +125,7 @@ export class FileSystemStorage implements IStorageService {
     }
 
     async saveActionRecording(runId: string, actionIndex: number, recording: ActionRecordingData): Promise<void> {
-        const config = this.configService.get();
-        const baseDir = path.resolve(config.paths.artifactsDir, runId, 'recordings');
+        const baseDir = path.resolve(this.paths().artifactsDir, runId, 'recordings');
         await fs.ensureDir(baseDir);
 
         const frameWrites = recording.frames.map(async (frame, index) => {

@@ -1,10 +1,17 @@
 import { cosmiconfigSync } from 'cosmiconfig';
-import { injectable } from 'tsyringe';
+import { injectable, inject } from 'tsyringe';
 import fs from 'fs-extra';
 import path from 'path';
-import { DomiaConfigSchema, type DomiaConfig } from '@shared/contracts/config';
+import {
+    DomiaConfigSchema,
+    type DomiaConfig,
+    type AiConfig,
+    type PathsConfig,
+    type PromptOverrides,
+} from '@shared/contracts/config';
 
 import { IConfigService } from '@domain/ports/IConfigService';
+import type { ILogger } from '@domain/ports/ILogger';
 import { CONFIG_FILE_NAME } from '@shared/defaults';
 
 @injectable()
@@ -18,7 +25,9 @@ export class ConfigService implements IConfigService {
             ?? fileApiKey;
     }
 
-    constructor() {
+    constructor(
+        @inject('ILogger') private readonly logger: ILogger,
+    ) {
         const explorer = cosmiconfigSync('domia', {
             searchPlaces: [
                 'package.json',
@@ -52,6 +61,18 @@ export class ConfigService implements IConfigService {
 
     get(): DomiaConfig {
         return this.config;
+    }
+
+    getAi(): AiConfig {
+        return this.config.ai;
+    }
+
+    getPaths(): PathsConfig {
+        return this.config.paths;
+    }
+
+    getPromptOverrides(): PromptOverrides {
+        return this.config.promptOverrides;
     }
 
     update(updates: Partial<DomiaConfig>): void {
@@ -101,7 +122,7 @@ export class ConfigService implements IConfigService {
 
             fs.writeJsonSync(this.configPath, configToSave, { spaces: 2 });
         } catch (error) {
-            console.error('[ConfigService] Failed to persist config:', error);
+            this.logger.error('[ConfigService] Failed to persist config', error);
         }
     }
 }

@@ -150,7 +150,7 @@ export function useWorkflowWorkspace() {
             selectedDefinition.steps.map((step) => ({
                 id: step.id,
                 name: step.name,
-                prompt: step.prompt,
+                prompt: step.kind === 'foreach' ? step.bodyPrompt : step.prompt,
                 continueOnFailure: step.continueOnFailure
             }))
         );

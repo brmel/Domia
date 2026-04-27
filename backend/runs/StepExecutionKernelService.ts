@@ -4,6 +4,7 @@ import type { Step } from '@domain/ports';
 import type { IAgentRuntime, AgentOutcome, AgentInput } from '@domain/ports/IAgentRuntime';
 import { WorkflowError, BudgetExceededError } from '@domain/errors';
 import { WorkflowState } from '@domain/value-objects';
+import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import { RunState } from '@domain/enums';
 import { RunDurabilityService } from './RunDurabilityService';
 import { RunBudgetPolicyService, type RunBudgetLimits } from './RunBudgetPolicyService';
@@ -59,6 +60,7 @@ export class StepExecutionKernelService {
             maxActions: executionOptions.maxActions ?? DEFAULT_MAX_ACTIONS,
             vision: executionOptions.vision,
             platform: executionOptions.platform,
+            persistArtifacts: executionOptions.persistArtifacts,
             ...(executionOptions.extras ? { extras: executionOptions.extras } : {}),
             ...(executionOptions.recording ? { recording: executionOptions.recording } : {}),
         };
@@ -67,7 +69,7 @@ export class StepExecutionKernelService {
 
         try {
             const emitStateUpdate = async (): Promise<RunOutput> => {
-                await this.durability.checkpoint(runId, currentState, 'action_applied');
+                await this.durability.checkpoint(runId, currentState, CheckpointReason.ActionApplied);
                 return { type: 'state_updated', state: currentState };
             };
 

@@ -7,6 +7,7 @@ export interface Run {
     readonly prompt: string;
     readonly status: RunStatus;
     readonly plan?: Plan;
+    readonly parentRunId?: RunId;
     readonly createdAt: Date;
     readonly startedAt?: Date;
     readonly updatedAt: Date;
@@ -15,18 +16,20 @@ export interface Run {
 export type RunStatus =
     | { type: 'pending' }
     | { type: 'running' }
+    | { type: 'interrupted'; reason: string }
     | { type: 'passed'; summary: string; duration: number }
     | { type: 'finished'; summary: string; value?: unknown; duration: number }
     | { type: 'failed'; error: string; duration: number }
     | { type: 'cancelled'; reason: string };
 
 export const Run = {
-    create(params: { id: RunId; url: Url; prompt: string }): Run {
+    create(params: { id: RunId; url: Url; prompt: string; parentRunId?: RunId }): Run {
         return {
             id: params.id,
             url: params.url,
             prompt: params.prompt,
             status: { type: 'pending' },
+            ...(params.parentRunId ? { parentRunId: params.parentRunId } : {}),
             createdAt: new Date(),
             updatedAt: new Date(),
         };

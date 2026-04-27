@@ -4,28 +4,10 @@ import type {
     IPromptService,
     PromptKey,
     PromptOverrides,
+    PromptVariables,
 } from '@domain/ports/IPromptService';
-import {
-    DEFAULT_SYSTEM_INSTRUCTION,
-    DEFAULT_STEP_GOAL,
-    DEFAULT_TARGETING_BOTH,
-    DEFAULT_TARGETING_REF_ONLY,
-    DEFAULT_TARGETING_MOUSE_ONLY,
-    DEFAULT_SHELL_CAPABILITY_NOTE,
-    DEFAULT_SHELL_AVAILABLE_RULE,
-    DEFAULT_SHELL_UNAVAILABLE_RULE,
-} from './promptDefaults';
-
-const INLINE_DEFAULTS: Record<PromptKey, string> = {
-    systemInstruction: DEFAULT_SYSTEM_INSTRUCTION,
-    stepGoal: DEFAULT_STEP_GOAL,
-    targetingBoth: DEFAULT_TARGETING_BOTH,
-    targetingRefOnly: DEFAULT_TARGETING_REF_ONLY,
-    targetingMouseOnly: DEFAULT_TARGETING_MOUSE_ONLY,
-    shellCapabilityNote: DEFAULT_SHELL_CAPABILITY_NOTE,
-    shellAvailableRule: DEFAULT_SHELL_AVAILABLE_RULE,
-    shellUnavailableRule: DEFAULT_SHELL_UNAVAILABLE_RULE,
-};
+import { loadDefaultPrompts } from './promptDefaults';
+import { interpolate } from '@shared/reliability/interpolate';
 
 @injectable()
 export class PromptService implements IPromptService {
@@ -36,15 +18,18 @@ export class PromptService implements IPromptService {
     constructor(
         @inject('IConfigService') private readonly configService: IConfigService,
     ) {
-        this.defaultPrompts = { ...INLINE_DEFAULTS };
-
-        const config = this.configService.get();
-        this.promptOverrides = { ...config.promptOverrides?.prompts };
-        this.toolDescriptionOverrides = { ...config.promptOverrides?.toolDescriptions };
+        this.defaultPrompts = loadDefaultPrompts();
+        const overrides = this.configService.getPromptOverrides();
+        this.promptOverrides = { ...overrides?.prompts };
+        this.toolDescriptionOverrides = { ...overrides?.toolDescriptions };
     }
 
     getPrompt(key: PromptKey): string {
         return this.promptOverrides[key] ?? this.defaultPrompts[key];
+    }
+
+    renderPrompt<K extends PromptKey>(key: K, vars: PromptVariables[K]): string {
+        return interpolate(this.getPrompt(key), vars as Record<string, string | number>);
     }
 
     getToolDescription(toolName: string): string | undefined {
@@ -105,7 +90,6 @@ export class PromptService implements IPromptService {
     }
 
     private persist(): void {
-        const overrides = this.getOverrides();
-        this.configService.update({ promptOverrides: overrides } as Partial<ReturnType<IConfigService['get']>>);
+        this.configService.update({ promptOverrides: this.getOverrides() });
     }
 }

@@ -1,30 +1,32 @@
 import type { ToolSpec } from '@infrastructure/tools/ToolSpec';
 import type { IPromptService } from '@domain/ports/IPromptService';
-import { interpolate } from '@infrastructure/prompts/interpolate';
+import { PromptKey } from '@domain/ports/IPromptService';
+import { ToolCategory } from '@domain/types/ToolTypes';
 
 export function buildAgentInstruction(tools: readonly ToolSpec[], promptService: IPromptService): string {
     const toolNames = tools.map((t) => t.name).join(', ');
 
-    const hasInteractionTools = tools.some((t) => t.category === 'interaction');
-    const hasMouseTools = tools.some((t) => t.category === 'mouse');
-    const hasShellTools = tools.some((t) => t.category === 'shell');
+    const hasInteractionTools = tools.some((t) => t.category === ToolCategory.Interaction);
+    const hasMouseTools = tools.some((t) => t.category === ToolCategory.Mouse);
+    const hasShellTools = tools.some((t) => t.category === ToolCategory.Shell);
 
-    const targetingKey = hasInteractionTools && hasMouseTools ? 'targetingBoth'
-        : hasInteractionTools ? 'targetingRefOnly'
-        : hasMouseTools ? 'targetingMouseOnly'
+    const targetingKey = hasInteractionTools && hasMouseTools ? PromptKey.TargetingBoth
+        : hasInteractionTools ? PromptKey.TargetingRefOnly
+        : hasMouseTools ? PromptKey.TargetingMouseOnly
         : null;
     const targetingSection = targetingKey
         ? `\nTARGETING:\n${promptService.getPrompt(targetingKey)}`
         : '';
 
     const shellSection = hasShellTools
-        ? `\n- ${promptService.getPrompt('shellCapabilityNote')}`
+        ? `\n- ${promptService.getPrompt(PromptKey.ShellCapabilityNote)}`
         : '';
 
     const shellExecRule = promptService.getPrompt(
-        hasShellTools ? 'shellAvailableRule' : 'shellUnavailableRule',
+        hasShellTools ? PromptKey.ShellAvailableRule : PromptKey.ShellUnavailableRule,
     );
 
-    const template = promptService.getPrompt('systemInstruction');
-    return interpolate(template, { toolNames, targetingSection, shellSection, shellExecRule });
+    return promptService.renderPrompt(PromptKey.SystemInstruction, {
+        toolNames, targetingSection, shellSection, shellExecRule,
+    });
 }

@@ -1,5 +1,5 @@
 import { inject, injectable } from 'tsyringe';
-import type { IConfigService } from '@domain/ports';
+import type { AiConfigProvider } from '@shared/contracts/config';
 
 interface LLMConfig {
     readonly provider: 'google';
@@ -10,18 +10,17 @@ interface LLMConfig {
 @injectable()
 export class LlmRuntimeConfigResolver {
     constructor(
-        @inject('IConfigService') private readonly configService: IConfigService
+        @inject('AiConfigProvider') private readonly ai: AiConfigProvider
     ) {}
 
     resolve(): LLMConfig {
-        const config = this.configService.get();
-
-        const model = process.env['DOMIA_LLM_MODEL'] || config.ai.model;
+        const ai = this.ai();
+        const model = process.env['DOMIA_LLM_MODEL'] || ai.model;
 
         const apiKey = process.env['DOMIA_LLM_API_KEY']
             || process.env['GOOGLE_API_KEY']
             || process.env['GEMINI_API_KEY']
-            || config.ai.apiKey;
+            || ai.apiKey;
 
         return {
             provider: 'google',

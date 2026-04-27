@@ -2,6 +2,7 @@ import { injectable, inject } from 'tsyringe';
 import type { IStructuredAutomation } from '@domain/ports';
 import type { AgentOutcome } from '@domain/ports/IAgentRuntime';
 import { UrlFactory, WorkflowState } from '@domain/value-objects';
+import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import { ExecutionController } from '@backend/ExecutionController';
 import { WorkflowError, ReadinessError } from '@domain/errors';
 import { RunLifecycleManager } from './RunLifecycleManager';
@@ -50,7 +51,10 @@ export class RunUseCase {
         const laneKey = resolveLaneKeyFromConfig(input.platformConfig);
         const releaseLane = await this.laneService.acquire(laneKey);
 
-        const initResult = await this.lifecycleManager.initializeRun(url, input.prompt);
+        const initResult = await this.lifecycleManager.initializeRun(url, input.prompt, {
+            platformConfigJson: JSON.stringify(input.platformConfig),
+            ...(input.parentRunId ? { parentRunId: input.parentRunId } : {}),
+        });
         if (initResult.isErr()) {
             releaseLane();
             yield { type: 'error', error: initResult.error };
@@ -77,7 +81,7 @@ export class RunUseCase {
         }
 
         let currentState = WorkflowState.initial();
-        await this.durability.checkpoint(runId, currentState, 'run_initialized');
+        await this.durability.checkpoint(runId, currentState, CheckpointReason.RunInitialized);
         yield { type: 'started', runId };
 
         let completed = false;
@@ -102,7 +106,7 @@ export class RunUseCase {
 
             currentState = WorkflowState.transitionTo(currentState, 'thinking', { plan });
             yield { type: 'state_updated', state: currentState };
-            await this.durability.checkpoint(runId, currentState, 'plan_ready');
+            await this.durability.checkpoint(runId, currentState, CheckpointReason.PlanReady);
 
             const gate = await this.controlGate.evaluate(runId, currentState, controller);
             if (gate.kind === 'cancelled') {

@@ -1,5 +1,6 @@
 import { container } from 'tsyringe';
 import { ConfigService } from '@infrastructure/ConfigService';
+import type { IConfigService } from '@domain/ports/IConfigService';
 import { SQLiteAdapter } from '@infrastructure/persistence/SQLiteAdapter';
 import { ConsoleLogger } from '@infrastructure/ConsoleLogger';
 import { RunUseCase } from '@backend/runs';
@@ -8,6 +9,7 @@ import {
     ElectronDriverProvider,
     AppDriverFactory,
 } from '@infrastructure/drivers';
+import { MobileDriverProvider } from '@infrastructure/appium/MobileDriverProvider';
 import { PlatformSessionFactory } from '@backend/platform/PlatformSessionFactory';
 import { RunLifecycleManager } from '@backend/runs/RunLifecycleManager';
 import { InMemoryRunExecutionLaneService } from '@backend/runs/RunExecutionLaneService';
@@ -29,9 +31,10 @@ import { PromptsAppService } from '@backend/prompts/PromptsAppService';
 import { PlatformCapabilityNegotiationService } from '@backend/platform/PlatformCapabilityNegotiationService';
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
 import { AdkAgentRuntime } from '@infrastructure/agent-runtime/adk/AdkAgentRuntime';
+import { GeminiLlmFactory } from '@infrastructure/agent-runtime/adk/GeminiLlmFactory';
 import { PerceptionPipeline } from '@infrastructure/perception/PerceptionPipeline';
 import { VisionSensor } from '@infrastructure/perception/sensors/VisionSensor';
-import { AriaSensor } from '@infrastructure/perception/sensors/AriaSensor';
+import { AriaSensor } from '@infrastructure/playwright/perception/AriaSensor';
 import { BrowserPool } from '@infrastructure/playwright/BrowserPool';
 import { PluginRegistry } from '@infrastructure/plugins/PluginRegistry';
 import { PluginLoader } from '@infrastructure/plugins/PluginLoader';
@@ -46,18 +49,33 @@ import { EventBus } from '@backend/events/EventBus';
 import { RunQueries } from '@backend/runs/RunQueries';
 import { WorkflowQueries } from '@backend/workflows/WorkflowQueries';
 import { EventLogger } from '@infrastructure/observability/EventLogger';
+import { OtelEventExporter } from '@infrastructure/observability/OtelEventExporter';
+import { installAdkLoggerAdapter } from '@infrastructure/agent-runtime/adk/AdkLoggerAdapter';
+import type { ILogger } from '@domain/ports/ILogger';
 import { PluginsAppService } from '@backend/plugins/PluginsAppService';
 import { RunReportingService } from '@backend/runs/RunReportingService';
+import { RunReplayService } from '@backend/runs/RunReplayService';
+import { RunHealthMonitorService } from '@backend/runs/RunHealthMonitorService';
+import { RunRecoveryService } from '@backend/runs/RunRecoveryService';
+import { SkillsAppService } from '@backend/skills/SkillsAppService';
+import { SkillExtractionService } from '@backend/skills/SkillExtractionService';
+import { SkillPlaybackService } from '@backend/skills/SkillPlaybackService';
+import { SkillRunnerService } from '@infrastructure/skills/SkillRunnerService';
+import { SkillRepositoryAdapter } from '@infrastructure/persistence/SkillRepositoryAdapter';
+import { ShellCommandPolicyService } from '@infrastructure/shell/ShellCommandPolicyService';
+import type { IShellPolicy } from '@domain/ports/IShellPolicy';
 
 export class ContainerBuilder {
     registerCore(): this {
+        container.registerSingleton('ILogger', ConsoleLogger);
         container.registerSingleton(ConfigService);
         container.register('IConfigService', { useToken: ConfigService });
+        container.register('AiConfigProvider', { useFactory: (c) => () => c.resolve<IConfigService>('IConfigService').getAi() });
+        container.register('PathsConfigProvider', { useFactory: (c) => () => c.resolve<IConfigService>('IConfigService').getPaths() });
         container.registerSingleton('IPersistenceAdapter', SQLiteAdapter);
         container.register('IRunRepository', { useToken: 'IPersistenceAdapter' });
         container.register('ICheckpointRepository', { useToken: 'IPersistenceAdapter' });
         container.register('IWorkflowRepository', { useToken: 'IPersistenceAdapter' });
-        container.registerSingleton('ILogger', ConsoleLogger);
         container.registerSingleton(EventBus);
         container.register('IEventBus', { useToken: EventBus });
         return this;
@@ -68,6 +86,7 @@ export class ContainerBuilder {
         container.registerSingleton(PlatformSessionFactory);
         container.registerSingleton(WebDriverProvider);
         container.registerSingleton(ElectronDriverProvider);
+        container.registerSingleton(MobileDriverProvider);
         container.registerSingleton(AppDriverFactory);
         container.register('IAppDriverFactory', { useToken: AppDriverFactory });
         return this;
@@ -85,6 +104,8 @@ export class ContainerBuilder {
         container.registerSingleton(RunControlGateService);
         container.registerSingleton(StepExecutionKernelService);
         container.registerSingleton(RuntimeReadinessPolicyService);
+        container.registerSingleton(RunHealthMonitorService);
+        container.registerSingleton(RunRecoveryService);
         return this;
     }
 
@@ -100,6 +121,8 @@ export class ContainerBuilder {
 
     registerLlm(): this {
         container.registerSingleton(LlmRuntimeConfigResolver);
+        container.registerSingleton(GeminiLlmFactory);
+        container.register('IAdkLlmFactory', { useToken: GeminiLlmFactory });
         container.registerSingleton(PluginRegistry);
         container.register('IPluginRegistry', { useToken: PluginRegistry });
         container.registerSingleton(PluginLoader);
@@ -122,11 +145,14 @@ export class ContainerBuilder {
         container.registerSingleton(TraceService);
         container.register('ITraceService', { useToken: TraceService });
         container.registerSingleton(EventLogger);
+        container.registerSingleton(OtelEventExporter);
         return this;
     }
 
     installEventLogger(): this {
         container.resolve(EventLogger).install();
+        container.resolve(OtelEventExporter).install();
+        installAdkLoggerAdapter(container.resolve<ILogger>('ILogger'));
         return this;
     }
 
@@ -137,6 +163,21 @@ export class ContainerBuilder {
         container.registerSingleton(RunQueries);
         container.registerSingleton(WorkflowQueries);
         container.registerSingleton(PluginsAppService);
+        container.registerSingleton(RunReplayService);
+        container.registerSingleton(SkillRepositoryAdapter);
+        container.register('ISkillRepository', { useToken: SkillRepositoryAdapter });
+        container.registerSingleton(SkillsAppService);
+        container.registerSingleton(SkillExtractionService);
+        container.registerSingleton(SkillRunnerService);
+        container.register('ISkillPlayback', { useToken: SkillRunnerService });
+        container.register('SkillShellExecutor', { useToken: ShellExecutor });
+        container.register<() => IShellPolicy>('IShellPolicyFactory', {
+            useFactory: (c) => () => {
+                const cfg = c.resolve<IConfigService>('IConfigService').get().plugins.shell;
+                return new ShellCommandPolicyService(cfg.denyPatterns, cfg.allowedCwd);
+            },
+        });
+        container.registerSingleton(SkillPlaybackService);
         return this;
     }
 
@@ -158,6 +199,7 @@ export class ContainerBuilder {
         const factory = container.resolve(AppDriverFactory);
         factory.registerProvider(container.resolve(WebDriverProvider));
         factory.registerProvider(container.resolve(ElectronDriverProvider));
+        factory.registerProvider(container.resolve(MobileDriverProvider));
         return this;
     }
 

@@ -103,6 +103,33 @@ function applyMigrations(database: SqlJsDatabase): void {
                 `);
             }
         },
+        {
+            id: '20260427_runs_platform_config',
+            apply: (): void => {
+                database.exec(`
+                    ALTER TABLE runs ADD COLUMN platform_config_json TEXT;
+                    ALTER TABLE runs ADD COLUMN parent_run_id TEXT;
+                `);
+            }
+        },
+        {
+            id: '20260427_skills',
+            apply: (): void => {
+                database.exec(`
+                    CREATE TABLE IF NOT EXISTS skills (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        description TEXT NOT NULL DEFAULT '',
+                        parameters_json JSON NOT NULL DEFAULT '[]',
+                        steps_json JSON NOT NULL,
+                        created_from_run_id TEXT,
+                        created_at DATETIME NOT NULL,
+                        updated_at DATETIME NOT NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_skills_name ON skills(name);
+                `);
+            }
+        },
     ];
 
     database.run('BEGIN TRANSACTION');

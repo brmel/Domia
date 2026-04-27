@@ -1,12 +1,14 @@
 import { inject, injectable } from 'tsyringe';
 import { WorkflowState } from '@domain/value-objects';
 import type { RunId } from '@domain/value-objects/Brand';
+import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import type { AgentOutcome } from '@domain/ports/IAgentRuntime';
 import { RunState } from '@domain/enums';
 import { RunDurabilityService } from './RunDurabilityService';
 import { RunLifecycleManager } from './RunLifecycleManager';
 import { ExecutionController } from '@backend/ExecutionController';
 import type { RunOutput } from '@backend/dto';
+import { RunSummaryDefaults } from '@shared/defaults';
 import { isOutcomeSuccessful, summarizeOutcome } from './outcomes';
 
 interface RunTerminalContext {
@@ -35,23 +37,23 @@ export class RunTerminalizationService {
 
         if (terminalError) {
             currentState = WorkflowState.applyTerminal(currentState, 'failed', terminalError.message);
-            await this.durability.checkpoint(runId, currentState, 'terminal_failure');
+            await this.durability.checkpoint(runId, currentState, CheckpointReason.TerminalFailure);
             yield { type: 'error', error: terminalError };
             return;
         }
 
         if (controller.state === RunState.CANCELLED) {
             currentState = WorkflowState.applyTerminal(currentState, 'idle', 'cancelled');
-            await this.durability.checkpoint(runId, currentState, 'terminal_cancelled');
-            yield { type: 'cancelled', summary: 'Cancelled by user.' };
-            await this.lifecycleManager.finalizeRun(runId, undefined, 'Cancelled by user.');
+            await this.durability.checkpoint(runId, currentState, CheckpointReason.TerminalCancelled);
+            yield { type: 'cancelled', summary: RunSummaryDefaults.CancelledByUser };
+            await this.lifecycleManager.finalizeRun(runId, undefined, RunSummaryDefaults.CancelledByUser);
             return;
         }
 
         if (!ctx.completed) return;
 
         const success = outcome ? isOutcomeSuccessful(outcome) : false;
-        const summary = outcome ? summarizeOutcome(outcome) : 'Unknown outcome';
+        const summary = outcome ? summarizeOutcome(outcome) : RunSummaryDefaults.UnknownOutcome;
 
         currentState = WorkflowState.applyTerminal(
             currentState,
@@ -61,7 +63,7 @@ export class RunTerminalizationService {
         await this.durability.checkpoint(
             runId,
             currentState,
-            success ? 'terminal_success' : 'terminal_failure',
+            success ? CheckpointReason.TerminalSuccess : CheckpointReason.TerminalFailure,
         );
         yield { type: 'completed', success, summary };
         await this.lifecycleManager.finalizeRun(runId, outcome, summary);

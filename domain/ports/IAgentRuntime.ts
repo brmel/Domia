@@ -1,9 +1,10 @@
 import type { AgentAction } from '@domain/value-objects';
+import type { ArtifactRetention } from '@domain/value-objects/ArtifactRetention';
 import type { StepTrace } from './ITraceService';
 import type { PlatformType } from '../types/PlatformConfig';
 import type { IStructuredAutomation } from './IAppAutomation';
 
-type AgentVerdict = 'pass' | 'fail';
+export type AgentVerdict = 'pass' | 'fail';
 
 interface AgentOutput {
     readonly summary: string;
@@ -42,6 +43,7 @@ export interface AgentInput {
         readonly maxDurationMs?: number;
         readonly intervalMs?: number;
     };
+    readonly persistArtifacts?: ArtifactRetention;
     readonly extras?: Readonly<Record<string, unknown>>;
 }
 

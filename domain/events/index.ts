@@ -11,8 +11,11 @@ export interface DomainEvents {
     'run.state_updated': { runId: RunId; state: WorkflowState };
     'step.persisted': { runId: RunId; stepNumber: number; action: AgentAction };
     'agent.outcome': { runId: RunId; outcome: AgentOutcome };
-    'plugin.loaded': { name: string; toolCount: number };
+    'plugin.loaded': { name: string; version: string; description: string; toolCount: number };
     'config.changed': { keys: readonly string[] };
+    'run.degraded': { runId: RunId; metric: string; baselineMs: number; currentMs: number };
+    'observation.frame': { frame: import('../value-objects/ObservationFrame').ObservationFrame };
+    'observation.profile_changed': { runId: RunId; profile: import('../value-objects/ObservationProfile').ObservationProfile; previous: import('../value-objects/ObservationProfile').ObservationProfile };
 }
 
 export type DomainEventName = keyof DomainEvents;

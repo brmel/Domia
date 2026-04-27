@@ -2,54 +2,23 @@ import { z } from 'zod';
 import { container } from '@backend/container-root';
 import { RunUseCase } from '@backend/runs';
 import { IPersistenceAdapter } from '@domain/ports';
-import { ExecutionController } from '@backend/ExecutionController';
 import { observable } from '@trpc/server/observable';
 import { RunInput } from '@backend/dto';
 import { RunInputSchema } from '@shared/contracts/run';
 import { RuntimeReadinessPolicyService } from '@backend/policy/RuntimeReadinessPolicyService';
 import { RunReportingService } from '@backend/runs/RunReportingService';
+import { RunReplayService } from '@backend/runs/RunReplayService';
 import type { RunOutput } from '@backend/dto';
 import debug from 'debug';
-import { t, eventEmitter, activeRunState } from './shared';
-import { serializeRunOutput } from './serializeRunOutput';
+import { t, eventEmitter, activeRunState, startRunStream } from './shared';
 
 export const runRouter = t.router({
     run: t.procedure
         .input(RunInputSchema)
         .mutation(async ({ input }: { input: z.infer<typeof RunInputSchema> }) => {
+            if (input.options?.debug) debug.enable('domia:*');
             const useCase = container.resolve(RunUseCase);
-            if (activeRunState.current) {
-                activeRunState.current.stop();
-            }
-            activeRunState.current = new ExecutionController();
-            activeRunState.current.start();
-            activeRunState.executionToken += 1;
-            const executionToken = activeRunState.executionToken;
-
-            if (input.options?.debug) {
-                debug.enable('domia:*');
-            }
-
-            const generator = useCase.execute(input as RunInput, activeRunState.current);
-
-            (async () => {
-                for await (const event of generator) {
-                    if (executionToken !== activeRunState.executionToken) break;
-                    eventEmitter.emit('test:update', serializeRunOutput(event));
-                }
-            })().catch(err => {
-                console.error('[runRouter] Unhandled generator error:', err);
-                if (executionToken !== activeRunState.executionToken) return;
-                eventEmitter.emit('test:update', {
-                    type: 'error',
-                    error: { name: 'Error', message: String(err), code: 'UNKNOWN' }
-                });
-            }).finally(() => {
-                if (executionToken === activeRunState.executionToken) {
-                    activeRunState.current = null;
-                }
-            });
-
+            startRunStream(useCase, input as RunInput);
             return { success: true };
         }),
 
@@ -102,6 +71,21 @@ export const runRouter = t.router({
             }
 
             return checkpointsResult.value;
+        }),
+
+    replay: t.procedure
+        .input(z.object({
+            parentRunId: z.string().min(1),
+            promptOverride: z.string().trim().min(1).optional(),
+        }))
+        .mutation(async ({ input }) => {
+            const replayService = container.resolve(RunReplayService);
+            const built = await replayService.build(input.parentRunId, {
+                ...(input.promptOverride ? { promptOverride: input.promptOverride } : {}),
+            });
+            const useCase = container.resolve(RunUseCase);
+            startRunStream(useCase, built.input);
+            return { success: true, parentRunId: built.parentRunId };
         }),
 
     generateReport: t.procedure

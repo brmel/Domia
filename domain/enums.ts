@@ -17,6 +17,7 @@ export enum ActionType {
     NAVIGATE = 'navigate',
     OBSERVE = 'observe',
     WAIT_FOR_CONDITION = 'waitForCondition',
+    WAIT_FOR_URL = 'wait_for_url',
     START_RECORDING = 'startRecording',
     STOP_AND_REVIEW_RECORDING = 'stopAndReviewRecording',
     FINISH = 'finish',

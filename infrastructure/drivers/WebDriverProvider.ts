@@ -61,8 +61,9 @@ export class WebDriverProvider implements IAppDriverProvider {
         const adapter = new PlaywrightAdapter(this.logger, this.pool);
         const driver = new WebDriver(adapter, this.logger);
         const headless = config.options?.headless ?? true;
+        const device = config.platformConfig.platform === 'web' ? config.platformConfig.device : undefined;
 
-        const connectResult = await driver.connect({ headless });
+        const connectResult = await driver.connect({ headless, ...(device ? { device } : {}) });
         if (connectResult.isErr()) {
             throw new Error(`[WebDriverProvider] Connection failed: ${connectResult.error.message}`);
         }

@@ -19,3 +19,10 @@ export const CONFIG_FILE_NAME = 'domia.config.json';
 export const DEFAULT_RETRY_ATTEMPTS = 3;
 export const DEFAULT_RETRY_MIN_DELAY_MS = 300;
 export const DEFAULT_RETRY_MAX_DELAY_MS = 30_000;
+
+export const RunSummaryDefaults = {
+    Completed: 'Completed successfully',
+    CancelledByUser: 'Cancelled by user.',
+    UnknownFailure: 'Unknown error',
+    UnknownOutcome: 'Unknown outcome',
+} as const;

@@ -8,15 +8,16 @@ import { Run } from '@domain/entities/Run';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
 import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
-import type { RunCheckpointReason } from '@domain/value-objects/RunLifecycle';
+import type { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 import { PersistenceError } from '@domain/errors';
-import { ConfigService } from '../ConfigService';
+import type { PathsConfigProvider } from '@shared/contracts/config';
 import type { DatabaseSchema } from './DatabaseSchema';
 import { initializeSchema } from './SQLiteMigrationManager';
 import { SQLiteRunRepository } from './SQLiteRunRepository';
 import { SQLiteCheckpointRepository } from './SQLiteCheckpointRepository';
 import { SQLiteWorkflowRepository } from './SQLiteWorkflowRepository';
+import { SQLiteSkillRepository } from './SQLiteSkillRepository';
 import { openDatabase, saveDatabase } from './SqlJsProvider';
 import { DEFAULT_RUNS_QUERY_LIMIT, DEFAULT_WORKFLOWS_QUERY_LIMIT } from '@shared/defaults';
 
@@ -27,12 +28,12 @@ export class SQLiteAdapter implements IPersistenceAdapter {
     private runs!: SQLiteRunRepository;
     private checkpoints!: SQLiteCheckpointRepository;
     private workflows!: SQLiteWorkflowRepository;
+    private skillRepo!: SQLiteSkillRepository;
     private dbPath: string;
     private readonly ready: Promise<void>;
 
-    constructor(@inject(ConfigService) configService: ConfigService) {
-        const config = configService.get();
-        this.dbPath = config.paths.databasePath;
+    constructor(@inject('PathsConfigProvider') paths: PathsConfigProvider) {
+        this.dbPath = paths().databasePath;
         this.ready = this.initialize();
     }
 
@@ -48,6 +49,15 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         this.runs = new SQLiteRunRepository(this.db);
         this.checkpoints = new SQLiteCheckpointRepository(this.db);
         this.workflows = new SQLiteWorkflowRepository(this.db, this.raw);
+        this.skillRepo = new SQLiteSkillRepository(this.db);
+    }
+
+    skills(): SQLiteSkillRepository {
+        return this.skillRepo;
+    }
+
+    runWithPersist<T>(op: () => ResultAsync<T, PersistenceError>): ResultAsync<T, PersistenceError> {
+        return this.withPersist(op);
     }
 
     private persist(): void {
@@ -65,8 +75,12 @@ export class SQLiteAdapter implements IPersistenceAdapter {
             .andThen(() => op());
     }
 
-    saveRun(run: Run): ResultAsync<void, PersistenceError> {
-        return this.withPersist(() => this.runs.saveRun(run));
+    saveRun(run: Run, platformConfigJson?: string): ResultAsync<void, PersistenceError> {
+        return this.withPersist(() => this.runs.saveRun(run, platformConfigJson));
+    }
+
+    getPlatformConfigJson(runId: string): ResultAsync<string | null, PersistenceError> {
+        return this.withReady(() => this.runs.getPlatformConfigJson(runId));
     }
 
     updateRun(id: string, updates: Partial<Run>): ResultAsync<void, PersistenceError> {
@@ -100,7 +114,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
     saveCheckpoint(
         runId: string,
         state: WorkflowState,
-        reason: RunCheckpointReason
+        reason: CheckpointReason
     ): ResultAsync<void, PersistenceError> {
         return this.withPersist(() => this.checkpoints.saveCheckpoint(runId, state, reason));
     }

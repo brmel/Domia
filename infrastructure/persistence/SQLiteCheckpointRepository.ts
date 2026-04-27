@@ -2,7 +2,7 @@ import { Kysely } from 'kysely';
 import { randomUUID } from 'crypto';
 import type { ResultAsync } from 'neverthrow';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
-import type { RunCheckpointReason } from '@domain/value-objects/RunLifecycle';
+import type { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 import type { PersistenceError } from '@domain/errors';
 import type { DatabaseSchema } from './DatabaseSchema';
@@ -14,7 +14,7 @@ export class SQLiteCheckpointRepository {
     saveCheckpoint(
         runId: string,
         state: WorkflowState,
-        reason: RunCheckpointReason
+        reason: CheckpointReason
     ): ResultAsync<void, PersistenceError> {
         return dbOp(
             this.db.insertInto('workflow_checkpoints')
@@ -42,7 +42,7 @@ export class SQLiteCheckpointRepository {
             runId: row.run_id,
             checkpointId: row.checkpoint_id,
             createdAt: row.created_at,
-            reason: row.reason as RunCheckpointReason,
+            reason: row.reason as CheckpointReason,
             state: JSON.parse(row.state_json)
         })));
     }

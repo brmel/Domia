@@ -24,5 +24,12 @@
         "shared/**/*.ts",
         "apps/**/*.ts",
         "tests/**/*.ts"
+    ],
+    "ignoreExportsUsedInFile": true,
+    "ignore": [
+        "backend/container-root.ts"
+    ],
+    "ignoreDependencies": [
+        "@modelcontextprotocol/sdk"
     ]
 }

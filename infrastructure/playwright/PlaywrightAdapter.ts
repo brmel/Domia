@@ -61,8 +61,10 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
                 args: [...CHROMIUM_LAUNCH_ARGS]
             });
         }
+        const deviceContext = options.device ? await this.resolveDeviceContext(options.device) : {};
         const context = await this.browser.newContext({
-            ignoreHTTPSErrors: true
+            ignoreHTTPSErrors: true,
+            ...deviceContext,
         });
         this.context = context;
         this.page = await context.newPage();
@@ -395,5 +397,15 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
                 this.page = null;
             }
         });
+    }
+
+    private async resolveDeviceContext(device: string): Promise<Record<string, unknown>> {
+        const { devices } = await import('playwright');
+        const preset = devices[device];
+        if (!preset) {
+            this.logger.warn(`${TAG} Unknown device preset "${device}", ignoring`);
+            return {};
+        }
+        return preset as unknown as Record<string, unknown>;
     }
 }

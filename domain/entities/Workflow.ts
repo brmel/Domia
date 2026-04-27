@@ -1,15 +1,29 @@
 import type { PlatformConfig } from '@domain/types/PlatformConfig';
 import type { RunOptions } from '@shared/contracts/run';
+import type { WorkflowStepKind } from '@domain/value-objects/WorkflowStepKind';
 
 type WorkflowStatus = 'draft' | 'published';
 
-export interface WorkflowStepDefinition {
+export interface AgentWorkflowStep {
+    readonly kind: typeof WorkflowStepKind.Agent;
     readonly id: string;
     readonly name: string;
     readonly prompt: string;
     readonly continueOnFailure: boolean;
     readonly options?: RunOptions;
 }
+
+export interface ForEachWorkflowStep {
+    readonly kind: typeof WorkflowStepKind.ForEach;
+    readonly id: string;
+    readonly name: string;
+    readonly items: readonly string[];
+    readonly bodyPrompt: string;
+    readonly continueOnFailure: boolean;
+    readonly options?: RunOptions;
+}
+
+export type WorkflowStepDefinition = AgentWorkflowStep | ForEachWorkflowStep;
 
 export interface WorkflowDefinition {
     readonly id: string;
