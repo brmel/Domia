@@ -6,3 +6,4 @@ export * from './logging.defaults';
 export * from './identity.defaults';
 export * from './plugin.defaults';
 export * from './compaction.defaults';
+export * from './observation.defaults';
