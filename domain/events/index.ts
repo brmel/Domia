@@ -16,6 +16,8 @@ export interface DomainEvents {
     'run.degraded': { runId: RunId; metric: string; baselineMs: number; currentMs: number };
     'observation.frame': { frame: import('../value-objects/ObservationFrame').ObservationFrame };
     'observation.profile_changed': { runId: RunId; profile: import('../value-objects/ObservationProfile').ObservationProfile; previous: import('../value-objects/ObservationProfile').ObservationProfile };
+    'run.suspended': { runId: RunId; reason: string };
+    'run.resumed': { runId: RunId };
 }
 
 export type DomainEventName = keyof DomainEvents;

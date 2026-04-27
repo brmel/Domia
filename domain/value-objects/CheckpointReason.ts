@@ -4,6 +4,8 @@ export const CheckpointReason = {
     PauseRequested: 'pause_requested',
     ResumeRequested: 'resume_requested',
     ActionApplied: 'action_applied',
+    RunSuspended: 'run_suspended',
+    RunResumed: 'run_resumed',
     TerminalSuccess: 'terminal_success',
     TerminalFailure: 'terminal_failure',
     TerminalCancelled: 'terminal_cancelled',

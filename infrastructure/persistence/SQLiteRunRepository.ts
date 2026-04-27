@@ -13,6 +13,7 @@ function extractStatusFields(status: RunStatus): { summary: string | null; durat
         case 'passed':    return { summary: status.summary, durationMs: status.duration };
         case 'failed':    return { summary: status.error,   durationMs: status.duration };
         case 'cancelled': return { summary: status.reason,  durationMs: null };
+        case 'suspended': return { summary: status.reason,  durationMs: null };
         default:          return { summary: null,           durationMs: null };
     }
 }
@@ -167,6 +168,7 @@ export class SQLiteRunRepository {
         passed:    (row) => ({ type: 'passed', summary: row.summary || '', duration: row.duration_ms || 0 }),
         failed:    (row) => ({ type: 'failed', error: row.summary || 'Unknown error', duration: row.duration_ms || 0 }),
         cancelled: (row) => ({ type: 'cancelled', reason: row.summary || '' }),
+        suspended: (row) => ({ type: 'suspended', reason: row.summary || '' }),
         running:   ()    => ({ type: 'running' }),
     };
 

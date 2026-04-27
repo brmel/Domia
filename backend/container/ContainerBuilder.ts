@@ -14,6 +14,7 @@ import { PlatformSessionFactory } from '@backend/platform/PlatformSessionFactory
 import { RunLifecycleManager } from '@backend/runs/RunLifecycleManager';
 import { InMemoryRunExecutionLaneService } from '@backend/runs/RunExecutionLaneService';
 import { RunDurabilityService } from '@backend/runs/RunDurabilityService';
+import { RunSuspensionService } from '@backend/runs/RunSuspensionService';
 import { RunBudgetPolicyService } from '@backend/runs/RunBudgetPolicyService';
 import { RunSessionService } from '@backend/runs/RunSessionService';
 import { RunTerminalizationService } from '@backend/runs/RunTerminalizationService';
@@ -97,6 +98,7 @@ export class ContainerBuilder {
         container.registerSingleton(InMemoryRunExecutionLaneService);
         container.register('IRunExecutionLaneService', { useToken: InMemoryRunExecutionLaneService });
         container.registerSingleton(RunDurabilityService);
+        container.registerSingleton(RunSuspensionService);
         container.registerSingleton(RunBudgetPolicyService);
         container.registerSingleton(RunSessionService);
         container.registerSingleton(RunTerminalizationService);

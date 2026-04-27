@@ -17,6 +17,7 @@ export type RunStatus =
     | { type: 'pending' }
     | { type: 'running' }
     | { type: 'interrupted'; reason: string }
+    | { type: 'suspended'; reason: string }
     | { type: 'passed'; summary: string; duration: number }
     | { type: 'finished'; summary: string; value?: unknown; duration: number }
     | { type: 'failed'; error: string; duration: number }
@@ -79,6 +80,28 @@ export const Run = {
         return {
             ...run,
             status: { type: 'finished', summary, ...(value !== undefined ? { value } : {}), duration },
+            updatedAt: new Date(),
+        };
+    },
+
+    suspend(run: Run, reason: string): Run {
+        if (run.status.type !== 'running') {
+            throw new Error(`Cannot suspend a run in '${run.status.type}' state`);
+        }
+        return {
+            ...run,
+            status: { type: 'suspended', reason },
+            updatedAt: new Date(),
+        };
+    },
+
+    resume(run: Run): Run {
+        if (run.status.type !== 'suspended') {
+            throw new Error(`Cannot resume a run in '${run.status.type}' state`);
+        }
+        return {
+            ...run,
+            status: { type: 'running' },
             updatedAt: new Date(),
         };
     },

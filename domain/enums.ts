@@ -43,6 +43,7 @@ export enum RunState {
     IDLE = 'idle',
     RUNNING = 'running',
     PAUSED = 'paused',
+    SUSPENDED = 'suspended',
     COMPLETED = 'completed',
     FINISHED = 'finished',
     FAILED = 'failed',
