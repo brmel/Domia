@@ -143,9 +143,10 @@ export class RunUseCase {
                 currentState = activated.state;
                 yield { type: 'state_updated', state: currentState };
 
+                const baseExtras = { ...(sessionExtras ?? {}), observation };
                 const executionOptions = {
                     ...buildExecutionOptions(input.options, input.platformConfig.platform),
-                    ...(sessionExtras ? { extras: sessionExtras } : {}),
+                    extras: baseExtras,
                 };
 
                 const kernelResult = yield* this.kernel.execute(

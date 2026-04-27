@@ -288,13 +288,14 @@ export class AdkAgentRuntime implements IAgentRuntime {
             llmTurnStartMs: Date.now(),
         };
         const windowManager = input.extras?.['windowManager'] as ElectronWindowManager | undefined;
+        const observation = input.extras?.['observation'] as import('@backend/observation/ObservationCoordinator').ObservationCoordinator | undefined;
         const sink = new RunArtifactSink(
             input.runId,
             input.persistArtifacts ?? DEFAULT_ARTIFACT_RETENTION,
             this.storage,
             this.logger,
         );
-        const toolDeps = this.buildToolDeps(input, automation, perceptionSource, vision, windowManager, () => state.actionCount, sink);
+        const toolDeps = this.buildToolDeps(input, automation, perceptionSource, vision, windowManager, () => state.actionCount, sink, observation);
         const skillTools = await this.skillRunner.buildToolsForSession(toolDeps);
         const extraTools = [...this.pluginRegistry.getAllTools(), ...skillTools];
         const { tools, catalog, captureMiddleware } = createAdkTools(toolDeps, extraTools, this.promptService);
@@ -336,6 +337,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
         windowManager: ElectronWindowManager | undefined,
         getActionCount: () => number,
         sink: RunArtifactSink,
+        observation: import('@backend/observation/ObservationCoordinator').ObservationCoordinator | undefined,
     ): ToolDependencies {
         return {
             automation,
@@ -343,6 +345,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
             perceptionSource,
             vision,
             platform: input.platform,
+            runId: input.runId,
             ...(this.configService.get().plugins.shell.enabled && {
                 shellExecutor: this.shellExecutor,
                 shellPolicy: new ShellCommandPolicyService(
@@ -350,6 +353,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
                     this.configService.get().plugins.shell.allowedCwd,
                 ),
             }),
+            ...(observation && { observation }),
             ...(windowManager && { windowManager }),
             ...('newTab' in automation && { tabManager: automation as unknown as ITabManager }),
             onCapture: (capturedFrame) => sink.onPerceptionFrame(getActionCount(), capturedFrame),

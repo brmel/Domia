@@ -17,6 +17,8 @@ import { toolError, toolSuccess } from '../toolResult';
 export function createPollingTools(
     automation: IStructuredAutomation,
     captureMiddleware: PostActionCaptureMiddleware,
+    observation?: import('@backend/observation/ObservationCoordinator').ObservationCoordinator,
+    runId?: string,
 ): ToolSpec[] {
     return [
         {
@@ -163,6 +165,57 @@ export function createPollingTools(
                 }
 
                 return { status: 'timeout', url, elapsedMs: Date.now() - startMs, polls };
+            },
+        } satisfies ToolSpec,
+        {
+            name: 'wait_for_change',
+            description:
+                'Subscribe to the live observation stream and return the first frame whose summary matches a pattern. ' +
+                'Counts as a single action. Reacts faster than waitForCondition because it is push-based. ' +
+                'Requires an active observation profile (set via session config or set_observation_profile).' +
+                'Input: { pattern: string, isRegex?: boolean, timeoutMs?: number }. ' +
+                'Output: { status: "matched", summary, elapsedMs } or { status: "timeout", elapsedMs }.',
+            actionType: ActionType.WAIT_FOR_CHANGE,
+            isLongRunning: true,
+            parameters: z.object({
+                pattern: z.string().describe('Substring or regex to match against frame summaries.'),
+                isRegex: z.boolean().optional().describe('Treat pattern as regex (case-insensitive). Default false.'),
+                timeoutMs: z.number().int().min(1000).max(MAX_POLL_DURATION_MS).optional(),
+            }),
+            execute: async (args) => {
+                if (!observation || !runId) {
+                    return toolError('wait_for_change requires an active observation coordinator');
+                }
+                const pattern = args['pattern'] as string;
+                const isRegex = (args['isRegex'] as boolean | undefined) ?? false;
+                const timeoutMs = Math.min((args['timeoutMs'] as number | undefined) ?? DEFAULT_POLL_TIMEOUT_MS, MAX_POLL_DURATION_MS);
+
+                let regex: RegExp | null = null;
+                if (isRegex) {
+                    try { regex = new RegExp(pattern, 'i'); } catch { return toolError(`Invalid regex pattern: ${pattern}`); }
+                }
+                const matches = (text: string): boolean => regex ? regex.test(text) : text.toLowerCase().includes(pattern.toLowerCase());
+
+                const startMs = Date.now();
+                const recent = observation.recent(timeoutMs);
+                const earlyHit = recent.find((f) => matches(f.summary));
+                if (earlyHit) {
+                    return toolSuccess({ summary: earlyHit.summary, elapsedMs: 0, source: 'buffer' });
+                }
+
+                return await new Promise<Record<string, unknown>>((resolve) => {
+                    const timer = setTimeout(() => {
+                        sub.unsubscribe();
+                        resolve({ status: 'timeout', elapsedMs: Date.now() - startMs });
+                    }, timeoutMs);
+                    const sub = observation.subscribeToStream((frame) => {
+                        if (matches(frame.summary)) {
+                            clearTimeout(timer);
+                            sub.unsubscribe();
+                            resolve(toolSuccess({ summary: frame.summary, elapsedMs: Date.now() - startMs, source: 'stream' }));
+                        }
+                    });
+                });
             },
         } satisfies ToolSpec,
     ];

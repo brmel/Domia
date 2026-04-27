@@ -84,6 +84,13 @@ export class ObservationCoordinator {
         return this.buffer.sinceMs(sinceMs);
     }
 
+    subscribeToStream(handler: FrameHandler): FrameSubscription {
+        if (!this.deps.stream.isRunning(this.deps.runId)) {
+            return { unsubscribe: () => undefined };
+        }
+        return this.deps.stream.subscribe(this.deps.runId, handler);
+    }
+
     currentProfile(): ObservationProfile {
         return this.profile;
     }
