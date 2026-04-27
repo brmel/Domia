@@ -53,7 +53,7 @@ export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] 
         ...createInteractionTools(deps.automation),
         ...createMouseTools(deps.automation),
         ...createNavigationTools(deps.automation),
-        ...createObservationTools(deps.automation, middleware, deps.perceptionSource),
+        ...createObservationTools(deps.automation, middleware, deps.perceptionSource, deps.observation),
         ...createPollingTools(deps.automation, middleware, deps.observation, deps.runId),
         ...createSnapshotRecordingTools(deps.perceptionSource),
         ...createTerminalTools(),

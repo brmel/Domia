@@ -283,19 +283,30 @@ export class RunCommand {
 
                     setupInteractiveControls();
 
+                    let observationUnsubscribe: (() => void) | null = null;
+                    if (jsonMode) {
+                        const eventBus = container.resolve<import('@domain/ports/IEventBus').IEventBus>('IEventBus');
+                        const off = eventBus.on('observation.frame', (payload) => {
+                            const out: import('@backend/dto').RunOutput = { type: 'observation', frame: payload.frame };
+                            process.stdout.write(JSON.stringify(serializeRunOutput(out)) + '\n');
+                        });
+                        observationUnsubscribe = off;
+                    }
+
                     const generator = useCase.execute(input, controller);
                     let capturedRunId: string | undefined;
-                    const jsonMode = !!options.json;
 
                     for await (const event of generator) {
                         if (jsonMode) {
                             process.stdout.write(JSON.stringify(serializeRunOutput(event)) + '\n');
                             if (event.type === 'started') capturedRunId = event.runId;
                             if (event.type === 'completed') {
+                                observationUnsubscribe?.();
                                 teardownInteractiveControls();
                                 process.exit(event.success ? 0 : 1);
                             }
                             if (event.type === 'error') {
+                                observationUnsubscribe?.();
                                 teardownInteractiveControls();
                                 process.exit(1);
                             }

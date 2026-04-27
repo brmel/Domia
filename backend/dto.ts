@@ -16,6 +16,7 @@ export type RunOutput =
     | { type: 'thinking_chunk'; text: string }
     | { type: 'acting'; action: AgentAction }
     | { type: 'state_updated'; state: import('@domain/value-objects').WorkflowState }
+    | { type: 'observation'; frame: import('@domain/value-objects/ObservationFrame').ObservationFrame }
     | { type: 'completed'; success: boolean; summary?: string }
     | { type: 'cancelled'; summary?: string }
     | { type: 'error'; error: WorkflowError | Error };

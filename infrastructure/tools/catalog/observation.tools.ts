@@ -11,6 +11,7 @@ export function createObservationTools(
     automation: IStructuredAutomation,
     captureMiddleware: PostActionCaptureMiddleware,
     perceptionSource?: IPerceptionSource,
+    observation?: import('@backend/observation/ObservationCoordinator').ObservationCoordinator,
 ): ToolSpec[] {
     return [
         {
@@ -67,6 +68,29 @@ export function createObservationTools(
                 } catch (e) {
                     return toolError(`Page content extraction failed: ${e instanceof Error ? e.message : String(e)}`);
                 }
+            },
+        },
+        {
+            name: 'recall_recent',
+            description:
+                'Read the live observation buffer for events that happened in the last N milliseconds without performing any new action. ' +
+                'Useful when something flashed on screen between your tool calls (console errors, network failures, fast DOM mutations). ' +
+                'Input: { sinceMs?: number (default 5000) }. ' +
+                'Output: { status: "success", frames: Array<{ source, summary, capturedAt, attachmentSummaries }>, count: number }.',
+            actionType: ActionType.RECALL_RECENT,
+            parameters: z.object({
+                sinceMs: z.number().int().min(100).max(600_000).optional().describe('Window size in ms; default 5000.'),
+            }),
+            execute: async (args) => {
+                if (!observation) return toolError('recall_recent requires an active observation coordinator');
+                const sinceMs = (args['sinceMs'] as number | undefined) ?? 5000;
+                const frames = observation.recent(sinceMs).map((f) => ({
+                    source: f.source,
+                    summary: f.summary,
+                    capturedAt: f.capturedAt,
+                    attachmentSummaries: f.attachments.map((a) => ({ id: a.id, contentType: a.contentType, bytes: a.bytes })),
+                }));
+                return toolSuccess({ frames, count: frames.length });
             },
         },
         {

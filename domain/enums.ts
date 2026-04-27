@@ -19,6 +19,7 @@ export enum ActionType {
     WAIT_FOR_CONDITION = 'waitForCondition',
     WAIT_FOR_URL = 'wait_for_url',
     WAIT_FOR_CHANGE = 'wait_for_change',
+    RECALL_RECENT = 'recall_recent',
     START_RECORDING = 'startRecording',
     STOP_AND_REVIEW_RECORDING = 'stopAndReviewRecording',
     FINISH = 'finish',
