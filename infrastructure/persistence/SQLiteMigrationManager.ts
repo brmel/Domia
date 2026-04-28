@@ -130,6 +130,14 @@ function applyMigrations(database: SqlJsDatabase): void {
                 `);
             }
         },
+        {
+            id: '20260427_checkpoint_metadata',
+            apply: (): void => {
+                database.exec(`
+                    ALTER TABLE workflow_checkpoints ADD COLUMN metadata_json TEXT;
+                `);
+            }
+        },
     ];
 
     database.run('BEGIN TRANSACTION');

@@ -4,6 +4,7 @@ import type { ResultAsync } from 'neverthrow';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
+import type { CheckpointMetadata } from '@domain/value-objects/CheckpointMetadata';
 import type { PersistenceError } from '@domain/errors';
 import type { DatabaseSchema } from './DatabaseSchema';
 import { dbOp } from './dbOp';
@@ -14,7 +15,8 @@ export class SQLiteCheckpointRepository {
     saveCheckpoint(
         runId: string,
         state: WorkflowState,
-        reason: CheckpointReason
+        reason: CheckpointReason,
+        metadata?: CheckpointMetadata,
     ): ResultAsync<void, PersistenceError> {
         return dbOp(
             this.db.insertInto('workflow_checkpoints')
@@ -23,7 +25,8 @@ export class SQLiteCheckpointRepository {
                     checkpoint_id: randomUUID(),
                     state_json: JSON.stringify(state),
                     reason,
-                    created_at: new Date().toISOString()
+                    created_at: new Date().toISOString(),
+                    metadata_json: metadata ? JSON.stringify(metadata) : null,
                 })
                 .execute(),
             'save checkpoint'
@@ -33,7 +36,7 @@ export class SQLiteCheckpointRepository {
     getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError> {
         return dbOp(
             this.db.selectFrom('workflow_checkpoints')
-                .select(['run_id', 'checkpoint_id', 'state_json', 'reason', 'created_at'])
+                .select(['run_id', 'checkpoint_id', 'state_json', 'reason', 'created_at', 'metadata_json'])
                 .where('run_id', '=', runId)
                 .orderBy('created_at', 'asc')
                 .execute(),
@@ -43,7 +46,8 @@ export class SQLiteCheckpointRepository {
             checkpointId: row.checkpoint_id,
             createdAt: row.created_at,
             reason: row.reason as CheckpointReason,
-            state: JSON.parse(row.state_json)
+            state: JSON.parse(row.state_json),
+            ...(row.metadata_json ? { metadata: JSON.parse(row.metadata_json) as CheckpointMetadata } : {}),
         })));
     }
 }

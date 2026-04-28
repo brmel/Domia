@@ -30,6 +30,7 @@ interface WorkflowCheckpointTable {
     state_json: string;
     reason: string;
     created_at: string;
+    metadata_json: string | null;
 }
 
 export interface WorkflowDefinitionTable {

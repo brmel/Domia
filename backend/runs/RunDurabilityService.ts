@@ -4,6 +4,7 @@ import type { ILogger } from '@domain/ports';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
+import type { CheckpointMetadata } from '@domain/value-objects/CheckpointMetadata';
 
 @injectable()
 export class RunDurabilityService {
@@ -14,11 +15,16 @@ export class RunDurabilityService {
         @inject('ILogger') private readonly logger: ILogger
     ) {}
 
-    async checkpoint(runId: string, state: WorkflowState, reason: CheckpointReason): Promise<void> {
-        const signature = `${reason}:${state.stepNumber}:${state.status}:${state.history.length}`;
+    async checkpoint(
+        runId: string,
+        state: WorkflowState,
+        reason: CheckpointReason,
+        metadata?: CheckpointMetadata,
+    ): Promise<void> {
+        const signature = `${reason}:${state.stepNumber}:${state.status}:${state.history.length}:${metadata ? JSON.stringify(metadata) : ''}`;
         if (this.lastSignatureByRun.get(runId) === signature) return;
 
-        const result = await this.persistence.saveCheckpoint(runId, state, reason);
+        const result = await this.persistence.saveCheckpoint(runId, state, reason, metadata);
 
         if (result.isErr()) {
             this.logger.warn(`[RunDurabilityService] Checkpoint failed: ${result.error.message}`, { runId, reason });

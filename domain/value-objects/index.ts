@@ -8,3 +8,4 @@ export { SkillIdFactory, type SkillId } from './SkillId';
 export { WorkflowStepKind } from './WorkflowStepKind';
 export { ObservationProfile, DEFAULT_OBSERVATION_PROFILE } from './ObservationProfile';
 export type { ObservationFrame, FrameAttachment } from './ObservationFrame';
+export type { CheckpointMetadata } from './CheckpointMetadata';
