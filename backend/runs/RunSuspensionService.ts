@@ -2,9 +2,11 @@ import { inject, injectable } from 'tsyringe';
 import { Run } from '@domain/entities/Run';
 import type { IRunRepository } from '@domain/ports/IRunRepository';
 import type { IEventBus } from '@domain/ports/IEventBus';
-import type { ILogger } from '@domain/ports';
+import type { ILogger, IStorageService } from '@domain/ports';
+import type { IAgentRuntime } from '@domain/ports/IAgentRuntime';
 import type { RunId } from '@domain/value-objects';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
+import type { ConversationSnapshot } from '@domain/value-objects/ConversationSnapshot';
 import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import { RunDurabilityService } from './RunDurabilityService';
 
@@ -14,6 +16,8 @@ export interface RunResumptionEnvelope {
     readonly platformConfigJson: string | null;
     readonly suspendedAt: string;
     readonly reason: string;
+    readonly conversationSnapshot: ConversationSnapshot | null;
+    readonly conversationSnapshotPath: string | null;
 }
 
 @injectable()
@@ -23,6 +27,8 @@ export class RunSuspensionService {
         @inject(RunDurabilityService) private readonly durability: RunDurabilityService,
         @inject('IEventBus') private readonly events: IEventBus,
         @inject('ILogger') private readonly logger: ILogger,
+        @inject('IStorageService') private readonly storage: IStorageService,
+        @inject('IAgentRuntime') private readonly agentRuntime: IAgentRuntime,
     ) {}
 
     async suspend(runId: RunId, state: WorkflowState, reason: string): Promise<void> {
@@ -34,9 +40,20 @@ export class RunSuspensionService {
         const update = await this.runs.updateRun(runId, { status: suspended.status, updatedAt: suspended.updatedAt });
         if (update.isErr()) throw update.error;
 
-        await this.durability.checkpoint(runId, state, CheckpointReason.RunSuspended);
+        const snapshot = await this.agentRuntime.snapshotConversation(runId);
+        let snapshotPath: string | null = null;
+        if (snapshot) {
+            snapshotPath = await this.storage.saveConversationSnapshot(runId, snapshot);
+        }
+
+        await this.durability.checkpoint(
+            runId,
+            state,
+            CheckpointReason.RunSuspended,
+            snapshotPath ? { reason: 'run_suspended', conversationSnapshotPath: snapshotPath } : undefined,
+        );
         this.events.emit('run.suspended', { runId, reason });
-        this.logger.info(`[RunSuspensionService] Suspended runId=${runId} reason=${reason}`);
+        this.logger.info(`[RunSuspensionService] Suspended runId=${runId} reason=${reason} snapshot=${snapshotPath ?? 'none'}`);
     }
 
     async loadResumptionEnvelope(runId: RunId): Promise<RunResumptionEnvelope | null> {
@@ -52,12 +69,26 @@ export class RunSuspensionService {
             ? runResult.value.status.reason
             : '';
 
+        const snapshotPath = lastSuspension.metadata?.reason === 'run_suspended'
+            ? lastSuspension.metadata.conversationSnapshotPath
+            : null;
+        let conversationSnapshot: ConversationSnapshot | null = null;
+        if (snapshotPath) {
+            try {
+                conversationSnapshot = await this.storage.loadConversationSnapshot(snapshotPath);
+            } catch (error) {
+                this.logger.warn(`[RunSuspensionService] Failed to load snapshot ${snapshotPath}: ${error instanceof Error ? error.message : String(error)}`);
+            }
+        }
+
         return {
             runId,
             state: lastSuspension.state,
             platformConfigJson,
             suspendedAt: lastSuspension.createdAt,
             reason,
+            conversationSnapshot,
+            conversationSnapshotPath: snapshotPath,
         };
     }
 
@@ -73,7 +104,18 @@ export class RunSuspensionService {
         const update = await this.runs.updateRun(runId, { status: resumed.status, updatedAt: resumed.updatedAt });
         if (update.isErr()) throw update.error;
 
-        await this.durability.checkpoint(runId, state, CheckpointReason.RunResumed);
+        const records = await this.durability.getCheckpointRecords(runId);
+        const lastSuspension = [...records].reverse().find((r) => r.reason === CheckpointReason.RunSuspended);
+        const snapshotPath = lastSuspension?.metadata?.reason === 'run_suspended'
+            ? lastSuspension.metadata.conversationSnapshotPath
+            : null;
+
+        await this.durability.checkpoint(
+            runId,
+            state,
+            CheckpointReason.RunResumed,
+            snapshotPath ? { reason: 'run_resumed', conversationSnapshotPath: snapshotPath } : undefined,
+        );
         this.events.emit('run.resumed', { runId });
         this.logger.info(`[RunSuspensionService] Resumed runId=${runId}`);
     }
