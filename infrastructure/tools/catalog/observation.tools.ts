@@ -30,7 +30,7 @@ export function createObservationTools(
         },
         {
             name: 'extract',
-            description: `Extract the visible text content of an element for assertion or verification. Returns up to ${MAX_EXTRACT_TEXT_LENGTH} characters of whitespace-normalized text. Input: { ref: string }. Output: { status: "success", extractedText: string } or { status: "error", error: string }.`,
+            description: `Extract the visible text content of an element for assertion or verification. Returns up to ${MAX_EXTRACT_TEXT_LENGTH} characters of whitespace-normalized text. Input: { ref: string }. Output: { status: "success", extractedText: string, fullLength: number, truncated: boolean } or { status: "error", error: string }.`,
             actionType: ActionType.EXTRACT,
             platforms: WEB_ELECTRON_PLATFORMS,
             parameters: z.object({
@@ -39,8 +39,14 @@ export function createObservationTools(
             execute: async (args) => {
                 const result = await automation.extractText(args['ref'] as string);
                 if (result.isErr()) return toolError(result.error.message);
-                const text = result.value.replace(/\s+/g, ' ').trim().slice(0, MAX_EXTRACT_TEXT_LENGTH);
-                return toolSuccess({ extractedText: text || '(empty)' });
+                const normalized = result.value.replace(/\s+/g, ' ').trim();
+                const truncated = normalized.length > MAX_EXTRACT_TEXT_LENGTH;
+                const text = truncated ? normalized.slice(0, MAX_EXTRACT_TEXT_LENGTH) : normalized;
+                return toolSuccess({
+                    extractedText: text || '(empty)',
+                    fullLength: normalized.length,
+                    truncated,
+                });
             },
         },
         {

@@ -43,7 +43,7 @@ const DISPATCH_TABLE: Partial<Record<ActionType, DispatchHandler>> = {
         }
         const result = await ctx.shellExecutor.execute(command, cwd, timeoutMs);
         if (result.exitCode !== 0) {
-            return errAsync({ message: `Command exited with code ${result.exitCode}: ${result.stderr.slice(0, 500)}` });
+            return errAsync({ message: `Command exited with code ${result.exitCode}: ${result.stderr.content.slice(0, 500)}` });
         }
         return okAsync(result);
     },

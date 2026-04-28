@@ -2,15 +2,22 @@ import { exec } from 'child_process';
 import { injectable } from 'tsyringe';
 import { DEFAULT_SHELL_TIMEOUT_MS, MAX_SHELL_OUTPUT_LENGTH } from '@shared/defaults';
 
+interface ShellStream {
+    readonly content: string;
+    readonly fullLength: number;
+    readonly truncated: boolean;
+}
+
 interface ShellResult {
-    readonly stdout: string;
-    readonly stderr: string;
+    readonly stdout: ShellStream;
+    readonly stderr: ShellStream;
     readonly exitCode: number;
 }
 
-function truncate(text: string, max: number): string {
-    if (text.length <= max) return text;
-    return text.slice(0, max) + `\n...[truncated at ${max} chars]`;
+function makeStream(text: string, max: number): ShellStream {
+    const fullLength = text.length;
+    if (fullLength <= max) return { content: text, fullLength, truncated: false };
+    return { content: text.slice(0, max), fullLength, truncated: true };
 }
 
 function resolveExitCode(error: { code?: string | number } | null): number {
@@ -26,8 +33,8 @@ export class ShellExecutor {
         return new Promise<ShellResult>((resolve) => {
             exec(command, { cwd, timeout, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
                 resolve({
-                    stdout: truncate(stdout, MAX_SHELL_OUTPUT_LENGTH),
-                    stderr: truncate(stderr, MAX_SHELL_OUTPUT_LENGTH),
+                    stdout: makeStream(stdout, MAX_SHELL_OUTPUT_LENGTH),
+                    stderr: makeStream(stderr, MAX_SHELL_OUTPUT_LENGTH),
                     exitCode: resolveExitCode(error),
                 });
             });

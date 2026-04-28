@@ -40,7 +40,7 @@ describe('Shell tool integration', () => {
 
         expect(result['status']).toBe('success');
         expect(result['exitCode']).toBe(0);
-        expect(result['stdout']).toContain('hello-from-shell');
+        expect((result['stdout'] as { content: string }).content).toContain('hello-from-shell');
     });
 
     it('reports non-zero exit code for failing commands', async () => {
@@ -60,7 +60,7 @@ describe('Shell tool integration', () => {
 
         expect(result['status']).toBe('success');
         const realTmpDir = await fs.realpath(tmpDir);
-        expect((result['stdout'] as string).trim()).toBe(realTmpDir);
+        expect((result['stdout'] as { content: string }).content.trim()).toBe(realTmpDir);
     });
 
     it('handles multi-step file operations', async () => {
@@ -91,7 +91,7 @@ describe('Shell tool integration', () => {
         });
 
         expect(result['exitCode']).not.toBe(0);
-        expect((result['stderr'] as string).length).toBeGreaterThan(0);
+        expect((result['stderr'] as { content: string }).content.length).toBeGreaterThan(0);
     });
 
     it('respects timeout and terminates long-running commands', async () => {

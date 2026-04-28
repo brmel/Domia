@@ -11,7 +11,7 @@ export function createShellTools(executor: ShellExecutor, policy?: IShellPolicy)
         {
             name: 'shell_exec',
             category: 'shell' as const,
-            description: `Execute a shell command on the host OS. File ops (cat, echo, cp, mv, rm, mkdir, find, grep, wc, diff), code execution (python3, node, bash, ruby), package management (npm, pip, cargo, brew), version control (git), process & environment (env, ps, kill, which), data manipulation (jq, awk, sed, sort, uniq, cut, curl for APIs), build & CI (make, docker, kubectl). Always check exitCode — 0 means success. Default timeout: ${DEFAULT_SHELL_TIMEOUT_MS / 1000}s. Input: { command: string, cwd?: string, timeoutMs?: number }. Output: { status: "success"|"error", stdout: string, stderr: string, exitCode: number }. Some destructive commands are blocked by policy.`,
+            description: `Execute a shell command on the host OS. File ops (cat, echo, cp, mv, rm, mkdir, find, grep, wc, diff), code execution (python3, node, bash, ruby), package management (npm, pip, cargo, brew), version control (git), process & environment (env, ps, kill, which), data manipulation (jq, awk, sed, sort, uniq, cut, curl for APIs), build & CI (make, docker, kubectl). Always check exitCode — 0 means success. Default timeout: ${DEFAULT_SHELL_TIMEOUT_MS / 1000}s. Input: { command: string, cwd?: string, timeoutMs?: number }. Output: { status, stdout: { content, fullLength, truncated }, stderr: { content, fullLength, truncated }, exitCode }. Some destructive commands are blocked by policy.`,
             actionType: ActionType.SHELL_EXEC,
             parameters: z.object({
                 command: z.string().describe('Shell command to execute (e.g. "ls -la", "npm install").'),
@@ -25,10 +25,11 @@ export function createShellTools(executor: ShellExecutor, policy?: IShellPolicy)
                 if (policy) {
                     const decision = policy.evaluate(command, cwd);
                     if (!decision.allowed) {
+                        const reason = decision.reason ?? 'Command blocked by shell policy';
                         return {
                             status: TOOL_ERROR,
-                            stdout: '',
-                            stderr: decision.reason ?? 'Command blocked by shell policy',
+                            stdout: { content: '', fullLength: 0, truncated: false },
+                            stderr: { content: reason, fullLength: reason.length, truncated: false },
                             exitCode: 126,
                         };
                     }
