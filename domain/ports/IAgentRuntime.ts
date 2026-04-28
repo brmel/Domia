@@ -52,4 +52,8 @@ export interface IAgentRuntime {
         input: AgentInput,
         automation: IStructuredAutomation,
     ): AsyncGenerator<AgentEvent, AgentOutcome, unknown>;
+
+    snapshotConversation(runId: string): Promise<import('@domain/value-objects/ConversationSnapshot').ConversationSnapshot | null>;
+
+    restoreConversation(runId: string, snapshot: import('@domain/value-objects/ConversationSnapshot').ConversationSnapshot): Promise<void>;
 }

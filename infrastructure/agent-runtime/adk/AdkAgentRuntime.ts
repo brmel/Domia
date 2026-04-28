@@ -1,5 +1,6 @@
 import { injectable, inject } from 'tsyringe';
-import { LlmAgent, InMemoryRunner, Runner, getFunctionCalls, isFinalResponse, stringifyContent } from '@google/adk';
+import { LlmAgent, Runner, InMemorySessionService, getFunctionCalls, isFinalResponse, stringifyContent } from '@google/adk';
+import type { Event } from '@google/adk';
 import { LlmConversationCompactor } from './LlmConversationCompactor';
 import { buildCompactionCallback } from './buildCompactionCallback';
 import { buildInstructionProvider } from './buildInstructionProvider';
@@ -15,6 +16,7 @@ import type { Content, Part } from '@google/genai';
 import { FunctionCallingConfigMode } from '@google/genai';
 import type { IStructuredAutomation, IPerceptionPipeline, ILogger, IStorageService } from '@domain/ports';
 import type { IAgentRuntime, AgentEvent, AgentOutcome, AgentInput } from '@domain/ports/IAgentRuntime';
+import type { ConversationSnapshot } from '@domain/value-objects/ConversationSnapshot';
 import type { IPromptService } from '@domain/ports/IPromptService';
 import { ActionType } from '@domain/enums';
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
@@ -48,8 +50,13 @@ interface StepExecutionState extends RunMetricsState {
     llmTurnStartMs: number;
 }
 
+const ADK_SNAPSHOT_PROVIDER = 'adk-gemini';
+const ADK_SESSION_USER_ID = 'domia';
+
 @injectable()
 export class AdkAgentRuntime implements IAgentRuntime {
+    private readonly sessionService = new InMemorySessionService();
+
     constructor(
         @inject('IPerceptionPipeline') private readonly perception: IPerceptionPipeline,
         @inject('IStorageService') private readonly storage: IStorageService,
@@ -63,6 +70,32 @@ export class AdkAgentRuntime implements IAgentRuntime {
         @inject(RunHealthMonitorService) private readonly healthMonitor: RunHealthMonitorService,
         @inject(SkillRunnerService) private readonly skillRunner: SkillRunnerService,
     ) {}
+
+    async snapshotConversation(runId: string): Promise<ConversationSnapshot | null> {
+        const session = await this.sessionService.getSession({ appName: APP_NAME, userId: ADK_SESSION_USER_ID, sessionId: runId });
+        if (!session) return null;
+        return {
+            providerKind: ADK_SNAPSHOT_PROVIDER,
+            capturedAt: Date.now(),
+            events: session.events,
+        };
+    }
+
+    async restoreConversation(runId: string, snapshot: ConversationSnapshot): Promise<void> {
+        if (snapshot.providerKind !== ADK_SNAPSHOT_PROVIDER) {
+            throw new Error(`${LOG_TAG} Cannot restore snapshot from provider '${snapshot.providerKind}'; expected '${ADK_SNAPSHOT_PROVIDER}'`);
+        }
+        const events = snapshot.events as Event[];
+        if (!Array.isArray(events)) {
+            throw new Error(`${LOG_TAG} Snapshot events payload is not an array`);
+        }
+        await this.sessionService.deleteSession({ appName: APP_NAME, userId: ADK_SESSION_USER_ID, sessionId: runId });
+        const session = await this.sessionService.createSession({ appName: APP_NAME, userId: ADK_SESSION_USER_ID, sessionId: runId });
+        for (const event of events) {
+            await this.sessionService.appendEvent({ session, event });
+        }
+        this.logger.info(`${LOG_TAG} Restored runId=${runId} from snapshot (${events.length} events)`);
+    }
 
     async *run(
         input: AgentInput,
@@ -326,9 +359,12 @@ export class AdkAgentRuntime implements IAgentRuntime {
             beforeModelCallback: buildCompactionCallback(compactor, this.logger),
         });
 
-        const runner = new InMemoryRunner({ agent, appName: APP_NAME, plugins });
-        const session = await runner.sessionService.createSession({
-            appName: APP_NAME, userId: 'domia', sessionId: input.runId,
+        const runner = new Runner({ agent, appName: APP_NAME, plugins, sessionService: this.sessionService });
+        const existing = await this.sessionService.getSession({
+            appName: APP_NAME, userId: ADK_SESSION_USER_ID, sessionId: input.runId,
+        });
+        const session = existing ?? await this.sessionService.createSession({
+            appName: APP_NAME, userId: ADK_SESSION_USER_ID, sessionId: input.runId,
         });
 
         return { kind: 'ok', state, captureMiddleware, actionMapper, runner, session, initialMessage, sink };
