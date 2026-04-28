@@ -6,7 +6,7 @@ import type { ToolSpec } from '../ToolSpec';
 import { unwrapResult, toolError } from '../toolResult';
 
 export function createNavigationTools(automation: IAppAutomation): ToolSpec[] {
-    return [
+    return ([
         {
             name: 'scroll',
             description: 'Scroll the viewport by one page-height in the given direction. Use to reveal off-screen content, lazy-loaded sections, or infinite-scroll items. Input: { direction: "up" | "down" }. Output: { status: "success" } with updated DOM elements and optional screenshot, or { status: "error", error: string }.',
@@ -32,5 +32,5 @@ export function createNavigationTools(automation: IAppAutomation): ToolSpec[] {
                 return unwrapResult(result);
             },
         },
-    ];
+    ] as ToolSpec[]).map(spec => ({ ...spec, category: 'navigation' as const }));
 }

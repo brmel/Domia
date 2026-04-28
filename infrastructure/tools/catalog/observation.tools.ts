@@ -13,7 +13,7 @@ export function createObservationTools(
     perceptionSource?: IPerceptionSource,
     observation?: import('@backend/observation/ObservationCoordinator').ObservationCoordinator,
 ): ToolSpec[] {
-    return [
+    return ([
         {
             name: 'observe',
             description: 'Capture current page state (ARIA snapshot with refs + optional screenshot) without any interaction. Use to refresh your view after an action. Input: { delayMs?: number (default 0), vision?: boolean }. Output: { status: "success", currentUrl, pageTitle, elementCount, elements } or { status: "error", error: string }.',
@@ -105,5 +105,5 @@ export function createObservationTools(
                 return unwrapResult(await automation.wait(ms));
             },
         },
-    ];
+    ] as ToolSpec[]).map(spec => ({ ...spec, category: 'observation' as const }));
 }

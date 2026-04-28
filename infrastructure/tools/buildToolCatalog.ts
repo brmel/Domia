@@ -49,7 +49,7 @@ export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] 
         deps.onCapture,
     );
 
-    const raw = [
+    const raw: ToolSpec[] = [
         ...createInteractionTools(deps.automation),
         ...createMouseTools(deps.automation),
         ...createNavigationTools(deps.automation),

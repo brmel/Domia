@@ -126,7 +126,7 @@ function analyzeLog(log: LogEntry[], durationMs: number): RecordingSummary {
 export function createSnapshotRecordingTools(
     perceptionSource: IPerceptionSource,
 ): ToolSpec[] {
-    return [
+    return ([
         {
             name: 'startRecording',
             description:
@@ -176,5 +176,5 @@ export function createSnapshotRecordingTools(
                 }
             },
         },
-    ];
+    ] as ToolSpec[]).map(spec => ({ ...spec, category: 'recording' as const }));
 }

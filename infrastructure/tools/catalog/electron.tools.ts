@@ -5,7 +5,7 @@ import type { ElectronWindowManager } from '@infrastructure/playwright/electron/
 import { toolSuccess, toolError } from '../toolResult';
 
 export function createElectronTools(windowManager: ElectronWindowManager): ToolSpec[] {
-    return [
+    return ([
         {
             name: 'list_windows',
             description: 'List all open Electron application windows with their IDs, titles, and URLs. Use this to discover available windows before switching.',
@@ -50,5 +50,5 @@ export function createElectronTools(windowManager: ElectronWindowManager): ToolS
                 });
             },
         },
-    ];
+    ] as ToolSpec[]).map(spec => ({ ...spec, category: 'electron' as const }));
 }

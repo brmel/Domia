@@ -4,7 +4,7 @@ import type { ToolSpec } from '../ToolSpec';
 import { toolError, toolSuccess } from '../toolResult';
 
 export function createTerminalTools(onSuspendRequest?: (reason: string) => void): ToolSpec[] {
-    return [
+    return ([
         {
             name: 'finish',
             description: 'Declare the task complete. Terminates the agent loop. Provide a brief summary; optionally a verdict ("pass" or "fail") and a structured value.',
@@ -38,5 +38,5 @@ export function createTerminalTools(onSuspendRequest?: (reason: string) => void)
                 return toolSuccess({ status: 'suspended', reason });
             },
         },
-    ];
+    ] as ToolSpec[]).map(spec => ({ ...spec, category: 'terminal' as const }));
 }

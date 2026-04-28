@@ -20,6 +20,8 @@ export enum ActionType {
     WAIT_FOR_URL = 'wait_for_url',
     WAIT_FOR_CHANGE = 'wait_for_change',
     RECALL_RECENT = 'recall_recent',
+    LIST_CATEGORIES = 'list_categories',
+    EXPAND_CATEGORY = 'expand_category',
     START_RECORDING = 'startRecording',
     STOP_AND_REVIEW_RECORDING = 'stopAndReviewRecording',
     FINISH = 'finish',

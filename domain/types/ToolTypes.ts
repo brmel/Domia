@@ -43,6 +43,7 @@ export const ToolCategory = {
     Recording: 'recording',
     Shell: 'shell',
     Electron: 'electron',
+    Meta: 'meta',
 } as const;
 export type ToolCategory = typeof ToolCategory[keyof typeof ToolCategory];
 

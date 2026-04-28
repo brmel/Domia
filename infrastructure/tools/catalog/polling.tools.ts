@@ -20,7 +20,7 @@ export function createPollingTools(
     observation?: import('@backend/observation/ObservationCoordinator').ObservationCoordinator,
     runId?: string,
 ): ToolSpec[] {
-    return [
+    return ([
         {
             name: 'waitForCondition',
             description:
@@ -218,5 +218,5 @@ export function createPollingTools(
                 });
             },
         } satisfies ToolSpec,
-    ];
+    ] as ToolSpec[]).map(spec => ({ ...spec, category: 'polling' as const }));
 }
