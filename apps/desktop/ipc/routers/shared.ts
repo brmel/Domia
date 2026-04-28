@@ -3,6 +3,8 @@ import { EventEmitter } from 'events';
 import { ExecutionController } from '@backend/ExecutionController';
 import type { RunInput, RunOutput } from '@backend/dto';
 import type { RunUseCase } from '@backend/runs';
+import type { RunResumeService } from '@backend/runs/RunResumeService';
+import type { RunId } from '@domain/value-objects';
 import { serializeRunOutput } from './serializeRunOutput';
 
 export const t = initTRPC.create({ isServer: true });
@@ -19,15 +21,7 @@ export const workflowControllerState = {
     executionToken: 0,
 };
 
-export function startRunStream(useCase: RunUseCase, input: RunInput): void {
-    if (activeRunState.current) activeRunState.current.stop();
-    activeRunState.current = new ExecutionController();
-    activeRunState.current.start();
-    activeRunState.executionToken += 1;
-    const executionToken = activeRunState.executionToken;
-
-    const generator = useCase.execute(input, activeRunState.current);
-
+function consumeRunGenerator(generator: AsyncGenerator<RunOutput, void, unknown>, executionToken: number): void {
     void (async () => {
         try {
             for await (const event of generator) {
@@ -45,4 +39,20 @@ export function startRunStream(useCase: RunUseCase, input: RunInput): void {
             if (executionToken === activeRunState.executionToken) activeRunState.current = null;
         }
     })();
+}
+
+export function startRunStream(useCase: RunUseCase, input: RunInput): void {
+    if (activeRunState.current) activeRunState.current.stop();
+    activeRunState.current = new ExecutionController();
+    activeRunState.current.start();
+    activeRunState.executionToken += 1;
+    consumeRunGenerator(useCase.execute(input, activeRunState.current), activeRunState.executionToken);
+}
+
+export function startResumeStream(resumeService: RunResumeService, runId: RunId): void {
+    if (activeRunState.current) activeRunState.current.stop();
+    activeRunState.current = new ExecutionController();
+    activeRunState.current.start();
+    activeRunState.executionToken += 1;
+    consumeRunGenerator(resumeService.execute(runId, activeRunState.current), activeRunState.executionToken);
 }

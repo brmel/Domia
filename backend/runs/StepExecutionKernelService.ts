@@ -15,8 +15,6 @@ import type { ExecutionController } from '@backend/ExecutionController';
 import { DEFAULT_MAX_ACTIONS } from '@shared/defaults';
 import { randomUUID } from 'crypto';
 
-export type KernelOutcomeKind = 'normal' | 'suspended';
-
 interface KernelRuntime {
     readonly budgetLimits: RunBudgetLimits;
     readonly runStartMs: number;

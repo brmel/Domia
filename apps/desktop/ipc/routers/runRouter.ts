@@ -8,9 +8,11 @@ import { RunInputSchema } from '@shared/contracts/run';
 import { RuntimeReadinessPolicyService } from '@backend/policy/RuntimeReadinessPolicyService';
 import { RunReportingService } from '@backend/runs/RunReportingService';
 import { RunReplayService } from '@backend/runs/RunReplayService';
+import { RunResumeService } from '@backend/runs/RunResumeService';
+import type { RunId } from '@domain/value-objects';
 import type { RunOutput } from '@backend/dto';
 import debug from 'debug';
-import { t, eventEmitter, activeRunState, startRunStream } from './shared';
+import { t, eventEmitter, activeRunState, startRunStream, startResumeStream } from './shared';
 
 export const runRouter = t.router({
     run: t.procedure
@@ -47,6 +49,14 @@ export const runRouter = t.router({
         }
         return { success: false, message: 'No run in progress' };
     }),
+
+    resumeSuspended: t.procedure
+        .input(z.object({ runId: z.string().min(1) }))
+        .mutation(({ input }: { input: { runId: string } }) => {
+            const resumeService = container.resolve(RunResumeService);
+            startResumeStream(resumeService, input.runId as RunId);
+            return { success: true };
+        }),
 
     onUpdate: t.procedure.subscription(() => {
         return observable<RunOutput>((emit) => {
