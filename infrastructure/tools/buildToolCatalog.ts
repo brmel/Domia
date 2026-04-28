@@ -56,7 +56,7 @@ export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] 
         ...createObservationTools(deps.automation, middleware, deps.perceptionSource, deps.observation),
         ...createPollingTools(deps.automation, middleware, deps.observation, deps.runId),
         ...createSnapshotRecordingTools(deps.perceptionSource),
-        ...createTerminalTools(),
+        ...createTerminalTools(deps.onSuspendRequest),
         ...OPTIONAL_TOOL_FACTORIES.flatMap((factory) => factory(deps)),
         ...extraTools,
     ];

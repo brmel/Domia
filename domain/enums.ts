@@ -23,6 +23,7 @@ export enum ActionType {
     START_RECORDING = 'startRecording',
     STOP_AND_REVIEW_RECORDING = 'stopAndReviewRecording',
     FINISH = 'finish',
+    SUSPEND = 'suspend',
     SHELL_EXEC = 'shell_exec',
     LIST_WINDOWS = 'list_windows',
     SWITCH_WINDOW = 'switch_window',

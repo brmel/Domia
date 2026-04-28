@@ -7,9 +7,10 @@ import { RunState } from '@domain/enums';
 import { ExecutionController } from '@backend/ExecutionController';
 import { RunDurabilityService } from './RunDurabilityService';
 
-type ControlGateDecision =
+export type ControlGateDecision =
     | { readonly kind: 'proceed' }
-    | { readonly kind: 'cancelled'; readonly outcome: AgentOutcome };
+    | { readonly kind: 'cancelled'; readonly outcome: AgentOutcome }
+    | { readonly kind: 'suspended'; readonly reason: string };
 
 @injectable()
 export class RunControlGateService {
@@ -29,6 +30,11 @@ export class RunControlGateService {
                 kind: 'cancelled',
                 outcome: { kind: 'stopped', reason: 'cancelled', summary: 'Cancelled by user.' },
             };
+        }
+
+        const suspendRequest = controller.consumeSuspendRequest();
+        if (suspendRequest) {
+            return { kind: 'suspended', reason: suspendRequest.reason };
         }
 
         return { kind: 'proceed' };

@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { ActionType } from '@domain/enums';
 import type { ToolSpec } from '../ToolSpec';
+import { toolError, toolSuccess } from '../toolResult';
 
-export function createTerminalTools(): ToolSpec[] {
+export function createTerminalTools(onSuspendRequest?: (reason: string) => void): ToolSpec[] {
     return [
         {
             name: 'finish',
@@ -19,6 +20,23 @@ export function createTerminalTools(): ToolSpec[] {
                 ...(args['verdict'] !== undefined ? { verdict: args['verdict'] as string } : {}),
                 ...(args['value'] !== undefined ? { value: args['value'] } : {}),
             }),
+        },
+        {
+            name: 'suspend',
+            description:
+                'Suspend the run for later resumption. Use when a task requires waiting for an external trigger (human approval, long batch job, scheduled event) where staying active would waste compute. ' +
+                'Run state and conversation history are persisted; the run can be resumed later with `domia run resume <runId>`. ' +
+                'Input: { reason: string — short explanation of why suspension was requested }. Output: { status: "suspended", reason }.',
+            actionType: ActionType.SUSPEND,
+            parameters: z.object({
+                reason: z.string().min(1).describe('Why the run is being suspended (e.g. "awaiting approval from product team").'),
+            }),
+            execute: (args) => {
+                if (!onSuspendRequest) return toolError('suspend tool not wired in this context');
+                const reason = args['reason'] as string;
+                onSuspendRequest(reason);
+                return toolSuccess({ status: 'suspended', reason });
+            },
         },
     ];
 }

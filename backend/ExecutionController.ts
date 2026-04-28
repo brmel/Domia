@@ -4,6 +4,7 @@ import { RunState } from '@domain/enums';
 export class ExecutionController extends EventEmitter {
     private _state: RunState = RunState.IDLE;
     private _resumeResolver: (() => void) | null = null;
+    private _suspendRequest: { reason: string } | null = null;
 
     get state(): RunState {
         return this._state;
@@ -11,6 +12,21 @@ export class ExecutionController extends EventEmitter {
 
     isStopped(): boolean {
         return this._state === RunState.CANCELLED || this._state === RunState.COMPLETED || this._state === RunState.FAILED;
+    }
+
+    requestSuspend(reason: string): void {
+        this._suspendRequest = { reason };
+        this.emit('suspendRequested', reason);
+    }
+
+    consumeSuspendRequest(): { reason: string } | null {
+        const r = this._suspendRequest;
+        this._suspendRequest = null;
+        return r;
+    }
+
+    hasPendingSuspendRequest(): boolean {
+        return this._suspendRequest !== null;
     }
 
     start(): void {

@@ -42,4 +42,5 @@ export interface ToolDependencies {
     readonly tabManager?: ITabManager;
     readonly observation?: ObservationCoordinator;
     readonly runId?: string;
+    readonly onSuspendRequest?: (reason: string) => void;
 }

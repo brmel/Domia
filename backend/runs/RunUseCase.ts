@@ -143,7 +143,11 @@ export class RunUseCase {
                 currentState = activated.state;
                 yield { type: 'state_updated', state: currentState };
 
-                const baseExtras = { ...(sessionExtras ?? {}), observation };
+                const baseExtras = {
+                    ...(sessionExtras ?? {}),
+                    observation,
+                    onSuspendRequest: (reason: string) => controller.requestSuspend(reason),
+                };
                 const executionOptions = {
                     ...buildExecutionOptions(input.options, input.platformConfig.platform),
                     extras: baseExtras,

@@ -323,13 +323,14 @@ export class AdkAgentRuntime implements IAgentRuntime {
         };
         const windowManager = input.extras?.['windowManager'] as ElectronWindowManager | undefined;
         const observation = input.extras?.['observation'] as import('@backend/observation/ObservationCoordinator').ObservationCoordinator | undefined;
+        const onSuspendRequest = input.extras?.['onSuspendRequest'] as ((reason: string) => void) | undefined;
         const sink = new RunArtifactSink(
             input.runId,
             input.persistArtifacts ?? DEFAULT_ARTIFACT_RETENTION,
             this.storage,
             this.logger,
         );
-        const toolDeps = this.buildToolDeps(input, automation, perceptionSource, vision, windowManager, () => state.actionCount, sink, observation);
+        const toolDeps = this.buildToolDeps(input, automation, perceptionSource, vision, windowManager, () => state.actionCount, sink, observation, onSuspendRequest);
         const skillTools = await this.skillRunner.buildToolsForSession(toolDeps);
         const extraTools = [...this.pluginRegistry.getAllTools(), ...skillTools];
         const { tools, catalog, captureMiddleware } = createAdkTools(toolDeps, extraTools, this.promptService);
@@ -379,6 +380,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
         getActionCount: () => number,
         sink: RunArtifactSink,
         observation: import('@backend/observation/ObservationCoordinator').ObservationCoordinator | undefined,
+        onSuspendRequest: ((reason: string) => void) | undefined,
     ): ToolDependencies {
         return {
             automation,
@@ -396,6 +398,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
             }),
             ...(observation && { observation }),
             ...(windowManager && { windowManager }),
+            ...(onSuspendRequest && { onSuspendRequest }),
             ...('newTab' in automation && { tabManager: automation as unknown as ITabManager }),
             onCapture: (capturedFrame) => sink.onPerceptionFrame(getActionCount(), capturedFrame),
             ...(input.recording?.enabled && {
