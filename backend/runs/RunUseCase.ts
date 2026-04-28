@@ -4,7 +4,7 @@ import type { AgentOutcome } from '@domain/ports/IAgentRuntime';
 import { UrlFactory, WorkflowState } from '@domain/value-objects';
 import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import { ExecutionController } from '@backend/ExecutionController';
-import { WorkflowError, ReadinessError } from '@domain/errors';
+import { WorkflowError } from '@domain/errors';
 import { RunLifecycleManager } from './RunLifecycleManager';
 import { RunInput, RunOutput } from '@backend/dto';
 import type { RunExecutionLaneService } from './RunExecutionLaneService';
@@ -52,10 +52,9 @@ export class RunUseCase {
     ): AsyncGenerator<RunOutput, void, unknown> {
         const url = runContext?.session?.executionUrl ?? resolveUrlFromConfig(input.platformConfig);
 
-        const readinessDecision = this.readinessPolicy.assess(input, url);
-        if (readinessDecision.blocked) {
-            yield { type: 'error', error: new ReadinessError(readinessDecision.message ?? 'Readiness gate blocked the run.') };
-            return;
+        const readinessReport = this.readinessPolicy.assess(input, url);
+        if (readinessReport.report && !readinessReport.report.passed) {
+            this.logger.warn(`[RunUseCase] readiness advisory: ${readinessReport.message ?? readinessReport.report.failedRequiredGateIds.join(', ')}`);
         }
 
         const laneKey = resolveLaneKeyFromConfig(input.platformConfig);

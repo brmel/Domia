@@ -38,11 +38,6 @@ export class SnapshotError extends DomainError {
     constructor(message: string) { super(message); }
 }
 
-export class ReadinessError extends DomainError {
-    readonly code = 'READINESS_BLOCKED';
-    constructor(message: string) { super(message); }
-}
-
 export class SessionError extends DomainError {
     readonly code = 'SESSION_ERROR';
     constructor(message: string, cause?: unknown) { super(message, cause); }

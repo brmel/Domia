@@ -98,46 +98,6 @@ describe('Workflow execution integration', () => {
         } as unknown as never);
     }
 
-    it('governance block atomically persists failed status in store', async () => {
-        const persistence = createStatefulPersistence([definition]);
-
-        const governance = new WorkflowStepGovernanceService({
-            assess: vi.fn().mockReturnValue({ blocked: true, mode: 'soft-enforce' })
-        } as unknown as never);
-
-        const orchestrator = new WorkflowRunOrchestratorService(
-            persistence as unknown as never,
-            noopLogger as unknown as never,
-            new WorkflowStepPolicyService(),
-            governance,
-            createStepRunner('succeed'),
-            new PlatformCapabilityNegotiationService()
-        );
-        const controller = new ExecutionController();
-        controller.start();
-
-        const events: string[] = [];
-        for await (const event of orchestrator.executeWorkflow('wf-1', controller)) {
-            events.push(event.type);
-        }
-
-        expect(events).toEqual([
-            'workflow_started',
-            'workflow_step_started',
-            'workflow_step_completed',
-            'workflow_failed',
-        ]);
-
-        expect(persistence.storedRuns.size).toBe(1);
-        const [workflowRun] = [...persistence.storedRuns.values()];
-        expect(workflowRun!.status).toBe('failed');
-        expect(workflowRun!.summary).toContain('readiness policy');
-
-        const stepRuns = [...persistence.storedStepRuns.values()];
-        expect(stepRuns).toHaveLength(1);
-        expect(stepRuns[0]!.status).toBe('failed');
-    });
-
     it('successful workflow persists completed status with step runs', async () => {
         const singleStepDef: WorkflowDefinition = {
             ...definition,

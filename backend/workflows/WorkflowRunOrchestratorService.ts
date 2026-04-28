@@ -119,9 +119,8 @@ export class WorkflowRunOrchestratorService {
                 yield { type: 'workflow_step_started', workflowRunId, stepId: step.id, stepIndex };
 
                 const governanceDecision = this.governance.assess(step, definition);
-                if (!governanceDecision.allowed) {
-                    yield* this.yieldBlockedTransition(workflowRunId, stepRunId, step.id, stepIndex, governanceDecision.reason, 'governance');
-                    return;
+                for (const warning of governanceDecision.warnings) {
+                    this.logger.warn(`[WorkflowOrchestrator] step ${step.id}: ${warning}`);
                 }
 
                 const capabilityAssessment = this.capabilityNegotiation.assessStep(step, definition.platformConfig.platform);

@@ -39,7 +39,7 @@ export function useRunPanel() {
 
     const readinessData = readinessQuery.data;
     const readinessSummary = readinessData
-        ? `${readinessData.mode}${readinessData.blocked ? ' (blocked)' : ' (allowed)'}`
+        ? readinessData.report.passed ? 'All gates passed' : `Advisory: ${readinessData.report.failedRequiredGateIds.join(', ')}`
         : 'Not available yet';
 
     const policyFlags = readinessData?.report.gates
