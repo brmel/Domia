@@ -2,6 +2,9 @@
 
 **Domia** is an autonomous web testing agent capable of executing complex, multi-step end-to-end (E2E) tests using natural language instructions. It features a durable workflow engine, hierarchical planning, and a self-healing capability driven by LLMs.
 
+📐 **Architecture**: see [ARCHITECTURE.md](./ARCHITECTURE.md) for layers, boundaries, and how-to guides.
+🤖 **Agent brief**: see [CLAUDE.md](./CLAUDE.md) for working in this codebase with Claude Code.
+
 ## Features
 
 - **Autonomous Navigation**: Navigates, clicks, types, and extracts data from any website.

@@ -1,10 +1,15 @@
 # Test Structure
 
-- `tests/unit/**`: isolated unit tests for domain/application/infrastructure/shared modules.
-- `tests/integration/**`: multi-component integration tests (runtime orchestration, service collaboration).
-- `tests/cli/**`: CLI scenario and feature tests.
+End-to-end tests only. No mocked unit tests.
 
-Guidelines:
-- Keep production code in `src/**` only.
-- Keep new tests under `tests/**`.
-- Prefer path aliases (`@application`, `@domain`, `@shared`, etc.) over brittle relative imports.
+- `tests/e2e/agent/**` — full agent runs against a real browser + LLM (record/replay).
+- `tests/e2e/workflow/**` — workflow orchestration through real services + persistence.
+- `tests/e2e/persistence/**` — SQLite migrations, repositories, report writer.
+- `tests/e2e/tools/**` — tool catalog (recording, polling, shell) against fixture pages.
+- `tests/e2e/cli/**` — CLI scenarios spawned as real subprocesses.
+- `tests/support/**` — test scaffolding (temp DB, fixture servers, LLM replay).
+- `tests/fixtures/**` — static HTML, recorded LLM responses, sample plugins.
+
+Run with `npm test`. CLI suite via `npm run test:cli`.
+
+Use path aliases (`@domain`, `@backend`, `@infrastructure`, `@frontend`, `@shared`, `@apps`).

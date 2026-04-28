@@ -52,6 +52,7 @@ test-results/
 # Artifacts and screenshots (generated at runtime)
 artifacts/
 screenshots/
+reports/
 
 # OS files
 Thumbs.db
@@ -69,4 +70,16 @@ tmp/
 *.ntvs*
 *.njsproj
 *.sln
-/article/snippets/__pycache__
+
+# Python (do not leak Python tooling into this Node project)
+.venv/
+venv/
+.mypy_cache/
+__pycache__/
+*.pyc
+
+# Local test runner output
+test-output.log
+
+# Knip / dep-audit caches
+.knip-cache/

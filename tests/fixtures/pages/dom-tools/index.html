@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>DOM Tools Fixture</title></head>
+<body>
+    <h1 id="heading">DOM Tools</h1>
+    <input id="name" type="text" placeholder="name">
+    <button id="submit">Submit</button>
+    <p id="result" role="status">empty</p>
+    <a id="link" href="#section">Anchor</a>
+    <section id="section"><p>Anchored.</p></section>
+    <script>
+        document.getElementById('submit').addEventListener('click', () => {
+            const name = document.getElementById('name').value;
+            document.getElementById('result').textContent = `Hello, ${name}`;
+        });
+    </script>
+</body>
+</html>

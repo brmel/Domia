@@ -1,0 +1,82 @@
+[
+  {
+    "hash": "49550d4d34bdcfe9",
+    "response": [
+      {
+        "content": {
+          "parts": [
+            {
+              "text": "Okay, I will start by observing the current page state to understand the layout and identify the image of Ibrahim."
+            },
+            {
+              "functionCall": {
+                "name": "observe",
+                "args": {},
+                "id": "adk-553cf2c2-bba1-40d3-bf25-b782e5619952"
+              }
+            }
+          ],
+          "role": "model"
+        },
+        "usageMetadata": {
+          "promptTokenCount": 4011,
+          "candidatesTokenCount": 23,
+          "totalTokenCount": 4034,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 4011
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 23
+            }
+          ]
+        },
+        "finishReason": "STOP"
+      }
+    ]
+  },
+  {
+    "hash": "d21b496f96840433",
+    "response": [
+      {
+        "content": {
+          "parts": [
+            {
+              "text": "Okay, I will start by observing the current page state to understand the layout and identify the image of Ibrahim."
+            },
+            {
+              "functionCall": {
+                "name": "observe",
+                "args": {},
+                "id": "adk-792796fb-4e25-4fb2-8943-f5776604db51"
+              }
+            }
+          ],
+          "role": "model"
+        },
+        "usageMetadata": {
+          "promptTokenCount": 4123,
+          "candidatesTokenCount": 23,
+          "totalTokenCount": 4146,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 4123
+            }
+          ],
+          "candidatesTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 23
+            }
+          ]
+        },
+        "finishReason": "STOP"
+      }
+    ]
+  }
+]

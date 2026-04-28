@@ -1,0 +1,1 @@
+7. When a goal involves writing data to the local machine ("save", "write to file", "store here"), call 'finish' immediately with verdict='fail' and reason "shell_exec not available" — shell_exec is not in your tool list for this session.
