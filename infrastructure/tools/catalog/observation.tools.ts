@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { IStructuredAutomation } from '@domain/ports';
 import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
 import { ActionType } from '@domain/enums';
+import { ObservationProfile } from '@domain/value-objects';
 import type { ToolSpec } from '../ToolSpec';
 import type { PostActionCaptureMiddleware } from '../PostActionCaptureMiddleware';
 import { MAX_EXTRACT_TEXT_LENGTH, MAX_PAGE_CONTENT_LENGTH, DEFAULT_WAIT_DURATION_MS } from '@shared/defaults';
@@ -105,5 +106,26 @@ export function createObservationTools(
                 return unwrapResult(await automation.wait(ms));
             },
         },
+        ...(observation ? [{
+            name: 'set_observation_profile' as const,
+            description:
+                'Switch the observation profile for the rest of the run. Use to control how often the platform samples the target between your actions: ' +
+                '"off" (no sampling), "on-demand" (only when you call observe), "long-wait" (slow periodic snapshots — best for hour-long waits), ' +
+                '"quick-action" (fast streaming — best for capturing transient UI events between calls), "high-fidelity" (maximum sampling rate). ' +
+                'You can switch profiles freely. Input: { profile: "off" | "on-demand" | "long-wait" | "quick-action" | "high-fidelity" }. ' +
+                'Output: { status: "success", profile, previous } or { status: "error" }.',
+            actionType: ActionType.SET_OBSERVATION_PROFILE,
+            parameters: z.object({
+                profile: z.enum(['off', 'on-demand', 'long-wait', 'quick-action', 'high-fidelity'])
+                    .describe('Target observation profile.'),
+            }),
+            execute: async (args: Record<string, unknown>) => {
+                const target = args['profile'] as ObservationProfile;
+                const previous = observation.currentProfile();
+                if (target === previous) return toolSuccess({ profile: target, previous });
+                await observation.setProfile(target);
+                return toolSuccess({ profile: target, previous });
+            },
+        }] : []),
     ] as ToolSpec[]).map(spec => ({ ...spec, category: 'observation' as const }));
 }

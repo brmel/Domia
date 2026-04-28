@@ -22,6 +22,7 @@ export enum ActionType {
     RECALL_RECENT = 'recall_recent',
     LIST_CATEGORIES = 'list_categories',
     EXPAND_CATEGORY = 'expand_category',
+    SET_OBSERVATION_PROFILE = 'set_observation_profile',
     START_RECORDING = 'startRecording',
     STOP_AND_REVIEW_RECORDING = 'stopAndReviewRecording',
     FINISH = 'finish',
