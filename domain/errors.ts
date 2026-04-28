@@ -43,11 +43,6 @@ export class ReadinessError extends DomainError {
     constructor(message: string) { super(message); }
 }
 
-export class BudgetExceededError extends DomainError {
-    readonly code = 'BUDGET_EXCEEDED';
-    constructor(message: string) { super(message); }
-}
-
 export class SessionError extends DomainError {
     readonly code = 'SESSION_ERROR';
     constructor(message: string, cause?: unknown) { super(message, cause); }

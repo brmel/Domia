@@ -66,8 +66,4 @@ export class RunBudgetPolicyService {
         }
         return assessment;
     }
-
-    formatExceededMessage(limits: RunBudgetLimits, snapshot: RunBudgetSnapshot, assessment: RunBudgetAssessment): string {
-        return `Run budget exceeded (${assessment.exceeded.join(', ')}). actions=${snapshot.actionsTaken}/${limits.maxActions}, durationMs=${snapshot.elapsedMs}/${limits.maxDurationMs}, tokens=${snapshot.estimatedTokensUsed}/${limits.maxEstimatedTokens}`;
-    }
 }

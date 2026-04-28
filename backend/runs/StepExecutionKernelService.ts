@@ -2,12 +2,12 @@ import { injectable, inject } from 'tsyringe';
 import type { IStructuredAutomation, ITraceService, IStorageService, ILogger } from '@domain/ports';
 import type { Step } from '@domain/ports';
 import type { IAgentRuntime, AgentOutcome, AgentInput } from '@domain/ports/IAgentRuntime';
-import { WorkflowError, BudgetExceededError } from '@domain/errors';
+import { WorkflowError } from '@domain/errors';
 import { WorkflowState } from '@domain/value-objects';
 import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import { RunState } from '@domain/enums';
 import { RunDurabilityService } from './RunDurabilityService';
-import { RunBudgetPolicyService, type RunBudgetLimits } from './RunBudgetPolicyService';
+import type { RunBudgetLimits } from './RunBudgetPolicyService';
 import type { StepExecutionOptions } from '@backend/platform/platformUrlUtils';
 import type { RunOutput } from '@backend/dto';
 import type { IRunRepository } from '@domain/ports/IRunRepository';
@@ -37,7 +37,6 @@ export class StepExecutionKernelService {
         @inject('ILogger') private readonly logger: ILogger,
         @inject('IRunRepository') private readonly persistence: IRunRepository,
         @inject(RunDurabilityService) private readonly durability: RunDurabilityService,
-        @inject(RunBudgetPolicyService) private readonly budgetPolicy: RunBudgetPolicyService,
     ) {}
 
     async *execute(
@@ -116,12 +115,6 @@ export class StepExecutionKernelService {
                     currentState = WorkflowState.applyAction(currentState, action);
                     yield await emitStateUpdate();
 
-                    this.throwIfBudgetExceeded(runId, runtime.budgetLimits, this.buildBudgetSnapshot({
-                        actionsTaken: currentState.stepNumber,
-                        runStartMs: runtime.runStartMs,
-                        estimatedTokensUsed,
-                    }));
-
                     if (controller?.state === RunState.PAUSED) {
                         await controller.waitForResume();
                         if (controller.isStopped()) return cancelOutcome('Run cancelled while paused mid-step.');
@@ -149,38 +142,12 @@ export class StepExecutionKernelService {
             return { state: currentState, outcome, estimatedTokensUsed };
         } catch (error) {
             const iteratorError = error instanceof Error ? error : new Error(String(error));
-            if (iteratorError instanceof WorkflowError || iteratorError instanceof BudgetExceededError) throw iteratorError;
+            if (iteratorError instanceof WorkflowError) throw iteratorError;
             return {
                 state: currentState,
                 outcome: { kind: 'error', cause: iteratorError },
                 estimatedTokensUsed,
             };
         }
-    }
-
-    buildBudgetSnapshot(params: {
-        actionsTaken: number;
-        runStartMs: number;
-        estimatedTokensUsed: number;
-    }): {
-        actionsTaken: number;
-        elapsedMs: number;
-        estimatedTokensUsed: number;
-    } {
-        return {
-            actionsTaken: params.actionsTaken,
-            elapsedMs: Date.now() - params.runStartMs,
-            estimatedTokensUsed: params.estimatedTokensUsed,
-        };
-    }
-
-    throwIfBudgetExceeded(runId: string, limits: RunBudgetLimits, snapshot: {
-        actionsTaken: number;
-        elapsedMs: number;
-        estimatedTokensUsed: number;
-    }): void {
-        const assessment = this.budgetPolicy.evaluate(runId, limits, snapshot);
-        if (assessment.status !== 'exceeded') return;
-        throw new BudgetExceededError(this.budgetPolicy.formatExceededMessage(limits, snapshot, assessment));
     }
 }

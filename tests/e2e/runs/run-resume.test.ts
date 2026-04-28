@@ -82,7 +82,7 @@ describe('RunResumeService — load envelope, restore, mark resumed', () => {
         const suspension = new RunSuspensionService(runRepo, durability, noopBus(), logger, storage, runtime);
 
         const lifecycle = new RunLifecycleManager(runRepo, noopBus(), logger);
-        const kernel = new StepExecutionKernelService(runtime, fakeTrace(), storage, logger, runRepo, durability, new RunBudgetPolicyService(logger));
+        const kernel = new StepExecutionKernelService(runtime, fakeTrace(), storage, logger, runRepo, durability);
         const terminalization = new RunTerminalizationService(durability, lifecycle);
         const lane = { acquire: async () => () => undefined } as never;
 

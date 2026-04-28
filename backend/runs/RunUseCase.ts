@@ -136,12 +136,6 @@ export class RunUseCase {
                 completed = true;
                 outcome = gate.outcome;
             } else {
-                this.kernel.throwIfBudgetExceeded(runId, budgetLimits, this.kernel.buildBudgetSnapshot({
-                    actionsTaken: currentState.stepNumber,
-                    runStartMs,
-                    estimatedTokensUsed,
-                }));
-
                 const activated = this.planCoordinator.activate(currentState, plan, item);
                 currentState = activated.state;
                 yield { type: 'state_updated', state: currentState };

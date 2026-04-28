@@ -2,9 +2,9 @@ export const DEFAULT_LLM_MODEL = 'gemini-2.0-flash';
 export const DEFAULT_LLM_PROVIDER = 'google' as const;
 export const LLM_CALL_BUDGET_OFFSET = 2;
 
-export const DEFAULT_MAX_ACTIONS = 50;
-export const DEFAULT_MAX_DURATION_MS = 15 * 60 * 1000;
-export const DEFAULT_MAX_ESTIMATED_TOKENS = 120_000;
+export const DEFAULT_MAX_ACTIONS = 1000;
+export const DEFAULT_MAX_DURATION_MS = 24 * 60 * 60 * 1000;
+export const DEFAULT_MAX_ESTIMATED_TOKENS = 2_000_000;
 export const DEFAULT_DELAY_BETWEEN_STEPS_MS = 1000;
 
 
