@@ -1,5 +1,6 @@
 
 import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
+import type { ConversationSnapshot } from '@domain/value-objects/ConversationSnapshot';
 import type { StepTrace } from './ITraceService';
 
 export interface StepArtifacts {
@@ -15,4 +16,7 @@ export interface IStorageService {
     saveStepTrace(runId: string, stepNumber: number, trace: Partial<StepTrace>): Promise<void>;
     getStepArtifacts(runId: string, stepNumber: number): Promise<StepArtifacts>;
     saveActionRecording(runId: string, actionIndex: number, recording: import('../types/ActionRecordingTypes').ActionRecordingData): Promise<void>;
+    saveConversationSnapshot(runId: string, snapshot: ConversationSnapshot): Promise<string>;
+    loadConversationSnapshot(filePath: string): Promise<ConversationSnapshot>;
+    deleteConversationSnapshot(filePath: string): Promise<void>;
 }

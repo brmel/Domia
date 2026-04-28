@@ -3,6 +3,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import type { PathsConfigProvider } from '@shared/contracts/config';
 import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
+import type { ConversationSnapshot } from '@domain/value-objects/ConversationSnapshot';
 
 import type { StepTrace } from '@domain/ports/ITraceService';
 import type { ActionRecordingData } from '@domain/types/ActionRecordingTypes';
@@ -145,6 +146,34 @@ export class FileSystemStorage implements IStorageService {
             frameCount: recording.frames.length,
             framePaths,
         }, { spaces: 2 });
+    }
+
+    async saveConversationSnapshot(runId: string, snapshot: ConversationSnapshot): Promise<string> {
+        const baseDir = path.resolve(this.paths().artifactsDir, runId);
+        await fs.ensureDir(baseDir);
+        const filePath = path.join(baseDir, 'conversation-snapshot.json');
+        await fs.writeJson(filePath, snapshot);
+        return filePath;
+    }
+
+    async loadConversationSnapshot(filePath: string): Promise<ConversationSnapshot> {
+        const artifactsDir = path.resolve(this.paths().artifactsDir);
+        const resolved = path.resolve(filePath);
+        if (!resolved.startsWith(artifactsDir)) {
+            throw new Error(`Refusing to load conversation snapshot outside artifacts dir: ${filePath}`);
+        }
+        return (await fs.readJson(resolved)) as ConversationSnapshot;
+    }
+
+    async deleteConversationSnapshot(filePath: string): Promise<void> {
+        const artifactsDir = path.resolve(this.paths().artifactsDir);
+        const resolved = path.resolve(filePath);
+        if (!resolved.startsWith(artifactsDir)) {
+            throw new Error(`Refusing to delete conversation snapshot outside artifacts dir: ${filePath}`);
+        }
+        if (await fs.pathExists(resolved)) {
+            await fs.remove(resolved);
+        }
     }
 
     private isRecord(value: unknown): value is Record<string, unknown> {
