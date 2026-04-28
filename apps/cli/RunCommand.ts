@@ -310,6 +310,11 @@ export class RunCommand {
                                 teardownInteractiveControls();
                                 process.exit(1);
                             }
+                            if (event.type === 'suspended') {
+                                observationUnsubscribe?.();
+                                teardownInteractiveControls();
+                                process.exit(0);
+                            }
                             continue;
                         }
                         switch (event.type) {
@@ -376,6 +381,12 @@ export class RunCommand {
                                 teardownInteractiveControls();
                                 console.log(chalk.red.bold(`\nError: ${event.error}`));
                                 process.exit(1);
+                                break;
+                            case 'suspended':
+                                teardownInteractiveControls();
+                                console.log(chalk.yellow.bold(`\n⏸  Suspended: ${event.reason}`));
+                                console.log(chalk.gray(`Resume with: domia run resume ${event.runId}`));
+                                process.exit(0);
                                 break;
                         }
                     }

@@ -19,6 +19,7 @@ export type RunOutput =
     | { type: 'observation'; frame: import('@domain/value-objects/ObservationFrame').ObservationFrame }
     | { type: 'completed'; success: boolean; summary?: string }
     | { type: 'cancelled'; summary?: string }
+    | { type: 'suspended'; runId: RunId; reason: string }
     | { type: 'error'; error: WorkflowError | Error };
 
 export function serializeRunOutput(event: RunOutput): RunOutput {

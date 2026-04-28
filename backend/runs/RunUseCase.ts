@@ -11,6 +11,7 @@ import type { RunExecutionLaneService } from './RunExecutionLaneService';
 import { RunDurabilityService } from './RunDurabilityService';
 import { RunBudgetPolicyService } from './RunBudgetPolicyService';
 import { StepExecutionKernelService } from './StepExecutionKernelService';
+import { RunSuspensionService } from './RunSuspensionService';
 
 import { resolveUrlFromConfig, resolveLaneKeyFromConfig, buildExecutionOptions } from '@backend/platform/platformUrlUtils';
 import { RuntimeReadinessPolicyService } from '@backend/policy/RuntimeReadinessPolicyService';
@@ -38,6 +39,7 @@ export class RunUseCase {
         @inject(RunTerminalizationService) private readonly terminalization: RunTerminalizationService,
         @inject(RunPlanCoordinator) private readonly planCoordinator: RunPlanCoordinator,
         @inject(RunControlGateService) private readonly controlGate: RunControlGateService,
+        @inject(RunSuspensionService) private readonly suspensionService: RunSuspensionService,
         @inject('IPerceptionPipeline') private readonly perception: IPerceptionPipeline,
         @inject('IEventBus') private readonly events: IEventBus,
         @inject('ILogger') private readonly logger: ILogger,
@@ -95,6 +97,7 @@ export class RunUseCase {
         let completed = false;
         let outcome: AgentOutcome | undefined;
         let terminalError: Error | null = null;
+        let suspendedReason: string | null = null;
 
         const initialProfile = (input.options?.observationProfile as ObservationProfile | undefined) ?? DEFAULT_OBSERVATION_PROFILE;
         const visionEnabled = input.options?.vision ?? true;
@@ -168,10 +171,13 @@ export class RunUseCase {
                 estimatedTokensUsed = kernelResult.estimatedTokensUsed;
                 outcome = kernelResult.outcome;
 
-                currentState = this.planCoordinator.applyOutcome(currentState, plan, activated.runningItem, outcome);
-                yield { type: 'state_updated', state: currentState };
-
-                completed = true;
+                if (kernelResult.suspendedReason) {
+                    suspendedReason = kernelResult.suspendedReason;
+                } else {
+                    currentState = this.planCoordinator.applyOutcome(currentState, plan, activated.runningItem, outcome);
+                    yield { type: 'state_updated', state: currentState };
+                    completed = true;
+                }
             }
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
@@ -184,6 +190,16 @@ export class RunUseCase {
             }
             releaseLane();
             await this.trace.endTrace();
+
+            if (suspendedReason && !terminalError) {
+                try {
+                    await this.suspensionService.suspend(runId as RunId, currentState, suspendedReason);
+                    yield { type: 'suspended', runId, reason: suspendedReason };
+                } catch (error) {
+                    yield { type: 'error', error: error instanceof Error ? error : new Error(String(error)) };
+                }
+                return;
+            }
 
             yield* this.terminalization.finalize({
                 runId, controller, completed, terminalError,

@@ -15,6 +15,8 @@ import type { ExecutionController } from '@backend/ExecutionController';
 import { DEFAULT_MAX_ACTIONS } from '@shared/defaults';
 import { randomUUID } from 'crypto';
 
+export type KernelOutcomeKind = 'normal' | 'suspended';
+
 interface KernelRuntime {
     readonly budgetLimits: RunBudgetLimits;
     readonly runStartMs: number;
@@ -25,6 +27,7 @@ interface KernelResult {
     state: WorkflowState;
     outcome: AgentOutcome;
     estimatedTokensUsed: number;
+    suspendedReason?: string;
 }
 
 @injectable()
@@ -124,6 +127,17 @@ export class StepExecutionKernelService {
                     if (controller?.state === RunState.PAUSED) {
                         await controller.waitForResume();
                         if (controller.isStopped()) return cancelOutcome('Run cancelled while paused mid-step.');
+                    }
+
+                    if (controller?.hasPendingSuspendRequest()) {
+                        const req = controller.consumeSuspendRequest()!;
+                        await stepGen.return(undefined as never).catch(() => undefined);
+                        return {
+                            state: currentState,
+                            outcome: { kind: 'stopped', reason: 'cancelled', summary: `Suspended: ${req.reason}` },
+                            estimatedTokensUsed,
+                            suspendedReason: req.reason,
+                        };
                     }
                 }
 
