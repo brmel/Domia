@@ -5,7 +5,7 @@ import { ActionType } from '@domain/enums';
 import { ObservationProfile } from '@domain/value-objects';
 import type { ToolSpec } from '../ToolSpec';
 import type { PostActionCaptureMiddleware } from '../PostActionCaptureMiddleware';
-import { MAX_EXTRACT_TEXT_LENGTH, MAX_PAGE_CONTENT_LENGTH, DEFAULT_WAIT_DURATION_MS } from '@shared/defaults';
+import { MAX_EXTRACT_TEXT_LENGTH, MAX_PAGE_CONTENT_LENGTH, DEFAULT_WAIT_DURATION_MS, DEFAULT_RECALL_WINDOW_MS } from '@shared/defaults';
 import { WEB_ELECTRON_PLATFORMS, unwrapResult, toolError, toolSuccess } from '../toolResult';
 import type { IObservationCoordinator } from '@domain/ports/IObservationCoordinator';
 
@@ -83,15 +83,15 @@ export function createObservationTools(
             description:
                 'Read the live observation buffer for events that happened in the last N milliseconds without performing any new action. ' +
                 'Useful when something flashed on screen between your tool calls (console errors, network failures, fast DOM mutations). ' +
-                'Input: { sinceMs?: number (default 5000) }. ' +
+                `Input: { sinceMs?: number (default ${DEFAULT_RECALL_WINDOW_MS}) }. ` +
                 'Output: { status: "success", frames: Array<{ source, summary, capturedAt, attachmentSummaries }>, count: number }.',
             actionType: ActionType.RECALL_RECENT,
             parameters: z.object({
-                sinceMs: z.number().int().min(100).max(600_000).optional().describe('Window size in ms; default 5000.'),
+                sinceMs: z.number().int().min(100).max(600_000).optional().describe(`Window size in ms; default ${DEFAULT_RECALL_WINDOW_MS}.`),
             }),
             execute: async (args) => {
                 if (!observation) return toolError('recall_recent requires an active observation coordinator');
-                const sinceMs = (args['sinceMs'] as number | undefined) ?? 5000;
+                const sinceMs = (args['sinceMs'] as number | undefined) ?? DEFAULT_RECALL_WINDOW_MS;
                 const frames = observation.recent(sinceMs).map((f) => ({
                     source: f.source,
                     summary: f.summary,

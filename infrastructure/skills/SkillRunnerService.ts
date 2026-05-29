@@ -13,7 +13,7 @@ import { ActionType } from '@domain/enums';
 import type { ToolResult } from '@domain/types/ToolTypes';
 import { UrlFactory } from '@domain/value-objects';
 import { toolError, toolSuccess, errorMsg } from '../tools/toolResult';
-import { DEFAULT_WAIT_DURATION_MS } from '@shared/defaults';
+import { DEFAULT_WAIT_DURATION_MS, MAX_SHELL_ERROR_OUTPUT_CHARS } from '@shared/defaults';
 
 const SKILL_TOOL_PREFIX = 'skill_';
 
@@ -43,7 +43,7 @@ const DISPATCH_TABLE: Partial<Record<ActionType, DispatchHandler>> = {
         }
         const result = await ctx.shellExecutor.execute(command, cwd, timeoutMs);
         if (result.exitCode !== 0) {
-            return errAsync({ message: `Command exited with code ${result.exitCode}: ${result.stderr.content.slice(0, 500)}` });
+            return errAsync({ message: `Command exited with code ${result.exitCode}: ${result.stderr.content.slice(0, MAX_SHELL_ERROR_OUTPUT_CHARS)}` });
         }
         return okAsync(result);
     },

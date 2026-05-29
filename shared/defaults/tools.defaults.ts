@@ -1,5 +1,6 @@
 
 export const DEFAULT_WAIT_DURATION_MS = 1000;
+export const DEFAULT_RECALL_WINDOW_MS = 5000;
 
 export const MAX_POLL_DURATION_MS = 10 * 60 * 1000;
 export const MIN_POLL_INTERVAL_MS = 200;
@@ -25,6 +26,7 @@ export const MAX_RECORDING_INTERVAL_MS = 1000;
 
 export const DEFAULT_SHELL_TIMEOUT_MS = 30_000;
 export const MAX_SHELL_OUTPUT_LENGTH = 4096;
+export const MAX_SHELL_ERROR_OUTPUT_CHARS = 500;
 
 export const DEFAULT_SHELL_DENY_PATTERNS: readonly string[] = [
     'sudo\\b',
