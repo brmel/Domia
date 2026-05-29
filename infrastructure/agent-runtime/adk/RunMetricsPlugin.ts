@@ -1,7 +1,7 @@
 import { BasePlugin, type BaseTool, type ToolContext } from '@google/adk';
 import type { ILogger } from '@domain/ports';
 import type { RunId } from '@domain/value-objects';
-import type { RunHealthMonitorService } from '@backend/runs/RunHealthMonitorService';
+import type { IRunHealthMonitor } from '@domain/ports/IRunHealthMonitor';
 
 const LOG_TAG = '[RunMetricsPlugin]';
 
@@ -28,7 +28,7 @@ export class RunMetricsPlugin extends BasePlugin {
         private readonly runId: RunId,
         private readonly state: RunMetricsState,
         private readonly logger: ILogger,
-        private readonly healthMonitor: RunHealthMonitorService,
+        private readonly healthMonitor: IRunHealthMonitor,
     ) {
         super('RunMetricsPlugin');
     }

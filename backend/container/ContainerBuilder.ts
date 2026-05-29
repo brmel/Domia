@@ -108,6 +108,7 @@ export class ContainerBuilder {
         container.registerSingleton(StepExecutionKernelService);
         container.registerSingleton(RuntimeReadinessPolicyService);
         container.registerSingleton(RunHealthMonitorService);
+        container.register('IRunHealthMonitor', { useToken: RunHealthMonitorService });
         return this;
     }
 

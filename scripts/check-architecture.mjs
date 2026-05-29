@@ -37,6 +37,18 @@ const layerRules = [
         ],
     },
     {
+        name: 'infrastructure-boundary',
+        scope: /^infrastructure\//,
+        forbiddenImportPatterns: [
+            /@backend\//,
+            /@frontend\//,
+            /@apps\//,
+            /\.\.\/\.\.\/backend\//,
+            /\.\.\/\.\.\/frontend\//,
+            /\.\.\/\.\.\/apps\//,
+        ],
+    },
+    {
         name: 'frontend-boundary',
         scope: /^frontend\//,
         forbiddenImportPatterns: [

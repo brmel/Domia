@@ -17,3 +17,5 @@ export * from './IPromptService';
 export * from './IReportGenerator';
 export * from './IShellPolicy';
 export * from './ITabManager';
+export * from './IRunHealthMonitor';
+export * from './IObservationCoordinator';

@@ -8,7 +8,8 @@ import { RunMetricsPlugin, type RunMetricsState } from './RunMetricsPlugin';
 import type { IAdkLlmFactory } from './IAdkLlmFactory';
 import { RunArtifactSink } from './RunArtifactSink';
 import { DEFAULT_ARTIFACT_RETENTION } from '@domain/value-objects/ArtifactRetention';
-import { RunHealthMonitorService } from '@backend/runs/RunHealthMonitorService';
+import type { IRunHealthMonitor } from '@domain/ports/IRunHealthMonitor';
+import type { IObservationCoordinator } from '@domain/ports/IObservationCoordinator';
 import { SkillRunnerService } from '@infrastructure/skills/SkillRunnerService';
 import type { RunId } from '@domain/value-objects';
 import type { Content, Part } from '@google/genai';
@@ -66,7 +67,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
         @inject(ShellExecutor) private readonly shellExecutor: ShellExecutor,
         @inject('IConfigService') private readonly configService: IConfigService,
         @inject('IAdkLlmFactory') private readonly llmFactory: IAdkLlmFactory,
-        @inject(RunHealthMonitorService) private readonly healthMonitor: RunHealthMonitorService,
+        @inject('IRunHealthMonitor') private readonly healthMonitor: IRunHealthMonitor,
         @inject(SkillRunnerService) private readonly skillRunner: SkillRunnerService,
     ) {}
 
@@ -321,7 +322,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
             llmTurnStartMs: Date.now(),
         };
         const windowManager = input.extras?.['windowManager'] as ElectronWindowManager | undefined;
-        const observation = input.extras?.['observation'] as import('@backend/observation/ObservationCoordinator').ObservationCoordinator | undefined;
+        const observation = input.extras?.['observation'] as IObservationCoordinator | undefined;
         const onSuspendRequest = input.extras?.['onSuspendRequest'] as ((reason: string) => void) | undefined;
         const sink = new RunArtifactSink(
             input.runId,
@@ -375,7 +376,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
         windowManager: ElectronWindowManager | undefined,
         getActionCount: () => number,
         sink: RunArtifactSink,
-        observation: import('@backend/observation/ObservationCoordinator').ObservationCoordinator | undefined,
+        observation: IObservationCoordinator | undefined,
         onSuspendRequest: ((reason: string) => void) | undefined,
     ): ToolDependencies {
         return {

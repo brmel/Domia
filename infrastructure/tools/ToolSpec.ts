@@ -9,7 +9,7 @@ import type { ShellExecutor } from '../shell/ShellExecutor';
 import type { IShellPolicy } from '@domain/ports/IShellPolicy';
 import type { ElectronWindowManager } from '@infrastructure/playwright/electron/ElectronWindowManager';
 import type { ITabManager } from '@domain/ports/ITabManager';
-import type { ObservationCoordinator } from '@backend/observation/ObservationCoordinator';
+import type { IObservationCoordinator } from '@domain/ports/IObservationCoordinator';
 
 export interface ToolSpec {
     readonly name: ToolNameValue;
@@ -40,7 +40,7 @@ export interface ToolDependencies {
     readonly shellPolicy?: IShellPolicy;
     readonly windowManager?: ElectronWindowManager;
     readonly tabManager?: ITabManager;
-    readonly observation?: ObservationCoordinator;
+    readonly observation?: IObservationCoordinator;
     readonly runId?: string;
     readonly onSuspendRequest?: (reason: string) => void;
 }

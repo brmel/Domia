@@ -1,6 +1,7 @@
 import { inject, injectable } from 'tsyringe';
 import type { IEventBus } from '@domain/ports/IEventBus';
 import type { ILogger } from '@domain/ports';
+import type { IRunHealthMonitor } from '@domain/ports/IRunHealthMonitor';
 import type { RunId } from '@domain/value-objects';
 
 const ROLLING_WINDOW = 5;
@@ -14,7 +15,7 @@ interface RunHealth {
 }
 
 @injectable()
-export class RunHealthMonitorService {
+export class RunHealthMonitorService implements IRunHealthMonitor {
     private readonly perRun = new Map<string, RunHealth>();
 
     constructor(

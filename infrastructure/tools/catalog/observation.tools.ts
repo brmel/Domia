@@ -7,12 +7,13 @@ import type { ToolSpec } from '../ToolSpec';
 import type { PostActionCaptureMiddleware } from '../PostActionCaptureMiddleware';
 import { MAX_EXTRACT_TEXT_LENGTH, MAX_PAGE_CONTENT_LENGTH, DEFAULT_WAIT_DURATION_MS } from '@shared/defaults';
 import { WEB_ELECTRON_PLATFORMS, unwrapResult, toolError, toolSuccess } from '../toolResult';
+import type { IObservationCoordinator } from '@domain/ports/IObservationCoordinator';
 
 export function createObservationTools(
     automation: IStructuredAutomation,
     captureMiddleware: PostActionCaptureMiddleware,
     perceptionSource?: IPerceptionSource,
-    observation?: import('@backend/observation/ObservationCoordinator').ObservationCoordinator,
+    observation?: IObservationCoordinator,
 ): ToolSpec[] {
     return ([
         {

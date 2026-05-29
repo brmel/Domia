@@ -5,6 +5,7 @@ import type { RunId } from '@domain/value-objects';
 import { ObservationProfile } from '@domain/value-objects/ObservationProfile';
 import type { IEventBus } from '@domain/ports/IEventBus';
 import type { ILogger } from '@domain/ports';
+import type { IObservationCoordinator } from '@domain/ports/IObservationCoordinator';
 import { ObservationRingBuffer } from './ObservationRingBuffer';
 
 const LOG_TAG = '[ObservationCoordinator]';
@@ -18,7 +19,7 @@ export interface ObservationCoordinatorDeps {
     readonly initialProfile: ObservationProfile;
 }
 
-export class ObservationCoordinator {
+export class ObservationCoordinator implements IObservationCoordinator {
     private readonly buffer = new ObservationRingBuffer();
     private profile: ObservationProfile;
     private subscription: FrameSubscription | null = null;
