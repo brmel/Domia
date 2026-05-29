@@ -88,7 +88,7 @@ describe('RunResumeService — load envelope, restore, mark resumed', () => {
 
         const resume = new RunResumeService(
             suspension, { prepare: async () => { throw new Error('not used'); }, dispose: async () => undefined } as never,
-            lane, new RunBudgetPolicyService(logger), durability, terminalization, kernel,
+            lane, new RunBudgetPolicyService(), durability, terminalization, kernel,
             runtime, { capture: async () => undefined } as never, noopBus(), logger,
         );
 
