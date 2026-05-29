@@ -4,7 +4,15 @@ import type { Event } from '@google/adk';
 import { LlmConversationCompactor } from './LlmConversationCompactor';
 import { buildCompactionCallback } from './buildCompactionCallback';
 import { buildInstructionProvider } from './buildInstructionProvider';
-import { RunMetricsPlugin, type RunMetricsState } from './RunMetricsPlugin';
+import { RunMetricsPlugin } from './RunMetricsPlugin';
+import {
+    type StepExecutionState,
+    extractThought,
+    flushPending,
+    computeLlmLatency,
+    buildActionEvent,
+    injectVisionMedia,
+} from './adkEventMapping';
 import type { IAdkLlmFactory } from './IAdkLlmFactory';
 import { RunArtifactSink } from './RunArtifactSink';
 import { DEFAULT_ARTIFACT_RETENTION } from '@domain/value-objects/ArtifactRetention';
@@ -12,7 +20,7 @@ import type { IRunHealthMonitor } from '@domain/ports/IRunHealthMonitor';
 import type { IObservationCoordinator } from '@domain/ports/IObservationCoordinator';
 import { SkillRunnerService } from '@infrastructure/skills/SkillRunnerService';
 import type { RunId } from '@domain/value-objects';
-import type { Content, Part } from '@google/genai';
+import type { Content } from '@google/genai';
 import { FunctionCallingConfigMode } from '@google/genai';
 import type { IStructuredAutomation, IPerceptionPipeline, ILogger, IStorageService } from '@domain/ports';
 import type { IAgentRuntime, AgentEvent, AgentOutcome, AgentInput } from '@domain/ports/IAgentRuntime';
@@ -32,23 +40,9 @@ import type { IWindowManager } from '@domain/ports/IWindowManager';
 import type { ITabManager } from '@domain/ports/ITabManager';
 import type { ToolDependencies } from '@infrastructure/tools/ToolSpec';
 import type { PostActionCaptureMiddleware } from '@infrastructure/tools/PostActionCaptureMiddleware';
-import { DEFAULT_LLM_MODEL, LLM_CALL_BUDGET_OFFSET, FINAL_RESPONSE_LOG_CHARS, TOOL_TIME_LOG_THRESHOLD_MS, APP_NAME } from '@shared/defaults';
+import { DEFAULT_LLM_MODEL, LLM_CALL_BUDGET_OFFSET, FINAL_RESPONSE_LOG_CHARS, APP_NAME } from '@shared/defaults';
 
 const LOG_TAG = '[AdkAgentRuntime]';
-
-function extractThought(event: { content?: { parts?: Array<{ text?: string }> } }): string {
-    if (!event.content?.parts) return '';
-    return event.content.parts
-        .filter((p): p is { text: string } => typeof p.text === 'string' && p.text.trim().length > 0)
-        .map(p => p.text.trim())
-        .join('\n');
-}
-
-interface StepExecutionState extends RunMetricsState {
-    actionCount: number;
-    pendingYield: AgentEvent | null;
-    llmTurnStartMs: number;
-}
 
 const ADK_SNAPSHOT_PROVIDER = 'adk-gemini';
 const ADK_SESSION_USER_ID = 'domia';
@@ -123,16 +117,16 @@ export class AdkAgentRuntime implements IAgentRuntime {
                 }
 
                 if (functionCalls?.length) {
-                    const llmLatencyMs = this.computeLlmLatency(state);
+                    const llmLatencyMs = computeLlmLatency(state, this.logger);
 
                     for (const fc of functionCalls) {
-                        yield* this.flushPending(state);
+                        yield* flushPending(state);
 
                         const action = actionMapper.map(fc.name!, fc.args as Record<string, unknown>, thought);
                         state.actionCount++;
                         this.logger.info(`${LOG_TAG} Action ${state.actionCount}/${maxActions}: ${fc.name}`, fc.args);
 
-                        const actionEvent = this.buildActionEvent(action, state, stepGoal, maxActions, llmLatencyMs, thought, event, fc);
+                        const actionEvent = buildActionEvent(action, state, stepGoal, maxActions, llmLatencyMs, thought, event, fc);
 
                         if (action.type === ActionType.FINISH) {
                             yield actionEvent;
@@ -163,10 +157,10 @@ export class AdkAgentRuntime implements IAgentRuntime {
                     continue;
                 }
 
-                this.injectVisionMedia(vision, event, captureMiddleware);
+                injectVisionMedia(vision, event, captureMiddleware, this.logger);
 
                 if (isFinalResponse(event)) {
-                    yield* this.flushPending(state);
+                    yield* flushPending(state);
                     const text = stringifyContent(event);
                     this.logger.info(`${LOG_TAG} Final response: ${text.slice(0, FINAL_RESPONSE_LOG_CHARS)}`);
                     return {
@@ -176,7 +170,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
                 }
             }
 
-            yield* this.flushPending(state);
+            yield* flushPending(state);
         } catch (error) {
             const cause = error instanceof Error ? error : new Error(String(error));
             this.logger.error(`${LOG_TAG} Agent error: ${cause.message}`);
@@ -189,95 +183,6 @@ export class AdkAgentRuntime implements IAgentRuntime {
             reason: 'budget_exhausted',
             summary: `LLM call budget exhausted after ${state.actionCount} action(s).`,
         };
-    }
-
-    private *flushPending(state: StepExecutionState): Generator<AgentEvent> {
-        if (!state.pendingYield) return;
-
-        if (state.pendingYield.type === 'action' && state.lastToolResult) {
-            yield {
-                ...state.pendingYield,
-                trace: {
-                    ...state.pendingYield.trace,
-                    toolCall: {
-                        ...state.pendingYield.trace.toolCall!,
-                        result: state.lastToolResult.result,
-                        durationMs: state.lastToolResult.durationMs,
-                    },
-                },
-            };
-            state.lastToolResult = null;
-        } else {
-            yield state.pendingYield;
-        }
-        state.pendingYield = null;
-    }
-
-    private computeLlmLatency(state: StepExecutionState): number {
-        const roundTripMs = Date.now() - state.llmTurnStartMs;
-        const prevToolMs = state.lastToolResult?.durationMs ?? 0;
-        const llmLatencyMs = Math.max(0, roundTripMs - prevToolMs);
-
-        if (prevToolMs > TOOL_TIME_LOG_THRESHOLD_MS) {
-            this.logger.info(`${LOG_TAG} LLM responded in ${llmLatencyMs}ms (tool: ${prevToolMs}ms, round-trip: ${roundTripMs}ms)`);
-        } else {
-            this.logger.info(`${LOG_TAG} LLM responded in ${llmLatencyMs}ms`);
-        }
-        return llmLatencyMs;
-    }
-
-    private buildActionEvent(
-        action: ReturnType<ActionMapper['map']>,
-        state: StepExecutionState,
-        stepGoal: string,
-        maxActions: number,
-        llmLatencyMs: number,
-        thought: string,
-        event: { content?: { parts?: Part[] } },
-        fc: { name?: string; args?: unknown },
-    ): AgentEvent {
-        const { thought: _t, ...actionWithoutThought } = action as unknown as Record<string, unknown>;
-        return {
-            type: 'action',
-            action,
-            actionIndex: state.actionCount,
-            trace: {
-                timestamp: Date.now(),
-                agentInput: {
-                    goal: stepGoal,
-                    currentUrl: state.lastObservedUrl,
-                    promptPreview: `GOAL: ${stepGoal} | URL: ${state.lastObservedUrl} | Action ${state.actionCount}/${maxActions}`,
-                    llmLatencyMs,
-                },
-                agentOutput: {
-                    thought,
-                    action: actionWithoutThought as Record<string, unknown>,
-                    rawResponse: JSON.stringify(event.content ?? {}, null, 2),
-                },
-                toolCall: {
-                    name: fc.name!,
-                    input: fc.args as Record<string, unknown>,
-                },
-            },
-        };
-    }
-
-    private injectVisionMedia(
-        vision: boolean,
-        event: { content?: { parts?: Part[] } },
-        captureMiddleware: PostActionCaptureMiddleware,
-    ): void {
-        if (!vision || !event.content?.parts?.some((p: Part) => 'functionResponse' in p)) return;
-
-        const media = captureMiddleware.consumeMedia();
-        for (const m of media) {
-            (event.content!.parts as unknown[]).push({
-                inlineData: { data: m.data.toString('base64'), mimeType: m.mimeType },
-            });
-        }
-        if (media.length > 0) {
-            this.logger.info(`${LOG_TAG} Injected ${media.length} screenshot(s) as inlineData into function response event`);
-        }
     }
 
     private async prepareRunContext(
