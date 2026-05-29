@@ -4,6 +4,7 @@ import type { BuiltInPlatformType } from '../types/PlatformConfig';
 import type { IObservationSampler } from './IObservationSampler';
 import type { IObservationStream } from './IObservationStream';
 import type { IPerceptionPipeline } from './IPerceptionPipeline';
+import type { AgentRuntimeExtras } from './IAgentRuntime';
 
 export interface AppCapabilities {
     readonly platform: BuiltInPlatformType;
@@ -23,7 +24,7 @@ export interface IAppDriver {
     disconnect(): Promise<void>;
     getCapabilities(): AppCapabilities;
     getAutomation(): import('./IAppAutomation').IStructuredAutomation;
-    getSessionExtras(): Readonly<Record<string, unknown>> | undefined;
+    getSessionExtras(): AgentRuntimeExtras | undefined;
     createObservationSampler(deps: ObservationFactoryDeps): IObservationSampler;
     createObservationStream(): IObservationStream;
 }

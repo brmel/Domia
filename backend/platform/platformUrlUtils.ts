@@ -3,6 +3,7 @@ import type { RunOptions } from '@shared/contracts/run';
 import { normalizeWebUrl } from '@shared/contracts/platform';
 import { DEFAULT_MAX_ACTIONS } from '@shared/defaults';
 import { ArtifactRetention, DEFAULT_ARTIFACT_RETENTION } from '@domain/value-objects/ArtifactRetention';
+import type { AgentRuntimeExtras } from '@domain/ports/IAgentRuntime';
 
 export interface StepExecutionOptions {
     vision: boolean;
@@ -14,7 +15,7 @@ export interface StepExecutionOptions {
         intervalMs?: number;
     };
     persistArtifacts: ArtifactRetention;
-    extras?: Readonly<Record<string, unknown>>;
+    extras?: AgentRuntimeExtras;
 }
 
 export function resolveUrlFromConfig(config: PlatformConfig): string {

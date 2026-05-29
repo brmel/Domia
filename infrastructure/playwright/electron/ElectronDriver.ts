@@ -3,6 +3,8 @@ import { chromium, Browser } from 'playwright';
 import { spawn, type ChildProcess } from 'child_process';
 import { IAppDriver, AppCapabilities } from '@domain/ports/IAppDriver';
 import type { ILogger, IStructuredAutomation } from '@domain/ports';
+import type { AgentRuntimeExtras } from '@domain/ports/IAgentRuntime';
+import type { IWindowManager } from '@domain/ports/IWindowManager';
 import { NavigationError } from '@domain/errors';
 import { CDP_DEFAULT_URL, CDP_DEFAULT_PORT, CDP_CONNECTION_TIMEOUT_MS, WINDOW_WAIT_TIMEOUT_MS, WINDOW_POLL_INTERVAL_MS } from '@shared/defaults';
 import { CDPValidator } from '@domain/CDPValidator';
@@ -218,8 +220,15 @@ export class ElectronDriver implements IAppDriver {
         return this.adapter;
     }
 
-    getSessionExtras(): Readonly<Record<string, unknown>> {
-        return { windowManager: this.windowManager };
+    getSessionExtras(): AgentRuntimeExtras {
+        const wm = this.windowManager;
+        const windowManager: IWindowManager = {
+            getAllWindows: () => wm.getAllWindows(),
+            getActiveWindow: () => wm.getActiveWindow(),
+            switchWindow: (windowId) =>
+                wm.switchWindow(windowId).then((r) => r.map((w) => ({ id: w.id, title: w.title, url: w.url }))),
+        };
+        return { windowManager };
     }
 
     createObservationSampler(deps: ObservationFactoryDeps): IObservationSampler {

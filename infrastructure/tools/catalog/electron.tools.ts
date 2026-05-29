@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { ActionType } from '@domain/enums';
 import type { ToolSpec } from '../ToolSpec';
-import type { ElectronWindowManager } from '@infrastructure/playwright/electron/ElectronWindowManager';
+import type { IWindowManager } from '@domain/ports/IWindowManager';
 import { toolSuccess, toolError } from '../toolResult';
 
-export function createElectronTools(windowManager: ElectronWindowManager): ToolSpec[] {
+export function createElectronTools(windowManager: IWindowManager): ToolSpec[] {
     return ([
         {
             name: 'list_windows',

@@ -28,7 +28,7 @@ import { PluginRegistry } from '@infrastructure/plugins/PluginRegistry';
 import { ShellExecutor } from '@infrastructure/shell/ShellExecutor';
 import { ShellCommandPolicyService } from '@infrastructure/shell/ShellCommandPolicyService';
 import type { IConfigService } from '@domain/ports/IConfigService';
-import type { ElectronWindowManager } from '@infrastructure/playwright/electron/ElectronWindowManager';
+import type { IWindowManager } from '@domain/ports/IWindowManager';
 import type { ITabManager } from '@domain/ports/ITabManager';
 import type { ToolDependencies } from '@infrastructure/tools/ToolSpec';
 import type { PostActionCaptureMiddleware } from '@infrastructure/tools/PostActionCaptureMiddleware';
@@ -321,9 +321,9 @@ export class AdkAgentRuntime implements IAgentRuntime {
             lastObservedUrl: url,
             llmTurnStartMs: Date.now(),
         };
-        const windowManager = input.extras?.['windowManager'] as ElectronWindowManager | undefined;
-        const observation = input.extras?.['observation'] as IObservationCoordinator | undefined;
-        const onSuspendRequest = input.extras?.['onSuspendRequest'] as ((reason: string) => void) | undefined;
+        const windowManager = input.extras?.windowManager;
+        const observation = input.extras?.observation;
+        const onSuspendRequest = input.extras?.onSuspendRequest;
         const sink = new RunArtifactSink(
             input.runId,
             input.persistArtifacts ?? DEFAULT_ARTIFACT_RETENTION,
@@ -373,7 +373,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
         automation: IStructuredAutomation,
         perceptionSource: ToolDependencies['perceptionSource'],
         vision: boolean,
-        windowManager: ElectronWindowManager | undefined,
+        windowManager: IWindowManager | undefined,
         getActionCount: () => number,
         sink: RunArtifactSink,
         observation: IObservationCoordinator | undefined,

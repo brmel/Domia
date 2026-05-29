@@ -38,7 +38,7 @@ export class WebDriver implements IAppDriver {
         return this.playwright;
     }
 
-    getSessionExtras(): Readonly<Record<string, unknown>> | undefined {
+    getSessionExtras(): import('@domain/ports/IAgentRuntime').AgentRuntimeExtras | undefined {
         return undefined;
     }
 

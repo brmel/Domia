@@ -1,4 +1,5 @@
 import { inject, injectable } from 'tsyringe';
+import type { AgentRuntimeExtras } from '@domain/ports/IAgentRuntime';
 import type { RunInput } from '@backend/dto';
 import type { ILogger, IStructuredAutomation } from '@domain/ports';
 import { SessionError } from '@domain/errors';
@@ -19,7 +20,7 @@ export interface PreparedRunSession {
     readonly disposeSession?: () => Promise<void>;
     readonly shouldNavigate: boolean;
     readonly ownsSession: boolean;
-    readonly sessionExtras?: Readonly<Record<string, unknown>>;
+    readonly sessionExtras?: AgentRuntimeExtras;
     readonly createObservationSampler: (deps: ObservationFactoryDeps) => IObservationSampler;
     readonly createObservationStream: () => IObservationStream;
 }

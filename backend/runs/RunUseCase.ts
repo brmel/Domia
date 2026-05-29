@@ -1,5 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import type { IStructuredAutomation } from '@domain/ports';
+import type { AgentRuntimeExtras } from '@domain/ports/IAgentRuntime';
 import type { AgentOutcome } from '@domain/ports/IAgentRuntime';
 import { UrlFactory, WorkflowState } from '@domain/value-objects';
 import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
@@ -75,7 +76,7 @@ export class RunUseCase {
         let estimatedTokensUsed = 0;
 
         let automation: IStructuredAutomation;
-        let sessionExtras: Readonly<Record<string, unknown>> | undefined;
+        let sessionExtras: AgentRuntimeExtras | undefined;
         let preparedSession: import('./RunSessionService').PreparedRunSession | undefined;
 
         try {

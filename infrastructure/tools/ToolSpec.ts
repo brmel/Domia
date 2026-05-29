@@ -7,7 +7,7 @@ import type { ActionRecordingData } from '@domain/types/ActionRecordingTypes';
 import type { ActionRecordingOptions } from '../ActionRecordingService';
 import type { ShellExecutor } from '../shell/ShellExecutor';
 import type { IShellPolicy } from '@domain/ports/IShellPolicy';
-import type { ElectronWindowManager } from '@infrastructure/playwright/electron/ElectronWindowManager';
+import type { IWindowManager } from '@domain/ports/IWindowManager';
 import type { ITabManager } from '@domain/ports/ITabManager';
 import type { IObservationCoordinator } from '@domain/ports/IObservationCoordinator';
 
@@ -38,7 +38,7 @@ export interface ToolDependencies {
     readonly onRecording?: (recording: ActionRecordingData) => void | Promise<void>;
     readonly shellExecutor?: ShellExecutor;
     readonly shellPolicy?: IShellPolicy;
-    readonly windowManager?: ElectronWindowManager;
+    readonly windowManager?: IWindowManager;
     readonly tabManager?: ITabManager;
     readonly observation?: IObservationCoordinator;
     readonly runId?: string;

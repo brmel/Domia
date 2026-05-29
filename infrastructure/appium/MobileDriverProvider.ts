@@ -44,7 +44,7 @@ class MobileAppDriver implements IAppDriver {
     getAutomation(): IStructuredAutomation {
         return this.adapter;
     }
-    getSessionExtras(): Readonly<Record<string, unknown>> | undefined {
+    getSessionExtras(): import('@domain/ports/IAgentRuntime').AgentRuntimeExtras | undefined {
         return undefined;
     }
     createObservationSampler(): IObservationSampler {
