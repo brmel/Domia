@@ -4,11 +4,9 @@ import inquirer from 'inquirer';
 import ora from 'ora';
 import chalk from 'chalk';
 import figlet from 'figlet';
-import readline from 'readline';
 import { RunUseCase } from '@backend/runs';
 import { ExecutionController } from '@backend/ExecutionController';
 import { serializeRunOutput } from '@backend/dto';
-import { RunState, LogLevel } from '@domain/enums';
 import { buildPlatformConfig } from './platformUtils';
 import type { ILogger } from '@domain/ports';
 import {
@@ -18,27 +16,10 @@ import {
     DEFAULT_RECORDING_INTERVAL_MS,
 } from '@shared/defaults';
 import { createReportWriter, resolveReportFormats } from './reportUtils';
-
-const LOG_LEVEL_CHOICES = ['error', 'warn', 'info', 'debug'] as const;
-type LogLevelChoice = typeof LOG_LEVEL_CHOICES[number];
-
-function parseLogLevel(value: string): LogLevelChoice {
-    const lower = value.toLowerCase() as LogLevelChoice;
-    if (!LOG_LEVEL_CHOICES.includes(lower)) {
-        throw new Error(`Invalid log level: ${value}. Must be one of: ${LOG_LEVEL_CHOICES.join(', ')}`);
-    }
-    return lower;
-}
-
-function toLogLevelEnum(level: LogLevelChoice): LogLevel {
-    const map: Record<LogLevelChoice, LogLevel> = {
-        error: LogLevel.ERROR,
-        warn: LogLevel.WARN,
-        info: LogLevel.INFO,
-        debug: LogLevel.DEBUG,
-    };
-    return map[level];
-}
+import { parseLogLevel, toLogLevelEnum, type LogLevelChoice } from './run/logLevel';
+import { createInteractiveControls } from './run/interactiveControls';
+import { registerReplayCommand } from './run/replayCommand';
+import { registerResumeCommand } from './run/resumeCommand';
 
 export class RunCommand {
     static register(program: Command): void {
@@ -185,65 +166,10 @@ export class RunCommand {
                     const useCase = container.resolve(RunUseCase);
                     const controller = new ExecutionController();
                     controller.start();
-                    let interactiveKeyHandler: ((str: string, key: readline.Key) => void) | null = null;
-                    let rawModeEnabled = false;
-
-                    const teardownInteractiveControls = (): void => {
-                        if (interactiveKeyHandler) {
-                            process.stdin.off('keypress', interactiveKeyHandler);
-                            interactiveKeyHandler = null;
-                        }
-                        if (rawModeEnabled && process.stdin.isTTY) {
-                            process.stdin.setRawMode(false);
-                        }
-                        if (process.stdin.isTTY) {
-                            process.stdin.pause();
-                        }
-                        rawModeEnabled = false;
-                    };
-
-                    const setupInteractiveControls = (): void => {
-                        if (!process.stdin.isTTY) return;
-
-                        readline.emitKeypressEvents(process.stdin);
-                        process.stdin.setRawMode(true);
-                        process.stdin.resume();
-                        rawModeEnabled = true;
-
-                        log(chalk.gray('Controls: [p] pause/resume, [s] stop, [q] quit'));
-
-                        interactiveKeyHandler = (_str: string, key: readline.Key): void => {
-                            if (key.ctrl && key.name === 'c') {
-                                teardownInteractiveControls();
-                                spinner.stop();
-                                console.log(chalk.yellow('\nStopping agent...'));
-                                controller.stop();
-                                process.exit(0);
-                            }
-
-                            if (key.name === 'p') {
-                                if (controller.state === RunState.PAUSED) {
-                                    controller.resume();
-                                    console.log(chalk.cyan('\n⏯ Resumed'));
-                                } else {
-                                    controller.pause();
-                                    console.log(chalk.cyan('\n⏸ Paused'));
-                                }
-                            }
-
-                            if (key.name === 's' || key.name === 'q') {
-                                teardownInteractiveControls();
-                                spinner.stop();
-                                console.log(chalk.yellow('\nStopping agent...'));
-                                controller.stop();
-                            }
-                        };
-
-                        process.stdin.on('keypress', interactiveKeyHandler);
-                    };
+                    const controls = createInteractiveControls(controller, spinner, log);
 
                     process.on('SIGINT', () => {
-                        teardownInteractiveControls();
+                        controls.teardown();
                         spinner.stop();
                         console.log(chalk.yellow('\nStopping agent...'));
                         controller.stop();
@@ -281,7 +207,7 @@ export class RunCommand {
                     spinner.succeed(`Starting session on ${chalk.green(platformLabel)}`);
                     log(chalk.gray(`Goal: ${prompt}\n`));
 
-                    setupInteractiveControls();
+                    controls.setup();
 
                     let observationUnsubscribe: (() => void) | null = null;
                     if (jsonMode) {
@@ -302,17 +228,17 @@ export class RunCommand {
                             if (event.type === 'started') capturedRunId = event.runId;
                             if (event.type === 'completed') {
                                 observationUnsubscribe?.();
-                                teardownInteractiveControls();
+                                controls.teardown();
                                 process.exit(event.success ? 0 : 1);
                             }
                             if (event.type === 'error') {
                                 observationUnsubscribe?.();
-                                teardownInteractiveControls();
+                                controls.teardown();
                                 process.exit(1);
                             }
                             if (event.type === 'suspended') {
                                 observationUnsubscribe?.();
-                                teardownInteractiveControls();
+                                controls.teardown();
                                 process.exit(0);
                             }
                             continue;
@@ -352,7 +278,7 @@ export class RunCommand {
                                 break;
                             }
                             case 'completed':
-                                teardownInteractiveControls();
+                                controls.teardown();
                                 if (event.success) {
                                     console.log(chalk.green.bold('\n✔ Finished.'));
                                     if (event.summary) console.log(chalk.green(event.summary));
@@ -378,12 +304,12 @@ export class RunCommand {
                                 process.exit(event.success ? 0 : 1);
                                 break;
                             case 'error':
-                                teardownInteractiveControls();
+                                controls.teardown();
                                 console.log(chalk.red.bold(`\nError: ${event.error}`));
                                 process.exit(1);
                                 break;
                             case 'suspended':
-                                teardownInteractiveControls();
+                                controls.teardown();
                                 console.log(chalk.yellow.bold(`\n⏸  Suspended: ${event.reason}`));
                                 console.log(chalk.gray(`Resume with: domia run resume ${event.runId}`));
                                 process.exit(0);
@@ -397,75 +323,7 @@ export class RunCommand {
                 }
             });
 
-        program
-            .command('replay <runId>')
-            .description('Re-run an existing run, optionally with a new prompt')
-            .option('--prompt <prompt>', 'Override the prompt for this replay')
-            .action(async (runId: string, options: { prompt?: string }) => {
-                const { RunReplayService } = await import('@backend/runs/RunReplayService');
-                const replayService = container.resolve(RunReplayService);
-                const useCase = container.resolve(RunUseCase);
-                const controller = new ExecutionController();
-                controller.start();
-                try {
-                    const built = await replayService.build(runId, options.prompt ? { promptOverride: options.prompt } : {});
-                    console.log(chalk.gray(`Replaying ${runId} → new run`));
-                    for await (const event of useCase.execute(built.input, controller)) {
-                        if (event.type === 'started') console.log(chalk.cyan(`Started: ${event.runId}`));
-                        if (event.type === 'completed') {
-                            console.log(event.success ? chalk.green('Completed') : chalk.red(`Failed: ${event.summary ?? ''}`));
-                            process.exit(event.success ? 0 : 1);
-                        }
-                        if (event.type === 'error') {
-                            console.error(chalk.red(`Error: ${event.error.message}`));
-                            process.exit(1);
-                        }
-                    }
-                } catch (e) {
-                    console.error(chalk.red(`Replay failed: ${e instanceof Error ? e.message : e}`));
-                    process.exit(1);
-                }
-            });
-
-        program
-            .command('resume <runId>')
-            .description('Resume a previously suspended run')
-            .option('--json', 'Emit events as NDJSON', false)
-            .action(async (runId: string, options: { json?: boolean }) => {
-                const { RunResumeService } = await import('@backend/runs/RunResumeService');
-                const resumeService = container.resolve(RunResumeService);
-                const controller = new ExecutionController();
-                controller.start();
-                try {
-                    for await (const event of resumeService.execute(runId as never, controller)) {
-                        if (options.json) {
-                            process.stdout.write(JSON.stringify(serializeRunOutput(event)) + '\n');
-                            if (event.type === 'completed') process.exit(event.success ? 0 : 1);
-                            if (event.type === 'error') process.exit(1);
-                            if (event.type === 'suspended') process.exit(0);
-                            continue;
-                        }
-                        if (event.type === 'started') console.log(chalk.cyan(`Resumed run ${event.runId}`));
-                        if (event.type === 'acting') console.log(chalk.cyan(`  [Action] ${event.action.type}`));
-                        if (event.type === 'suspended') {
-                            console.log(chalk.yellow.bold(`\n⏸  Suspended again: ${event.reason}`));
-                            console.log(chalk.gray(`Resume with: domia resume ${event.runId}`));
-                            process.exit(0);
-                        }
-                        if (event.type === 'completed') {
-                            console.log(event.success ? chalk.green.bold('\n✔ Completed.') : chalk.red.bold('\n✘ Failed.'));
-                            if (event.summary) console.log(event.success ? chalk.green(event.summary) : chalk.red(event.summary));
-                            process.exit(event.success ? 0 : 1);
-                        }
-                        if (event.type === 'error') {
-                            console.error(chalk.red(`Error: ${event.error.message}`));
-                            process.exit(1);
-                        }
-                    }
-                } catch (e) {
-                    console.error(chalk.red(`Resume failed: ${e instanceof Error ? e.message : e}`));
-                    process.exit(1);
-                }
-            });
+        registerReplayCommand(program);
+        registerResumeCommand(program);
     }
 }
