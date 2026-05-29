@@ -5,7 +5,8 @@ import { ObservationProfile, DEFAULT_OBSERVATION_PROFILE } from '@domain/value-o
 import { WorkflowError } from '@domain/errors';
 import { ExecutionController } from '@backend/ExecutionController';
 import { createRunObservationCoordinator } from './runObservation';
-import { resolveUrlFromConfig, resolveLaneKeyFromConfig, buildExecutionOptions } from '@backend/platform/platformUrlUtils';
+import { resolveUrlFromConfig, resolveLaneKeyFromConfig } from '@backend/platform/platformUrlUtils';
+import { buildRunExecutionOptions } from './runExecutionOptions';
 import type { PlatformConfig } from '@domain/types/PlatformConfig';
 import type { RunInput, RunOutput } from '@backend/dto';
 import type { AgentOutcome, IAgentRuntime } from '@domain/ports/IAgentRuntime';
@@ -114,15 +115,13 @@ export class RunResumeService {
             }
 
             const goal = envelope.state.plan?.goal ?? '';
-            const baseExtras = {
-                ...(preparedSession.sessionExtras ?? {}),
+            const executionOptions = buildRunExecutionOptions({
+                options: undefined,
+                platform: platformConfig.platform,
+                sessionExtras: preparedSession.sessionExtras,
                 observation,
-                onSuspendRequest: (reason: string) => controller.requestSuspend(reason),
-            };
-            const executionOptions = {
-                ...buildExecutionOptions(undefined, platformConfig.platform),
-                extras: baseExtras,
-            };
+                controller,
+            });
 
             const kernelResult = yield* this.kernel.execute(
                 runId,

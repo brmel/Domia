@@ -14,7 +14,8 @@ import { RunBudgetPolicyService } from './RunBudgetPolicyService';
 import { StepExecutionKernelService } from './StepExecutionKernelService';
 import { RunSuspensionService } from './RunSuspensionService';
 
-import { resolveUrlFromConfig, resolveLaneKeyFromConfig, buildExecutionOptions } from '@backend/platform/platformUrlUtils';
+import { resolveUrlFromConfig, resolveLaneKeyFromConfig } from '@backend/platform/platformUrlUtils';
+import { buildRunExecutionOptions } from './runExecutionOptions';
 import { RuntimeReadinessPolicyService } from '@backend/policy/RuntimeReadinessPolicyService';
 import { RunSessionService, type RunExecutionContext } from './RunSessionService';
 import { RunTerminalizationService } from './RunTerminalizationService';
@@ -141,15 +142,13 @@ export class RunUseCase {
                 currentState = activated.state;
                 yield { type: 'state_updated', state: currentState };
 
-                const baseExtras = {
-                    ...(sessionExtras ?? {}),
+                const executionOptions = buildRunExecutionOptions({
+                    options: input.options,
+                    platform: input.platformConfig.platform,
+                    sessionExtras,
                     observation,
-                    onSuspendRequest: (reason: string) => controller.requestSuspend(reason),
-                };
-                const executionOptions = {
-                    ...buildExecutionOptions(input.options, input.platformConfig.platform),
-                    extras: baseExtras,
-                };
+                    controller,
+                });
 
                 const kernelResult = yield* this.kernel.execute(
                     runId,
