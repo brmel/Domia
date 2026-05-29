@@ -1,10 +1,11 @@
 import { inject, injectable } from 'tsyringe';
-import type { IPersistenceAdapter, IStorageService } from '@domain/ports';
+import type { IStorageService } from '@domain/ports';
+import type { IRunRepository } from '@domain/ports/IRunRepository';
 
 @injectable()
 export class RunQueries {
     constructor(
-        @inject('IPersistenceAdapter') private readonly persistence: IPersistenceAdapter,
+        @inject('IRunRepository') private readonly persistence: IRunRepository,
         @inject('IStorageService') private readonly storage: IStorageService,
     ) {}
 

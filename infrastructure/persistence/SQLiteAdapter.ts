@@ -1,169 +1,63 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
-import type { Database as SqlJsDatabase } from 'sql.js';
-import { Kysely } from 'kysely';
-import { SqlJsDialect } from 'kysely-wasm';
 import { IPersistenceAdapter, Step } from '@domain/ports';
+import type { IRunRepository } from '@domain/ports/IRunRepository';
+import type { ICheckpointRepository } from '@domain/ports/ICheckpointRepository';
+import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
 import { Run } from '@domain/entities/Run';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
 import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { CheckpointReason } from '@domain/value-objects/CheckpointReason';
+import type { CheckpointMetadata } from '@domain/value-objects/CheckpointMetadata';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 import { PersistenceError } from '@domain/errors';
-import type { PathsConfigProvider } from '@shared/contracts/config';
-import type { DatabaseSchema } from './DatabaseSchema';
-import { initializeSchema } from './SQLiteMigrationManager';
-import { SQLiteRunRepository } from './SQLiteRunRepository';
-import { SQLiteCheckpointRepository } from './SQLiteCheckpointRepository';
-import { SQLiteWorkflowRepository } from './SQLiteWorkflowRepository';
-import { SQLiteSkillRepository } from './SQLiteSkillRepository';
-import { openDatabase, saveDatabase } from './SqlJsProvider';
-import { DEFAULT_RUNS_QUERY_LIMIT, DEFAULT_WORKFLOWS_QUERY_LIMIT } from '@shared/defaults';
+import { RunRepositoryAdapter } from './RunRepositoryAdapter';
+import { CheckpointRepositoryAdapter } from './CheckpointRepositoryAdapter';
+import { WorkflowRepositoryAdapter } from './WorkflowRepositoryAdapter';
 
+/**
+ * Composite IPersistenceAdapter for app-layer entry points (CLI commands, IPC
+ * routers, ReportWriterService) that need the cross-aggregate union view. Pure
+ * delegation to the per-aggregate adapters bound to the narrow ports — it holds
+ * no connection or DB logic of its own. Backend services inject the narrow ports
+ * directly (real ISP); this exists only for the few consumers that span aggregates.
+ */
 @injectable()
 export class SQLiteAdapter implements IPersistenceAdapter {
-    private db!: Kysely<DatabaseSchema>;
-    private raw!: SqlJsDatabase;
-    private runs!: SQLiteRunRepository;
-    private checkpoints!: SQLiteCheckpointRepository;
-    private workflows!: SQLiteWorkflowRepository;
-    private skillRepo!: SQLiteSkillRepository;
-    private dbPath: string;
-    private readonly ready: Promise<void>;
+    constructor(
+        @inject(RunRepositoryAdapter) private readonly runs: IRunRepository,
+        @inject(CheckpointRepositoryAdapter) private readonly checkpoints: ICheckpointRepository,
+        @inject(WorkflowRepositoryAdapter) private readonly workflows: IWorkflowRepository,
+    ) {}
 
-    constructor(@inject('PathsConfigProvider') paths: PathsConfigProvider) {
-        this.dbPath = paths().databasePath;
-        this.ready = this.initialize();
+    // IRunRepository
+    saveRun(run: Run, platformConfigJson?: string): ResultAsync<void, PersistenceError> { return this.runs.saveRun(run, platformConfigJson); }
+    getPlatformConfigJson(runId: string): ResultAsync<string | null, PersistenceError> { return this.runs.getPlatformConfigJson(runId); }
+    updateRun(id: string, updates: Partial<Run>): ResultAsync<void, PersistenceError> { return this.runs.updateRun(id, updates); }
+    getRun(id: string): ResultAsync<Run | null, PersistenceError> { return this.runs.getRun(id); }
+    getRuns(limit?: number): ResultAsync<Run[], PersistenceError> { return this.runs.getRuns(limit); }
+    saveStep(step: Step): ResultAsync<void, PersistenceError> { return this.runs.saveStep(step); }
+    getStep(runId: string, stepNumber: number): ResultAsync<Step | null, PersistenceError> { return this.runs.getStep(runId, stepNumber); }
+    getSteps(runId: string): ResultAsync<Step[], PersistenceError> { return this.runs.getSteps(runId); }
+    clearHistory(): ResultAsync<void, PersistenceError> { return this.runs.clearHistory(); }
+
+    // ICheckpointRepository
+    saveCheckpoint(runId: string, state: WorkflowState, reason: CheckpointReason, metadata?: CheckpointMetadata): ResultAsync<void, PersistenceError> {
+        return this.checkpoints.saveCheckpoint(runId, state, reason, metadata);
     }
+    getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError> { return this.checkpoints.getCheckpointRecords(runId); }
 
-    private async initialize(): Promise<void> {
-        this.raw = await openDatabase(this.dbPath);
-
-        this.db = new Kysely<DatabaseSchema>({
-            dialect: new SqlJsDialect({ database: this.raw }),
-        });
-
-        initializeSchema(this.raw);
-
-        this.runs = new SQLiteRunRepository(this.db);
-        this.checkpoints = new SQLiteCheckpointRepository(this.db);
-        this.workflows = new SQLiteWorkflowRepository(this.db, this.raw);
-        this.skillRepo = new SQLiteSkillRepository(this.db);
-    }
-
-    skills(): SQLiteSkillRepository {
-        return this.skillRepo;
-    }
-
-    runWithPersist<T>(op: () => ResultAsync<T, PersistenceError>): ResultAsync<T, PersistenceError> {
-        return this.withPersist(op);
-    }
-
-    private persist(): void {
-        saveDatabase(this.raw, this.dbPath);
-    }
-
-    private withPersist<T>(op: () => ResultAsync<T, PersistenceError>): ResultAsync<T, PersistenceError> {
-        return ResultAsync.fromPromise(this.ready, (e) => new PersistenceError(`DB init failed: ${e}`))
-            .andThen(() => op())
-            .map((result) => { this.persist(); return result; });
-    }
-
-    private withReady<T>(op: () => ResultAsync<T, PersistenceError>): ResultAsync<T, PersistenceError> {
-        return ResultAsync.fromPromise(this.ready, (e) => new PersistenceError(`DB init failed: ${e}`))
-            .andThen(() => op());
-    }
-
-    saveRun(run: Run, platformConfigJson?: string): ResultAsync<void, PersistenceError> {
-        return this.withPersist(() => this.runs.saveRun(run, platformConfigJson));
-    }
-
-    getPlatformConfigJson(runId: string): ResultAsync<string | null, PersistenceError> {
-        return this.withReady(() => this.runs.getPlatformConfigJson(runId));
-    }
-
-    updateRun(id: string, updates: Partial<Run>): ResultAsync<void, PersistenceError> {
-        return this.withPersist(() => this.runs.updateRun(id, updates));
-    }
-
-    saveStep(step: Step): ResultAsync<void, PersistenceError> {
-        return this.withPersist(() => this.runs.saveStep(step));
-    }
-
-    getRuns(limit: number = DEFAULT_RUNS_QUERY_LIMIT): ResultAsync<Run[], PersistenceError> {
-        return this.withReady(() => this.runs.getRuns(limit));
-    }
-
-    getRun(id: string): ResultAsync<Run | null, PersistenceError> {
-        return this.withReady(() => this.runs.getRun(id));
-    }
-
-    getSteps(runId: string): ResultAsync<Step[], PersistenceError> {
-        return this.withReady(() => this.runs.getSteps(runId));
-    }
-
-    getStep(runId: string, stepNumber: number): ResultAsync<Step | null, PersistenceError> {
-        return this.withReady(() => this.runs.getStep(runId, stepNumber));
-    }
-
-    clearHistory(): ResultAsync<void, PersistenceError> {
-        return this.withPersist(() => this.runs.clearHistory());
-    }
-
-    saveCheckpoint(
-        runId: string,
-        state: WorkflowState,
-        reason: CheckpointReason
-    ): ResultAsync<void, PersistenceError> {
-        return this.withPersist(() => this.checkpoints.saveCheckpoint(runId, state, reason));
-    }
-
-    getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError> {
-        return this.withReady(() => this.checkpoints.getCheckpointRecords(runId));
-    }
-
-    saveWorkflowDefinition(definition: WorkflowDefinition): ResultAsync<void, PersistenceError> {
-        return this.withPersist(() => this.workflows.saveWorkflowDefinition(definition));
-    }
-
-    getWorkflowDefinition(id: string): ResultAsync<WorkflowDefinition | null, PersistenceError> {
-        return this.withReady(() => this.workflows.getWorkflowDefinition(id));
-    }
-
-    getWorkflowDefinitions(limit: number = DEFAULT_WORKFLOWS_QUERY_LIMIT): ResultAsync<WorkflowDefinition[], PersistenceError> {
-        return this.withReady(() => this.workflows.getWorkflowDefinitions(limit));
-    }
-
-    saveWorkflowRun(run: WorkflowRunRecord): ResultAsync<void, PersistenceError> {
-        return this.withPersist(() => this.workflows.saveWorkflowRun(run));
-    }
-
-    updateWorkflowRun(id: string, updates: Partial<WorkflowRunRecord>): ResultAsync<void, PersistenceError> {
-        return this.withPersist(() => this.workflows.updateWorkflowRun(id, updates));
-    }
-
-    getWorkflowRun(id: string): ResultAsync<WorkflowRunRecord | null, PersistenceError> {
-        return this.withReady(() => this.workflows.getWorkflowRun(id));
-    }
-
-    getWorkflowRuns(limit: number = DEFAULT_WORKFLOWS_QUERY_LIMIT): ResultAsync<WorkflowRunRecord[], PersistenceError> {
-        return this.withReady(() => this.workflows.getWorkflowRuns(limit));
-    }
-
-    saveWorkflowStepRun(stepRun: WorkflowStepRunRecord): ResultAsync<void, PersistenceError> {
-        return this.withPersist(() => this.workflows.saveWorkflowStepRun(stepRun));
-    }
-
-    updateWorkflowStepRun(id: string, updates: Partial<WorkflowStepRunRecord>): ResultAsync<void, PersistenceError> {
-        return this.withPersist(() => this.workflows.updateWorkflowStepRun(id, updates));
-    }
-
-    getWorkflowStepRuns(workflowRunId: string): ResultAsync<WorkflowStepRunRecord[], PersistenceError> {
-        return this.withReady(() => this.workflows.getWorkflowStepRuns(workflowRunId));
-    }
-
-    commitAtomicWorkflowTransition(input: AtomicWorkflowTransitionInput): ResultAsync<void, PersistenceError> {
-        return this.withPersist(() => this.workflows.commitAtomicWorkflowTransition(input));
-    }
+    // IWorkflowRepository
+    saveWorkflowDefinition(definition: WorkflowDefinition): ResultAsync<void, PersistenceError> { return this.workflows.saveWorkflowDefinition(definition); }
+    getWorkflowDefinition(id: string): ResultAsync<WorkflowDefinition | null, PersistenceError> { return this.workflows.getWorkflowDefinition(id); }
+    getWorkflowDefinitions(limit?: number): ResultAsync<WorkflowDefinition[], PersistenceError> { return this.workflows.getWorkflowDefinitions(limit); }
+    saveWorkflowRun(run: WorkflowRunRecord): ResultAsync<void, PersistenceError> { return this.workflows.saveWorkflowRun(run); }
+    updateWorkflowRun(id: string, updates: Partial<WorkflowRunRecord>): ResultAsync<void, PersistenceError> { return this.workflows.updateWorkflowRun(id, updates); }
+    getWorkflowRun(id: string): ResultAsync<WorkflowRunRecord | null, PersistenceError> { return this.workflows.getWorkflowRun(id); }
+    getWorkflowRuns(limit?: number): ResultAsync<WorkflowRunRecord[], PersistenceError> { return this.workflows.getWorkflowRuns(limit); }
+    saveWorkflowStepRun(stepRun: WorkflowStepRunRecord): ResultAsync<void, PersistenceError> { return this.workflows.saveWorkflowStepRun(stepRun); }
+    updateWorkflowStepRun(id: string, updates: Partial<WorkflowStepRunRecord>): ResultAsync<void, PersistenceError> { return this.workflows.updateWorkflowStepRun(id, updates); }
+    getWorkflowStepRuns(workflowRunId: string): ResultAsync<WorkflowStepRunRecord[], PersistenceError> { return this.workflows.getWorkflowStepRuns(workflowRunId); }
+    commitAtomicWorkflowTransition(input: AtomicWorkflowTransitionInput): ResultAsync<void, PersistenceError> { return this.workflows.commitAtomicWorkflowTransition(input); }
 }

@@ -1,11 +1,11 @@
 import { inject, injectable } from 'tsyringe';
-import type { IPersistenceAdapter } from '@domain/ports';
+import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
 import { DEFAULT_WORKFLOWS_QUERY_LIMIT } from '@shared/defaults';
 
 @injectable()
 export class WorkflowQueries {
     constructor(
-        @inject('IPersistenceAdapter') private readonly persistence: IPersistenceAdapter,
+        @inject('IWorkflowRepository') private readonly persistence: IWorkflowRepository,
     ) {}
 
     async listDefinitions(limit = DEFAULT_WORKFLOWS_QUERY_LIMIT) {
