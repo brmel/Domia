@@ -85,6 +85,9 @@ export const useRunStore = create<RunStore>()(persist((set) => ({
                     currentAction: null,
                 }));
                 break;
+            case 'observation':
+                // ambient perception telemetry — not run-panel state
+                break;
             case 'completed':
                 set({
                     status: RunState.COMPLETED,
@@ -98,6 +101,14 @@ export const useRunStore = create<RunStore>()(persist((set) => ({
                     status: RunState.CANCELLED,
                     success: false,
                     summary: event.summary ?? null,
+                    currentAction: null,
+                });
+                break;
+            case 'suspended':
+                set({
+                    runId: event.runId,
+                    status: RunState.SUSPENDED,
+                    summary: event.reason,
                     currentAction: null,
                 });
                 break;
