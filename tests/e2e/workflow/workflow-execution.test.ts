@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { okAsync } from 'neverthrow';
 import { WorkflowRunOrchestratorService } from '@backend/workflows/WorkflowRunOrchestratorService';
+import { WorkflowLifecycleManager } from '@backend/workflows/WorkflowLifecycleManager';
 import { WorkflowStepPolicyService } from '@backend/workflows/WorkflowStepPolicyService';
 import { WorkflowStepRunnerService } from '@backend/workflows/WorkflowStepRunnerService';
 import { WorkflowStepGovernanceService } from '@backend/workflows/WorkflowStepGovernanceService';
@@ -115,7 +116,8 @@ describe('Workflow execution integration', () => {
             new WorkflowStepPolicyService(),
             governance,
             createStepRunner('succeed'),
-            new PlatformCapabilityNegotiationService()
+            new PlatformCapabilityNegotiationService(),
+            new WorkflowLifecycleManager(persistence as unknown as never, noopLogger as unknown as never)
         );
         const controller = new ExecutionController();
         controller.start();
@@ -152,7 +154,8 @@ describe('Workflow execution integration', () => {
             new WorkflowStepPolicyService(),
             governance,
             createStepRunner('fail'),
-            new PlatformCapabilityNegotiationService()
+            new PlatformCapabilityNegotiationService(),
+            new WorkflowLifecycleManager(persistence as unknown as never, noopLogger as unknown as never)
         );
         const controller = new ExecutionController();
         controller.start();
@@ -182,7 +185,8 @@ describe('Workflow execution integration', () => {
             new WorkflowStepPolicyService(),
             new WorkflowStepGovernanceService({ assess: vi.fn() } as unknown as never),
             createStepRunner('succeed'),
-            new PlatformCapabilityNegotiationService()
+            new PlatformCapabilityNegotiationService(),
+            new WorkflowLifecycleManager(persistence as unknown as never, noopLogger as unknown as never)
         );
         const controller = new ExecutionController();
         controller.start();

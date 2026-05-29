@@ -29,6 +29,7 @@ import { StepExecutionKernelService } from '@backend/runs/StepExecutionKernelSer
 import { RuntimeReadinessPolicyService } from '@backend/policy/RuntimeReadinessPolicyService';
 import { WorkflowDefinitionService } from '@backend/workflows/WorkflowDefinitionService';
 import { WorkflowRunOrchestratorService } from '@backend/workflows/WorkflowRunOrchestratorService';
+import { WorkflowLifecycleManager } from '@backend/workflows/WorkflowLifecycleManager';
 import { WorkflowStepGovernanceService } from '@backend/workflows/WorkflowStepGovernanceService';
 import { WorkflowStepRunnerService } from '@backend/workflows/WorkflowStepRunnerService';
 import { WorkflowStepPolicyService } from '@backend/workflows/WorkflowStepPolicyService';
@@ -126,6 +127,7 @@ export class ContainerBuilder {
         container.registerSingleton(WorkflowStepPolicyService);
         container.registerSingleton(WorkflowStepGovernanceService);
         container.registerSingleton(WorkflowStepRunnerService);
+        container.registerSingleton(WorkflowLifecycleManager);
         container.registerSingleton(WorkflowRunOrchestratorService);
         container.registerSingleton(PlatformCapabilityNegotiationService);
         return this;
