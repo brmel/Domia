@@ -4,7 +4,7 @@ import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import { ObservationProfile, DEFAULT_OBSERVATION_PROFILE } from '@domain/value-objects';
 import { WorkflowError } from '@domain/errors';
 import { ExecutionController } from '@backend/ExecutionController';
-import { ObservationCoordinator } from '@backend/observation/ObservationCoordinator';
+import { createRunObservationCoordinator } from './runObservation';
 import { resolveUrlFromConfig, resolveLaneKeyFromConfig, buildExecutionOptions } from '@backend/platform/platformUrlUtils';
 import type { PlatformConfig } from '@domain/types/PlatformConfig';
 import type { RunInput, RunOutput } from '@backend/dto';
@@ -80,12 +80,13 @@ export class RunResumeService {
 
         const visionEnabled = true;
         const initialProfile: ObservationProfile = DEFAULT_OBSERVATION_PROFILE;
-        const observation = new ObservationCoordinator({
+        const observation = createRunObservationCoordinator({
             runId,
-            sampler: preparedSession.createObservationSampler({ perception: this.perception, vision: visionEnabled }),
-            stream: preparedSession.createObservationStream(),
+            preparedSession,
+            perception: this.perception,
             events: this.events,
             logger: this.logger,
+            vision: visionEnabled,
             initialProfile,
         });
         await observation.start();

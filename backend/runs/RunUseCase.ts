@@ -20,7 +20,7 @@ import { RunSessionService, type RunExecutionContext } from './RunSessionService
 import { RunTerminalizationService } from './RunTerminalizationService';
 import { RunPlanCoordinator } from './RunPlanCoordinator';
 import { RunControlGateService } from './RunControlGateService';
-import { ObservationCoordinator } from '@backend/observation/ObservationCoordinator';
+import { createRunObservationCoordinator } from './runObservation';
 import { ObservationProfile, DEFAULT_OBSERVATION_PROFILE, type RunId } from '@domain/value-objects';
 import type { IEventBus } from '@domain/ports/IEventBus';
 import type { ILogger } from '@domain/ports';
@@ -101,12 +101,13 @@ export class RunUseCase {
 
         const initialProfile = (input.options?.observationProfile as ObservationProfile | undefined) ?? DEFAULT_OBSERVATION_PROFILE;
         const visionEnabled = input.options?.vision ?? true;
-        const observation = new ObservationCoordinator({
+        const observation = createRunObservationCoordinator({
             runId: runId as RunId,
-            sampler: preparedSession.createObservationSampler({ perception: this.perception, vision: visionEnabled }),
-            stream: preparedSession.createObservationStream(),
+            preparedSession,
+            perception: this.perception,
             events: this.events,
             logger: this.logger,
+            vision: visionEnabled,
             initialProfile,
         });
         await observation.start();
