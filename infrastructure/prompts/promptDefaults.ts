@@ -1,6 +1,11 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { PromptKey } from '@domain/ports/IPromptService';
+
+// ESM-safe module dir: `__dirname` is undefined under the ESM CLI runtime
+// (electron-run-as-node + tsx), so derive it from import.meta.url (as main.ts does).
+const moduleDir = dirname(fileURLToPath(import.meta.url));
 
 const PROMPT_FILES: Record<PromptKey, string> = {
     systemInstruction: 'system-instruction.md',
@@ -17,8 +22,8 @@ const PROMPT_FILES: Record<PromptKey, string> = {
 function findPromptsRoot(): string {
     const candidates = [
         join(process.cwd(), 'prompts'),
-        join(__dirname, '..', '..', '..', 'prompts'),
-        join(__dirname, '..', '..', 'prompts'),
+        join(moduleDir, '..', '..', '..', 'prompts'),
+        join(moduleDir, '..', '..', 'prompts'),
     ];
     for (const dir of candidates) {
         try {
