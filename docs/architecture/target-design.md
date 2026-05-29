@@ -26,24 +26,29 @@ The goal is a production-ready platform that is simple, modular, provider-agnost
 
 ## Target Module Map
 
-| Area | Target Module |
+> Updated 2026-05-29: the redesign landed; the `src/`-prefixed paths below were
+> the pre-refactor plan and have been replaced with the real layer directories.
+
+| Area | Module |
 |---|---|
-| Frontend | `src/presentation/features/*`, `src/presentation/ui/*` |
-| App/API | `src/application/commands/*`, `src/application/queries/*`, `src/application/services/*` |
-| Domain | `src/domain/*` |
-| Agent Runtime | `src/infrastructure/agent-runtime/*` |
-| Platform Adapters | `src/infrastructure/platforms/web/*`, `src/infrastructure/platforms/electron/*`, `src/infrastructure/platforms/mobile/*` |
-| Infra Services | `src/infrastructure/persistence/*`, `src/infrastructure/reporting/*`, `src/infrastructure/config/*`, `src/infrastructure/storage/*` |
-| Entrypoints | `electron/*`, `src/cli/*` |
+| Frontend | `frontend/features/*`, `frontend/ui/*` |
+| App/API | `backend/runs/*`, `backend/workflows/*`, `backend/<context>/*`, `backend/dto.ts` |
+| Domain | `domain/*` |
+| Agent Runtime | `infrastructure/agent-runtime/adk/*` |
+| Platform Adapters | `infrastructure/playwright/*`, `infrastructure/playwright/electron/*`, `infrastructure/appium/*` |
+| Infra Services | `infrastructure/persistence/*`, `infrastructure/reporting/*`, `infrastructure/prompts/*`, `infrastructure/observability/*` (config + storage live in `infrastructure/`) |
+| Composition root | `backend/container/*` (the only place that wires infrastructure to ports) |
+| Entrypoints | `apps/desktop/*`, `apps/cli/*` |
 
 ## Non-Negotiable Rules
 
-- `src/domain/**` imports only domain and shared pure utilities.
-- `src/application/**` imports domain and application code, never infrastructure or presentation.
-- `src/presentation/**` imports presentation, application DTOs/clients, and shared UI-safe types only.
-- Entrypoints (`electron/**`, `src/cli/**`) talk to application facades, not infrastructure internals.
+- `domain/**` imports only domain and shared pure types/constants.
+- `backend/**` imports domain and backend code, never `@infrastructure`/`@frontend`/`@apps` — the sole exception is `backend/container/`.
+- `frontend/**` imports frontend, backend DTOs/clients, and shared UI-safe types only; never `@infrastructure` or Node builtins.
+- Entrypoints (`apps/**`) talk to backend facades through the DI container, not infrastructure internals (`apps/desktop/ipc/` may not import `@infrastructure`).
 - Provider-specific code belongs behind runtime adapters.
 - Platform-specific code belongs behind platform adapters.
+- Enforcement is CI-gated by `scripts/check-architecture.mjs`.
 
 ## Simplification Targets
 

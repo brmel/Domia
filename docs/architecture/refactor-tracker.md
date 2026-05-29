@@ -81,9 +81,43 @@ No active exceptions.
 | Architecture doc | `ARCHITECTURE.md` at repo root with how-to guides for adding features, entry points, LLM providers, platforms, tools, report formats |
 | README | Links to `ARCHITECTURE.md` + `CLAUDE.md` |
 
+## Agentic Roadmap (slices 10–16, landed since Cleanup-2)
+
+The structural refactor is complete; work since has followed the agentic roadmap —
+remove hard limits, turn vetoes into informants, and expose auto-decisions as tools.
+Entries below are sourced from the commit log on the `meta-agent-loop` branch (merged
+to `main` via PR #9).
+
+| Slice | Outcome |
+|---|---|
+| 10 | Suspend/wake foundation for durable run handoff |
+| 11.1 | Typed checkpoint metadata column |
+| 11.2 | Conversation snapshot/restore on `IAgentRuntime` |
+| 11.3 | Filesystem adapter for conversation snapshots |
+| 11.4 | Snapshot-aware suspend/resume in `RunSuspensionService` |
+| 11.5 | Agent-initiated suspend signal + gate decision + tool |
+| 11.6 | Kernel-loop hook for suspend, `RunUseCase` orchestration |
+| 11.7–11.8 | `RunResumeService` + CLI/IPC resume entry points |
+| 11.9 | End-to-end suspend → snapshot to disk → fresh resume |
+| 12 | Categorize all tools + meta-tool building blocks |
+| 13 | Removed the budget veto; raised hard ceilings to catastrophic-only |
+| 14 | Converted readiness/governance from veto to advisory (warn, never block) |
+| 15 | Replaced `AutoProfileSelectorPlugin` with an explicit `set_observation_profile` tool |
+| 16 | Surface truncation explicitly across tool outputs |
+
+## Consolidation (2026-05-29, branch `consolidation`)
+
+| Sub-task | Outcome |
+|---|---|
+| Branch cleanup | Merged branches `RedesignwithClaude` + `meta-agent-loop` deleted (local + origin); fresh `consolidation` branch off `main` |
+| Structure audit | New `docs/architecture/structure-audit-2026-05-29.md` — metrics, per-layer breakdown, 10 files >300 LOC, god-folders, coupling hotspots, dead-code findings, and 5 UML diagrams |
+| Legacy docs | Deleted `.agent/workflows/` (5 `.md` files describing the removed `src/`-prefixed architecture; superseded by `.claude/`, referenced by nothing) |
+| Dead code | Deleted the `RunRecoveryService` cluster — the service, `recoverOrphanedRuns()` in `container-root.ts`, its DI registration, the `RunStatus.interrupted` variant (Track 4e), and the unread `MAIN_DIST` export. It had been built and registered but never wired to a caller |
+| Dev tooling | Rewrote `.github/workflows/ci.yml` to the real gates (typecheck, check:architecture, lint, test, test:cli); removed dead `import/no-restricted-paths` zones from `.eslintrc.cjs` (boundaries are enforced by `scripts/check-architecture.mjs`); installed `knip` as a devDependency (its `knip.json` config was orphaned); fixed `.vscode/extensions.json` (Vue → eslint/tailwind/playwright) |
+| Doc drift | README: `GEMINI_API_KEY` → `GOOGLE_API_KEY`, removed nonexistent `readiness:gate`/`release:check` script docs + the removed `verification` config block, fixed layer naming + broken LICENSE link. `target-design.md`: module map + rules repointed from obsolete `src/presentation/*`/`src/application/*` to the real `frontend/`/`backend/`/etc. dirs |
+
 ## Next Slice
 
-| Next | Outcome |
-|---|---|
-
-The consolidation queue is empty. All structural slices are complete. Future work is feature-shaped (new providers, new platforms, new tools).
+Agentic roadmap slices 17–19 remain (path to the meta-agent loop). Consolidation is
+otherwise complete; remaining structural signals are catalogued in the
+[structure audit](./structure-audit-2026-05-29.md) §9 for a future improvement pass.

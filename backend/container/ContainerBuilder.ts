@@ -58,7 +58,6 @@ import { PluginsAppService } from '@backend/plugins/PluginsAppService';
 import { RunReportingService } from '@backend/runs/RunReportingService';
 import { RunReplayService } from '@backend/runs/RunReplayService';
 import { RunHealthMonitorService } from '@backend/runs/RunHealthMonitorService';
-import { RunRecoveryService } from '@backend/runs/RunRecoveryService';
 import { SkillsAppService } from '@backend/skills/SkillsAppService';
 import { SkillExtractionService } from '@backend/skills/SkillExtractionService';
 import { SkillPlaybackService } from '@backend/skills/SkillPlaybackService';
@@ -109,7 +108,6 @@ export class ContainerBuilder {
         container.registerSingleton(StepExecutionKernelService);
         container.registerSingleton(RuntimeReadinessPolicyService);
         container.registerSingleton(RunHealthMonitorService);
-        container.registerSingleton(RunRecoveryService);
         return this;
     }
 

@@ -34,7 +34,7 @@
 3.  Set up environment variables:
     Create a `.env` file in the root directory:
     ```properties
-    GEMINI_API_KEY=your_api_key_here
+    GOOGLE_API_KEY=your_api_key_here
     ```
 
 ## Usage
@@ -59,46 +59,26 @@ Start the Electron-based desktop application:
 npm run dev
 ```
 
-## Readiness Gates (CI / Release)
+## Validation
 
-Run readiness validation pipeline (typecheck + architecture + tests) with baseline profile controls:
-
-```bash
-npm run readiness:gate -- --profile=staging
-```
-
-Production release check:
+Before claiming a change complete, run the project gates (or the `/check` saved command):
 
 ```bash
-npm run release:check
+npm run typecheck            # tsc --noEmit, 0 errors
+npm run check:architecture   # layer-boundary guard
+npm run lint
+npm run test                 # vitest e2e suite
+npm run test:cli             # CLI e2e scenarios
 ```
-
-Profiles:
-- `dev`: readiness gates optional, observe mode by default
-- `staging`: readiness gates enabled, observe mode default
-- `production`: readiness gates enabled, soft-enforce required
-
-## Verification Contracts
-
-Terminal success behavior is policy-driven (not hardcoded by test type). Configure defaults in `domia.config.json`:
-
-```json
-"verification": {
-    "enforceSupervisedTerminalPass": true,
-    "terminalPassMinConfidence": 0.9,
-    "terminalPassMinEvidenceItems": 2
-}
-```
-
-You can also override these per run via run options (`verification.*`).
 
 ## Architecture
 
-Domia is built with a Hexagonal Architecture (Ports & Adapters):
+Domia is built with a Hexagonal Architecture (Ports & Adapters). See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full picture.
 
--   **Core Domain**: Contains the business logic, entities (Run, Plan, AgentAction), and ports.
--   **Application Layer**: Orchestrates use cases (`RunUseCase`), services (`PlannerService`), and workflows.
--   **Infrastructure**: Implements adapters for Browser (Playwright), LLM (Google Gemini), Persistence (SQLite), and UI.
+-   **Domain** (`domain/`): Business core — entities (Run, Plan, AgentAction), value objects, and ports. No I/O.
+-   **Backend** (`backend/`): Application orchestration — use cases (`RunUseCase`), bounded contexts (`runs/`, `workflows/`), and the DI composition root (`container/`).
+-   **Infrastructure** (`infrastructure/`): Adapters implementing domain ports — Browser (Playwright), Agent Runtime (Google ADK / Gemini), Persistence (SQLite), reporting.
+-   **Frontend** (`frontend/`) + **Apps** (`apps/`): React renderer and the Electron + CLI entry points.
 
 ## Contributing
 
@@ -110,4 +90,4 @@ Domia is built with a Hexagonal Architecture (Ports & Adapters):
 
 ## License
 
-[MIT](LICENSE)
+MIT

@@ -16,7 +16,6 @@ export interface Run {
 export type RunStatus =
     | { type: 'pending' }
     | { type: 'running' }
-    | { type: 'interrupted'; reason: string }
     | { type: 'suspended'; reason: string }
     | { type: 'passed'; summary: string; duration: number }
     | { type: 'finished'; summary: string; value?: unknown; duration: number }
