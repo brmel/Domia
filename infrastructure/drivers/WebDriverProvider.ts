@@ -25,9 +25,16 @@ export class WebDriverProvider implements IAppDriverProvider {
         }
 
         const viewMode = this.configService.get().viewMode ?? 'embedded';
-        const isElectron = typeof process !== 'undefined' && process.versions?.['electron'];
+        // Embedded mode attaches to the desktop app's agent WebContentsView (CDP on
+        // ELECTRON_DEBUG_PORT). That view only exists in the real Electron renderer host —
+        // NOT when the CLI runs via ELECTRON_RUN_AS_NODE=1 (electron-as-node), where
+        // process.versions.electron is still set but there is no agent view. Excluding it
+        // keeps the CLI on a standalone launched browser.
+        const isElectronHost = typeof process !== 'undefined'
+            && !!process.versions?.['electron']
+            && process.env['ELECTRON_RUN_AS_NODE'] !== '1';
 
-        if (viewMode === 'embedded' && isElectron) {
+        if (viewMode === 'embedded' && isElectronHost) {
             return this.createEmbeddedDriver();
         }
 
