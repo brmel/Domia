@@ -18,8 +18,13 @@ module.exports = {
     plugins: ['@typescript-eslint'],
     rules: {
         '@typescript-eslint/no-explicit-any': 'error',
-        '@typescript-eslint/explicit-function-return-type': 'warn',
         '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_' }],
+
+        // `explicit-function-return-type` removed (was a permanent 'warn' limbo):
+        // tsc strict mode already infers AND type-checks every return, so the rule
+        // added only style noise — pedantic on thin query unwrappers and brittle on
+        // React hooks' large inferred shapes. Safety is unchanged; signatures that
+        // benefit from an explicit type still get one by convention.
 
         // Layer-boundary enforcement lives in scripts/check-architecture.mjs
         // (the canonical, CI-enforced guard — see CLAUDE.md). The previous
