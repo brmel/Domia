@@ -54,6 +54,17 @@ const layerRules = [
         forbiddenImportPatterns: [
             /@infrastructure\//,
             /\.\.\/\.\.\/infrastructure\//,
+            // frontend may only touch backend via DTO contract types + the tRPC AppRouter type
+            /@backend\/(?!dto)/,
+            /@apps\/(?!desktop\/ipc\/router)/,
+        ],
+    },
+    {
+        name: 'apps-boundary',
+        scope: /^apps\//,
+        forbiddenImportPatterns: [
+            /@infrastructure\//,
+            /\.\.\/\.\.\/infrastructure\//,
         ],
     },
     {
