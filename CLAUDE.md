@@ -28,7 +28,7 @@ Each layer has its own `CLAUDE.md` with details. Read the one for the area you'r
 - `tests/CLAUDE.md`
 - `prompts/CLAUDE.md`
 
-For deeper architecture rationale and how-to guides for adding features, see `ARCHITECTURE.md`.
+For deeper architecture rationale and how-to guides for adding features, see `docs/ARCHITECTURE.md`.
 
 ## Coding conventions
 

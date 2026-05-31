@@ -78,7 +78,7 @@ No active exceptions.
 | Comments stripped | 2 redundant inline comments removed |
 | knip.json polished | `ignoreExportsUsedInFile: true` + 3 explicit polymorphic-FP ignores |
 | Agentic layer | Root `CLAUDE.md` + 7 per-area `CLAUDE.md` + 4 `.claude/skills/` + 2 `.claude/commands/` + `.claude/settings.json` |
-| Architecture doc | `ARCHITECTURE.md` at repo root with how-to guides for adding features, entry points, LLM providers, platforms, tools, report formats |
+| Architecture doc | `docs/ARCHITECTURE.md` with how-to guides for adding features, entry points, LLM providers, platforms, tools, report formats |
 | README | Links to `ARCHITECTURE.md` + `CLAUDE.md` |
 
 ## Agentic Roadmap (slices 10–16, landed since Cleanup-2)
@@ -110,7 +110,7 @@ to `main` via PR #9).
 | Sub-task | Outcome |
 |---|---|
 | Branch cleanup | Merged branches `RedesignwithClaude` + `meta-agent-loop` deleted (local + origin); fresh `consolidation` branch off `main` |
-| Structure audit | New `docs/architecture/structure-audit-2026-05-29.md` — metrics, per-layer breakdown, 10 files >300 LOC, god-folders, coupling hotspots, dead-code findings, and 5 UML diagrams |
+| Structure audit | Produced a metrics/UML audit (per-layer breakdown, files >300 LOC, god-folders, coupling hotspots, dead-code) that drove the cleanup; the transient snapshot doc was pruned once acted on |
 | Legacy docs | Deleted `.agent/workflows/` (5 `.md` files describing the removed `src/`-prefixed architecture; superseded by `.claude/`, referenced by nothing) |
 | Dead code | Deleted the `RunRecoveryService` cluster — the service, `recoverOrphanedRuns()` in `container-root.ts`, its DI registration, the `RunStatus.interrupted` variant (Track 4e), and the unread `MAIN_DIST` export. It had been built and registered but never wired to a caller |
 | Dev tooling | Rewrote `.github/workflows/ci.yml` to the real gates (typecheck, check:architecture, lint, test, test:cli); removed dead `import/no-restricted-paths` zones from `.eslintrc.cjs` (boundaries are enforced by `scripts/check-architecture.mjs`); installed `knip` as a devDependency (its `knip.json` config was orphaned); fixed `.vscode/extensions.json` (Vue → eslint/tailwind/playwright) |
@@ -119,5 +119,5 @@ to `main` via PR #9).
 ## Next Slice
 
 Agentic roadmap slices 17–19 remain (path to the meta-agent loop). Consolidation is
-otherwise complete; remaining structural signals are catalogued in the
-[structure audit](./structure-audit-2026-05-29.md) §9 for a future improvement pass.
+otherwise complete; the design north star is `docs/architecture/target-design.md` and
+the feature-addition guides live in `docs/ARCHITECTURE.md`.
