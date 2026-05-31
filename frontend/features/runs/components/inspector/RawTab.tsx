@@ -1,7 +1,7 @@
 import { CollapsibleSection } from '@frontend/ui/CollapsibleSection';
 import { EmptyState } from '@frontend/ui/EmptyState';
 import type { StepArtifacts } from '@domain/ports/IStorageService';
-import type { Step } from '@domain/ports/IPersistenceAdapter';
+import type { Step } from '@domain/ports/IRunRepository';
 import type { StepTrace } from '@domain/ports/ITraceService';
 import { JsonTreeView } from '../JsonTreeView';
 import { SectionLabel } from './inspectorPrimitives';

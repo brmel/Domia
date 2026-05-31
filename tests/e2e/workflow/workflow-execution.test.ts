@@ -9,7 +9,7 @@ import { WorkflowStepGovernanceService } from '@backend/workflows/WorkflowStepGo
 import { PlatformCapabilityNegotiationService } from '@backend/platform/PlatformCapabilityNegotiationService';
 import { ExecutionController } from '@backend/ExecutionController';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
-import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
+import type { AtomicWorkflowTransitionInput } from '@domain/ports/IWorkflowRepository';
 import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
 
 function createStatefulPersistence(definitions: WorkflowDefinition[]): IWorkflowRepository & {

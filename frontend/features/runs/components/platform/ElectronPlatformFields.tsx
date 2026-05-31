@@ -1,5 +1,5 @@
 import { cn } from '@frontend/lib/cn';
-import type { FieldRenderProps } from '@frontend/lib/platformRegistry';
+import type { FieldRenderProps } from '@frontend/lib/platformFieldTypes';
 import { SegmentedControl } from '@frontend/ui/SegmentedControl';
 import type {
   ElectronConnection,

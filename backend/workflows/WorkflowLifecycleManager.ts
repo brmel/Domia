@@ -4,7 +4,7 @@ import { Result, ok, err } from 'neverthrow';
 import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
 import type { ILogger } from '@domain/ports';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord, WorkflowStepDefinition } from '@domain/entities/Workflow';
-import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
+import type { AtomicWorkflowTransitionInput } from '@domain/ports/IWorkflowRepository';
 
 /**
  * Owns all workflow-run + step-run persistence so WorkflowRunOrchestratorService can

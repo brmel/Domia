@@ -1,25 +1,11 @@
-import type {
-    BasePlatformConfig,
-    WebPlatformConfig,
-    ElectronPlatformConfig,
-} from '@domain/types/PlatformConfig';
+import type { BasePlatformConfig } from '@domain/types/PlatformConfig';
 import { WebPlatformFields } from '@frontend/features/runs/components/platform/WebPlatformFields';
 import { ElectronPlatformFields } from '@frontend/features/runs/components/platform/ElectronPlatformFields';
 import { WebConfigSchema, ElectronConfigSchema } from '@shared/contracts/platform';
 import { z } from 'zod';
+import type { UIPlatformType, PlatformFieldValue, FieldRenderProps } from './platformFieldTypes';
 
-export type UIPlatformType = 'web' | 'electron';
-
-export type PlatformFieldValue =
-    | Omit<WebPlatformConfig, 'platform'>
-    | Omit<ElectronPlatformConfig, 'platform'>;
-
-export interface FieldRenderProps {
-    value: PlatformFieldValue;
-    onChange: (value: PlatformFieldValue) => void;
-    errors: Record<string, string>;
-    disabled: boolean;
-}
+export type { UIPlatformType, PlatformFieldValue, FieldRenderProps } from './platformFieldTypes';
 
 interface PlatformDefinition<T extends BasePlatformConfig> {
     type: T['platform'];

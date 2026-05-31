@@ -9,7 +9,7 @@ import { NavigationError } from '@domain/errors';
 import { CDP_DEFAULT_URL, WINDOW_WAIT_TIMEOUT_MS, WINDOW_POLL_INTERVAL_MS } from '@shared/defaults';
 import { CDPValidator } from '@domain/CDPValidator';
 import { sleep } from '@shared/reliability/sleep';
-import { connectCDP, launchWithCDP, launchWithPlaywright } from './electronCdpConnect';
+import { connectCDP, launchWithCDP, launchWithPlaywright, type ElectronConnectionConfig } from './electronCdpConnect';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
 import { PlaywrightAdapter } from '../PlaywrightAdapter';
@@ -18,16 +18,6 @@ import { PlaywrightStream } from '../observation/PlaywrightStream';
 import type { ObservationFactoryDeps } from '@domain/ports/IAppDriver';
 import type { IObservationSampler } from '@domain/ports/IObservationSampler';
 import type { IObservationStream } from '@domain/ports/IObservationStream';
-
-export interface ElectronConnectionConfig {
-    readonly cdpUrl?: string;
-    readonly executablePath?: string;
-    readonly launchArgs?: readonly string[];
-    readonly cdpPort?: number;
-    readonly connectionTimeout?: number;
-    readonly waitForWindow?: boolean;
-    readonly windowTitle?: string;
-}
 
 export class ElectronDriver implements IAppDriver {
     private static readonly TAG = '[ElectronDriver]';

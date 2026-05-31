@@ -1,7 +1,18 @@
 import { ResultAsync } from 'neverthrow';
 import { PersistenceError } from '@domain/errors';
 import { Run } from '@domain/entities/Run';
-import type { Step } from './IPersistenceAdapter';
+import { AgentAction } from '@domain/value-objects';
+import { ActionType } from '../enums';
+
+export interface Step {
+    id: string;
+    runId: string;
+    stepNumber: number;
+    actionType: ActionType;
+    actionPayload: AgentAction;
+    assets?: Record<string, string>;
+    timestamp: string;
+}
 
 export interface IRunRepository {
     saveRun(run: Run, platformConfigJson?: string): ResultAsync<void, PersistenceError>;

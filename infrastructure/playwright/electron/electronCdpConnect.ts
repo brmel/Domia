@@ -4,7 +4,16 @@ import type { ILogger } from '@domain/ports';
 import { CDP_DEFAULT_PORT, CDP_CONNECTION_TIMEOUT_MS } from '@shared/defaults';
 import { retryAsync, type RetryOptions } from '@shared/reliability/retry';
 import { RETRY_PROFILES, isTransientElectronConnectError } from '@shared/reliability/retryProfiles';
-import type { ElectronConnectionConfig } from './ElectronDriver';
+
+export interface ElectronConnectionConfig {
+    readonly cdpUrl?: string;
+    readonly executablePath?: string;
+    readonly launchArgs?: readonly string[];
+    readonly cdpPort?: number;
+    readonly connectionTimeout?: number;
+    readonly waitForWindow?: boolean;
+    readonly windowTitle?: string;
+}
 
 const TAG = '[ElectronDriver]';
 

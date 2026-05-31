@@ -175,10 +175,71 @@ function applyRuntimeMarkerRules(filePath, content) {
     }
 }
 
+const aliasMap = {
+    '@domain': 'domain',
+    '@backend': 'backend',
+    '@infrastructure': 'infrastructure',
+    '@frontend': 'frontend',
+    '@shared': 'shared',
+    '@apps': 'apps',
+};
+
+function resolveImport(spec, fromRelPath, fileSet) {
+    let base;
+    const aliasHit = Object.keys(aliasMap).find((a) => spec === a || spec.startsWith(`${a}/`));
+    if (aliasHit) {
+        base = spec.replace(aliasHit, aliasMap[aliasHit]).replace(/^\//, '');
+    } else if (spec.startsWith('.')) {
+        base = normalizePath(path.posix.join(path.posix.dirname(fromRelPath), spec));
+    } else {
+        return null; // external package
+    }
+    const candidates = [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`];
+    return candidates.find((c) => fileSet.has(c)) ?? null;
+}
+
+function detectCycles(graph) {
+    const WHITE = 0, GREY = 1, BLACK = 2;
+    const color = new Map();
+    const stack = [];
+    const seenCycles = new Set();
+    const cycles = [];
+
+    function dfs(node) {
+        color.set(node, GREY);
+        stack.push(node);
+        for (const next of graph.get(node) ?? []) {
+            const c = color.get(next) ?? WHITE;
+            if (c === GREY) {
+                const start = stack.indexOf(next);
+                const cycle = stack.slice(start).concat(next);
+                const key = [...cycle].sort().join('|');
+                if (!seenCycles.has(key)) {
+                    seenCycles.add(key);
+                    cycles.push(cycle);
+                }
+            } else if (c === WHITE) {
+                dfs(next);
+            }
+        }
+        stack.pop();
+        color.set(node, BLACK);
+    }
+
+    for (const node of graph.keys()) {
+        if ((color.get(node) ?? WHITE) === WHITE) dfs(node);
+    }
+    return cycles;
+}
+
 async function main() {
     const files = (await Promise.all(
         scanRoots.map((root) => walkFiles(path.join(rootDir, root))),
     )).flat();
+
+    const relPaths = files.map((f) => normalizePath(path.relative(rootDir, f)));
+    const fileSet = new Set(relPaths);
+    const graph = new Map();
 
     for (const absoluteFilePath of files) {
         const relativePath = normalizePath(path.relative(rootDir, absoluteFilePath));
@@ -186,6 +247,15 @@ async function main() {
         const imports = collectImports(content);
         applyLayerRules(relativePath, imports);
         applyRuntimeMarkerRules(relativePath, content);
+
+        const edges = imports
+            .map((spec) => resolveImport(spec, relativePath, fileSet))
+            .filter((target) => target && target !== relativePath);
+        graph.set(relativePath, edges);
+    }
+
+    for (const cycle of detectCycles(graph)) {
+        violations.push(`[no-circular-deps] ${cycle.join(' -> ')}`);
     }
 
     if (violations.length > 0) {

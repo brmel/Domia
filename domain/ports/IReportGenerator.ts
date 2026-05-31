@@ -1,5 +1,5 @@
 import type { Run } from '@domain/entities/Run';
-import type { Step } from './IPersistenceAdapter';
+import type { Step } from './IRunRepository';
 
 export interface RunReport {
     readonly run: Run;

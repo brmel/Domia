@@ -4,7 +4,7 @@ import type { IAppDriver } from '@domain/ports/IAppDriver';
 import type { ILogger } from '@domain/ports';
 import type { ElectronConnection } from '@domain/types/PlatformConfig';
 import { ElectronDriver } from './ElectronDriver';
-import type { ElectronConnectionConfig } from './ElectronDriver';
+import type { ElectronConnectionConfig } from './electronCdpConnect';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
 
 @injectable()

@@ -6,7 +6,7 @@ import type { ICheckpointRepository } from '@domain/ports/ICheckpointRepository'
 import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
 import { Run } from '@domain/entities/Run';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
-import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
+import type { AtomicWorkflowTransitionInput } from '@domain/ports/IWorkflowRepository';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import type { CheckpointMetadata } from '@domain/value-objects/CheckpointMetadata';

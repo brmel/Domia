@@ -1,5 +1,5 @@
 import { FormInput } from '@frontend/ui/FormInput';
-import type { FieldRenderProps } from '@frontend/lib/platformRegistry';
+import type { FieldRenderProps } from '@frontend/lib/platformFieldTypes';
 import type { WebPlatformConfig } from '@domain/types/PlatformConfig';
 
 export function WebPlatformFields({ value, onChange, errors, disabled }: FieldRenderProps): React.ReactElement {
