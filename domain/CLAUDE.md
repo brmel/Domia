@@ -13,13 +13,13 @@
 - `events/` — `DomainEvents` map. New events = new entry in the map + handler subscription downstream.
 - `errors.ts` — error catalog. New error class extends `DomainError` with a unique `code`.
 - `enums.ts` — actual `enum` types (currently `ActionType`, `RunState`, `LogLevel`).
-- `ports/` — interfaces only. Implementations live in `infrastructure/`.
+- `ports/` — interfaces only (impls live in `infrastructure/`), grouped by concern: `ports/{agent,automation,perception,persistence,reporting,plugins,platform}/`. The `ports/index.ts` barrel re-exports every subfolder, so consumers import from `@domain/ports` (barrel) or `@domain/ports/<group>/IXxx` (deep).
 - `types/` — DTOs and shared types not tied to a single port.
 
 ## Adding a new aggregate
 1. Add the entity in `entities/`.
 2. Add the value objects it needs.
-3. Add the port for its repository in `ports/I<Name>Repository.ts`.
+3. Add the port for its repository in `ports/persistence/I<Name>Repository.ts`.
 4. Implement in `infrastructure/persistence/`.
 
 ## Adding a new domain event

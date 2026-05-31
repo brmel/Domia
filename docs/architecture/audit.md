@@ -55,7 +55,7 @@ Boundary verdict (verified by grep, not matrix alone):
 
 Top fan-out (most imports in one file): `ContainerBuilder` 67 (composition root, expected), `AdkAgentRuntime` 32, `RunUseCase` 26 (14 ctor deps + types), `RunResumeService` 20.
 
-Top fan-in (most-imported): `@domain/ports` **60**, `@domain/value-objects` 40, `@shared/defaults` 40, `@domain/enums` 32, `@domain/errors` 30. **`@domain/ports` is a 32-file flat barrel imported by 60 modules** — churn there ripples widely (the one remaining "god folder").
+Top fan-in (most-imported): `@domain/ports` **60**, `@domain/value-objects` 40, `@shared/defaults` 40, `@domain/enums` 32, `@domain/errors` 30. The former 32-file flat `@domain/ports` barrel is now grouped into 7 concern subfolders (`agent/ automation/ perception/ persistence/ reporting/ plugins/ platform/`); the barrel re-exports them so the fan-in is unchanged but navigation no longer hits a flat 32-file wall.
 
 **Layer separation is real and fully enforced.** The "overlap" the team feels is NOT runtime layer bleed — it is the *organization* (next section) + 2 type-only un-guarded boundaries (frontend→backend/apps DTO+router types).
 
@@ -141,7 +141,7 @@ classDiagram
 **Real issues (measured, ranked):**
 1. **Layer-first organization** (§5) — every feature spans 5 trees. Biggest "hard to work in" driver. Fix = vertical feature slices; large migration weighed in `feature-first-migration.md` (deferred — net-negative vs the clean base until team-scale justifies it). OPEN / decision-gated.
 2. ~~3 god files (ElectronDriver, RunForm, SQLiteWorkflowRepository)~~ — **DONE**: split into hook/mapper/transport modules; no genuine god file remains (PlaywrightAdapter/RunCommand/AdkAgentRuntime are cohesive/already-split).
-3. **`@domain/ports` flat barrel**: 32 files, fan-in 60 — split by context. OPEN (it is P0 of the migration plan; deferred with it).
+3. ~~`@domain/ports` flat barrel: 32 files, fan-in 60~~ — **DONE**: grouped into 7 concern subfolders (agent/automation/perception/persistence/reporting/plugins/platform); barrel re-exports preserve consumers.
 4. ~~Boundary-guard gaps~~ — **DONE**: `check-architecture` now also enforces `infrastructure-boundary`, `apps-boundary`, and `frontend→@backend/@apps` (only `@backend/dto` + tRPC router type allowed); `reportUtils` routes through the `IRunReportWriter` port.
 5. **Minor (OPEN)**: 10 infra files mix a local interface+impl; 7 files mix a free fn with a class. Low severity.
 
