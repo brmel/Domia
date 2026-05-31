@@ -1,23 +1,21 @@
 import { Command } from 'commander';
 import { container } from 'tsyringe';
-import inquirer from 'inquirer';
 import ora from 'ora';
 import chalk from 'chalk';
 import figlet from 'figlet';
 import { RunUseCase } from '@backend/runs';
 import { ExecutionController } from '@backend/ExecutionController';
-import { serializeRunOutput } from '@backend/dto';
 import { buildPlatformConfig } from './platformUtils';
 import type { ILogger } from '@domain/ports';
 import {
     CLI_DEFAULT_STEPS,
-    CLI_DEFAULT_URL,
     DEFAULT_RECORDING_MAX_DURATION_MS,
     DEFAULT_RECORDING_INTERVAL_MS,
 } from '@shared/defaults';
-import { createReportWriter, resolveReportFormats } from './reportUtils';
 import { parseLogLevel, toLogLevelEnum, type LogLevelChoice } from './run/logLevel';
 import { createInteractiveControls } from './run/interactiveControls';
+import { promptForMissingRunInputs } from './run/promptForMissingRunInputs';
+import { renderRunStream } from './run/renderRunStream';
 import { registerReplayCommand } from './run/replayCommand';
 import { registerResumeCommand } from './run/resumeCommand';
 
@@ -125,40 +123,9 @@ export class RunCommand {
                     await new CB().loadPlugins(pluginDir as string | undefined);
                 }
 
-                if ((!url && !cdpUrl && !executablePath && !platformFlag) || !prompt) {
-                    const answers = await inquirer.prompt([
-                        {
-                            type: 'list',
-                            name: 'platformChoice',
-                            message: 'Select platform:',
-                            choices: ['web', 'electron (CDP)', 'electron (executable)'],
-                            when: !url && !cdpUrl && !executablePath && !platformFlag,
-                        },
-                        {
-                            type: 'input',
-                            name: 'url',
-                            message: 'Target URL:',
-                            default: CLI_DEFAULT_URL,
-                            when: (ans: Record<string, unknown>) => !url && !cdpUrl && !executablePath && (!platformFlag || platformFlag === 'web') && (ans['platformChoice'] === 'web' || !ans['platformChoice']),
-                        },
-                        {
-                            type: 'input',
-                            name: 'prompt',
-                            message: 'What should the agent do?',
-                            when: !prompt,
-                        },
-                        {
-                            type: 'number',
-                            name: 'steps',
-                            message: 'Max steps:',
-                            default: CLI_DEFAULT_STEPS,
-                            when: !steps,
-                        },
-                    ]);
-                    url = url || answers['url'];
-                    prompt = prompt || answers['prompt'];
-                    steps = steps || answers['steps'];
-                }
+                ({ url, prompt, steps } = await promptForMissingRunInputs({
+                    url, prompt, steps, cdpUrl, executablePath, platformFlag,
+                }));
 
                 const spinner = ora({ text: 'Initializing Agent...', isSilent: jsonMode }).start();
 
@@ -209,113 +176,20 @@ export class RunCommand {
 
                     controls.setup();
 
-                    let observationUnsubscribe: (() => void) | null = null;
-                    if (jsonMode) {
-                        const eventBus = container.resolve<import('@domain/ports/IEventBus').IEventBus>('IEventBus');
-                        const off = eventBus.on('observation.frame', (payload) => {
-                            const out: import('@backend/dto').RunOutput = { type: 'observation', frame: payload.frame };
-                            process.stdout.write(JSON.stringify(serializeRunOutput(out)) + '\n');
-                        });
-                        observationUnsubscribe = off;
-                    }
-
                     const generator = useCase.execute(input, controller);
-                    let capturedRunId: string | undefined;
-
-                    for await (const event of generator) {
-                        if (jsonMode) {
-                            process.stdout.write(JSON.stringify(serializeRunOutput(event)) + '\n');
-                            if (event.type === 'started') capturedRunId = event.runId;
-                            if (event.type === 'completed') {
-                                observationUnsubscribe?.();
-                                controls.teardown();
-                                process.exit(event.success ? 0 : 1);
-                            }
-                            if (event.type === 'error') {
-                                observationUnsubscribe?.();
-                                controls.teardown();
-                                process.exit(1);
-                            }
-                            if (event.type === 'suspended') {
-                                observationUnsubscribe?.();
-                                controls.teardown();
-                                process.exit(0);
-                            }
-                            continue;
-                        }
-                        switch (event.type) {
-                            case 'started':
-                                capturedRunId = event.runId;
-                                break;
-                            case 'acting': {
-                                const a = event.action;
-                                const thought = 'thought' in a ? (a as { thought?: string }).thought : undefined;
-                                console.log(chalk.cyan(`  [Action] ${a.type}`) + (thought ? chalk.dim(` — ${thought}`) : ''));
-                                break;
-                            }
-                            case 'thinking_chunk':
-                                process.stdout.write(chalk.gray(event.text));
-                                break;
-                            case 'state_updated': {
-                                const state = event.state;
-                                if (state.plan) {
-                                    const items = state.plan.items;
-                                    const activeItem = items.find(i => i.status === 'active');
-                                    if (activeItem) {
-                                        spinner.text = `Executing: ${activeItem.description}`;
-                                    }
-                                    if (verbose) {
-                                        console.log(chalk.bold('\n  Plan:'));
-                                        items.forEach((item, idx) => {
-                                            const icon = item.status === 'completed' ? chalk.green('✔')
-                                                : item.status === 'active' ? chalk.cyan('▸')
-                                                : item.status === 'failed' ? chalk.red('✘')
-                                                : chalk.gray('○');
-                                            console.log(`    ${icon} ${idx + 1}. ${item.description}${item.error ? chalk.red(` (${item.error})`) : ''}`);
-                                        });
-                                    }
-                                }
-                                break;
-                            }
-                            case 'completed':
-                                controls.teardown();
-                                if (event.success) {
-                                    console.log(chalk.green.bold('\n✔ Finished.'));
-                                    if (event.summary) console.log(chalk.green(event.summary));
-                                } else {
-                                    console.log(chalk.red.bold('\n✘ Failed.'));
-                                    if (event.summary) console.log(chalk.red(event.summary));
-                                }
-                                if (capturedRunId) {
-                                    const configReportFormat = currentConfig.reporting.defaultFormat;
-                                    const effectiveFormat = reportFormat ?? (configReportFormat !== 'none' ? configReportFormat : undefined);
-                                    if (effectiveFormat) {
-                                        const formats = resolveReportFormats(effectiveFormat);
-                                        const outputDir = reportOutput ?? currentConfig.reporting.outputDir;
-                                        try {
-                                            const writer = createReportWriter();
-                                            const files = await writer.write(capturedRunId, formats, outputDir);
-                                            files.forEach(f => console.log(chalk.gray(`Report: ${f}`)));
-                                        } catch (e) {
-                                            console.error(chalk.yellow(`Warning: report generation failed: ${e instanceof Error ? e.message : e}`));
-                                        }
-                                    }
-                                }
-                                process.exit(event.success ? 0 : 1);
-                                break;
-                            case 'error':
-                                controls.teardown();
-                                console.log(chalk.red.bold(`\nError: ${event.error}`));
-                                process.exit(1);
-                                break;
-                            case 'suspended':
-                                controls.teardown();
-                                console.log(chalk.yellow.bold(`\n⏸  Suspended: ${event.reason}`));
-                                console.log(chalk.gray(`Resume with: domia run resume ${event.runId}`));
-                                process.exit(0);
-                                break;
-                        }
-                    }
+                    await renderRunStream({
+                        generator,
+                        jsonMode,
+                        verbose: !!verbose,
+                        spinner,
+                        controls,
+                        report: {
+                            ...(reportFormat ? { format: reportFormat as string } : {}),
+                            ...(reportOutput ? { outputDir: reportOutput as string } : {}),
+                            configFormat: currentConfig.reporting.defaultFormat,
+                            configOutputDir: currentConfig.reporting.outputDir,
+                        },
+                    });
                 } catch (error) {
                     spinner.fail('Fatal Error');
                     console.error(error);

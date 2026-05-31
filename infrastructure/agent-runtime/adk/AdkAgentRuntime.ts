@@ -17,7 +17,6 @@ import type { IAdkLlmFactory } from './IAdkLlmFactory';
 import { RunArtifactSink } from './RunArtifactSink';
 import { DEFAULT_ARTIFACT_RETENTION } from '@domain/value-objects/ArtifactRetention';
 import type { IRunHealthMonitor } from '@domain/ports/IRunHealthMonitor';
-import type { IObservationCoordinator } from '@domain/ports/IObservationCoordinator';
 import { SkillRunnerService } from '@infrastructure/skills/SkillRunnerService';
 import type { RunId } from '@domain/value-objects';
 import type { Content } from '@google/genai';
@@ -29,15 +28,13 @@ import type { IPromptService } from '@domain/ports/IPromptService';
 import { ActionType } from '@domain/enums';
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
 import { createAdkTools } from './AdkToolFactory';
+import { assembleToolDependencies } from './assembleToolDependencies';
 import { ActionMapper } from '@infrastructure/agent/common/ActionMapper';
 import { buildAgentInstruction } from '@infrastructure/agent/common/AgentInstructionBuilder';
 import { PromptKey } from '@domain/ports/IPromptService';
 import { PluginRegistry } from '@infrastructure/plugins/PluginRegistry';
 import { ShellExecutor } from '@infrastructure/shell/ShellExecutor';
-import { ShellCommandPolicyService } from '@infrastructure/shell/ShellCommandPolicyService';
 import type { IConfigService } from '@domain/ports/IConfigService';
-import type { IWindowManager } from '@domain/ports/IWindowManager';
-import type { ToolDependencies } from '@infrastructure/tools/ToolSpec';
 import type { PostActionCaptureMiddleware } from '@infrastructure/tools/PostActionCaptureMiddleware';
 import { DEFAULT_LLM_MODEL, LLM_CALL_BUDGET_OFFSET, FINAL_RESPONSE_LOG_CHARS, APP_NAME } from '@shared/defaults';
 
@@ -234,7 +231,10 @@ export class AdkAgentRuntime implements IAgentRuntime {
             this.storage,
             this.logger,
         );
-        const toolDeps = this.buildToolDeps(input, automation, perceptionSource, vision, windowManager, () => state.actionCount, sink, observation, onSuspendRequest);
+        const toolDeps = assembleToolDependencies(
+            { perception: this.perception, configService: this.configService, shellExecutor: this.shellExecutor },
+            { input, automation, perceptionSource, vision, windowManager, getActionCount: () => state.actionCount, sink, observation, onSuspendRequest },
+        );
         const skillTools = await this.skillRunner.buildToolsForSession(toolDeps);
         const extraTools = [...this.pluginRegistry.getAllTools(), ...skillTools];
         const { tools, catalog, captureMiddleware } = createAdkTools(toolDeps, extraTools, this.promptService);
@@ -272,46 +272,4 @@ export class AdkAgentRuntime implements IAgentRuntime {
         return { kind: 'ok', state, captureMiddleware, actionMapper, runner, session, initialMessage, sink };
     }
 
-    private buildToolDeps(
-        input: AgentInput,
-        automation: IStructuredAutomation,
-        perceptionSource: ToolDependencies['perceptionSource'],
-        vision: boolean,
-        windowManager: IWindowManager | undefined,
-        getActionCount: () => number,
-        sink: RunArtifactSink,
-        observation: IObservationCoordinator | undefined,
-        onSuspendRequest: ((reason: string) => void) | undefined,
-    ): ToolDependencies {
-        return {
-            automation,
-            perception: this.perception,
-            perceptionSource,
-            vision,
-            platform: input.platform,
-            runId: input.runId,
-            ...(this.configService.get().plugins.shell.enabled && {
-                shellExecutor: this.shellExecutor,
-                shellPolicy: new ShellCommandPolicyService(
-                    this.configService.get().plugins.shell.denyPatterns,
-                    this.configService.get().plugins.shell.allowedCwd,
-                ),
-            }),
-            ...(observation && { observation }),
-            ...(windowManager && { windowManager }),
-            ...(onSuspendRequest && { onSuspendRequest }),
-            ...(input.extras?.tabManager && { tabManager: input.extras.tabManager }),
-            onCapture: (capturedFrame) => sink.onPerceptionFrame(getActionCount(), capturedFrame),
-            ...(input.recording?.enabled && {
-                recording: {
-                    enabled: true as const,
-                    options: {
-                        ...(input.recording.maxDurationMs !== undefined && { maxDurationMs: input.recording.maxDurationMs }),
-                        ...(input.recording.intervalMs !== undefined && { intervalMs: input.recording.intervalMs }),
-                    },
-                },
-            }),
-            onRecording: (recording) => sink.onActionRecording(getActionCount(), recording),
-        };
-    }
 }
