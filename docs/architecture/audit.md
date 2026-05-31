@@ -143,7 +143,7 @@ classDiagram
 2. ~~3 god files (ElectronDriver, RunForm, SQLiteWorkflowRepository)~~ — **DONE**: split into hook/mapper/transport modules; no genuine god file remains (PlaywrightAdapter/RunCommand/AdkAgentRuntime are cohesive/already-split).
 3. ~~`@domain/ports` flat barrel: 32 files, fan-in 60~~ — **DONE**: grouped into 7 concern subfolders (agent/automation/perception/persistence/reporting/plugins/platform); barrel re-exports preserve consumers.
 4. ~~Boundary-guard gaps~~ — **DONE**: `check-architecture` now also enforces `infrastructure-boundary`, `apps-boundary`, and `frontend→@backend/@apps` (only `@backend/dto` + tRPC router type allowed); `reportUtils` routes through the `IRunReportWriter` port.
-5. **Minor (OPEN)**: 10 infra files mix a local interface+impl; 7 files mix a free fn with a class. Low severity.
+5. ~~Minor: 10 infra files mix a local interface+impl; 7 mix a free fn with a class~~ — **DONE / re-measured 0**: no infra file co-locates an `export interface IXxx` with an `export class`, and no file mixes a free `export function` with an `export class`.
 
 ## 10. Next / roadmap
 
