@@ -12,7 +12,8 @@
 - `tests/e2e/persistence/` — SQLite migrations + repositories.
 - `tests/e2e/tools/` — tool catalog against fixture pages.
 - `tests/e2e/plugins/` — plugin loader.
-- `tests/e2e/cli/` — subprocess-spawned CLI scenarios + fixtures + helpers.
+- `tests/e2e/cli/` — **deterministic** CLI smoke (`*.test.ts`, in the vitest suite: `--help` + `history list`, no LLM) plus the **live** LLM-driven scenarios (`*-test.ts`, run on demand via `npm run test:cli`) and their fixtures/helpers.
+- `tests/e2e/desktop/` — tRPC IPC `appRouter` wiring smoke.
 - `tests/support/` — `tempDb.ts`, `llmReplay.ts`.
 - `tests/fixtures/` — static HTML, recorded LLM responses, sample plugins, fixture Electron app.
 
