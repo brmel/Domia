@@ -2,6 +2,14 @@
 
 The single canonical reference for layers, boundaries, and how to add features. Code enforces what it can; this document explains what it can't.
 
+## Principles
+
+- Prefer mature industry tooling over custom orchestration code.
+- Keep product-specific logic custom; outsource generic runtime plumbing.
+- Make boundaries obvious in code and enforce them in CI.
+- Remove speculative features and unfinished surfaces until they are real.
+- Reduce code volume whenever an abstraction does not clearly earn its keep.
+
 ## Layers
 
 | Layer | Owns | Forbidden imports |
@@ -31,10 +39,11 @@ Cross-context imports are allowed (e.g. `WorkflowStepRunnerService` calls `RunUs
 
 - `domain-purity` — `domain/` imports nothing outside `domain/` and pure utilities.
 - `backend-boundary` — `backend/` may not import `@infrastructure`/`@frontend`/`@apps` except `backend/container/`.
-- `frontend-boundary` — `frontend/` may not import `@infrastructure`.
+- `infrastructure-boundary` — `infrastructure/` may not import `@backend`/`@frontend`/`@apps`.
+- `frontend-boundary` — `frontend/` may not import `@infrastructure`; may touch `@backend` only via `@backend/dto` and `@apps` only via the tRPC router type.
+- `apps-boundary` — `apps/` may not import `@infrastructure`.
 - `desktop-ipc-boundary` — `apps/desktop/ipc/` may not import `@infrastructure` or `@frontend`.
-- `renderer-no-node-builtins` — no `fs`, `path`, `os`, `child_process`, `crypto`, or `node:*` in `frontend/`.
-- `shared-defaults-no-node-builtins` — same for `shared/defaults/`.
+- `renderer-no-node-builtins` / `shared-defaults-no-node-builtins` — no `fs`/`path`/`os`/`child_process`/`crypto`/`node:*` in `frontend/` or `shared/defaults/`.
 
 Run `npm run check:architecture` to check.
 
@@ -51,7 +60,7 @@ A feature usually flows: **domain → backend service → IPC router OR CLI comm
    - **CLI**: add `apps/cli/<Feature>Command.ts`, register in `apps/cli/index.ts`.
 6. **Frontend (if user-facing)**: add `frontend/features/<feature>/` with components + store.
 7. **Test**: add `tests/e2e/<feature>/` with real-stack tests.
-8. **Update**: `docs/architecture/refactor-tracker.md` with the new slice.
+8. **Record** the slice in the commit; update `docs/architecture/audit.md` §Next if it shifts the roadmap.
 
 ## How to add a new app entry point (e.g. `apps/server/`)
 
@@ -94,8 +103,8 @@ A feature usually flows: **domain → backend service → IPC router OR CLI comm
 
 ## Where to find things
 
-- `docs/architecture/target-design.md` — the design north star.
-- `docs/architecture/refactor-tracker.md` — current state and history.
+- `docs/architecture/audit.md` — measured current-state signals (metrics, coupling, god files) + next/roadmap.
+- `docs/architecture/feature-first-migration.md` — the feature-slice migration plan + decision.
 - `CLAUDE.md` and per-area `CLAUDE.md` — agent briefs.
 - `.claude/skills/` — focused skill briefs for stack tech.
 - `.claude/commands/` — slash commands.

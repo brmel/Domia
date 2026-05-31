@@ -140,8 +140,15 @@ classDiagram
 **Healthy:** 0% dead code, pure domain, real DI seam, ports/adapters, no cycles, CI-enforced boundaries (~95%).
 
 **Real issues (measured, ranked):**
-1. **Layer-first organization** (§5) — every feature spans 5 trees. Biggest "hard to work in" driver. Fix = vertical feature slices (`features/<f>/{domain,application,infrastructure,presentation}`) — large migration; the prior analysis weighed cost/benefit (the DI singleton + shared-connection make it partial). Decide explicitly.
-2. **3 god files** (§3): ElectronDriver 292, RunForm 285, SQLiteWorkflowRepository 266 — splittable now, low risk.
-3. **`@domain/ports` flat barrel** (§4): 32 files, fan-in 60 — split by context (`ports/{run,automation,persistence,perception}/`) to localize churn.
-4. **Boundary-guard gaps** (§4): `check-architecture` doesn't forbid `frontend→@backend/@apps` or `apps/cli→@infrastructure`. Add rules (catch the 2 type-only + 1 value leak; the value leak should route through a backend facade).
-5. **Minor**: 10 infra files mix local interface+impl; 7 files mix a free fn with a class.
+1. **Layer-first organization** (§5) — every feature spans 5 trees. Biggest "hard to work in" driver. Fix = vertical feature slices; large migration weighed in `feature-first-migration.md` (deferred — net-negative vs the clean base until team-scale justifies it). OPEN / decision-gated.
+2. ~~3 god files (ElectronDriver, RunForm, SQLiteWorkflowRepository)~~ — **DONE**: split into hook/mapper/transport modules; no genuine god file remains (PlaywrightAdapter/RunCommand/AdkAgentRuntime are cohesive/already-split).
+3. **`@domain/ports` flat barrel**: 32 files, fan-in 60 — split by context. OPEN (it is P0 of the migration plan; deferred with it).
+4. ~~Boundary-guard gaps~~ — **DONE**: `check-architecture` now also enforces `infrastructure-boundary`, `apps-boundary`, and `frontend→@backend/@apps` (only `@backend/dto` + tRPC router type allowed); `reportUtils` routes through the `IRunReportWriter` port.
+5. **Minor (OPEN)**: 10 infra files mix a local interface+impl; 7 files mix a free fn with a class. Low severity.
+
+## 10. Next / roadmap
+
+- **Agentic roadmap slices 17–19** remain — the path to the meta-agent loop (per the agentic-roadmap memory). Building blocks staged: `meta.tools.ts`, `ObservationCoordinator.sample`.
+- **Feature-first migration** — deferred; execute via `feature-first-migration.md` phases (P0 = split `@domain/ports` by context) only when >3 engineers hit merge contention on layer folders.
+- **Last-completed history** lives in `git log` (the per-iteration `refactor(...)` / `fix(...)` commits), not a tracked changelog.
+- `/refactor-status` summarizes this section.

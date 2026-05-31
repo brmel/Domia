@@ -1,12 +1,12 @@
 ---
-description: Read docs/architecture/refactor-tracker.md and summarize current state, last completed phase, and next planned slice.
+description: Read docs/architecture/audit.md and summarize current architecture state + next roadmap.
 ---
 
-Read `docs/architecture/refactor-tracker.md` and report:
+Read `docs/architecture/audit.md` and report concisely:
 
-1. **Current step** (the row in the "Current Step" table).
-2. **Last 3 completed phases** (the bottom 3 rows in the "Done" table).
-3. **Next slice** (the row in the "Next Slice" table).
-4. **Validation status** (the line about `tsc` and architecture check).
+1. **Health** (§9 verdict — what's healthy vs the ranked real issues, and which are DONE vs OPEN).
+2. **Key signals** (§1 size, §3 god files, §4 coupling, dead-code %).
+3. **Next / roadmap** (§10 — remaining slices + the feature-first migration decision).
+4. **Last completed** — from `git log` (the recent `refactor(...)`/`fix(...)` commits), since history is not kept in a tracked changelog.
 
-Keep it concise. The tracker is the source of truth for "what state is the codebase in." If the user asks "where are we?", answer from the tracker, not from inferring git history.
+`docs/architecture/audit.md` is the source of truth for "what state is the codebase in." Run `npm run check:architecture` + `npx tsc --noEmit` to confirm gates.

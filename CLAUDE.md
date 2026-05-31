@@ -63,7 +63,7 @@ Or run `/check` (a saved command — see `.claude/commands/check.md`).
 
 ## Where to find current state
 
-`docs/architecture/refactor-tracker.md` is the authoritative state of the codebase: what phase we're in, what's done, what's next. Read it before assuming the codebase looks like something it doesn't. Run `/refactor-status` to summarize.
+`docs/architecture/audit.md` is the authoritative measured state of the codebase (metrics, coupling, god files, dead-code %, and §10 Next/roadmap). Read it before assuming the codebase looks like something it doesn't. History lives in `git log`. Run `/refactor-status` to summarize.
 
 ## Common traps to avoid
 
