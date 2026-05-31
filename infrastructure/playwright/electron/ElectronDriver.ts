@@ -1,17 +1,15 @@
 import { ResultAsync, errAsync } from 'neverthrow';
-import { chromium, Browser } from 'playwright';
-import { spawn, type ChildProcess } from 'child_process';
+import type { Browser } from 'playwright';
+import type { ChildProcess } from 'child_process';
 import { IAppDriver, AppCapabilities } from '@domain/ports/IAppDriver';
 import type { ILogger, IStructuredAutomation } from '@domain/ports';
 import type { AgentRuntimeExtras } from '@domain/ports/IAgentRuntime';
 import type { IWindowManager } from '@domain/ports/IWindowManager';
 import { NavigationError } from '@domain/errors';
-import { CDP_DEFAULT_URL, CDP_DEFAULT_PORT, CDP_CONNECTION_TIMEOUT_MS, WINDOW_WAIT_TIMEOUT_MS, WINDOW_POLL_INTERVAL_MS } from '@shared/defaults';
+import { CDP_DEFAULT_URL, WINDOW_WAIT_TIMEOUT_MS, WINDOW_POLL_INTERVAL_MS } from '@shared/defaults';
 import { CDPValidator } from '@domain/CDPValidator';
-import { retryAsync } from '@shared/reliability/retry';
-import { RETRY_PROFILES, isTransientElectronConnectError } from '@shared/reliability/retryProfiles';
 import { sleep } from '@shared/reliability/sleep';
-import type { RetryOptions } from '@shared/reliability/retry';
+import { connectCDP, launchWithCDP, launchWithPlaywright } from './electronCdpConnect';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
 import { PlaywrightAdapter } from '../PlaywrightAdapter';
@@ -67,96 +65,21 @@ export class ElectronDriver implements IAppDriver {
     }
 
     private async doConnect(config: ElectronConnectionConfig): Promise<void> {
-        this.browser = await this.connectCDP(
-            config.cdpUrl!,
-            config.connectionTimeout,
-        );
+        this.browser = await connectCDP(this.logger, config.cdpUrl!, config.connectionTimeout);
         await this.initializeWindows(config);
         this.logger.info(`${ElectronDriver.TAG} Connected with ${this.windowManager.getWindowCount()} window(s)`);
     }
 
     private async doLaunch(config: ElectronConnectionConfig): Promise<void> {
         if (config.cdpPort) {
-            const { browser, process: proc } = await this.launchWithCDP(config);
+            const { browser, process: proc } = await launchWithCDP(this.logger, config);
             this.browser = browser;
             this.appProcess = proc;
         } else {
-            this.browser = await this.launchWithPlaywright(config);
+            this.browser = await launchWithPlaywright(this.logger, config);
         }
         await this.initializeWindows(config);
         this.logger.info(`${ElectronDriver.TAG} Launched with ${this.windowManager.getWindowCount()} window(s)`);
-    }
-
-    private async connectCDP(cdpUrl: string, timeoutMs?: number, retryProfile?: RetryOptions): Promise<Browser> {
-        const timeout = timeoutMs ?? CDP_CONNECTION_TIMEOUT_MS;
-        const profile = retryProfile ?? RETRY_PROFILES.electronCdpConnect;
-        this.logger.info(`${ElectronDriver.TAG} Connecting to CDP: ${cdpUrl}`);
-
-        const browser = await retryAsync(
-            async () => chromium.connectOverCDP(cdpUrl, { timeout }),
-            {
-                ...profile,
-                shouldRetry: (error) => isTransientElectronConnectError(error),
-                onRetry: (info) => {
-                    const message = info.error instanceof Error ? info.error.message : String(info.error);
-                    this.logger.debug(`${ElectronDriver.TAG} CDP retry ${info.attempt}/${info.maxAttempts - 1}: ${message}`);
-                },
-            },
-        );
-        this.logger.debug(`${ElectronDriver.TAG} CDP connected`);
-        return browser;
-    }
-
-    private async launchWithCDP(config: ElectronConnectionConfig): Promise<{ browser: Browser; process: ChildProcess }> {
-        const port = config.cdpPort!;
-        this.logger.info(`${ElectronDriver.TAG} Launching with CDP port ${port}: ${config.executablePath}`);
-
-        const env = { ...process.env };
-        delete env['ELECTRON_RUN_AS_NODE'];
-        delete env['NODE_OPTIONS'];
-
-        const appProcess = spawn(config.executablePath!, [...(config.launchArgs ?? [])], {
-            env,
-            detached: false,
-            stdio: 'pipe',
-        });
-
-        this.logger.debug(`${ElectronDriver.TAG} Process spawned: PID ${appProcess.pid}`);
-
-        appProcess.stdout?.on('data', (data: Buffer) => {
-            this.logger.debug(`[ElectronApp] ${data.toString().trimEnd()}`);
-        });
-        appProcess.stderr?.on('data', (data: Buffer) => {
-            this.logger.debug(`[ElectronApp:err] ${data.toString().trimEnd()}`);
-        });
-
-        const cdpUrl = `http://127.0.0.1:${port}`;
-        try {
-            const browser = await this.connectCDP(cdpUrl, config.connectionTimeout, RETRY_PROFILES.electronExecutableConnect);
-            return { browser, process: appProcess };
-        } catch (error) {
-            appProcess.kill();
-            const message = error instanceof Error ? error.message : String(error);
-            throw new Error(`${ElectronDriver.TAG} CDP connect failed after launch: ${message}`);
-        }
-    }
-
-    private async launchWithPlaywright(config: ElectronConnectionConfig): Promise<Browser> {
-        if (!config.executablePath) {
-            throw new Error(`${ElectronDriver.TAG} executablePath is required to launch via Playwright`);
-        }
-        this.logger.info(`${ElectronDriver.TAG} Launching via Playwright: ${config.executablePath}`);
-
-        const defaultArgs = [`--remote-debugging-port=${CDP_DEFAULT_PORT}`];
-        const userArgs = config.launchArgs ?? [];
-        const hasPortArg = userArgs.some((a) => a.includes('remote-debugging-port'));
-
-        return chromium.launch({
-            executablePath: config.executablePath,
-            args: [...userArgs, ...(hasPortArg ? [] : defaultArgs)],
-            timeout: config.connectionTimeout ?? CDP_CONNECTION_TIMEOUT_MS,
-            ignoreDefaultArgs: true,
-        });
     }
 
     private async initializeWindows(config: ElectronConnectionConfig): Promise<void> {
