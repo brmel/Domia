@@ -37,7 +37,6 @@ import { ShellExecutor } from '@infrastructure/shell/ShellExecutor';
 import { ShellCommandPolicyService } from '@infrastructure/shell/ShellCommandPolicyService';
 import type { IConfigService } from '@domain/ports/IConfigService';
 import type { IWindowManager } from '@domain/ports/IWindowManager';
-import type { ITabManager } from '@domain/ports/ITabManager';
 import type { ToolDependencies } from '@infrastructure/tools/ToolSpec';
 import type { PostActionCaptureMiddleware } from '@infrastructure/tools/PostActionCaptureMiddleware';
 import { DEFAULT_LLM_MODEL, LLM_CALL_BUDGET_OFFSET, FINAL_RESPONSE_LOG_CHARS, APP_NAME } from '@shared/defaults';
@@ -301,7 +300,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
             ...(observation && { observation }),
             ...(windowManager && { windowManager }),
             ...(onSuspendRequest && { onSuspendRequest }),
-            ...('newTab' in automation && { tabManager: automation as unknown as ITabManager }),
+            ...(input.extras?.tabManager && { tabManager: input.extras.tabManager }),
             onCapture: (capturedFrame) => sink.onPerceptionFrame(getActionCount(), capturedFrame),
             ...(input.recording?.enabled && {
                 recording: {

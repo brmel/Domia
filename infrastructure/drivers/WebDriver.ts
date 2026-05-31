@@ -39,7 +39,7 @@ export class WebDriver implements IAppDriver {
     }
 
     getSessionExtras(): import('@domain/ports/IAgentRuntime').AgentRuntimeExtras | undefined {
-        return undefined;
+        return { tabManager: this.playwright };
     }
 
     createObservationSampler(deps: ObservationFactoryDeps): IObservationSampler {

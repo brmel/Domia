@@ -5,6 +5,7 @@ import type { PlatformType } from '../types/PlatformConfig';
 import type { IStructuredAutomation } from './IAppAutomation';
 import type { IObservationCoordinator } from './IObservationCoordinator';
 import type { IWindowManager } from './IWindowManager';
+import type { ITabManager } from './ITabManager';
 
 export type AgentVerdict = 'pass' | 'fail';
 
@@ -37,11 +38,13 @@ export type AgentEvent =
  * Out-of-band per-run capabilities handed to the runtime adapter. Replaces the
  * old untyped `Record<string, unknown>` bag so the adapter reads typed fields
  * instead of `as`-casting string keys. Producers: the platform driver
- * (windowManager) and RunUseCase/RunResumeService (observation, onSuspendRequest).
+ * (windowManager for electron, tabManager for web) and RunUseCase/
+ * RunResumeService (observation, onSuspendRequest).
  */
 export interface AgentRuntimeExtras {
     readonly observation?: IObservationCoordinator;
     readonly windowManager?: IWindowManager;
+    readonly tabManager?: ITabManager;
     readonly onSuspendRequest?: (reason: string) => void;
 }
 
