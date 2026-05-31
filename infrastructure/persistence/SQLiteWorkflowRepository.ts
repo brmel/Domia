@@ -2,12 +2,13 @@ import { ResultAsync } from 'neverthrow';
 import type { Database as SqlJsDatabase } from 'sql.js';
 import { Kysely } from 'kysely';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
-import { WorkflowStepKind } from '@domain/value-objects/WorkflowStepKind';
 import type { AtomicWorkflowTransitionInput } from '@domain/ports/IPersistenceAdapter';
 import { PersistenceError } from '@domain/errors';
-import type { DatabaseSchema, WorkflowDefinitionTable, WorkflowRunTable, WorkflowStepRunTable } from './DatabaseSchema';
+import type { DatabaseSchema } from './DatabaseSchema';
 import { DEFAULT_WORKFLOWS_QUERY_LIMIT } from '@shared/defaults';
 import { dbOp } from './dbOp';
+import { rowToWorkflowDefinition, rowToWorkflowRun, rowToWorkflowStepRun } from './workflowRowMappers';
+import { commitAtomicWorkflowTransition as runAtomicTransition } from './workflowAtomicTransition';
 
 export class SQLiteWorkflowRepository {
     constructor(
@@ -50,7 +51,7 @@ export class SQLiteWorkflowRepository {
                 .where('id', '=', id)
                 .executeTakeFirst(),
             'get workflow definition'
-        ).map(row => row ? this.mapToWorkflowDefinition(row) : null);
+        ).map(row => row ? rowToWorkflowDefinition(row) : null);
     }
 
     getWorkflowDefinitions(limit: number = DEFAULT_WORKFLOWS_QUERY_LIMIT): ResultAsync<WorkflowDefinition[], PersistenceError> {
@@ -61,7 +62,7 @@ export class SQLiteWorkflowRepository {
                 .limit(limit)
                 .execute(),
             'get workflow definitions'
-        ).map(rows => rows.map(row => this.mapToWorkflowDefinition(row)));
+        ).map(rows => rows.map(rowToWorkflowDefinition));
     }
 
     saveWorkflowRun(run: WorkflowRunRecord): ResultAsync<void, PersistenceError> {
@@ -105,7 +106,7 @@ export class SQLiteWorkflowRepository {
                 .where('id', '=', id)
                 .executeTakeFirst(),
             'get workflow run'
-        ).map(row => row ? this.mapToWorkflowRun(row) : null);
+        ).map(row => row ? rowToWorkflowRun(row) : null);
     }
 
     getWorkflowRuns(limit: number = DEFAULT_WORKFLOWS_QUERY_LIMIT): ResultAsync<WorkflowRunRecord[], PersistenceError> {
@@ -116,7 +117,7 @@ export class SQLiteWorkflowRepository {
                 .limit(limit)
                 .execute(),
             'get workflow runs'
-        ).map(rows => rows.map(row => this.mapToWorkflowRun(row)));
+        ).map(rows => rows.map(rowToWorkflowRun));
     }
 
     saveWorkflowStepRun(stepRun: WorkflowStepRunRecord): ResultAsync<void, PersistenceError> {
@@ -165,102 +166,14 @@ export class SQLiteWorkflowRepository {
                 .orderBy('step_index', 'asc')
                 .execute(),
             'get workflow step runs'
-        ).map(rows => rows.map(row => this.mapToWorkflowStepRun(row)));
+        ).map(rows => rows.map(rowToWorkflowStepRun));
     }
 
     commitAtomicWorkflowTransition(input: AtomicWorkflowTransitionInput): ResultAsync<void, PersistenceError> {
         return dbOp(
-            Promise.resolve().then(() => {
-                this.database.run('BEGIN TRANSACTION');
-                try {
-                    const stepSetClauses: string[] = ['status = ?'];
-                    const stepParams: (string | null)[] = [input.workflowStepRunUpdates.status];
-
-                    if (input.workflowStepRunUpdates.summary !== undefined) {
-                        stepSetClauses.push('summary = ?');
-                        stepParams.push(input.workflowStepRunUpdates.summary ?? null);
-                    }
-                    if (input.workflowStepRunUpdates.completedAt !== undefined) {
-                        stepSetClauses.push('completed_at = ?');
-                        stepParams.push(input.workflowStepRunUpdates.completedAt ?? null);
-                    }
-                    if (input.workflowStepRunUpdates.runId !== undefined) {
-                        stepSetClauses.push('run_id = ?');
-                        stepParams.push(input.workflowStepRunUpdates.runId ?? null);
-                    }
-                    stepParams.push(input.workflowStepRunId);
-
-                    this.database.run(
-                        `UPDATE workflow_step_runs SET ${stepSetClauses.join(', ')} WHERE id = ?`,
-                        stepParams
-                    );
-
-                    const runSetClauses: string[] = ['status = ?'];
-                    const runParams: (string | null)[] = [input.workflowRunUpdates.status];
-
-                    if (input.workflowRunUpdates.summary !== undefined) {
-                        runSetClauses.push('summary = ?');
-                        runParams.push(input.workflowRunUpdates.summary ?? null);
-                    }
-                    if (input.workflowRunUpdates.completedAt !== undefined) {
-                        runSetClauses.push('completed_at = ?');
-                        runParams.push(input.workflowRunUpdates.completedAt ?? null);
-                    }
-                    runParams.push(input.workflowRunId);
-
-                    this.database.run(
-                        `UPDATE workflow_runs SET ${runSetClauses.join(', ')} WHERE id = ?`,
-                        runParams
-                    );
-
-                    this.database.run('COMMIT');
-                } catch (e) {
-                    this.database.run('ROLLBACK');
-                    throw e;
-                }
-            }),
+            Promise.resolve().then(() => runAtomicTransition(this.database, input)),
             'commit atomic workflow transition'
         ).map(() => undefined);
     }
 
-    private mapToWorkflowDefinition(row: WorkflowDefinitionTable): WorkflowDefinition {
-        const rawSteps = JSON.parse(row.steps_json) as Array<Record<string, unknown>>;
-        return {
-            id: row.id,
-            name: row.name,
-            ...(row.description ? { description: row.description } : {}),
-            status: row.status as WorkflowDefinition['status'],
-            version: row.version,
-            platformConfig: JSON.parse(row.platform_config_json),
-            steps: rawSteps.map((s) => (s['kind'] === WorkflowStepKind.ForEach ? s : { kind: WorkflowStepKind.Agent, ...s })) as unknown as WorkflowDefinition['steps'],
-            createdAt: row.created_at,
-            updatedAt: row.updated_at
-        };
-    }
-
-    private mapToWorkflowRun(row: WorkflowRunTable): WorkflowRunRecord {
-        return {
-            id: row.id,
-            workflowDefinitionId: row.workflow_definition_id,
-            workflowVersion: row.workflow_version,
-            status: row.status as WorkflowRunRecord['status'],
-            ...(row.summary ? { summary: row.summary } : {}),
-            startedAt: row.started_at,
-            ...(row.completed_at ? { completedAt: row.completed_at } : {})
-        };
-    }
-
-    private mapToWorkflowStepRun(row: WorkflowStepRunTable): WorkflowStepRunRecord {
-        return {
-            id: row.id,
-            workflowRunId: row.workflow_run_id,
-            stepId: row.step_id,
-            stepIndex: row.step_index,
-            ...(row.run_id ? { runId: row.run_id } : {}),
-            status: row.status as WorkflowStepRunRecord['status'],
-            ...(row.summary ? { summary: row.summary } : {}),
-            startedAt: row.started_at,
-            ...(row.completed_at ? { completedAt: row.completed_at } : {})
-        };
-    }
 }
