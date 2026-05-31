@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { PromptKey } from '@domain/ports/IPromptService';
+import type { PromptKey } from '@domain/ports/agent/IPromptService';
 
 // ESM-safe module dir: `__dirname` is undefined under the ESM CLI runtime
 // (electron-run-as-node + tsx), so derive it from import.meta.url (as main.ts does).

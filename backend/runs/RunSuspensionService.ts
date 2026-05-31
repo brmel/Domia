@@ -1,9 +1,9 @@
 import { inject, injectable } from 'tsyringe';
 import { Run } from '@domain/entities/Run';
-import type { IRunRepository } from '@domain/ports/IRunRepository';
-import type { IEventBus } from '@domain/ports/IEventBus';
+import type { IRunRepository } from '@domain/ports/persistence/IRunRepository';
+import type { IEventBus } from '@domain/ports/platform/IEventBus';
 import type { ILogger, IStorageService } from '@domain/ports';
-import type { IAgentRuntime } from '@domain/ports/IAgentRuntime';
+import type { IAgentRuntime } from '@domain/ports/agent/IAgentRuntime';
 import type { RunId } from '@domain/value-objects';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { ConversationSnapshot } from '@domain/value-objects/ConversationSnapshot';

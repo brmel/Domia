@@ -1,4 +1,4 @@
-import type { IObservationSampler, SampleRequest } from '@domain/ports/IObservationSampler';
+import type { IObservationSampler, SampleRequest } from '@domain/ports/perception/IObservationSampler';
 import type { ObservationFrame } from '@domain/value-objects/ObservationFrame';
 
 export class AppiumSampler implements IObservationSampler {

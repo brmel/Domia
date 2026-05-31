@@ -2,10 +2,10 @@ import { injectable, inject } from 'tsyringe';
 import { Result, ok, err } from 'neverthrow';
 import { RunIdFactory, RunId, UrlFactory } from '@domain/value-objects';
 import { Run } from '@domain/entities/Run';
-import type { IRunRepository } from '@domain/ports/IRunRepository';
-import type { IEventBus } from '@domain/ports/IEventBus';
+import type { IRunRepository } from '@domain/ports/persistence/IRunRepository';
+import type { IEventBus } from '@domain/ports/platform/IEventBus';
 import type { ILogger } from '@domain/ports';
-import type { AgentOutcome, AgentVerdict } from '@domain/ports/IAgentRuntime';
+import type { AgentOutcome, AgentVerdict } from '@domain/ports/agent/IAgentRuntime';
 import { ValidationError, PersistenceError } from '@domain/errors';
 
 interface FinalizedRun {

@@ -2,7 +2,7 @@ import { ResultAsync } from 'neverthrow';
 import { PersistenceError } from '@domain/errors';
 import { Run } from '@domain/entities/Run';
 import { AgentAction } from '@domain/value-objects';
-import { ActionType } from '../enums';
+import { ActionType } from '../../enums';
 
 export interface Step {
     id: string;

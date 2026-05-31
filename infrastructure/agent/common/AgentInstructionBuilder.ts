@@ -1,6 +1,6 @@
 import type { ToolSpec } from '@infrastructure/tools/ToolSpec';
-import type { IPromptService } from '@domain/ports/IPromptService';
-import { PromptKey } from '@domain/ports/IPromptService';
+import type { IPromptService } from '@domain/ports/agent/IPromptService';
+import { PromptKey } from '@domain/ports/agent/IPromptService';
 import { ToolCategory } from '@domain/types/ToolTypes';
 
 export function buildAgentInstruction(tools: readonly ToolSpec[], promptService: IPromptService): string {

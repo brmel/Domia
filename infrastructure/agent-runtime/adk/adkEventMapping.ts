@@ -1,5 +1,5 @@
 import type { Part } from '@google/genai';
-import type { AgentEvent } from '@domain/ports/IAgentRuntime';
+import type { AgentEvent } from '@domain/ports/agent/IAgentRuntime';
 import type { ILogger } from '@domain/ports';
 import type { RunMetricsState } from './RunMetricsPlugin';
 import type { ActionMapper } from '@infrastructure/agent/common/ActionMapper';

@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
-import type { IRunRepository } from '@domain/ports/IRunRepository';
+import type { IRunRepository } from '@domain/ports/persistence/IRunRepository';
 import type { Step } from '@domain/ports';
 import { Run } from '@domain/entities/Run';
 import { PersistenceError } from '@domain/errors';

@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import type { IStructuredAutomation } from '@domain/ports';
-import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
+import type { IPerceptionSource } from '@domain/ports/perception/IPerceptionSource';
 import { ActionType } from '@domain/enums';
 import { ObservationProfile } from '@domain/value-objects';
 import type { ToolSpec } from '../ToolSpec';
 import type { PostActionCaptureMiddleware } from '../PostActionCaptureMiddleware';
 import { MAX_EXTRACT_TEXT_LENGTH, MAX_PAGE_CONTENT_LENGTH, DEFAULT_WAIT_DURATION_MS, DEFAULT_RECALL_WINDOW_MS } from '@shared/defaults';
 import { WEB_ELECTRON_PLATFORMS, unwrapResult, toolError, toolSuccess } from '../toolResult';
-import type { IObservationCoordinator } from '@domain/ports/IObservationCoordinator';
+import type { IObservationCoordinator } from '@domain/ports/perception/IObservationCoordinator';
 
 export function createObservationTools(
     automation: IStructuredAutomation,

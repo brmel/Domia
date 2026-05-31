@@ -31,7 +31,7 @@ export async function renderRunStream(params: RenderRunStreamParams): Promise<vo
 
     let observationUnsubscribe: (() => void) | null = null;
     if (jsonMode) {
-        const eventBus = container.resolve<import('@domain/ports/IEventBus').IEventBus>('IEventBus');
+        const eventBus = container.resolve<import('@domain/ports/platform/IEventBus').IEventBus>('IEventBus');
         observationUnsubscribe = eventBus.on('observation.frame', (payload) => {
             const out: RunOutput = { type: 'observation', frame: payload.frame };
             process.stdout.write(JSON.stringify(serializeRunOutput(out)) + '\n');

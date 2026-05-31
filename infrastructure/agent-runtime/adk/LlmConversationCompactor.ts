@@ -3,9 +3,9 @@ import type {
     IConversationCompactor,
     ConversationTurn,
     CompactionDecision,
-} from '@domain/ports/IConversationCompactor';
-import type { IPromptService } from '@domain/ports/IPromptService';
-import { PromptKey } from '@domain/ports/IPromptService';
+} from '@domain/ports/agent/IConversationCompactor';
+import type { IPromptService } from '@domain/ports/agent/IPromptService';
+import { PromptKey } from '@domain/ports/agent/IPromptService';
 import {
     COMPACTION_TOKEN_THRESHOLD,
     COMPACTION_KEEP_RECENT_TURNS,

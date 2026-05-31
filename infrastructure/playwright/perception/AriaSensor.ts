@@ -1,6 +1,6 @@
 import { injectable } from 'tsyringe';
-import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
-import { ISensor } from '@domain/ports/ISensor';
+import type { IPerceptionSource } from '@domain/ports/perception/IPerceptionSource';
+import { ISensor } from '@domain/ports/perception/ISensor';
 import { CONTENT_READY_TIMEOUT_MS } from '@shared/defaults';
 
 @injectable()

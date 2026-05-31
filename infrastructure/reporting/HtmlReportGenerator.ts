@@ -1,4 +1,4 @@
-import type { IReportGenerator, RunReport } from '@domain/ports/IReportGenerator';
+import type { IReportGenerator, RunReport } from '@domain/ports/reporting/IReportGenerator';
 
 function esc(str: string): string {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

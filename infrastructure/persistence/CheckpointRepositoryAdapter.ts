@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
-import type { ICheckpointRepository } from '@domain/ports/ICheckpointRepository';
+import type { ICheckpointRepository } from '@domain/ports/persistence/ICheckpointRepository';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';

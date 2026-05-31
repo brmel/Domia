@@ -2,7 +2,7 @@ import { FunctionTool, LongRunningFunctionTool } from '@google/adk';
 import { buildToolCatalog } from '../../tools/buildToolCatalog';
 import type { ToolDependencies, ToolSpec } from '../../tools/ToolSpec';
 import type { PostActionCaptureMiddleware } from '../../tools/PostActionCaptureMiddleware';
-import type { IPromptService } from '@domain/ports/IPromptService';
+import type { IPromptService } from '@domain/ports/agent/IPromptService';
 
 function toFunctionTool(spec: ToolSpec): FunctionTool {
     const opts = {

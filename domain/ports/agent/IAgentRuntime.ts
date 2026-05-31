@@ -1,11 +1,11 @@
 import type { AgentAction } from '@domain/value-objects';
 import type { ArtifactRetention } from '@domain/value-objects/ArtifactRetention';
-import type { StepTrace } from './ITraceService';
-import type { PlatformType } from '../types/PlatformConfig';
-import type { IStructuredAutomation } from './IAppAutomation';
-import type { IObservationCoordinator } from './IObservationCoordinator';
-import type { IWindowManager } from './IWindowManager';
-import type { ITabManager } from './ITabManager';
+import type { StepTrace } from '@domain/ports/reporting/ITraceService';
+import type { PlatformType } from '../../types/PlatformConfig';
+import type { IStructuredAutomation } from '@domain/ports/automation/IAppAutomation';
+import type { IObservationCoordinator } from '@domain/ports/perception/IObservationCoordinator';
+import type { IWindowManager } from '@domain/ports/automation/IWindowManager';
+import type { ITabManager } from '@domain/ports/automation/ITabManager';
 
 export type AgentVerdict = 'pass' | 'fail';
 

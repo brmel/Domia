@@ -1,8 +1,8 @@
 import { ResultAsync } from 'neverthrow';
-import { NavigationError, InteractionError } from '../errors';
-import type { Url } from '../value-objects';
-import type { RoleRefMap } from '../value-objects/RoleRef';
-import type { IPerceptionSource } from './IPerceptionSource';
+import { NavigationError, InteractionError } from '../../errors';
+import type { Url } from '../../value-objects';
+import type { RoleRefMap } from '../../value-objects/RoleRef';
+import type { IPerceptionSource } from '@domain/ports/perception/IPerceptionSource';
 
 export interface LaunchOptions {
     readonly headless: boolean;

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ActionType } from '@domain/enums';
-import type { ITabManager } from '@domain/ports/ITabManager';
+import type { ITabManager } from '@domain/ports/automation/ITabManager';
 import type { ToolSpec } from '../ToolSpec';
 import { toolSuccess, toolError, errorMsg } from '../toolResult';
 

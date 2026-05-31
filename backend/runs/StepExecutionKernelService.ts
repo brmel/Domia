@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import type { IStructuredAutomation, ITraceService, IStorageService, ILogger } from '@domain/ports';
 import type { Step } from '@domain/ports';
-import type { IAgentRuntime, AgentOutcome, AgentInput } from '@domain/ports/IAgentRuntime';
+import type { IAgentRuntime, AgentOutcome, AgentInput } from '@domain/ports/agent/IAgentRuntime';
 import { WorkflowError } from '@domain/errors';
 import { WorkflowState } from '@domain/value-objects';
 import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
@@ -10,7 +10,7 @@ import { RunDurabilityService } from './RunDurabilityService';
 import type { RunBudgetLimits } from './RunBudgetPolicyService';
 import type { StepExecutionOptions } from '@backend/platform/platformUrlUtils';
 import type { RunOutput } from '@backend/dto';
-import type { IRunRepository } from '@domain/ports/IRunRepository';
+import type { IRunRepository } from '@domain/ports/persistence/IRunRepository';
 import type { ExecutionController } from '@backend/ExecutionController';
 import { DEFAULT_MAX_ACTIONS } from '@shared/defaults';
 import { randomUUID } from 'crypto';

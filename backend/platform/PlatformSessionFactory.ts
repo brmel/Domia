@@ -2,7 +2,7 @@ import { inject, injectable } from 'tsyringe';
 import type { RunInput } from '@backend/dto';
 import type { ILogger, IStructuredAutomation } from '@domain/ports';
 import { WorkflowError } from '@domain/errors';
-import type { IAppDriverFactory, AppDriverCreateOptions } from '@domain/ports/IAppDriverFactory';
+import type { IAppDriverFactory, AppDriverCreateOptions } from '@domain/ports/automation/IAppDriverFactory';
 import type { PlatformSession } from './PlatformSession';
 import { resolveUrlFromConfig } from './platformUrlUtils';
 

@@ -13,7 +13,7 @@ import {
     POLL_TIMEOUT_SNAPSHOT_CHARS,
 } from '@shared/defaults';
 import { toolError, toolSuccess } from '../toolResult';
-import type { IObservationCoordinator } from '@domain/ports/IObservationCoordinator';
+import type { IObservationCoordinator } from '@domain/ports/perception/IObservationCoordinator';
 
 export function createPollingTools(
     automation: IStructuredAutomation,

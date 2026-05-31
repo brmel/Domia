@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import { container } from 'tsyringe';
 import chalk from 'chalk';
 import { IPersistenceAdapter } from '@domain/ports';
-import type { IStorageService } from '@domain/ports/IStorageService';
+import type { IStorageService } from '@domain/ports/persistence/IStorageService';
 import { CLI_DEFAULT_LIST_LIMIT } from '@shared/defaults';
 import { DEFAULT_REPORT_OUTPUT_DIR } from '@shared/defaults/tools.defaults';
 import inquirer from 'inquirer';

@@ -82,7 +82,7 @@ export class RunCommand {
 
                 const { headless } = options;
 
-                const configService = container.resolve<import('@domain/ports/IConfigService').IConfigService>('IConfigService');
+                const configService = container.resolve<import('@domain/ports/platform/IConfigService').IConfigService>('IConfigService');
                 const currentConfig = configService.get();
                 const resolvedModel = model || currentConfig.ai.model;
                 const resolvedApiKey = apiKey || currentConfig.ai.apiKey;

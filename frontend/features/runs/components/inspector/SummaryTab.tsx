@@ -1,6 +1,6 @@
 import { getThought } from '@frontend/lib/actionUtils';
 import { EmptyState } from '@frontend/ui/EmptyState';
-import type { Step } from '@domain/ports/IRunRepository';
+import type { Step } from '@domain/ports/persistence/IRunRepository';
 import { SectionBar } from './inspectorPrimitives';
 
 export function SummaryTab({ stepDetail, beforeScreenshot }: {

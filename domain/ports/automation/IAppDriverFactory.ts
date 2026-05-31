@@ -1,5 +1,5 @@
-import type { IAppDriver } from './IAppDriver';
-import type { PlatformConfig, PlatformType } from '../types/PlatformConfig';
+import type { IAppDriver } from '@domain/ports/automation/IAppDriver';
+import type { PlatformConfig, PlatformType } from '../../types/PlatformConfig';
 
 export interface AppDriverCreateOptions {
     headless?: boolean;

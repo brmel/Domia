@@ -10,8 +10,8 @@ import {
     type PromptOverrides,
 } from '@shared/contracts/config';
 
-import { IConfigService } from '@domain/ports/IConfigService';
-import type { ILogger } from '@domain/ports/ILogger';
+import { IConfigService } from '@domain/ports/platform/IConfigService';
+import type { ILogger } from '@domain/ports/platform/ILogger';
 import { CONFIG_FILE_NAME } from '@shared/defaults';
 
 @injectable()

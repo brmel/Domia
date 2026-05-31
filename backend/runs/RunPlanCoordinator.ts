@@ -2,7 +2,7 @@ import { injectable } from 'tsyringe';
 import { nanoid } from 'nanoid';
 import { WorkflowState } from '@domain/value-objects';
 import { Plan, PlanItem } from '@domain/entities/Plan';
-import type { AgentOutcome } from '@domain/ports/IAgentRuntime';
+import type { AgentOutcome } from '@domain/ports/agent/IAgentRuntime';
 import { isOutcomeSuccessful } from './outcomes';
 
 interface BuiltPlan {

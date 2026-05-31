@@ -1,6 +1,6 @@
 import { inject, injectable } from 'tsyringe';
 import { randomUUID } from 'crypto';
-import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
+import type { IWorkflowRepository } from '@domain/ports/persistence/IWorkflowRepository';
 import type { ILogger } from '@domain/ports';
 import type { WorkflowDefinition, WorkflowStepDefinition } from '@domain/entities/Workflow';
 import type { PlatformConfig } from '@domain/types/PlatformConfig';

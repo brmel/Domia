@@ -1,8 +1,8 @@
 import type { IStructuredAutomation } from '@domain/ports';
-import type { IAppDriver, ObservationFactoryDeps } from '@domain/ports/IAppDriver';
-import type { IObservationSampler } from '@domain/ports/IObservationSampler';
-import type { IObservationStream } from '@domain/ports/IObservationStream';
-import type { AgentRuntimeExtras } from '@domain/ports/IAgentRuntime';
+import type { IAppDriver, ObservationFactoryDeps } from '@domain/ports/automation/IAppDriver';
+import type { IObservationSampler } from '@domain/ports/perception/IObservationSampler';
+import type { IObservationStream } from '@domain/ports/perception/IObservationStream';
+import type { AgentRuntimeExtras } from '@domain/ports/agent/IAgentRuntime';
 
 export interface PlatformSession {
     readonly executionUrl: string;

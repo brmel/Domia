@@ -1,10 +1,10 @@
 import { ResultAsync, errAsync } from 'neverthrow';
 import type { Browser } from 'playwright';
 import type { ChildProcess } from 'child_process';
-import { IAppDriver, AppCapabilities } from '@domain/ports/IAppDriver';
+import { IAppDriver, AppCapabilities } from '@domain/ports/automation/IAppDriver';
 import type { ILogger, IStructuredAutomation } from '@domain/ports';
-import type { AgentRuntimeExtras } from '@domain/ports/IAgentRuntime';
-import type { IWindowManager } from '@domain/ports/IWindowManager';
+import type { AgentRuntimeExtras } from '@domain/ports/agent/IAgentRuntime';
+import type { IWindowManager } from '@domain/ports/automation/IWindowManager';
 import { NavigationError } from '@domain/errors';
 import { CDP_DEFAULT_URL, WINDOW_WAIT_TIMEOUT_MS, WINDOW_POLL_INTERVAL_MS } from '@shared/defaults';
 import { CDPValidator } from '@domain/CDPValidator';
@@ -15,9 +15,9 @@ import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
 import { PlaywrightAdapter } from '../PlaywrightAdapter';
 import { PlaywrightSampler } from '../observation/PlaywrightSampler';
 import { PlaywrightStream } from '../observation/PlaywrightStream';
-import type { ObservationFactoryDeps } from '@domain/ports/IAppDriver';
-import type { IObservationSampler } from '@domain/ports/IObservationSampler';
-import type { IObservationStream } from '@domain/ports/IObservationStream';
+import type { ObservationFactoryDeps } from '@domain/ports/automation/IAppDriver';
+import type { IObservationSampler } from '@domain/ports/perception/IObservationSampler';
+import type { IObservationStream } from '@domain/ports/perception/IObservationStream';
 
 export class ElectronDriver implements IAppDriver {
     private static readonly TAG = '[ElectronDriver]';

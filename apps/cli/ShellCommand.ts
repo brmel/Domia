@@ -1,8 +1,8 @@
 import { Command } from 'commander';
 import { container } from 'tsyringe';
 import chalk from 'chalk';
-import type { IConfigService } from '@domain/ports/IConfigService';
-import type { IShellPolicy } from '@domain/ports/IShellPolicy';
+import type { IConfigService } from '@domain/ports/platform/IConfigService';
+import type { IShellPolicy } from '@domain/ports/automation/IShellPolicy';
 
 export class ShellCommand {
     static register(program: Command): void {

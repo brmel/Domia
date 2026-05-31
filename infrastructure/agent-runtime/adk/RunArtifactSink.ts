@@ -1,4 +1,4 @@
-import type { IStorageService } from '@domain/ports/IStorageService';
+import type { IStorageService } from '@domain/ports/persistence/IStorageService';
 import type { ILogger } from '@domain/ports';
 import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import type { ActionRecordingData } from '@domain/types/ActionRecordingTypes';

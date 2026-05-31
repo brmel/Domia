@@ -1,6 +1,6 @@
 import { injectable } from 'tsyringe';
 import { pino, type Logger as PinoLogger, type LevelWithSilent } from 'pino';
-import { ILogger } from '@domain/ports/ILogger';
+import { ILogger } from '@domain/ports/platform/ILogger';
 import { LogLevel } from '@domain/enums';
 
 const LEVEL_TO_PINO: Record<LogLevel, LevelWithSilent> = {

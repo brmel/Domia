@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
 import type { Skill } from '@domain/entities/Skill';
-import type { ISkillRepository } from '@domain/ports/ISkillRepository';
+import type { ISkillRepository } from '@domain/ports/persistence/ISkillRepository';
 import { PersistenceError } from '@domain/errors';
 import { SqlJsConnection } from './SqlJsConnection';
 

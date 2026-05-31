@@ -1,5 +1,5 @@
 import { inject, injectable } from 'tsyringe';
-import type { ISkillRepository } from '@domain/ports/ISkillRepository';
+import type { ISkillRepository } from '@domain/ports/persistence/ISkillRepository';
 import type { Skill, SkillStep, SkillParameter } from '@domain/entities/Skill';
 import { Skill as SkillFactory } from '@domain/entities/Skill';
 import { SkillIdFactory, type SkillId } from '@domain/value-objects';

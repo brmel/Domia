@@ -1,8 +1,8 @@
 import type { IPerceptionPipeline, IStructuredAutomation } from '@domain/ports';
-import type { IConfigService } from '@domain/ports/IConfigService';
-import type { IObservationCoordinator } from '@domain/ports/IObservationCoordinator';
-import type { IWindowManager } from '@domain/ports/IWindowManager';
-import type { AgentInput } from '@domain/ports/IAgentRuntime';
+import type { IConfigService } from '@domain/ports/platform/IConfigService';
+import type { IObservationCoordinator } from '@domain/ports/perception/IObservationCoordinator';
+import type { IWindowManager } from '@domain/ports/automation/IWindowManager';
+import type { AgentInput } from '@domain/ports/agent/IAgentRuntime';
 import type { ToolDependencies } from '@infrastructure/tools/ToolSpec';
 import type { ShellExecutor } from '@infrastructure/shell/ShellExecutor';
 import { ShellCommandPolicyService } from '@infrastructure/shell/ShellCommandPolicyService';

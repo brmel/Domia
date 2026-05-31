@@ -1,6 +1,6 @@
 import { inject, injectable } from 'tsyringe';
-import type { IPluginRegistry } from '@domain/ports/IPluginRegistry';
-import type { IConfigService } from '@domain/ports/IConfigService';
+import type { IPluginRegistry } from '@domain/ports/plugins/IPluginRegistry';
+import type { IConfigService } from '@domain/ports/platform/IConfigService';
 
 interface PluginInfo {
     readonly name: string;

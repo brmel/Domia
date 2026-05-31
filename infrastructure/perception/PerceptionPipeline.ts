@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync, errAsync } from 'neverthrow';
-import { IPerceptionPipeline } from '@domain/ports/IPerceptionPipeline';
-import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
+import { IPerceptionPipeline } from '@domain/ports/perception/IPerceptionPipeline';
+import type { IPerceptionSource } from '@domain/ports/perception/IPerceptionSource';
 import type { ILogger } from '@domain/ports';
 import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import { SnapshotError } from '@domain/errors';
@@ -21,7 +21,7 @@ export class PerceptionPipeline implements IPerceptionPipeline {
 
     capture(
         source: IPerceptionSource,
-        options: import('@domain/ports/IPerceptionPipeline').PerceptionOptions = { vision: true, aria: true }
+        options: import('@domain/ports/perception/IPerceptionPipeline').PerceptionOptions = { vision: true, aria: true }
     ): ResultAsync<PerceptionFrame, SnapshotError> {
         const start = Date.now();
         this.logger.info(`[PerceptionPipeline] Starting capture (vision=${!!options.vision}, aria=${options.aria !== false})`);

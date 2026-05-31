@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
+import type { IPerceptionSource } from '@domain/ports/perception/IPerceptionSource';
 import type { ILogger } from '@domain/ports';
 import { DEFAULT_MAX_SCROLL_SCREENSHOTS, SCROLL_OVERLAP_PX, SCROLL_CAPTURE_QUALITY } from '@shared/defaults';
 

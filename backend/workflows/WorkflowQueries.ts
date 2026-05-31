@@ -1,5 +1,5 @@
 import { inject, injectable } from 'tsyringe';
-import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
+import type { IWorkflowRepository } from '@domain/ports/persistence/IWorkflowRepository';
 import { DEFAULT_WORKFLOWS_QUERY_LIMIT } from '@shared/defaults';
 
 @injectable()

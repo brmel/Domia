@@ -1,5 +1,5 @@
 import { inject, injectable } from 'tsyringe';
-import type { IRunRepository } from '@domain/ports/IRunRepository';
+import type { IRunRepository } from '@domain/ports/persistence/IRunRepository';
 import type { SkillStep } from '@domain/entities/Skill';
 import { ActionType } from '@domain/enums';
 

@@ -1,6 +1,6 @@
 import { inject, injectable } from 'tsyringe';
-import type { IRunReportWriter } from '@domain/ports/IRunReportWriter';
-import type { IConfigService } from '@domain/ports/IConfigService';
+import type { IRunReportWriter } from '@domain/ports/reporting/IRunReportWriter';
+import type { IConfigService } from '@domain/ports/platform/IConfigService';
 
 @injectable()
 export class RunReportingService {

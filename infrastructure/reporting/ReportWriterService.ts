@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { IReportGenerator, RunReport } from '@domain/ports/IReportGenerator';
-import type { IRunRepository } from '@domain/ports/IRunRepository';
+import type { IReportGenerator, RunReport } from '@domain/ports/reporting/IReportGenerator';
+import type { IRunRepository } from '@domain/ports/persistence/IRunRepository';
 
 export class ReportWriterService {
     private readonly generators: Map<string, IReportGenerator>;

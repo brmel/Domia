@@ -1,6 +1,6 @@
 import type { ObservationFrame } from '@domain/value-objects/ObservationFrame';
 import type { ObservationProfile } from '@domain/value-objects/ObservationProfile';
-import type { FrameHandler, FrameSubscription } from '@domain/ports/IObservationStream';
+import type { FrameHandler, FrameSubscription } from '@domain/ports/perception/IObservationStream';
 
 /**
  * WHY: the observation coordinator is a backend orchestrator, but it is consumed

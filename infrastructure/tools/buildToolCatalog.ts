@@ -1,5 +1,5 @@
 import type { ToolDependencies, ToolSpec } from './ToolSpec';
-import type { IPromptService } from '@domain/ports/IPromptService';
+import type { IPromptService } from '@domain/ports/agent/IPromptService';
 import { PostActionCaptureMiddleware } from './PostActionCaptureMiddleware';
 import { ActionRecordingService } from '../ActionRecordingService';
 import { createInteractionTools } from './catalog/interaction.tools';

@@ -1,5 +1,5 @@
 import { inject, injectable } from 'tsyringe';
-import type { IRunRepository } from '@domain/ports/IRunRepository';
+import type { IRunRepository } from '@domain/ports/persistence/IRunRepository';
 import type { PlatformConfig } from '@domain/types/PlatformConfig';
 import type { RunId } from '@domain/value-objects';
 import type { RunInput } from '@backend/dto';

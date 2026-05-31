@@ -5,9 +5,9 @@ import type { PathsConfigProvider } from '@shared/contracts/config';
 import { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import type { ConversationSnapshot } from '@domain/value-objects/ConversationSnapshot';
 
-import type { StepTrace } from '@domain/ports/ITraceService';
+import type { StepTrace } from '@domain/ports/reporting/ITraceService';
 import type { ActionRecordingData } from '@domain/types/ActionRecordingTypes';
-import { IStorageService, StepArtifacts } from '@domain/ports/IStorageService';
+import { IStorageService, StepArtifacts } from '@domain/ports/persistence/IStorageService';
 
 @injectable()
 export class FileSystemStorage implements IStorageService {

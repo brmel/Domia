@@ -1,4 +1,4 @@
-import type { IShellPolicy, ShellPolicyDecision } from '@domain/ports/IShellPolicy';
+import type { IShellPolicy, ShellPolicyDecision } from '@domain/ports/automation/IShellPolicy';
 import { DEFAULT_SHELL_DENY_PATTERNS } from '@shared/defaults';
 
 export class ShellCommandPolicyService implements IShellPolicy {

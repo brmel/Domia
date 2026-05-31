@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
-import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
-import { ISensor } from '@domain/ports/ISensor';
+import type { IPerceptionSource } from '@domain/ports/perception/IPerceptionSource';
+import { ISensor } from '@domain/ports/perception/ISensor';
 import { SmartScrollCapture } from '@infrastructure/playwright/perception/SmartScrollCapture';
 
 

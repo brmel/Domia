@@ -1,5 +1,5 @@
 import { inject, injectable } from 'tsyringe';
-import type { IEventBus } from '@domain/ports/IEventBus';
+import type { IEventBus } from '@domain/ports/platform/IEventBus';
 import type { ILogger } from '@domain/ports';
 
 @injectable()

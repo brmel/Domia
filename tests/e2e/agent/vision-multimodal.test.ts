@@ -25,7 +25,7 @@ import { okAsync } from 'neverthrow';
 import { ReplayLlm, type ReplayCache } from '@infrastructure/agent-runtime/adk/ReplayLlm';
 import type { IAdkLlmFactory, AdkLlmFactoryInput } from '@infrastructure/agent-runtime/adk/IAdkLlmFactory';
 import type { LlmResponse, BaseLlm } from '@google/adk';
-import type { AgentInput, AgentOutcome, AgentEvent } from '@domain/ports/IAgentRuntime';
+import type { AgentInput, AgentOutcome, AgentEvent } from '@domain/ports/agent/IAgentRuntime';
 import { UrlFactory } from '@domain/value-objects/Brand';
 import { LlmReplay } from '../../support/llmReplay';
 

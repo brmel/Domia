@@ -1,9 +1,9 @@
 import { inject, injectable } from 'tsyringe';
-import type { ISkillPlayback, SkillPlaybackContext, SkillPlaybackOutcome, SkillShellExecutor } from '@domain/ports/ISkillPlayback';
-import type { ISkillRepository } from '@domain/ports/ISkillRepository';
-import type { IConfigService } from '@domain/ports/IConfigService';
+import type { ISkillPlayback, SkillPlaybackContext, SkillPlaybackOutcome, SkillShellExecutor } from '@domain/ports/plugins/ISkillPlayback';
+import type { ISkillRepository } from '@domain/ports/persistence/ISkillRepository';
+import type { IConfigService } from '@domain/ports/platform/IConfigService';
 import type { ILogger } from '@domain/ports';
-import type { IShellPolicy } from '@domain/ports/IShellPolicy';
+import type { IShellPolicy } from '@domain/ports/automation/IShellPolicy';
 import { PlatformSessionFactory } from '@backend/platform/PlatformSessionFactory';
 import type { RunInput } from '@backend/dto';
 

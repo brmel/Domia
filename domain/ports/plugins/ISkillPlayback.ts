@@ -1,6 +1,6 @@
 import type { Skill } from '@domain/entities/Skill';
-import type { IStructuredAutomation } from '@domain/ports/IAppAutomation';
-import type { IShellPolicy } from '@domain/ports/IShellPolicy';
+import type { IStructuredAutomation } from '@domain/ports/automation/IAppAutomation';
+import type { IShellPolicy } from '@domain/ports/automation/IShellPolicy';
 
 interface ShellStream {
     readonly content: string;

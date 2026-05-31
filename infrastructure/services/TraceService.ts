@@ -1,5 +1,5 @@
 import { injectable } from 'tsyringe';
-import type { ITraceService } from '@domain/ports/ITraceService';
+import type { ITraceService } from '@domain/ports/reporting/ITraceService';
 
 @injectable()
 export class TraceService implements ITraceService {

@@ -1,5 +1,5 @@
 import { container } from 'tsyringe';
-import type { IRunReportWriter } from '@domain/ports/IRunReportWriter';
+import type { IRunReportWriter } from '@domain/ports/reporting/IRunReportWriter';
 
 export function createReportWriter(): IRunReportWriter {
     return container.resolve<IRunReportWriter>('IRunReportWriter');

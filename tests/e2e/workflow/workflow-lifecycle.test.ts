@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { okAsync } from 'neverthrow';
 import { WorkflowDefinitionService } from '@backend/workflows/WorkflowDefinitionService';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
-import type { AtomicWorkflowTransitionInput } from '@domain/ports/IWorkflowRepository';
+import type { AtomicWorkflowTransitionInput } from '@domain/ports/persistence/IWorkflowRepository';
 import type { ResultAsync } from 'neverthrow';
 
 type InMemoryWorkflowPersistence = {

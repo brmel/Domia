@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ActionType } from '@domain/enums';
 import type { ToolSpec } from '../ToolSpec';
 import type { ShellExecutor } from '../../shell/ShellExecutor';
-import type { IShellPolicy } from '@domain/ports/IShellPolicy';
+import type { IShellPolicy } from '@domain/ports/automation/IShellPolicy';
 import { DEFAULT_SHELL_TIMEOUT_MS } from '@shared/defaults';
 import { TOOL_SUCCESS, TOOL_ERROR } from '../toolResult';
 

@@ -2,7 +2,7 @@ import { ResultAsync } from 'neverthrow';
 import { Kysely } from 'kysely';
 import type { Skill } from '@domain/entities/Skill';
 import type { SkillId } from '@domain/value-objects';
-import type { ISkillRepository } from '@domain/ports/ISkillRepository';
+import type { ISkillRepository } from '@domain/ports/persistence/ISkillRepository';
 import { PersistenceError } from '@domain/errors';
 import type { DatabaseSchema, SkillTable } from './DatabaseSchema';
 import { dbOp } from './dbOp';

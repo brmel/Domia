@@ -1,4 +1,4 @@
-import type { DomainEvents, DomainEventName } from '../events';
+import type { DomainEvents, DomainEventName } from '../../events';
 
 export interface IEventBus {
     emit<K extends DomainEventName>(name: K, payload: DomainEvents[K]): void;

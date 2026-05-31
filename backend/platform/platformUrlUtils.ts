@@ -3,7 +3,7 @@ import type { RunOptions } from '@shared/contracts/run';
 import { normalizeWebUrl } from '@shared/contracts/platform';
 import { DEFAULT_MAX_ACTIONS } from '@shared/defaults';
 import { ArtifactRetention, DEFAULT_ARTIFACT_RETENTION } from '@domain/value-objects/ArtifactRetention';
-import type { AgentRuntimeExtras } from '@domain/ports/IAgentRuntime';
+import type { AgentRuntimeExtras } from '@domain/ports/agent/IAgentRuntime';
 
 export interface StepExecutionOptions {
     vision: boolean;

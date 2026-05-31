@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { ActionType } from '@domain/enums';
 import type { PlatformType } from '@domain/types/PlatformConfig';
 import type { ToolResult } from '@domain/types/ToolTypes';
-import type { PluginName } from '@domain/ports/IPlugin';
+import type { PluginName } from '@domain/ports/plugins/IPlugin';
 import {
     PluginCapability,
     ALLOWED_PLUGIN_CAPABILITIES,

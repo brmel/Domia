@@ -1,7 +1,7 @@
 import { BasePlugin, type BaseTool, type ToolContext } from '@google/adk';
 import type { ILogger } from '@domain/ports';
 import type { RunId } from '@domain/value-objects';
-import type { IRunHealthMonitor } from '@domain/ports/IRunHealthMonitor';
+import type { IRunHealthMonitor } from '@domain/ports/reporting/IRunHealthMonitor';
 
 const LOG_TAG = '[RunMetricsPlugin]';
 

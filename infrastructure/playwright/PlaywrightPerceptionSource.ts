@@ -1,5 +1,5 @@
 import type { Page } from 'playwright';
-import type { IPerceptionSource, ScreenshotOptions } from '@domain/ports/IPerceptionSource';
+import type { IPerceptionSource, ScreenshotOptions } from '@domain/ports/perception/IPerceptionSource';
 import { DEFAULT_SCREENSHOT_QUALITY, CONTENT_READY_TIMEOUT_MS } from '@shared/defaults';
 
 export class PlaywrightPerceptionSource implements IPerceptionSource {

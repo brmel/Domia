@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ActionType } from '@domain/enums';
 import type { ToolSpec } from '../ToolSpec';
-import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
+import type { IPerceptionSource } from '@domain/ports/perception/IPerceptionSource';
 import { MAX_MUTATION_LOG_ENTRIES, MAX_RECORDING_UNIQUE_VALUES, RECORDING_TIMELINE_ENTRIES } from '@shared/defaults';
 import { errorMsg } from '../toolResult';
 

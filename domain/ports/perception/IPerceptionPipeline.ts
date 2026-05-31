@@ -1,7 +1,7 @@
 import { ResultAsync } from 'neverthrow';
-import { SnapshotError } from '../errors';
-import { PerceptionFrame } from '../value-objects/PerceptionFrame';
-import type { IPerceptionSource } from './IPerceptionSource';
+import { SnapshotError } from '../../errors';
+import { PerceptionFrame } from '../../value-objects/PerceptionFrame';
+import type { IPerceptionSource } from '@domain/ports/perception/IPerceptionSource';
 
 export interface PerceptionOptions {
     vision?: boolean;

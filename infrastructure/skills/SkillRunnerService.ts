@@ -1,13 +1,13 @@
 import { inject, injectable } from 'tsyringe';
 import { z } from 'zod';
 import { errAsync, okAsync, type Result, type ResultAsync } from 'neverthrow';
-import type { ISkillRepository } from '@domain/ports/ISkillRepository';
+import type { ISkillRepository } from '@domain/ports/persistence/ISkillRepository';
 import type { Skill, SkillStep } from '@domain/entities/Skill';
 import type {
     ISkillPlayback,
     SkillPlaybackContext,
     SkillPlaybackOutcome,
-} from '@domain/ports/ISkillPlayback';
+} from '@domain/ports/plugins/ISkillPlayback';
 import type { ToolSpec, ToolDependencies } from '../tools/ToolSpec';
 import { ActionType } from '@domain/enums';
 import type { ToolResult } from '@domain/types/ToolTypes';

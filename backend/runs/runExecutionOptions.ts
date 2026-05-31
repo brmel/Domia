@@ -1,8 +1,8 @@
 import { buildExecutionOptions, type StepExecutionOptions } from '@backend/platform/platformUrlUtils';
 import type { RunOptions } from '@shared/contracts/run';
 import type { PlatformType } from '@domain/types/PlatformConfig';
-import type { AgentRuntimeExtras } from '@domain/ports/IAgentRuntime';
-import type { IObservationCoordinator } from '@domain/ports/IObservationCoordinator';
+import type { AgentRuntimeExtras } from '@domain/ports/agent/IAgentRuntime';
+import type { IObservationCoordinator } from '@domain/ports/perception/IObservationCoordinator';
 import type { ExecutionController } from '@backend/ExecutionController';
 
 /**

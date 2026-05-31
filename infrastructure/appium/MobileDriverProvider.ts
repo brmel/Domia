@@ -1,10 +1,10 @@
 import { inject, injectable } from 'tsyringe';
 import type { ILogger } from '@domain/ports';
-import type { IAppDriver, AppCapabilities } from '@domain/ports/IAppDriver';
-import type { IAppDriverProvider, AppDriverCreateConfig } from '@domain/ports/IAppDriverFactory';
+import type { IAppDriver, AppCapabilities } from '@domain/ports/automation/IAppDriver';
+import type { IAppDriverProvider, AppDriverCreateConfig } from '@domain/ports/automation/IAppDriverFactory';
 import type { IStructuredAutomation } from '@domain/ports';
-import type { IObservationSampler } from '@domain/ports/IObservationSampler';
-import type { IObservationStream } from '@domain/ports/IObservationStream';
+import type { IObservationSampler } from '@domain/ports/perception/IObservationSampler';
+import type { IObservationStream } from '@domain/ports/perception/IObservationStream';
 import { AppiumAdapter } from './AppiumAdapter';
 import { AppiumSampler } from './observation/AppiumSampler';
 import { AppiumStream } from './observation/AppiumStream';
@@ -44,7 +44,7 @@ class MobileAppDriver implements IAppDriver {
     getAutomation(): IStructuredAutomation {
         return this.adapter;
     }
-    getSessionExtras(): import('@domain/ports/IAgentRuntime').AgentRuntimeExtras | undefined {
+    getSessionExtras(): import('@domain/ports/agent/IAgentRuntime').AgentRuntimeExtras | undefined {
         return undefined;
     }
     createObservationSampler(): IObservationSampler {

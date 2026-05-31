@@ -1,6 +1,6 @@
 import { inject, injectable } from 'tsyringe';
 import type { WorkflowEvent } from '@domain/WorkflowEvent';
-import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
+import type { IWorkflowRepository } from '@domain/ports/persistence/IWorkflowRepository';
 import type { ILogger } from '@domain/ports';
 import { RunState } from '@domain/enums';
 import { ExecutionController } from '@backend/ExecutionController';

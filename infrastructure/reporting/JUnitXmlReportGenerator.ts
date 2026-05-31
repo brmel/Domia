@@ -1,5 +1,5 @@
 import builder from 'junit-report-builder';
-import type { IReportGenerator, RunReport } from '@domain/ports/IReportGenerator';
+import type { IReportGenerator, RunReport } from '@domain/ports/reporting/IReportGenerator';
 
 export class JUnitXmlReportGenerator implements IReportGenerator {
     readonly format = 'junit';

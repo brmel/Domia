@@ -20,8 +20,8 @@ import { WorkflowState } from '@domain/value-objects/WorkflowState';
 import { ConsoleLogger } from '@infrastructure/ConsoleLogger';
 import { createInMemoryDb } from '../../support/tempDb';
 import type { ConversationSnapshot } from '@domain/value-objects/ConversationSnapshot';
-import type { IAgentRuntime, AgentInput } from '@domain/ports/IAgentRuntime';
-import type { IEventBus } from '@domain/ports/IEventBus';
+import type { IAgentRuntime, AgentInput } from '@domain/ports/agent/IAgentRuntime';
+import type { IEventBus } from '@domain/ports/platform/IEventBus';
 import type { ITraceService } from '@domain/ports';
 
 function fakeRuntime(): IAgentRuntime & { sessions: Map<string, unknown[]>; restoreCount: number } {

@@ -1,13 +1,13 @@
 import { inject, injectable } from 'tsyringe';
-import type { AgentRuntimeExtras } from '@domain/ports/IAgentRuntime';
+import type { AgentRuntimeExtras } from '@domain/ports/agent/IAgentRuntime';
 import type { RunInput } from '@backend/dto';
 import type { ILogger, IStructuredAutomation } from '@domain/ports';
 import { SessionError } from '@domain/errors';
 import { PlatformSessionFactory } from '@backend/platform/PlatformSessionFactory';
 import type { PlatformSession } from '@backend/platform/PlatformSession';
-import type { ObservationFactoryDeps } from '@domain/ports/IAppDriver';
-import type { IObservationSampler } from '@domain/ports/IObservationSampler';
-import type { IObservationStream } from '@domain/ports/IObservationStream';
+import type { ObservationFactoryDeps } from '@domain/ports/automation/IAppDriver';
+import type { IObservationSampler } from '@domain/ports/perception/IObservationSampler';
+import type { IObservationStream } from '@domain/ports/perception/IObservationStream';
 
 export interface RunExecutionContext {
     readonly session?: PlatformSession;

@@ -1,5 +1,5 @@
 import { inject, injectable } from 'tsyringe';
-import type { ICheckpointRepository } from '@domain/ports/ICheckpointRepository';
+import type { ICheckpointRepository } from '@domain/ports/persistence/ICheckpointRepository';
 import type { ILogger } from '@domain/ports';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { CheckpointReason } from '@domain/value-objects/CheckpointReason';

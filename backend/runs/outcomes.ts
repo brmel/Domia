@@ -1,4 +1,4 @@
-import type { AgentOutcome } from '@domain/ports/IAgentRuntime';
+import type { AgentOutcome } from '@domain/ports/agent/IAgentRuntime';
 
 export function isOutcomeSuccessful(outcome: AgentOutcome): boolean {
     if (outcome.kind === 'error') return false;

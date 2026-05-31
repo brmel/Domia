@@ -1,7 +1,7 @@
 import { ResultAsync, okAsync, errAsync } from 'neverthrow';
 import { type Browser, type BrowserContext, type Page, type Locator } from 'playwright';
 import type { IStructuredAutomation, LaunchOptions, ILogger, IPerceptionSource } from '@domain/ports';
-import type { ITabManager, TabInfo } from '@domain/ports/ITabManager';
+import type { ITabManager, TabInfo } from '@domain/ports/automation/ITabManager';
 import type { Url } from '@domain/value-objects';
 import type { RoleRefMap } from '@domain/value-objects/RoleRef';
 import { NavigationError, InteractionError } from '@domain/errors';

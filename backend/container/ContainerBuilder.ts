@@ -1,6 +1,6 @@
 import { container } from 'tsyringe';
 import { ConfigService } from '@infrastructure/ConfigService';
-import type { IConfigService } from '@domain/ports/IConfigService';
+import type { IConfigService } from '@domain/ports/platform/IConfigService';
 import { SqlJsConnection } from '@infrastructure/persistence/SqlJsConnection';
 import { RunRepositoryAdapter } from '@infrastructure/persistence/RunRepositoryAdapter';
 import { CheckpointRepositoryAdapter } from '@infrastructure/persistence/CheckpointRepositoryAdapter';
@@ -58,7 +58,7 @@ import { WorkflowQueries } from '@backend/workflows/WorkflowQueries';
 import { EventLogger } from '@infrastructure/observability/EventLogger';
 import { OtelEventExporter } from '@infrastructure/observability/OtelEventExporter';
 import { installAdkLoggerAdapter } from '@infrastructure/agent-runtime/adk/AdkLoggerAdapter';
-import type { ILogger } from '@domain/ports/ILogger';
+import type { ILogger } from '@domain/ports/platform/ILogger';
 import { PluginsAppService } from '@backend/plugins/PluginsAppService';
 import { RunReportingService } from '@backend/runs/RunReportingService';
 import { RunReplayService } from '@backend/runs/RunReplayService';
@@ -69,7 +69,7 @@ import { SkillPlaybackService } from '@backend/skills/SkillPlaybackService';
 import { SkillRunnerService } from '@infrastructure/skills/SkillRunnerService';
 import { SkillRepositoryAdapter } from '@infrastructure/persistence/SkillRepositoryAdapter';
 import { ShellCommandPolicyService } from '@infrastructure/shell/ShellCommandPolicyService';
-import type { IShellPolicy } from '@domain/ports/IShellPolicy';
+import type { IShellPolicy } from '@domain/ports/automation/IShellPolicy';
 
 export class ContainerBuilder {
     registerCore(): this {

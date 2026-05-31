@@ -1,5 +1,5 @@
 import type { Database as SqlJsDatabase } from 'sql.js';
-import type { AtomicWorkflowTransitionInput } from '@domain/ports/IWorkflowRepository';
+import type { AtomicWorkflowTransitionInput } from '@domain/ports/persistence/IWorkflowRepository';
 
 /**
  * Hand-rolled BEGIN/COMMIT/ROLLBACK that updates a workflow_step_run and its workflow_run

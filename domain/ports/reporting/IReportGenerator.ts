@@ -1,5 +1,5 @@
 import type { Run } from '@domain/entities/Run';
-import type { Step } from './IRunRepository';
+import type { Step } from '@domain/ports/persistence/IRunRepository';
 
 export interface RunReport {
     readonly run: Run;

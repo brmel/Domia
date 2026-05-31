@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
-import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
-import type { AtomicWorkflowTransitionInput } from '@domain/ports/IWorkflowRepository';
+import type { IWorkflowRepository } from '@domain/ports/persistence/IWorkflowRepository';
+import type { AtomicWorkflowTransitionInput } from '@domain/ports/persistence/IWorkflowRepository';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
 import { PersistenceError } from '@domain/errors';
 import { SqlJsConnection } from './SqlJsConnection';

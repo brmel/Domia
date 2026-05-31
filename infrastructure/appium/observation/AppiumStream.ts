@@ -1,4 +1,4 @@
-import type { IObservationStream, ObservationStreamHandle, FrameHandler, FrameSubscription } from '@domain/ports/IObservationStream';
+import type { IObservationStream, ObservationStreamHandle, FrameHandler, FrameSubscription } from '@domain/ports/perception/IObservationStream';
 import type { ObservationFrame } from '@domain/value-objects/ObservationFrame';
 import type { RunId } from '@domain/value-objects';
 import type { ObservationProfile } from '@domain/value-objects/ObservationProfile';

@@ -2,7 +2,7 @@ import { inject, injectable } from 'tsyringe';
 import { WorkflowState } from '@domain/value-objects';
 import type { RunId } from '@domain/value-objects/Brand';
 import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
-import type { AgentOutcome } from '@domain/ports/IAgentRuntime';
+import type { AgentOutcome } from '@domain/ports/agent/IAgentRuntime';
 import { RunState } from '@domain/enums';
 import { RunDurabilityService } from './RunDurabilityService';
 import { RunLifecycleManager } from './RunLifecycleManager';

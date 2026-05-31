@@ -1,8 +1,8 @@
 import { Command } from 'commander';
 import { container } from 'tsyringe';
 import chalk from 'chalk';
-import type { IConfigService } from '@domain/ports/IConfigService';
-import type { IPromptService } from '@domain/ports/IPromptService';
+import type { IConfigService } from '@domain/ports/platform/IConfigService';
+import type { IPromptService } from '@domain/ports/agent/IPromptService';
 
 const getConfig = () => container.resolve<IConfigService>('IConfigService');
 const getPrompts = () => container.resolve<IPromptService>('IPromptService');

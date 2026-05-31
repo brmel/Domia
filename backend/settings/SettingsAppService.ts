@@ -1,6 +1,6 @@
 import { inject, injectable } from 'tsyringe';
 import type { DomiaConfig } from '@shared/contracts/config';
-import type { IConfigService } from '@domain/ports/IConfigService';
+import type { IConfigService } from '@domain/ports/platform/IConfigService';
 
 @injectable()
 export class SettingsAppService {

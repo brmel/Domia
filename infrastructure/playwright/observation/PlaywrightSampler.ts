@@ -1,4 +1,4 @@
-import type { IObservationSampler, SampleRequest } from '@domain/ports/IObservationSampler';
+import type { IObservationSampler, SampleRequest } from '@domain/ports/perception/IObservationSampler';
 import type { IPerceptionPipeline, IPerceptionSource } from '@domain/ports';
 import type { ObservationFrame, FrameAttachment } from '@domain/value-objects/ObservationFrame';
 import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';

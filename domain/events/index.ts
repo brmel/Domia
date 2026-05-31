@@ -1,7 +1,7 @@
 import type { RunId } from '../value-objects/Brand';
 import type { AgentAction } from '../value-objects/AgentAction';
 import type { WorkflowState } from '../value-objects/WorkflowState';
-import type { AgentOutcome } from '../ports/IAgentRuntime';
+import type { AgentOutcome } from '../ports/agent/IAgentRuntime';
 
 export interface DomainEvents {
     'run.started': { runId: RunId; url: string; prompt: string };

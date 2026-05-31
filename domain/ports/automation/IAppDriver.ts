@@ -1,10 +1,10 @@
 import { ResultAsync } from 'neverthrow';
-import { NavigationError } from '../errors';
-import type { BuiltInPlatformType } from '../types/PlatformConfig';
-import type { IObservationSampler } from './IObservationSampler';
-import type { IObservationStream } from './IObservationStream';
-import type { IPerceptionPipeline } from './IPerceptionPipeline';
-import type { AgentRuntimeExtras } from './IAgentRuntime';
+import { NavigationError } from '../../errors';
+import type { BuiltInPlatformType } from '../../types/PlatformConfig';
+import type { IObservationSampler } from '@domain/ports/perception/IObservationSampler';
+import type { IObservationStream } from '@domain/ports/perception/IObservationStream';
+import type { IPerceptionPipeline } from '@domain/ports/perception/IPerceptionPipeline';
+import type { AgentRuntimeExtras } from '@domain/ports/agent/IAgentRuntime';
 
 export interface AppCapabilities {
     readonly platform: BuiltInPlatformType;

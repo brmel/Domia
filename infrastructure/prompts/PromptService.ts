@@ -1,11 +1,11 @@
 import { injectable, inject } from 'tsyringe';
-import type { IConfigService } from '@domain/ports/IConfigService';
+import type { IConfigService } from '@domain/ports/platform/IConfigService';
 import type {
     IPromptService,
     PromptKey,
     PromptOverrides,
     PromptVariables,
-} from '@domain/ports/IPromptService';
+} from '@domain/ports/agent/IPromptService';
 import { loadDefaultPrompts } from './promptDefaults';
 import { interpolate } from '@shared/reliability/interpolate';
 

@@ -9,9 +9,9 @@ import { resolveUrlFromConfig, resolveLaneKeyFromConfig } from '@backend/platfor
 import { buildRunExecutionOptions } from './runExecutionOptions';
 import type { PlatformConfig } from '@domain/types/PlatformConfig';
 import type { RunInput, RunOutput } from '@backend/dto';
-import type { AgentOutcome, IAgentRuntime } from '@domain/ports/IAgentRuntime';
+import type { AgentOutcome, IAgentRuntime } from '@domain/ports/agent/IAgentRuntime';
 import type { IPerceptionPipeline, ILogger } from '@domain/ports';
-import type { IEventBus } from '@domain/ports/IEventBus';
+import type { IEventBus } from '@domain/ports/platform/IEventBus';
 import type { RunExecutionLaneService } from './RunExecutionLaneService';
 import { RunSessionService } from './RunSessionService';
 import { RunSuspensionService } from './RunSuspensionService';

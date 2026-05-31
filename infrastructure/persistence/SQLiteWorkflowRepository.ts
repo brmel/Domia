@@ -2,7 +2,7 @@ import { ResultAsync } from 'neverthrow';
 import type { Database as SqlJsDatabase } from 'sql.js';
 import { Kysely } from 'kysely';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
-import type { AtomicWorkflowTransitionInput } from '@domain/ports/IWorkflowRepository';
+import type { AtomicWorkflowTransitionInput } from '@domain/ports/persistence/IWorkflowRepository';
 import { PersistenceError } from '@domain/errors';
 import type { DatabaseSchema } from './DatabaseSchema';
 import { DEFAULT_WORKFLOWS_QUERY_LIMIT } from '@shared/defaults';

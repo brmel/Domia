@@ -1,4 +1,4 @@
-import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
+import type { IPerceptionSource } from '@domain/ports/perception/IPerceptionSource';
 import {
     DEFAULT_RECORDING_MAX_DURATION_MS,
     DEFAULT_RECORDING_INTERVAL_MS,

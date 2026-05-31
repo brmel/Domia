@@ -1,5 +1,5 @@
 import type { LlmRequest } from '@google/adk';
-import type { ConversationTurn, IConversationCompactor } from '@domain/ports/IConversationCompactor';
+import type { ConversationTurn, IConversationCompactor } from '@domain/ports/agent/IConversationCompactor';
 import type { ILogger } from '@domain/ports';
 
 const LOG_TAG = '[CompactionCallback]';

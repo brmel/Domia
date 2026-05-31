@@ -1,5 +1,5 @@
 import type { BrowserContext, Page } from 'playwright';
-import type { ITabManager, TabInfo } from '@domain/ports/ITabManager';
+import type { ITabManager, TabInfo } from '@domain/ports/automation/ITabManager';
 import { NAVIGATION_TIMEOUT_MS } from '@shared/defaults';
 
 const BROWSER_NOT_LAUNCHED = 'Browser not launched';

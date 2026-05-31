@@ -1,6 +1,6 @@
 import { injectable } from 'tsyringe';
 import mitt, { type Emitter } from 'mitt';
-import type { IEventBus } from '@domain/ports/IEventBus';
+import type { IEventBus } from '@domain/ports/platform/IEventBus';
 import type { DomainEvents, DomainEventName } from '@domain/events';
 
 @injectable()

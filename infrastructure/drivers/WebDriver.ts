@@ -1,7 +1,7 @@
 import { ResultAsync } from 'neverthrow';
-import type { IAppDriver, AppCapabilities, ObservationFactoryDeps } from '@domain/ports/IAppDriver';
-import type { IObservationSampler } from '@domain/ports/IObservationSampler';
-import type { IObservationStream } from '@domain/ports/IObservationStream';
+import type { IAppDriver, AppCapabilities, ObservationFactoryDeps } from '@domain/ports/automation/IAppDriver';
+import type { IObservationSampler } from '@domain/ports/perception/IObservationSampler';
+import type { IObservationStream } from '@domain/ports/perception/IObservationStream';
 import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
 import { PlaywrightSampler } from '../playwright/observation/PlaywrightSampler';
 import { PlaywrightStream } from '../playwright/observation/PlaywrightStream';
@@ -38,7 +38,7 @@ export class WebDriver implements IAppDriver {
         return this.playwright;
     }
 
-    getSessionExtras(): import('@domain/ports/IAgentRuntime').AgentRuntimeExtras | undefined {
+    getSessionExtras(): import('@domain/ports/agent/IAgentRuntime').AgentRuntimeExtras | undefined {
         return { tabManager: this.playwright };
     }
 

@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
-import type { IAppDriverProvider, AppDriverCreateConfig } from '@domain/ports/IAppDriverFactory';
-import type { IAppDriver } from '@domain/ports/IAppDriver';
+import type { IAppDriverProvider, AppDriverCreateConfig } from '@domain/ports/automation/IAppDriverFactory';
+import type { IAppDriver } from '@domain/ports/automation/IAppDriver';
 import type { ILogger } from '@domain/ports';
 import type { ElectronConnection } from '@domain/types/PlatformConfig';
 import { ElectronDriver } from './ElectronDriver';

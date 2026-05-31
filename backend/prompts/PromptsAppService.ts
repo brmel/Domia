@@ -1,5 +1,5 @@
 import { inject, injectable } from 'tsyringe';
-import type { IPromptService, PromptKey } from '@domain/ports/IPromptService';
+import type { IPromptService, PromptKey } from '@domain/ports/agent/IPromptService';
 
 @injectable()
 export class PromptsAppService {

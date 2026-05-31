@@ -1,5 +1,5 @@
-import type { IPerceptionSource } from '@domain/ports/IPerceptionSource';
-import type { IStructuredAutomation } from '@domain/ports/IAppAutomation';
+import type { IPerceptionSource } from '@domain/ports/perception/IPerceptionSource';
+import type { IStructuredAutomation } from '@domain/ports/automation/IAppAutomation';
 import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import type { MediaAttachment } from '@domain/value-objects/MediaAttachment';
 import type { IPerceptionPipeline } from '@domain/ports';

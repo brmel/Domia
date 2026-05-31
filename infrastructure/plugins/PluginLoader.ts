@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { Worker } from 'node:worker_threads';
 import type { ILogger } from '@domain/ports';
-import type { PluginName } from '@domain/ports/IPlugin';
+import type { PluginName } from '@domain/ports/plugins/IPlugin';
 import type { ToolResult } from '@domain/types/ToolTypes';
 import { PluginRegistry } from './PluginRegistry';
 import {

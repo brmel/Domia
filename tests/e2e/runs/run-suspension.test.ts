@@ -15,8 +15,8 @@ import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import { ConsoleLogger } from '@infrastructure/ConsoleLogger';
 import { createInMemoryDb } from '../../support/tempDb';
 import type { DomainEventName, DomainEvents } from '@domain/events';
-import type { IEventBus } from '@domain/ports/IEventBus';
-import type { IAgentRuntime } from '@domain/ports/IAgentRuntime';
+import type { IEventBus } from '@domain/ports/platform/IEventBus';
+import type { IAgentRuntime } from '@domain/ports/agent/IAgentRuntime';
 import type { ConversationSnapshot } from '@domain/value-objects/ConversationSnapshot';
 
 function createRecordingBus(): IEventBus & { events: Array<{ name: DomainEventName; payload: unknown }> } {

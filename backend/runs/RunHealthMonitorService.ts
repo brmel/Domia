@@ -1,7 +1,7 @@
 import { inject, injectable } from 'tsyringe';
-import type { IEventBus } from '@domain/ports/IEventBus';
+import type { IEventBus } from '@domain/ports/platform/IEventBus';
 import type { ILogger } from '@domain/ports';
-import type { IRunHealthMonitor } from '@domain/ports/IRunHealthMonitor';
+import type { IRunHealthMonitor } from '@domain/ports/reporting/IRunHealthMonitor';
 import type { RunId } from '@domain/value-objects';
 
 const ROLLING_WINDOW = 5;

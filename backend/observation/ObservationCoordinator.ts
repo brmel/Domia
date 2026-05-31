@@ -1,11 +1,11 @@
-import type { IObservationStream, FrameHandler, FrameSubscription } from '@domain/ports/IObservationStream';
-import type { IObservationSampler } from '@domain/ports/IObservationSampler';
+import type { IObservationStream, FrameHandler, FrameSubscription } from '@domain/ports/perception/IObservationStream';
+import type { IObservationSampler } from '@domain/ports/perception/IObservationSampler';
 import type { ObservationFrame } from '@domain/value-objects/ObservationFrame';
 import type { RunId } from '@domain/value-objects';
 import { ObservationProfile } from '@domain/value-objects/ObservationProfile';
-import type { IEventBus } from '@domain/ports/IEventBus';
+import type { IEventBus } from '@domain/ports/platform/IEventBus';
 import type { ILogger } from '@domain/ports';
-import type { IObservationCoordinator } from '@domain/ports/IObservationCoordinator';
+import type { IObservationCoordinator } from '@domain/ports/perception/IObservationCoordinator';
 import { ObservationRingBuffer } from './ObservationRingBuffer';
 
 const LOG_TAG = '[ObservationCoordinator]';

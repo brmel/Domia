@@ -1,12 +1,12 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
 import { IPersistenceAdapter, Step } from '@domain/ports';
-import type { IRunRepository } from '@domain/ports/IRunRepository';
-import type { ICheckpointRepository } from '@domain/ports/ICheckpointRepository';
-import type { IWorkflowRepository } from '@domain/ports/IWorkflowRepository';
+import type { IRunRepository } from '@domain/ports/persistence/IRunRepository';
+import type { ICheckpointRepository } from '@domain/ports/persistence/ICheckpointRepository';
+import type { IWorkflowRepository } from '@domain/ports/persistence/IWorkflowRepository';
 import { Run } from '@domain/entities/Run';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
-import type { AtomicWorkflowTransitionInput } from '@domain/ports/IWorkflowRepository';
+import type { AtomicWorkflowTransitionInput } from '@domain/ports/persistence/IWorkflowRepository';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
 import type { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import type { CheckpointMetadata } from '@domain/value-objects/CheckpointMetadata';

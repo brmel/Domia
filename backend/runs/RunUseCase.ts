@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import type { IStructuredAutomation } from '@domain/ports';
-import type { AgentRuntimeExtras } from '@domain/ports/IAgentRuntime';
-import type { AgentOutcome } from '@domain/ports/IAgentRuntime';
+import type { AgentRuntimeExtras } from '@domain/ports/agent/IAgentRuntime';
+import type { AgentOutcome } from '@domain/ports/agent/IAgentRuntime';
 import { UrlFactory, WorkflowState } from '@domain/value-objects';
 import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import { ExecutionController } from '@backend/ExecutionController';
@@ -23,7 +23,7 @@ import { RunPlanCoordinator } from './RunPlanCoordinator';
 import { RunControlGateService } from './RunControlGateService';
 import { createRunObservationCoordinator } from './runObservation';
 import { ObservationProfile, DEFAULT_OBSERVATION_PROFILE, type RunId } from '@domain/value-objects';
-import type { IEventBus } from '@domain/ports/IEventBus';
+import type { IEventBus } from '@domain/ports/platform/IEventBus';
 import type { ILogger } from '@domain/ports';
 import type { IPerceptionPipeline } from '@domain/ports';
 
@@ -31,7 +31,7 @@ import type { IPerceptionPipeline } from '@domain/ports';
 export class RunUseCase {
     constructor(
         @inject(RunLifecycleManager) private lifecycleManager: RunLifecycleManager,
-        @inject('ITraceService') private trace: import('@domain/ports/ITraceService').ITraceService,
+        @inject('ITraceService') private trace: import('@domain/ports/reporting/ITraceService').ITraceService,
         @inject('IRunExecutionLaneService') private readonly laneService: RunExecutionLaneService,
         @inject(RunDurabilityService) private readonly durability: RunDurabilityService,
         @inject(RunBudgetPolicyService) private readonly budgetPolicy: RunBudgetPolicyService,

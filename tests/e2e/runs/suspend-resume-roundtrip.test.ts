@@ -15,8 +15,8 @@ import { WorkflowState } from '@domain/value-objects/WorkflowState';
 import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import { createInMemoryDb } from '../../support/tempDb';
 import type { ConversationSnapshot } from '@domain/value-objects/ConversationSnapshot';
-import type { IAgentRuntime } from '@domain/ports/IAgentRuntime';
-import type { IEventBus } from '@domain/ports/IEventBus';
+import type { IAgentRuntime } from '@domain/ports/agent/IAgentRuntime';
+import type { IEventBus } from '@domain/ports/platform/IEventBus';
 
 let tmpRoot: string;
 

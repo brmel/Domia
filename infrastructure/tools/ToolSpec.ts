@@ -6,10 +6,10 @@ import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import type { ActionRecordingData } from '@domain/types/ActionRecordingTypes';
 import type { ActionRecordingOptions } from '../ActionRecordingService';
 import type { ShellExecutor } from '../shell/ShellExecutor';
-import type { IShellPolicy } from '@domain/ports/IShellPolicy';
-import type { IWindowManager } from '@domain/ports/IWindowManager';
-import type { ITabManager } from '@domain/ports/ITabManager';
-import type { IObservationCoordinator } from '@domain/ports/IObservationCoordinator';
+import type { IShellPolicy } from '@domain/ports/automation/IShellPolicy';
+import type { IWindowManager } from '@domain/ports/automation/IWindowManager';
+import type { ITabManager } from '@domain/ports/automation/ITabManager';
+import type { IObservationCoordinator } from '@domain/ports/perception/IObservationCoordinator';
 
 export interface ToolSpec {
     readonly name: ToolNameValue;

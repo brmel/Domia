@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { SegmentedControl } from '@frontend/ui/SegmentedControl';
-import type { StepArtifacts } from '@domain/ports/IStorageService';
-import type { Step } from '@domain/ports/IRunRepository';
-import type { StepTrace } from '@domain/ports/ITraceService';
+import type { StepArtifacts } from '@domain/ports/persistence/IStorageService';
+import type { Step } from '@domain/ports/persistence/IRunRepository';
+import type { StepTrace } from '@domain/ports/reporting/ITraceService';
 import { TabPanel } from './inspectorPrimitives';
 import { SummaryTab } from './SummaryTab';
 import { VisionTab } from './VisionTab';

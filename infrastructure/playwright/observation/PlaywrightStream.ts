@@ -1,5 +1,5 @@
 import type { Page } from 'playwright';
-import type { IObservationStream, ObservationStreamHandle, FrameHandler, FrameSubscription } from '@domain/ports/IObservationStream';
+import type { IObservationStream, ObservationStreamHandle, FrameHandler, FrameSubscription } from '@domain/ports/perception/IObservationStream';
 import type { ObservationFrame, FrameAttachment } from '@domain/value-objects/ObservationFrame';
 import type { RunId } from '@domain/value-objects';
 import type { ObservationProfile } from '@domain/value-objects/ObservationProfile';

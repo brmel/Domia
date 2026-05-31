@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import type { ILogger } from '@domain/ports';
-import type { IEventBus } from '@domain/ports/IEventBus';
-import type { PluginName } from '@domain/ports/IPlugin';
+import type { IEventBus } from '@domain/ports/platform/IEventBus';
+import type { PluginName } from '@domain/ports/plugins/IPlugin';
 import type { ToolNameValue } from '@domain/types/ToolTypes';
 import type { ToolSpec } from '../tools/ToolSpec';
 import type { PluginManifest } from './PluginManifest';

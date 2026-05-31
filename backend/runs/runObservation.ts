@@ -1,7 +1,7 @@
 import { ObservationCoordinator } from '@backend/observation/ObservationCoordinator';
 import type { ObservationProfile, RunId } from '@domain/value-objects';
 import type { IPerceptionPipeline, ILogger } from '@domain/ports';
-import type { IEventBus } from '@domain/ports/IEventBus';
+import type { IEventBus } from '@domain/ports/platform/IEventBus';
 import type { PreparedRunSession } from './RunSessionService';
 
 export interface RunObservationDeps {

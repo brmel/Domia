@@ -1,6 +1,6 @@
 import { inject, injectable } from 'tsyringe';
 import type { IStorageService } from '@domain/ports';
-import type { IRunRepository } from '@domain/ports/IRunRepository';
+import type { IRunRepository } from '@domain/ports/persistence/IRunRepository';
 
 @injectable()
 export class RunQueries {
