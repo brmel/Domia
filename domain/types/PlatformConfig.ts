@@ -2,7 +2,7 @@ import type { MobileDevicePreset } from '@shared/contracts/platform';
 
 export type BuiltInPlatformType = 'web' | 'electron' | 'mobile';
 
-export type PlatformType = BuiltInPlatformType | (string & {});
+export type PlatformType = BuiltInPlatformType | (string & NonNullable<unknown>);
 
 export interface BasePlatformConfig {
     platform: PlatformType;

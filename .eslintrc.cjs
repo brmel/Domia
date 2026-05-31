@@ -19,7 +19,7 @@ module.exports = {
     rules: {
         '@typescript-eslint/no-explicit-any': 'error',
         '@typescript-eslint/explicit-function-return-type': 'warn',
-        '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+        '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_' }],
 
         // Layer-boundary enforcement lives in scripts/check-architecture.mjs
         // (the canonical, CI-enforced guard — see CLAUDE.md). The previous

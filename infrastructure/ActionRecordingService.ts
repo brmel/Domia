@@ -63,6 +63,7 @@ export class ActionRecordingService {
                     });
                     frames.push({ offsetMs, screenshot });
                 } catch {
+                    /* best-effort frame capture during recording; ignore transient failures */
                 }
 
                 if (capturing) await sleep(opts.intervalMs);
@@ -85,6 +86,7 @@ export class ActionRecordingService {
             });
             frames.push({ offsetMs: Date.now() - startMs, screenshot });
         } catch {
+            /* best-effort final-frame capture; ignore failures */
         }
 
         const recording: ActionRecording = {

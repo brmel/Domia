@@ -31,7 +31,7 @@ export const ToolName = {
 } as const;
 export type BuiltInToolName = typeof ToolName[keyof typeof ToolName];
 
-export type ToolNameValue = BuiltInToolName | (string & {});
+export type ToolNameValue = BuiltInToolName | (string & NonNullable<unknown>);
 
 export const ToolCategory = {
     Interaction: 'interaction',

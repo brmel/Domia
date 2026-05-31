@@ -159,6 +159,7 @@ export class RunResumeService {
                 } catch (error) {
                     yield { type: 'error', error: error instanceof Error ? error : new Error(String(error)) };
                 }
+                // eslint-disable-next-line no-unsafe-finally -- intentional: the finally block IS the terminalization path; the suspended case returns here to skip finalize()
                 return;
             }
 

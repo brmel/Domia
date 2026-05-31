@@ -49,7 +49,7 @@ export class StepExecutionKernelService {
         runtime: KernelRuntime,
         controller?: ExecutionController,
     ): AsyncGenerator<RunOutput, KernelResult, unknown> {
-        let estimatedTokensUsed = runtime.estimatedTokensUsed;
+        const estimatedTokensUsed = runtime.estimatedTokensUsed;
 
         await this.trace.startTrace(runId);
 
