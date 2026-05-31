@@ -9,12 +9,12 @@
 | Layer | files | LOC | avg LOC/file |
 |---|--:|--:|--:|
 | domain | 62 | 1667 | 26 |
-| backend | 45 | 3073 | 68 |
-| infrastructure | 87 | 6984 | 80 |
-| frontend | 54 | 4307 | 79 |
+| backend | 45 | 3075 | 68 |
+| infrastructure | 92 | 7054 | 76 |
+| frontend | 57 | 4281 | 75 |
 | shared | 18 | 539 | 29 |
-| apps | 32 | 2421 | 75 |
-| **total** | **298** | **18991** | **64** |
+| apps | 33 | 2490 | 75 |
+| **total** | **307** | **19106** | **62** |
 
 Folder depth (dirs from root): depth-2 = 194 files, depth-3 = 49, depth-4 = 33, depth-5 = 11. Max depth 5. Shallow — not a nesting problem.
 
@@ -26,14 +26,10 @@ Folder depth (dirs from root): depth-2 = 194 files, depth-3 = 49, depth-4 = 33, 
 
 | LOC | file | verdict |
 |--:|---|---|
-| 415 | `infrastructure/playwright/PlaywrightAdapter.ts` | cohesive (≈30 thin `resolveRef().andThen()` methods + tab mgmt sharing mutable `page`); splitting adds shared-state coupling |
-| 329 | `apps/cli/RunCommand.ts` | mostly declarative option declarations + the event-render loop; already split (replay/resume/controls extracted) |
-| 318 | `infrastructure/agent-runtime/adk/AdkAgentRuntime.ts` | already split (event-mapping extracted); remaining = the run loop + `prepareRunContext` |
-| 292 | `infrastructure/playwright/electron/ElectronDriver.ts` | CDP connect + window discovery + lifecycle — **splittable** (connect / window-resolve / adapter-build) |
-| 285 | `frontend/features/runs/components/RunForm.tsx` | form + platform fields + submit — **splittable** (StepInspector pattern) |
-| 266 | `infrastructure/persistence/SQLiteWorkflowRepository.ts` | def + run + step-run CRUD + atomic txn — **splittable** by sub-aggregate |
+| 387 | `infrastructure/playwright/PlaywrightAdapter.ts` | cohesive — ~25 thin `resolveRef().andThen()` action methods + launch/lifecycle over mutable `page`. Tab mgmt now extracted to `PlaywrightTabs`. Remainder is the irreducible `IStructuredAutomation` surface; further splitting adds delegation tax, not clarity. |
+| 275 | `infrastructure/agent-runtime/adk/AdkAgentRuntime.ts` | the ADK run loop + `prepareRunContext`. Event-mapping, metrics, artifact-sink, conversation-compaction and tool-dep assembly (`assembleToolDependencies`) all already extracted; what's left is the orchestration spine. |
 
-**Signal: 3 genuine remaining god files** (ElectronDriver, RunForm, SQLiteWorkflowRepository). PlaywrightAdapter/RunCommand/AdkAgentRuntime are length-from-cohesion, not god-objects.
+**Signal: 0 genuine god files.** Only 2 files exceed 250 LOC and both are length-from-cohesion, not god-objects. The previously-flagged ElectronDriver (now 205), RunForm (145) and SQLiteWorkflowRepository (179) have been split below threshold; RunCommand (203) split into `run/renderRunStream` + `run/promptForMissingRunInputs`.
 
 ## 4. Coupling (measured: import graph)
 
@@ -53,13 +49,15 @@ Boundary verdict (verified by grep, not matrix alone):
 - **domain → only domain+shared.** ✅ pure.
 - **frontend→backend = 2**: `import type { RunOutput } from '@backend/dto'` (store + useRunPanel). Type-only (erased at runtime). Inherent to a typed run-stream UI, but **un-guarded** by `check-architecture` (its `frontend-boundary` rule forbids only `@infrastructure`).
 - **frontend→apps = 1**: `import type { AppRouter }` in `api/trpc.ts`. Type-only — the standard typed-tRPC client pattern. Acceptable but un-guarded.
-- **apps→infra = 1**: `apps/cli/reportUtils.ts` → `ReportWriterService` (value import). CLI reaches infra directly; should go through a backend facade. **Minor real leak.**
+- **apps→infra = 0**: the former `reportUtils.ts → ReportWriterService` value import is gone — it now resolves the `IRunReportWriter` port via the container. ✅ leak closed.
 
-Top fan-out (most imports in one file): `ContainerBuilder` 67 (composition root, expected), `AdkAgentRuntime` 31, `RunUseCase` 26 (14 ctor deps + types), `RunResumeService` 20.
+**Circular dependencies = 0 (gated).** A `madge` sweep once found **5 cycles** (type-only back-edges: a low-level module importing a type from the high-level module that imports it at runtime — `IPersistenceAdapter↔IRunRepository/IWorkflowRepository`, `ElectronDriver↔electronCdpConnect`, `platformRegistry↔Web/ElectronPlatformFields`). All broken by relocating the shared type downward/neutral. `check-architecture.mjs` now builds the resolved import graph and DFS-detects cycles every run — they cannot regress.
 
-Top fan-in (most-imported): `@domain/ports` **60**, `@domain/value-objects` 40, `@shared/defaults` 40, `@domain/enums` 32, `@domain/errors` 30. **`@domain/ports` is a 32-file flat barrel imported by 60 modules** — churn there ripples widely.
+Top fan-out (most imports in one file): `ContainerBuilder` 67 (composition root, expected), `AdkAgentRuntime` 32, `RunUseCase` 26 (14 ctor deps + types), `RunResumeService` 20.
 
-**Layer separation is real and ≈95% enforced.** The "overlap" the team feels is NOT runtime layer bleed — it is the *organization* (next section) + 2 type-only + 1 minor leak + 1 un-guarded boundary rule.
+Top fan-in (most-imported): `@domain/ports` **60**, `@domain/value-objects` 40, `@shared/defaults` 40, `@domain/enums` 32, `@domain/errors` 30. **`@domain/ports` is a 32-file flat barrel imported by 60 modules** — churn there ripples widely (the one remaining "god folder").
+
+**Layer separation is real and fully enforced.** The "overlap" the team feels is NOT runtime layer bleed — it is the *organization* (next section) + 2 type-only un-guarded boundaries (frontend→backend/apps DTO+router types).
 
 ## 5. The actual problem — layer-first, not feature-first (measured)
 
@@ -138,7 +136,7 @@ classDiagram
 
 ## 9. Verdict & priorities
 
-**Healthy:** 0% dead code, pure domain, real DI seam, ports/adapters, no cycles, CI-enforced boundaries (~95%).
+**Healthy:** 0% dead code, pure domain, real DI seam, ports/adapters, 0 circular deps (now CI-gated), CI-enforced boundaries.
 
 **Real issues (measured, ranked):**
 1. **Layer-first organization** (§5) — every feature spans 5 trees. Biggest "hard to work in" driver. Fix = vertical feature slices; large migration weighed in `feature-first-migration.md` (deferred — net-negative vs the clean base until team-scale justifies it). OPEN / decision-gated.

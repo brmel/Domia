@@ -11,9 +11,9 @@ Measured 2026-05-31 on branch `support-electron-apps`.
 | Subsystem | Path | Files | LOC | Audited in |
 |---|---|---:|---:|---|
 | Multi-app drivers | `infrastructure/drivers` | 4 | 173 | §1 |
-| Playwright (web+electron) | `infrastructure/playwright` | 14 | 1598 | §1 |
+| Playwright (web+electron) | `infrastructure/playwright` | 15 | 1637 | §1 |
 | Appium (mobile) | `infrastructure/appium` | 4 | 331 | §1 |
-| Agent runtime / ADK | `infrastructure/agent-runtime` | 12 | 831 | §2 |
+| Agent runtime / ADK | `infrastructure/agent-runtime` | 13 | 853 | §2 |
 | Tools | `infrastructure/tools` | 15 | 1317 | §3 → tool-system.md |
 | Plugins | `infrastructure/plugins` | 5 | 384 | §3 → tool-system.md |
 | Skills | `infrastructure/skills` | 1 | 137 | §3 → tool-system.md |
@@ -161,7 +161,7 @@ Both apps are thin shells over the same DI container and the same `AsyncGenerato
 
 | Command | File |
 |---|---|
-| `run` | `RunCommand.ts` (+ `run/` submodules: logLevel, interactiveControls, replay, resume) |
+| `run` | `RunCommand.ts` (flags + wiring) + `run/` submodules: renderRunStream, promptForMissingRunInputs, logLevel, interactiveControls, replay, resume |
 | `workflow` | `WorkflowCommand.ts` (+ `workflow/` submodules: steps-file, definition, run, execution) |
 | `history` | `HistoryCommand.ts` |
 | `inspect` | `InspectCommand.ts` |

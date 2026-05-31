@@ -143,7 +143,7 @@ classDiagram
     AppDriverFactory o-- IAppDriverProvider : registers
 
     ElectronDriver --> IWindowManager : getSessionExtras()
-    WebDriver --> ITabManager : automation has newTab
+    WebDriver --> ITabManager : getSessionExtras()
 
     AdkAgentRuntime --> buildToolCatalog : via AdkToolFactory
     AdkAgentRuntime --> PluginRegistry : getAllTools()
@@ -173,7 +173,7 @@ sequenceDiagram
 
     Run->>Rt: run(input)
     Rt->>Drv: getAutomation() / getSessionExtras()
-    Note right of Drv: Electron -> { windowManager }<br/>Web -> automation has newTab<br/>Mobile -> no extras
+    Note right of Drv: Electron -> { windowManager }<br/>Web -> { tabManager }<br/>Mobile -> no extras
     Rt->>Rt: buildToolDeps(input, automation, windowManager, ...)
     Rt->>Plug: getAllTools()
     Rt->>Skill: buildToolsForSession(deps)
@@ -233,7 +233,7 @@ Only added when the matching dependency is present in `ToolDependencies`:
 
 A tool can be excluded in **two** independent ways:
 
-1. **Dependency gating** — the factory returns `[]` if its dependency is absent. `windowManager` is supplied *only* by `ElectronDriver.getSessionExtras()`; `tabManager` is supplied *only* when the automation exposes `newTab` (web Playwright). So Electron/tab tools never even get constructed off-platform.
+1. **Dependency gating** — the factory returns `[]` if its dependency is absent. `windowManager` is supplied *only* by `ElectronDriver.getSessionExtras()`; `tabManager` is supplied *only* by `WebDriver.getSessionExtras()` (the `PlaywrightTabs` instance). So Electron/tab tools never even get constructed off-platform.
 2. **`platforms` tag filter** — the final guard in `buildToolCatalog`:
 
 ```ts
@@ -253,7 +253,7 @@ Each platform is one `IAppDriverProvider` registered into `AppDriverFactory` at 
 
 | Driver | Platform | automation impl | DOM | vision | multi-window | native | sessionExtras |
 |---|---|---|---|---|---|---|---|
-| `WebDriver` | `web` | `PlaywrightAdapter` (chromium.launch via BrowserPool) | ✅ | ✅ | ❌ | ❌ | — (tabManager via `newTab` on automation) |
+| `WebDriver` | `web` | `PlaywrightAdapter` (chromium.launch via BrowserPool) | ✅ | ✅ | ❌ | ❌ | `{ tabManager }` (PlaywrightTabs) |
 | `ElectronDriver` | `electron` | Playwright over CDP (`electronCdpConnect`) | ✅ | ✅ | ✅ | ✅ | `{ windowManager }` |
 | `MobileAppDriver` | `mobile` | `AppiumAdapter` | ❌ | ✅ | ❌ | ✅ | — |
 
