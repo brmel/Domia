@@ -1,6 +1,8 @@
 import { trpc } from '@frontend/api/trpc';
 import type { DomiaConfig } from '@shared/contracts/config';
 import { Button } from '@frontend/ui/Button';
+import { FieldLabel } from '@frontend/ui/FieldLabel';
+import { NumberField } from '@frontend/ui/NumberField';
 import { PromptEditor } from './PromptEditor';
 
 interface SettingsSidebarProps {
@@ -98,14 +100,8 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
                             </div>
                         )}
                         <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Viewport Width</label>
-                                <input type="number" value={cfg.viewport.width} onChange={(e) => updateRuntime({ viewport: { width: parseInt(e.target.value, 10) } })} disabled={disabled} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Viewport Height</label>
-                                <input type="number" value={cfg.viewport.height} onChange={(e) => updateRuntime({ viewport: { height: parseInt(e.target.value, 10) } })} disabled={disabled} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border" />
-                            </div>
+                            <NumberField label="Viewport Width" value={cfg.viewport.width} onChange={(width) => updateRuntime({ viewport: { width } })} disabled={disabled} />
+                            <NumberField label="Viewport Height" value={cfg.viewport.height} onChange={(height) => updateRuntime({ viewport: { height } })} disabled={disabled} />
                         </div>
                     </div>
                 </section>
@@ -113,14 +109,8 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
                 <section>
                     <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">Execution Limits</h3>
                     <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Max Steps</label>
-                            <input type="number" value={cfg.limits.maxSteps} onChange={(e) => updateRuntime({ limits: { maxSteps: parseInt(e.target.value, 10) } })} disabled={disabled} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Delay Between Steps (ms)</label>
-                            <input type="number" value={cfg.limits.delayBetweenSteps} onChange={(e) => updateRuntime({ limits: { delayBetweenSteps: parseInt(e.target.value, 10) } })} disabled={disabled} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border" />
-                        </div>
+                        <NumberField label="Max Steps" value={cfg.limits.maxSteps} onChange={(maxSteps) => updateRuntime({ limits: { maxSteps } })} disabled={disabled} />
+                        <NumberField label="Delay Between Steps (ms)" value={cfg.limits.delayBetweenSteps} onChange={(delayBetweenSteps) => updateRuntime({ limits: { delayBetweenSteps } })} disabled={disabled} />
                     </div>
                 </section>
 
@@ -128,15 +118,15 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
                     <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">AI</h3>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+                            <FieldLabel>Provider</FieldLabel>
                             <input type="text" value={cfg.ai.provider} disabled className="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm p-2 border bg-gray-100 text-gray-600" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                            <FieldLabel>Model</FieldLabel>
                             <input type="text" value={cfg.ai.model} onChange={(e) => updateAi({ model: e.target.value })} disabled={disabled} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                            <FieldLabel>API Key</FieldLabel>
                             <input type="password" value={cfg.ai.apiKey ?? ''} onChange={(e) => updateAi({ apiKey: e.target.value || undefined })} disabled={disabled} placeholder="Set via env or here" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border" />
                         </div>
                         <div className="flex items-center justify-between">
@@ -160,11 +150,11 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
                     <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">Paths</h3>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Artifacts Directory</label>
+                            <FieldLabel>Artifacts Directory</FieldLabel>
                             <input type="text" value={cfg.paths.artifactsDir} onChange={(e) => updatePaths({ artifactsDir: e.target.value })} disabled={disabled} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border font-mono text-xs" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Database Path</label>
+                            <FieldLabel>Database Path</FieldLabel>
                             <input type="text" value={cfg.paths.databasePath} onChange={(e) => updatePaths({ databasePath: e.target.value })} disabled={disabled} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border font-mono text-xs" />
                         </div>
                     </div>
@@ -174,13 +164,13 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
                     <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">Reporting</h3>
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Default Format</label>
+                            <FieldLabel>Default Format</FieldLabel>
                             <select value={cfg.reporting.defaultFormat} onChange={(e) => updateReporting({ defaultFormat: e.target.value as DomiaConfig['reporting']['defaultFormat'] })} disabled={disabled} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border bg-white">
                                 {REPORT_FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Output Directory</label>
+                            <FieldLabel>Output Directory</FieldLabel>
                             <input type="text" value={cfg.reporting.outputDir} onChange={(e) => updateReporting({ outputDir: e.target.value })} disabled={disabled} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border font-mono text-xs" />
                         </div>
                     </div>
