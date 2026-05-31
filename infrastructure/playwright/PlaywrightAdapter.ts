@@ -11,6 +11,7 @@ import {
     CONTENT_READY_TIMEOUT_MS, CHROMIUM_LAUNCH_ARGS,
 } from '@shared/defaults';
 import { PlaywrightPerceptionSource } from './PlaywrightPerceptionSource';
+import { PlaywrightTabs } from './PlaywrightTabs';
 import type { BrowserPool } from './BrowserPool';
 
 const BROWSER_NOT_LAUNCHED = 'Browser not launched';
@@ -27,9 +28,17 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
     private refs: RoleRefMap = {};
     private pool: BrowserPool | null = null;
     private _ownsBrowser = false;
+    private readonly tabs: PlaywrightTabs;
 
     constructor(private readonly logger: ILogger, pool?: BrowserPool) {
         this.pool = pool ?? null;
+        this.tabs = new PlaywrightTabs({
+            context: (): BrowserContext | null => this.context,
+            activePage: (): Page | null => this.page,
+            setActivePage: (page): void => { this.page = page; },
+            attachLifecycle: (page): void => this.attachPageLifecycleHandlers(page),
+            waitForReady: (): Promise<void> => this.waitForReady(),
+        });
     }
 
     private requirePage(): ResultAsync<Page, InteractionError> {
@@ -281,57 +290,20 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         this._ownsBrowser = false;
     }
 
-    async newTab(url?: string): Promise<TabInfo> {
-        if (!this.context) throw new Error(BROWSER_NOT_LAUNCHED);
-        const newPage = await this.context.newPage();
-        this.page = newPage;
-        this.attachPageLifecycleHandlers(newPage);
-        if (url) {
-            await newPage.goto(url, { waitUntil: 'load', timeout: NAVIGATION_TIMEOUT_MS });
-            await this.waitForReady();
-        }
-        const tabs = await this.listTabs();
-        return tabs.find(t => t.active) ?? tabs[tabs.length - 1]!;
+    newTab(url?: string): Promise<TabInfo> {
+        return this.tabs.newTab(url);
     }
 
-    async listTabs(): Promise<TabInfo[]> {
-        if (!this.context) return [];
-        const pages = this.context.pages().filter(p => !p.isClosed());
-        const currentPage = this.page;
-        return Promise.all(
-            pages.map(async (p, i) => ({
-                index: i,
-                url: p.url(),
-                title: await p.title(),
-                active: p === currentPage,
-            }))
-        );
+    listTabs(): Promise<TabInfo[]> {
+        return this.tabs.listTabs();
     }
 
-    async switchTab(index: number): Promise<TabInfo> {
-        if (!this.context) throw new Error(BROWSER_NOT_LAUNCHED);
-        const pages = this.context.pages().filter(p => !p.isClosed());
-        const target = pages[index];
-        if (!target) throw new Error(`Tab index ${index} out of range (${pages.length} tabs open)`);
-        this.page = target;
-        await target.bringToFront();
-        return {
-            index,
-            url: target.url(),
-            title: await target.title(),
-            active: true,
-        };
+    switchTab(index: number): Promise<TabInfo> {
+        return this.tabs.switchTab(index);
     }
 
-    async closeTab(index?: number): Promise<void> {
-        if (!this.context) throw new Error(BROWSER_NOT_LAUNCHED);
-        const pages = this.context.pages().filter(p => !p.isClosed());
-        const target = index !== undefined ? pages[index] : this.page;
-        if (!target) return;
-        await target.close();
-        // Update active page to the last remaining open page
-        const remaining = this.context.pages().filter(p => !p.isClosed());
-        this.page = remaining[remaining.length - 1] ?? null;
+    closeTab(index?: number): Promise<void> {
+        return this.tabs.closeTab(index);
     }
 
     getPerceptionSource(): IPerceptionSource | null {
