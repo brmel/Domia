@@ -31,16 +31,19 @@ export class SQLiteSkillRepository implements ISkillRepository {
 
     list(limit: number = DEFAULT_LIMIT): ResultAsync<Skill[], PersistenceError> {
         return dbOp(
-            this.db.selectFrom('skills').selectAll().orderBy('updated_at', 'desc').limit(limit).execute(),
+            (async () => (await this.db.selectFrom('skills').selectAll().orderBy('updated_at', 'desc').limit(limit).execute()).map((row) => this.mapToSkill(row)))(),
             'list skills',
-        ).map((rows) => rows.map((row) => this.mapToSkill(row)));
+        );
     }
 
     get(id: string): ResultAsync<Skill | null, PersistenceError> {
         return dbOp(
-            this.db.selectFrom('skills').selectAll().where('id', '=', id).executeTakeFirst(),
+            (async () => {
+                const row = await this.db.selectFrom('skills').selectAll().where('id', '=', id).executeTakeFirst();
+                return row ? this.mapToSkill(row) : null;
+            })(),
             'get skill',
-        ).map((row) => (row ? this.mapToSkill(row) : null));
+        );
     }
 
     delete(id: string): ResultAsync<void, PersistenceError> {

@@ -46,23 +46,23 @@ export class SQLiteWorkflowRepository {
 
     getWorkflowDefinition(id: string): ResultAsync<WorkflowDefinition | null, PersistenceError> {
         return dbOp(
-            this.db.selectFrom('workflow_definitions')
-                .selectAll()
-                .where('id', '=', id)
-                .executeTakeFirst(),
+            (async () => {
+                const row = await this.db.selectFrom('workflow_definitions').selectAll().where('id', '=', id).executeTakeFirst();
+                return row ? rowToWorkflowDefinition(row) : null;
+            })(),
             'get workflow definition'
-        ).map(row => row ? rowToWorkflowDefinition(row) : null);
+        );
     }
 
     getWorkflowDefinitions(limit: number = DEFAULT_WORKFLOWS_QUERY_LIMIT): ResultAsync<WorkflowDefinition[], PersistenceError> {
         return dbOp(
-            this.db.selectFrom('workflow_definitions')
+            (async () => (await this.db.selectFrom('workflow_definitions')
                 .selectAll()
                 .orderBy('updated_at', 'desc')
                 .limit(limit)
-                .execute(),
+                .execute()).map(rowToWorkflowDefinition))(),
             'get workflow definitions'
-        ).map(rows => rows.map(rowToWorkflowDefinition));
+        );
     }
 
     saveWorkflowRun(run: WorkflowRunRecord): ResultAsync<void, PersistenceError> {
