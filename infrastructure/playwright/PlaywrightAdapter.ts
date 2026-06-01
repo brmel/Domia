@@ -12,14 +12,12 @@ import {
 } from '@shared/defaults';
 import { PlaywrightPerceptionSource } from './PlaywrightPerceptionSource';
 import { PlaywrightTabs } from './PlaywrightTabs';
+import { PlaywrightMouse } from './PlaywrightMouse';
+import { wrapInteraction } from './wrapInteraction';
 import type { BrowserPool } from './BrowserPool';
 
 const BROWSER_NOT_LAUNCHED = 'Browser not launched';
 const TAG = '[PlaywrightAdapter]';
-
-function wrapInteraction<T>(promise: Promise<T>, label: string, ref?: string): ResultAsync<T, InteractionError> {
-    return ResultAsync.fromPromise(promise, (e) => new InteractionError(`${label} failed: ${String(e)}`, ref));
-}
 
 export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
     private browser: Browser | null = null;
@@ -29,6 +27,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
     private pool: BrowserPool | null = null;
     private _ownsBrowser = false;
     private readonly tabs: PlaywrightTabs;
+    private readonly mouse: PlaywrightMouse;
 
     constructor(private readonly logger: ILogger, pool?: BrowserPool) {
         this.pool = pool ?? null;
@@ -39,6 +38,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
             attachLifecycle: (page): void => this.attachPageLifecycleHandlers(page),
             waitForReady: (): Promise<void> => this.waitForReady(),
         });
+        this.mouse = new PlaywrightMouse(() => this.requirePage(), this.logger);
     }
 
     private requirePage(): ResultAsync<Page, InteractionError> {
@@ -114,39 +114,19 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
     }
 
     mouseMove(x: number, y: number): ResultAsync<void, InteractionError> {
-        return this.requirePage().andThen((page) => {
-            this.logger.debug(`${TAG} Moving mouse to: (${x}, ${y})`);
-            return wrapInteraction(page.mouse.move(x, y), 'Mouse move');
-        });
+        return this.mouse.move(x, y);
     }
 
     mouseClick(x: number, y: number, button: 'left' | 'right'): ResultAsync<void, InteractionError> {
-        return this.requirePage().andThen((page) => {
-            this.logger.debug(`${TAG} Mouse ${button} click at: (${x}, ${y})`);
-            return wrapInteraction(page.mouse.click(x, y, { button }), 'Mouse click');
-        });
+        return this.mouse.click(x, y, button);
     }
 
     mouseDoubleClick(x: number, y: number): ResultAsync<void, InteractionError> {
-        return this.requirePage().andThen((page) => {
-            this.logger.debug(`${TAG} Mouse double click at: (${x}, ${y})`);
-            return wrapInteraction(page.mouse.click(x, y, { button: 'left', clickCount: 2 }), 'Mouse double click');
-        });
+        return this.mouse.doubleClick(x, y);
     }
 
     mouseDrag(fromX: number, fromY: number, toX: number, toY: number, steps: number = 10): ResultAsync<void, InteractionError> {
-        return this.requirePage().andThen((page) => {
-            this.logger.debug(`${TAG} Mouse drag from (${fromX}, ${fromY}) to (${toX}, ${toY}) steps=${steps}`);
-            return wrapInteraction(
-                (async (): Promise<void> => {
-                    await page.mouse.move(fromX, fromY);
-                    await page.mouse.down();
-                    await page.mouse.move(toX, toY, { steps: Math.max(1, Math.floor(steps)) });
-                    await page.mouse.up();
-                })(),
-                'Mouse drag'
-            );
-        });
+        return this.mouse.drag(fromX, fromY, toX, toY, steps);
     }
 
     type(ref: string, text: string): ResultAsync<void, InteractionError> {
@@ -195,10 +175,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
     }
 
     mouseScroll(deltaX: number, deltaY: number): ResultAsync<void, InteractionError> {
-        return this.requirePage().andThen((page) => {
-            this.logger.debug(`${TAG} Mouse scroll: deltaX=${deltaX}, deltaY=${deltaY}`);
-            return wrapInteraction(page.mouse.wheel(deltaX, deltaY), 'Mouse scroll');
-        });
+        return this.mouse.scroll(deltaX, deltaY);
     }
 
     wait(durationMs: number): ResultAsync<void, InteractionError> {
