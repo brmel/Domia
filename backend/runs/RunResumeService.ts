@@ -4,35 +4,24 @@ import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import { ObservationProfile, DEFAULT_OBSERVATION_PROFILE } from '@domain/value-objects';
 import { WorkflowError } from '@domain/errors';
 import { ExecutionController } from '@backend/ExecutionController';
-import { createRunObservationCoordinator } from './runObservation';
 import { resolveUrlFromConfig, resolveLaneKeyFromConfig } from '@backend/platform/platformUrlUtils';
 import { buildRunExecutionOptions } from './runExecutionOptions';
 import type { PlatformConfig } from '@domain/types/PlatformConfig';
 import type { RunInput, RunOutput } from '@backend/dto';
 import type { AgentOutcome, IAgentRuntime } from '@domain/ports/agent/IAgentRuntime';
-import type { IPerceptionPipeline, ILogger } from '@domain/ports';
-import type { IEventBus } from '@domain/ports/platform/IEventBus';
-import type { IRunExecutionLaneService } from './RunExecutionLaneService';
-import { RunSessionService } from './RunSessionService';
+import type { ILogger } from '@domain/ports';
+import type { PreparedRunSession } from './RunSessionService';
 import { RunSuspensionService } from './RunSuspensionService';
 import { RunBudgetPolicyService } from './RunBudgetPolicyService';
-import { RunDurabilityService } from './RunDurabilityService';
-import { RunTerminalizationService } from './RunTerminalizationService';
-import { StepExecutionKernelService } from './StepExecutionKernelService';
+import { RunStepEngine } from './RunStepEngine';
 
 @injectable()
 export class RunResumeService {
     constructor(
+        @inject(RunStepEngine) private readonly engine: RunStepEngine,
         @inject(RunSuspensionService) private readonly suspensionService: RunSuspensionService,
-        @inject(RunSessionService) private readonly runSessionService: RunSessionService,
-        @inject('IRunExecutionLaneService') private readonly laneService: IRunExecutionLaneService,
         @inject(RunBudgetPolicyService) private readonly budgetPolicy: RunBudgetPolicyService,
-        @inject(RunDurabilityService) private readonly durability: RunDurabilityService,
-        @inject(RunTerminalizationService) private readonly terminalization: RunTerminalizationService,
-        @inject(StepExecutionKernelService) private readonly kernel: StepExecutionKernelService,
         @inject('IAgentRuntime') private readonly agentRuntime: IAgentRuntime,
-        @inject('IPerceptionPipeline') private readonly perception: IPerceptionPipeline,
-        @inject('IEventBus') private readonly events: IEventBus,
         @inject('ILogger') private readonly logger: ILogger,
     ) {}
 
@@ -63,16 +52,16 @@ export class RunResumeService {
 
         const url = resolveUrlFromConfig(platformConfig);
         const laneKey = resolveLaneKeyFromConfig(platformConfig);
-        const releaseLane = await this.laneService.acquire(laneKey);
+        const releaseLane = await this.engine.acquireLane(laneKey);
 
         const resumeInput: RunInput = {
             platformConfig,
             prompt: envelope.state.plan?.goal ?? '',
         };
 
-        let preparedSession: Awaited<ReturnType<RunSessionService['prepare']>> | undefined;
+        let preparedSession: PreparedRunSession | undefined;
         try {
-            preparedSession = await this.runSessionService.prepare(resumeInput);
+            preparedSession = await this.engine.prepareSession(resumeInput);
         } catch (error) {
             releaseLane();
             yield { type: 'error', error: error instanceof Error ? error : new Error(String(error)) };
@@ -81,15 +70,7 @@ export class RunResumeService {
 
         const visionEnabled = true;
         const initialProfile: ObservationProfile = DEFAULT_OBSERVATION_PROFILE;
-        const observation = createRunObservationCoordinator({
-            runId,
-            preparedSession,
-            perception: this.perception,
-            events: this.events,
-            logger: this.logger,
-            vision: visionEnabled,
-            initialProfile,
-        });
+        const observation = this.engine.startObservation({ runId, preparedSession, vision: visionEnabled, initialProfile });
         await observation.start();
 
         let currentState = envelope.state;
@@ -104,6 +85,7 @@ export class RunResumeService {
         yield { type: 'started', runId };
         yield { type: 'state_updated', state: currentState };
 
+        let conclusion: 'suspended' | 'finalized' = 'finalized';
         try {
             const urlResult = UrlFactory.create(url);
             if (urlResult.isErr()) throw new WorkflowError(`Invalid URL: ${urlResult.error.message}`);
@@ -123,7 +105,7 @@ export class RunResumeService {
                 controller,
             });
 
-            const kernelResult = yield* this.kernel.execute(
+            const kernelResult = yield* this.engine.executeStep(
                 runId,
                 goal,
                 preparedSession.automation,
@@ -146,29 +128,16 @@ export class RunResumeService {
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
             terminalError = error instanceof Error ? error : new Error(msg);
-            await this.terminalization.recordMidRunFailure(runId, msg);
+            await this.engine.recordMidRunFailure(runId, msg);
         } finally {
-            await observation.stop();
-            if (preparedSession) await this.runSessionService.dispose(preparedSession);
-            releaseLane();
-
-            if (suspendedReason && !terminalError) {
-                try {
-                    await this.suspensionService.suspend(runId, currentState, suspendedReason);
-                    yield { type: 'suspended', runId, reason: suspendedReason };
-                } catch (error) {
-                    yield { type: 'error', error: error instanceof Error ? error : new Error(String(error)) };
-                }
-                // eslint-disable-next-line no-unsafe-finally -- intentional: the finally block IS the terminalization path; the suspended case returns here to skip finalize()
-                return;
-            }
-
-            yield* this.terminalization.finalize({
-                runId, controller, completed, terminalError,
-                outcome, currentState,
+            conclusion = yield* this.engine.concludeRun({
+                runId, observation, preparedSession, releaseLane,
+                completed, terminalError, outcome, currentState, suspendedReason, controller,
             });
         }
 
-        await this.durability.checkpoint(runId, currentState, CheckpointReason.ActionApplied);
+        if (conclusion === 'finalized') {
+            await this.engine.checkpoint(runId, currentState, CheckpointReason.ActionApplied);
+        }
     }
 }

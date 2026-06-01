@@ -13,6 +13,7 @@ import { RunBudgetPolicyService } from '@backend/runs/RunBudgetPolicyService';
 import { RunTerminalizationService } from '@backend/runs/RunTerminalizationService';
 import { RunLifecycleManager } from '@backend/runs/RunLifecycleManager';
 import { StepExecutionKernelService } from '@backend/runs/StepExecutionKernelService';
+import { RunStepEngine } from '@backend/runs/RunStepEngine';
 import { ExecutionController } from '@backend/ExecutionController';
 import { Run } from '@domain/entities/Run';
 import { RunIdFactory, UrlFactory } from '@domain/value-objects';
@@ -85,12 +86,11 @@ describe('RunResumeService — load envelope, restore, mark resumed', () => {
         const kernel = new StepExecutionKernelService(runtime, fakeTrace(), storage, logger, runRepo, durability);
         const terminalization = new RunTerminalizationService(durability, lifecycle);
         const lane = { acquire: async () => () => undefined } as never;
+        const session = { prepare: async () => { throw new Error('not used'); }, dispose: async () => undefined } as never;
+        const perception = { capture: async () => undefined } as never;
 
-        const resume = new RunResumeService(
-            suspension, { prepare: async () => { throw new Error('not used'); }, dispose: async () => undefined } as never,
-            lane, new RunBudgetPolicyService(), durability, terminalization, kernel,
-            runtime, { capture: async () => undefined } as never, noopBus(), logger,
-        );
+        const engine = new RunStepEngine(kernel, durability, terminalization, suspension, session, lane, perception, noopBus(), logger);
+        const resume = new RunResumeService(engine, suspension, new RunBudgetPolicyService(), runtime, logger);
 
         const events: string[] = [];
         const controller = new ExecutionController();
