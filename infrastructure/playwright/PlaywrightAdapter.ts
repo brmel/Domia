@@ -6,13 +6,14 @@ import type { Url } from '@domain/value-objects';
 import type { RoleRefMap } from '@domain/value-objects/RoleRef';
 import { NavigationError, InteractionError } from '@domain/errors';
 import {
-    NAVIGATION_TIMEOUT_MS, ELEMENT_WAIT_TIMEOUT_MS, HIGHLIGHT_DURATION_MS,
+    NAVIGATION_TIMEOUT_MS,
     SCROLL_AMOUNT_PX, AGENT_VIEW_WIDTH, AGENT_VIEW_HEIGHT,
     CONTENT_READY_TIMEOUT_MS, CHROMIUM_LAUNCH_ARGS,
 } from '@shared/defaults';
 import { PlaywrightPerceptionSource } from './PlaywrightPerceptionSource';
 import { PlaywrightTabs } from './PlaywrightTabs';
 import { PlaywrightMouse } from './PlaywrightMouse';
+import { PlaywrightInteraction } from './PlaywrightInteraction';
 import { wrapInteraction } from './wrapInteraction';
 import type { BrowserPool } from './BrowserPool';
 
@@ -28,6 +29,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
     private _ownsBrowser = false;
     private readonly tabs: PlaywrightTabs;
     private readonly mouse: PlaywrightMouse;
+    private readonly interaction: PlaywrightInteraction;
 
     constructor(private readonly logger: ILogger, pool?: BrowserPool) {
         this.pool = pool ?? null;
@@ -39,6 +41,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
             waitForReady: (): Promise<void> => this.waitForReady(),
         });
         this.mouse = new PlaywrightMouse(() => this.requirePage(), this.logger);
+        this.interaction = new PlaywrightInteraction((ref) => this.resolveRef(ref), this.logger);
     }
 
     private requirePage(): ResultAsync<Page, InteractionError> {
@@ -95,22 +98,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
     }
 
     click(ref: string, options?: { force?: boolean; timeout?: number }): ResultAsync<void, InteractionError> {
-        this.logger.debug(`${TAG} Clicking element: ${ref}${options?.force ? ' (forced)' : ''}`);
-
-        return this.resolveRef(ref).andThen((locator) => {
-            const clickOptions = {
-                force: options?.force ?? false,
-                timeout: options?.timeout ?? ELEMENT_WAIT_TIMEOUT_MS
-            };
-
-            return wrapInteraction(locator.click(clickOptions), 'Click', ref).orElse((err) => {
-                if (!options?.force && (err.message.includes('intercepts pointer events') || err.message.includes('Timeout'))) {
-                    this.logger.warn(`${TAG} Click on ${ref} intercepted or timed out, retrying with force: true`);
-                    return wrapInteraction(locator.click({ ...clickOptions, force: true }), 'Force click', ref);
-                }
-                return errAsync(err);
-            });
-        });
+        return this.interaction.click(ref, options);
     }
 
     mouseMove(x: number, y: number): ResultAsync<void, InteractionError> {
@@ -130,33 +118,19 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
     }
 
     type(ref: string, text: string): ResultAsync<void, InteractionError> {
-        this.logger.debug(`${TAG} Typing into element: ${ref}`);
-        return this.resolveRef(ref).andThen((locator) =>
-            wrapInteraction(locator.fill(text), 'Type', ref)
-        );
+        return this.interaction.type(ref, text);
     }
 
     hover(ref: string): ResultAsync<void, InteractionError> {
-        this.logger.debug(`${TAG} Hovering element: ${ref}`);
-        return this.resolveRef(ref).andThen((locator) =>
-            wrapInteraction(locator.hover({ timeout: ELEMENT_WAIT_TIMEOUT_MS }), 'Hover', ref)
-        );
+        return this.interaction.hover(ref);
     }
 
     selectOption(ref: string, values: string[]): ResultAsync<void, InteractionError> {
-        this.logger.debug(`${TAG} Selecting option on element: ${ref}`);
-        return this.resolveRef(ref).andThen((locator) =>
-            wrapInteraction(locator.selectOption(values, { timeout: ELEMENT_WAIT_TIMEOUT_MS }).then(() => {}), 'Select option', ref)
-        );
+        return this.interaction.selectOption(ref, values);
     }
 
     dragTo(fromRef: string, toRef: string): ResultAsync<void, InteractionError> {
-        this.logger.debug(`${TAG} Dragging element ${fromRef} to ${toRef}`);
-        return this.resolveRef(fromRef).andThen((source) =>
-            this.resolveRef(toRef).andThen((target) =>
-                wrapInteraction(source.dragTo(target, { timeout: ELEMENT_WAIT_TIMEOUT_MS }), 'Drag', fromRef)
-            )
-        );
+        return this.interaction.dragTo(fromRef, toRef);
     }
 
     pressKey(key: string): ResultAsync<void, InteractionError> {
@@ -185,36 +159,11 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
     }
 
     highlight(ref: string): ResultAsync<void, InteractionError> {
-        return this.resolveRef(ref).andThen((locator) =>
-            wrapInteraction(
-                (async (): Promise<void> => {
-                    await locator.scrollIntoViewIfNeeded();
-
-                    await locator.evaluate((node, highlightMs) => {
-                        const element = node as HTMLElement;
-                        const originalOutline = element.style.outline;
-                        const originalTransition = element.style.transition;
-
-                        element.style.transition = 'outline 0.1s ease-in-out';
-                        element.style.outline = '3px solid #ff0000';
-                        element.style.outlineOffset = '2px';
-
-                        setTimeout(() => {
-                            element.style.outline = originalOutline;
-                            element.style.transition = originalTransition;
-                        }, highlightMs);
-                    }, HIGHLIGHT_DURATION_MS);
-                })(),
-                'Highlight', ref
-            )
-        );
+        return this.interaction.highlight(ref);
     }
 
     extractText(ref: string): ResultAsync<string, InteractionError> {
-        this.logger.debug(`${TAG} Extracting text from: ${ref}`);
-        return this.resolveRef(ref).andThen((locator) =>
-            wrapInteraction(locator.innerText(), 'Extract text', ref)
-        ).map(text => text ?? '');
+        return this.interaction.extractText(ref);
     }
 
     getCurrentUrl(): string | null {
