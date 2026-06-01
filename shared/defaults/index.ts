@@ -1,5 +1,4 @@
 export * from './agent.defaults';
-export * from './agent-roles.defaults';
 export * from './tools.defaults';
 export * from './platform.defaults';
 export * from './persistence.defaults';

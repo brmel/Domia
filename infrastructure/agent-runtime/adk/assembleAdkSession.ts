@@ -9,7 +9,7 @@ import type { IRunHealthMonitor } from '@domain/ports/reporting/IRunHealthMonito
 import type { IConfigService } from '@domain/ports/platform/IConfigService';
 import type { RunId } from '@domain/value-objects';
 import { DEFAULT_ARTIFACT_RETENTION } from '@domain/value-objects/ArtifactRetention';
-import { DEFAULT_LLM_MODEL, APP_NAME, AGENT_ROLE_DEFAULTS } from '@shared/defaults';
+import { DEFAULT_LLM_MODEL, APP_NAME, DEFAULT_AGENT_TEMPERATURE } from '@shared/defaults';
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
 import { ActionMapper } from '@infrastructure/agent/common/ActionMapper';
 import { buildAgentInstruction } from '@infrastructure/agent/common/AgentInstructionBuilder';
@@ -60,7 +60,7 @@ export type AdkSessionResult = AdkSessionSetup | { kind: 'error'; cause: Error }
 /**
  * Builds the per-run ADK pipeline: resolve + create the LLM, assemble the tool
  * catalog (built-in + plugins + skills), render the instruction + step goal,
- * construct the LlmAgent (with compaction + metrics callbacks), and open the
+ * construct the LlmAgent (with the metrics plugin), and open the
  * Runner + session. Pure assembly — no event loop — so the runtime file is just
  * the run loop and this is the one place the AI pipeline is wired.
  */
@@ -127,7 +127,7 @@ export async function assembleAdkSession(
         instruction: buildInstructionProvider(instruction),
         tools,
         generateContentConfig: {
-            temperature: AGENT_ROLE_DEFAULTS.actor.temperature,
+            temperature: DEFAULT_AGENT_TEMPERATURE,
             toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
             ...(llmConfig.thinkingBudget > 0
                 ? { thinkingConfig: { includeThoughts: true, thinkingBudget: llmConfig.thinkingBudget } }

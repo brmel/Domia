@@ -2,6 +2,10 @@ export const DEFAULT_LLM_MODEL = 'gemini-2.0-flash';
 export const DEFAULT_LLM_PROVIDER = 'google' as const;
 export const LLM_CALL_BUDGET_OFFSET = 2;
 
+export const DEFAULT_AGENT_TEMPERATURE = 0;
+/** Gemini thinking token budget; 0 = disabled. Opt in per-run via DOMIA_THINKING_BUDGET. */
+export const DEFAULT_THINKING_BUDGET = 0;
+
 export const DEFAULT_MAX_ACTIONS = 1000;
 export const DEFAULT_MAX_DURATION_MS = 24 * 60 * 60 * 1000;
 export const DEFAULT_MAX_ESTIMATED_TOKENS = 2_000_000;
