@@ -8,7 +8,7 @@ export async function launchElectronApp(appPath: string, cdpPort: number = 9222)
         // Strip ELECTRON_RUN_AS_NODE / NODE_OPTIONS so the spawned Electron runs
         // as Electron (not node) even when this helper is invoked from the
         // run-as-node CLI — mirrors infrastructure/playwright/electron/electronCdpConnect.
-        const env = { ...process.env, ELECTRON_REMOTE_DEBUGGING_PORT: cdpPort.toString() };
+        const env = { ...process.env, ELECTRON_REMOTE_DEBUGGING_PORT: cdpPort.toString() } as NodeJS.ProcessEnv;
         delete env['ELECTRON_RUN_AS_NODE'];
         delete env['NODE_OPTIONS'];
 
