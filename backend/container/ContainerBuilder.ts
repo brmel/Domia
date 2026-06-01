@@ -62,7 +62,6 @@ import { EventBus } from '@backend/events/EventBus';
 import { RunQueries } from '@backend/runs/RunQueries';
 import { WorkflowQueries } from '@backend/workflows/WorkflowQueries';
 import { EventLogger } from '@infrastructure/observability/EventLogger';
-import { OtelEventExporter } from '@infrastructure/observability/OtelEventExporter';
 import { RunTraceWriter } from '@infrastructure/observability/RunTraceWriter';
 import { installAdkLoggerAdapter } from '@infrastructure/agent-runtime/adk/AdkLoggerAdapter';
 import type { ILogger } from '@domain/ports/platform/ILogger';
@@ -173,14 +172,13 @@ export class ContainerBuilder {
         container.registerSingleton(TraceService);
         container.register('ITraceService', { useToken: TraceService });
         container.registerSingleton(EventLogger);
-        container.registerSingleton(OtelEventExporter);
         container.registerSingleton(RunTraceWriter);
         return this;
     }
 
     installEventLogger(): this {
         container.resolve(EventLogger).install();
-        container.resolve(OtelEventExporter).install();
+        container.resolve(TraceService).install(container.resolve<ILogger>('ILogger'));
         container.resolve(RunTraceWriter).install();
         installAdkLoggerAdapter(container.resolve<ILogger>('ILogger'));
         return this;

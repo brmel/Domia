@@ -1,9 +1,14 @@
 import { injectable } from 'tsyringe';
 import { trace, context, SpanStatusCode, type Span, type Context } from '@opentelemetry/api';
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { APP_NAME } from '@shared/defaults';
 import type { ITraceService } from '@domain/ports/reporting/ITraceService';
+import type { ILogger } from '@domain/ports';
 
 const TRACER_NAME = 'domia.run';
+const OTEL_ENDPOINT_VAR = 'DOMIA_OTEL_ENDPOINT';
 
 /**
  * Real OpenTelemetry tracing for runs. Each run gets a root `agent.run` span with
@@ -20,6 +25,24 @@ export class TraceService implements ITraceService {
     private readonly tracer = trace.getTracer(TRACER_NAME, APP_NAME);
     private readonly byRun = new Map<string, { span: Span; ctx: Context }>();
     private readonly stack: string[] = [];
+    private installed = false;
+
+    /**
+     * Register the OTLP exporter once, at composition root. Sole owner of the OTel
+     * TracerProvider — the run/tool spans (and nothing else) are exported when
+     * DOMIA_OTEL_ENDPOINT is set; otherwise the global tracer stays a no-op.
+     */
+    install(logger: ILogger): void {
+        if (this.installed) return;
+        this.installed = true;
+        const endpoint = process.env[OTEL_ENDPOINT_VAR];
+        if (!endpoint) {
+            logger.debug(`[TraceService] ${OTEL_ENDPOINT_VAR} not set; OTel export disabled`);
+            return;
+        }
+        new NodeTracerProvider({ spanProcessors: [new BatchSpanProcessor(new OTLPTraceExporter({ url: endpoint }))] }).register();
+        logger.info(`[TraceService] Exporting run/tool spans to ${endpoint}`);
+    }
 
     async startTrace(runId: string): Promise<void> {
         if (this.byRun.has(runId)) return;
