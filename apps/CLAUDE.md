@@ -2,7 +2,7 @@
 
 ## Rules
 - **Apps contain no business logic.** Entry, routing, presentation only. Business goes in `backend/`.
-- Each app folder is one entry point: `apps/desktop/`, `apps/cli/`. Future: `apps/server/`, `apps/mobile/`.
+- Each app folder is one entry point: `apps/desktop/`, `apps/cli/`, `apps/server/` (read-only HTTP, the clean-boundary proof). Future: `apps/mobile/`.
 - The DI container is bootstrapped exactly once per process (`@backend/container-root` `registerCoreServices()`).
 - IPC routers (`apps/desktop/ipc/`) **must not** import `@infrastructure/*`. Use backend services through DI.
 

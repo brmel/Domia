@@ -15,6 +15,7 @@
     "check:architecture": "node scripts/check-architecture.mjs",
     "test:cli": "tsx tests/e2e/cli/run-cli-tests.ts",
     "cli": "ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs apps/cli/index.ts",
+    "server": "tsx apps/server/index.ts",
     "package": "npm run build && electron-builder"
   },
   "dependencies": {
