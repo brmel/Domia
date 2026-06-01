@@ -8,7 +8,7 @@ import { ExecutionController } from '@backend/ExecutionController';
 import { WorkflowError } from '@domain/errors';
 import { RunLifecycleManager } from './RunLifecycleManager';
 import { RunInput, RunOutput } from '@backend/dto';
-import type { RunExecutionLaneService } from './RunExecutionLaneService';
+import type { IRunExecutionLaneService } from './RunExecutionLaneService';
 import { RunDurabilityService } from './RunDurabilityService';
 import { RunBudgetPolicyService } from './RunBudgetPolicyService';
 import { StepExecutionKernelService } from './StepExecutionKernelService';
@@ -32,7 +32,7 @@ export class RunUseCase {
     constructor(
         @inject(RunLifecycleManager) private lifecycleManager: RunLifecycleManager,
         @inject('ITraceService') private trace: import('@domain/ports/reporting/ITraceService').ITraceService,
-        @inject('IRunExecutionLaneService') private readonly laneService: RunExecutionLaneService,
+        @inject('IRunExecutionLaneService') private readonly laneService: IRunExecutionLaneService,
         @inject(RunDurabilityService) private readonly durability: RunDurabilityService,
         @inject(RunBudgetPolicyService) private readonly budgetPolicy: RunBudgetPolicyService,
         @inject(RuntimeReadinessPolicyService) private readonly readinessPolicy: RuntimeReadinessPolicyService,

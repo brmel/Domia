@@ -12,7 +12,7 @@ import type { RunInput, RunOutput } from '@backend/dto';
 import type { AgentOutcome, IAgentRuntime } from '@domain/ports/agent/IAgentRuntime';
 import type { IPerceptionPipeline, ILogger } from '@domain/ports';
 import type { IEventBus } from '@domain/ports/platform/IEventBus';
-import type { RunExecutionLaneService } from './RunExecutionLaneService';
+import type { IRunExecutionLaneService } from './RunExecutionLaneService';
 import { RunSessionService } from './RunSessionService';
 import { RunSuspensionService } from './RunSuspensionService';
 import { RunBudgetPolicyService } from './RunBudgetPolicyService';
@@ -25,7 +25,7 @@ export class RunResumeService {
     constructor(
         @inject(RunSuspensionService) private readonly suspensionService: RunSuspensionService,
         @inject(RunSessionService) private readonly runSessionService: RunSessionService,
-        @inject('IRunExecutionLaneService') private readonly laneService: RunExecutionLaneService,
+        @inject('IRunExecutionLaneService') private readonly laneService: IRunExecutionLaneService,
         @inject(RunBudgetPolicyService) private readonly budgetPolicy: RunBudgetPolicyService,
         @inject(RunDurabilityService) private readonly durability: RunDurabilityService,
         @inject(RunTerminalizationService) private readonly terminalization: RunTerminalizationService,

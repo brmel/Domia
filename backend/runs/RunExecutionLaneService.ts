@@ -1,12 +1,12 @@
 import { injectable } from 'tsyringe';
 import AsyncLock from 'async-lock';
 
-export interface RunExecutionLaneService {
+export interface IRunExecutionLaneService {
     acquire(laneKey: string): Promise<() => void>;
 }
 
 @injectable()
-export class InMemoryRunExecutionLaneService implements RunExecutionLaneService {
+export class InMemoryRunExecutionLaneService implements IRunExecutionLaneService {
     private readonly lock = new AsyncLock();
 
     async acquire(laneKey: string): Promise<() => void> {
