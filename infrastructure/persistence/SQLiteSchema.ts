@@ -94,7 +94,6 @@ export function initializeSchema(database: SqlJsDatabase): void {
         );
 
         CREATE INDEX IF NOT EXISTS idx_runs_started_at ON runs(started_at);
-        CREATE INDEX IF NOT EXISTS idx_runs_parent ON runs(parent_run_id);
         CREATE INDEX IF NOT EXISTS idx_steps_run_step ON steps(run_id, step_number);
         CREATE INDEX IF NOT EXISTS idx_workflow_definitions_updated_at ON workflow_definitions(updated_at);
         CREATE INDEX IF NOT EXISTS idx_workflow_definitions_status ON workflow_definitions(status);

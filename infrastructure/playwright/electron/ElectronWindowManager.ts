@@ -41,17 +41,6 @@ export class ElectronWindowManager {
         }
     }
 
-    getWindow(windowId: string): Result<ElectronWindow, ValidationError> {
-        const validation = CDPValidator.validateWindowId(windowId);
-        if (validation.isErr()) return err(validation.error);
-
-        const window = this.windows.get(windowId);
-        if (!window) {
-            return err(new ValidationError(`Window ${windowId} not found`, 'windowId'));
-        }
-        return ok(window);
-    }
-
     getActiveWindow(): ElectronWindow | null {
         if (!this.activeWindowId) {
             const firstWindow = Array.from(this.windows.values())[0];

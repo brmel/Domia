@@ -7,7 +7,6 @@ import {
 
 export interface PlaywrightProfileSettings {
     readonly fps: number;
-    readonly captureAria: boolean;
     readonly hookConsole: boolean;
     readonly hookNetwork: boolean;
     readonly hookPageError: boolean;
@@ -18,21 +17,18 @@ const SETTINGS: Record<ObservationProfile, PlaywrightProfileSettings | null> = {
     [ObservationProfile.OnDemand]: null,
     [ObservationProfile.LongWait]: {
         fps: OBSERVATION_FPS_LONG_WAIT,
-        captureAria: false,
         hookConsole: true,
         hookNetwork: false,
         hookPageError: true,
     },
     [ObservationProfile.QuickAction]: {
         fps: OBSERVATION_FPS_QUICK_ACTION,
-        captureAria: true,
         hookConsole: true,
         hookNetwork: true,
         hookPageError: true,
     },
     [ObservationProfile.HighFidelity]: {
         fps: OBSERVATION_FPS_HIGH_FIDELITY,
-        captureAria: true,
         hookConsole: true,
         hookNetwork: true,
         hookPageError: true,
