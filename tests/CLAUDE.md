@@ -9,7 +9,7 @@
 ## Layout
 - `tests/e2e/agent/` — full agent runs (Gemini + Playwright).
 - `tests/e2e/workflow/` — workflow orchestrator with real persistence.
-- `tests/e2e/persistence/` — SQLite migrations + repositories.
+- `tests/e2e/persistence/` — SQLite schema + repositories.
 - `tests/e2e/tools/` — tool catalog against fixture pages.
 - `tests/e2e/plugins/` — plugin loader.
 - `tests/e2e/cli/` — **deterministic** CLI smoke (`*.test.ts`, in the vitest suite: `--help` + `history list`, no LLM) plus the **live** LLM-driven scenarios (`*-test.ts`, run on demand via `npm run test:cli`) and their fixtures/helpers.

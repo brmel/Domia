@@ -1,73 +1,49 @@
 ---
 name: our-agent-loop
-description: End-to-end agent run pipeline. RunUseCase orchestrator, the decomposed services it delegates to, the StepExecutionKernel, the IAgentRuntime port, and how AgentOutcome shapes the final RunOutput.
+description: End-to-end agent run pipeline — RunUseCase orchestrator, the narrow services it delegates to, StepExecutionKernel, the IAgentRuntime port, and how AgentOutcome shapes the final RunOutput.
 ---
 
 # The Agent Loop — End-to-End
 
-A run is one user goal driven against one platform target. This is the canonical flow.
+A run is one user goal driven against one platform target. `RunUseCase.execute` is an `AsyncGenerator<RunOutput, void>` consumed identically by the desktop IPC (`runRouter`) and the CLI (`RunCommand`).
 
-## Top-level pipeline
-
-```
-User input (prompt + platform)
-    ↓
-apps/desktop/ipc/routers/runRouter  OR  apps/cli/RunCommand
-    ↓
-RunUseCase.execute(input, controller, runContext?)
-    ↓
-yields RunOutput events (started, acting, state_updated, completed, cancelled, error)
-    ↓
-UI store reducer  /  CLI switch
-```
-
-`RunUseCase.execute` is an `AsyncGenerator<RunOutput, void>`. Both UI and CLI consume the same stream.
-
-## Inside RunUseCase — a sequence of narrow services
+## Pipeline (inside RunUseCase)
 
 ```
-RunUseCase  (orchestrator: injects RunStepEngine + policy/lifecycle/plan services)
-├── RuntimeReadinessPolicyService.assess()       → may yield ReadinessError
-├── engine.acquireLane()                         → lane lock per platform target
-├── RunLifecycleManager.initializeRun()          → persist Run, emit run.started
-├── engine.prepareSession()                      → IAppDriver + IStructuredAutomation
-├── (loop body)
-│   ├── engine.checkpoint(...)                   → CheckpointReason
-│   ├── RunPlanCoordinator.buildSinglePromptPlan()
-│   ├── RunControlGateService.evaluate()         → pause/cancel gate
-│   ├── RunPlanCoordinator.activate()
-│   ├── engine.executeStep()                     → StepExecutionKernel → IAgentRuntime
-│   └── RunPlanCoordinator.applyOutcome()
-└── engine.concludeRun()                         → terminalize-or-suspend + RunOutput
+RuntimeReadinessPolicyService.assess()    → advisory readiness report
+engine.acquireLane()                       → lane lock per platform target
+RunLifecycleManager.initializeRun()        → persist Run, emit run.started
+engine.prepareSession()                    → IAppDriver + IStructuredAutomation
+RunPlanningService.plan()    (gated DOMIA_PLANNER) → optional goal decomposition
+RunPlanCoordinator.build/activate()
+RunControlGateService.evaluate()           → pause/cancel gate
+engine.executeStep()                       → StepExecutionKernel → IAgentRuntime
+RunPlanCoordinator.applyOutcome()
+RunEvaluationService.evaluate() (gated DOMIA_EVALUATOR) → reflection on a done outcome
+engine.concludeRun()                       → terminalize-or-suspend + final RunOutput
 ```
 
-`RunStepEngine` (`backend/runs/engine/`) bundles the run-step machinery — kernel,
-durability, session, terminalization, suspension, lane — so both `RunUseCase`
-(fresh run) and `RunResumeService` (resume) inject one engine instead of
-re-wiring six services. Each service has one responsibility; to add a pipeline
-step, add a service (surface it on the engine if shared) — don't grow the
-orchestrator (CLAUDE.md trap #3).
+`RunStepEngine` (`backend/runs/engine/`) bundles the run-step machinery (kernel, durability, session, terminalization, suspension, lane) so both `RunUseCase` and `RunResumeService` inject one engine. To add a step, add a service — don't grow `RunUseCase` (CLAUDE.md trap #3).
 
 ## StepExecutionKernelService
 
-Drives `IAgentRuntime.run(input, automation)` and translates its `AgentEvent` stream into `RunOutput` events:
-- `agent action` → save `Step` row → `WorkflowState.applyAction` → checkpoint with `CheckpointReason.ActionApplied` → yield `state_updated`.
-- `thinking_chunk` → yield `thinking_chunk`.
-- Mid-stream pause/cancel checks at every action.
-- Throws `BudgetExceededError` when budget is exceeded; the orchestrator catches and routes to terminalization.
+Drives `IAgentRuntime.run(input, automation)` and maps its `AgentEvent` stream to `RunOutput`:
+- `action` → save `Step` → `WorkflowState.applyAction` → checkpoint (`CheckpointReason.ActionApplied`) → yield `state_updated`.
+- `thinking_chunk` → yield through.
+- Pause/cancel/suspend checks at every action.
+
+Budget ceilings (max actions/duration/tokens) are enforced **inside the runtime**: exhaustion surfaces as `AgentOutcome { kind: 'stopped', reason: 'budget_exhausted' }`, which the kernel routes to terminalization (no exception).
 
 ## IAgentRuntime — the agent-provider boundary
 
 ```ts
 interface IAgentRuntime {
-    run(input: AgentInput, automation: IStructuredAutomation):
-        AsyncGenerator<AgentEvent, AgentOutcome>;
+    run(input: AgentInput, automation: IStructuredAutomation): AsyncGenerator<AgentEvent, AgentOutcome>;
 }
 ```
+Only impl: `AdkAgentRuntime` (`infrastructure/agent-runtime/adk/`). New provider → implement the port in `infrastructure/agent-runtime/<provider>/`, register under `'IAgentRuntime'`. ADK-specific concerns stay in that folder; generic loop helpers go in `infrastructure/agent/common/`.
 
-Today the only impl is `AdkAgentRuntime` in `infrastructure/agent-runtime/adk/`. To add OpenAI/Anthropic/local: implement `IAgentRuntime` in a new folder under `infrastructure/agent-runtime/<provider>/`, register under the `'IAgentRuntime'` token in the container.
-
-## AgentOutcome — three kinds
+## AgentOutcome routing (verdict is OPTIONAL)
 
 ```ts
 type AgentOutcome =
@@ -75,39 +51,10 @@ type AgentOutcome =
     | { kind: 'stopped'; reason: 'cancelled' | 'budget_exhausted' | 'no_progress'; summary }
     | { kind: 'error'; cause: Error };
 ```
+`RunLifecycleManager` routes: `done`+`pass`→`Run.pass`, `done`+`fail`→`Run.fail`, **`done`+no verdict→`Run.finish`** (with optional `value`), `stopped`/`error`→`Run.fail`. A verdict-less finish is normal (extraction/exploration) — never assume pass/fail is required.
 
-Critical rule: `verdict` is **optional**. The agent finishing without a verdict is normal and legitimate (e.g. data extraction, exploration tasks). `RunLifecycleManager.finalizeRun` routes:
-- `done` + `verdict: 'pass'` → `Run.pass`
-- `done` + `verdict: 'fail'` → `Run.fail`
-- `done` + no verdict → `Run.finish` (with optional `value`)
-- `stopped` or `error` → `Run.fail`
-
-Never assume the agent must produce a pass/fail.
-
-## The terminal tool
-
-The agent uses one terminal tool: `finish({ summary, verdict?, value? })`. Defined in `infrastructure/tools/catalog/terminal.tools.ts`. There is no separate `pass` or `fail` tool.
-
-## AgentEvent shape
-
-```ts
-type AgentEvent =
-    | { type: 'thinking_chunk'; text }
-    | { type: 'action'; action: AgentAction; actionIndex: number; trace: Partial<StepTrace> };
-```
-
-Tools are typed `ToolSpec`s defined in `infrastructure/tools/catalog/`. Adding a new tool:
-1. Add a new `ActionType` value if needed.
-2. Create a `ToolSpec` in the appropriate `*.tools.ts`.
-3. Wire dependencies through `ToolDependencies`.
-4. Test with `tests/e2e/tools/`.
+The single terminal tool is `finish({ summary, verdict?, value? })` (`infrastructure/tools/catalog/terminal.tools.ts`); there is no separate pass/fail tool.
 
 ## Observability
 
-`EventBus` (mitt-backed) emits domain events. `EventLogger` subscribes and routes to `pino`. Business code never logs directly; it emits domain events.
-
-## Where NOT to add code
-
-- `RunUseCase`: no new logic. Add a service, wire it in.
-- Domain ports: no implementation, only interfaces.
-- `AdkAgentRuntime`: only ADK-specific concerns. Generic agent loop logic goes in `infrastructure/agent/common/`.
+`EventBus` (mitt) emits `DomainEvents`; `EventLogger` → pino, `OtelEventExporter` → OTLP spans (when `DOMIA_OTEL_ENDPOINT` set), `RunTraceWriter` → per-run `trace.jsonl`. Business code emits events, never logs directly.

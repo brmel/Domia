@@ -52,7 +52,7 @@ Run `npm run check:architecture` to check.
 A feature usually flows: **domain → backend service → IPC router OR CLI command → frontend feature module**.
 
 1. **Domain shape**. Add entities, value objects, ports under `domain/`. If new errors are needed, extend `DomainError` in `domain/errors.ts`.
-2. **Persistence (if needed)**. Implement the new repository port in `infrastructure/persistence/`. Add a Kysely table type. Add a migration.
+2. **Persistence (if needed)**. Implement the repository port in `infrastructure/persistence/`. Add the table to `SQLiteSchema.ts` + a Kysely table type in `DatabaseSchema.ts` (one baseline schema — pre-release, no migrations; delete the local `domia.db` to re-create).
 3. **Backend service**. Add the service in the appropriate bounded context under `backend/<context>/`. Use `@injectable()` and `@inject(TOKEN)`.
 4. **DI registration**. Wire in `backend/container/ContainerBuilder.ts`.
 5. **Surface**:
@@ -130,7 +130,7 @@ Clean layered hexagon: pure `domain/`, real DI seam (`backend/container/`), port
 ## Where to find things
 
 - `CLAUDE.md` and per-area `CLAUDE.md` — agent briefs.
-- `.claude/skills/` — focused skill briefs (TypeScript-strict, Playwright, result-discipline, the agent loop).
+- `.claude/skills/` — focused skill briefs (TypeScript-strict, Playwright, the agent loop).
 - `.claude/commands/` — slash commands (`/check`).
 
 ## Validation before claiming done

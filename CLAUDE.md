@@ -34,7 +34,7 @@ For deeper architecture rationale and how-to guides for adding features, see `do
 
 1. **No comments unless they explain WHY.** Never restate what the code does. The reader can read code; they can't read your mind.
 2. **Typed const over `enum`.** See `domain/value-objects/CheckpointReason.ts` for the canonical pattern.
-3. **`Result<T, E>` over throw across layer boundaries.** `neverthrow` is the library. See `.claude/skills/result-discipline.md`.
+3. **`Result<T, E>` over throw across layer boundaries.** `neverthrow` is the library. See `.claude/skills/typescript-strict.md`.
 4. **No `console.log` in source code** outside of CLI commands. Use `ILogger` (pino-backed).
 5. **No magic strings or numbers.** Constants in `shared/defaults/`. Vocabularies in `domain/value-objects/` typed const maps. UI strings in component files (we don't have i18n yet).
 6. **No mocks.** Tests are e2e against real DB, real browser, real LLM (replay). See `tests/CLAUDE.md`.
@@ -77,9 +77,8 @@ Or run `/check` (a saved command — see `.claude/commands/check.md`).
 ## Skills
 
 Reference material in `.claude/skills/`:
-- `typescript-strict.md` — strict mode + branded types + typed const + Result discipline.
+- `typescript-strict.md` — strict flags, branded types, typed const, Result discipline + the error catalog.
 - `playwright.md` — how we use Playwright + where it's allowed.
-- `result-discipline.md` — when to throw, when to Result.
 - `our-agent-loop.md` — the end-to-end agent run pipeline.
 
 Read the one relevant to your task before making non-trivial changes to that area.

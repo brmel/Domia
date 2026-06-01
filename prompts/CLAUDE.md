@@ -1,34 +1,23 @@
 # prompts/ — Agent Prompts as Markdown
 
-## Rules
-- These are **content**, not code. PMs and non-engineers can edit them.
-- Loaded at runtime by `infrastructure/prompts/promptDefaults.ts` → `loadDefaultPrompts()`.
-- Variables use `{{name}}` syntax. Substitution happens in `infrastructure/prompts/interpolate.ts`.
+These are **content, not code** — editable by non-engineers. Loaded at runtime by `infrastructure/prompts/promptDefaults.ts` (`loadDefaultPrompts`); served + overridden by `PromptService`.
 
 ## Layout
-- `system-instruction.md` — the agent system prompt.
+- `system-instruction.md` — agent system prompt.
 - `step-goal.md` — per-step goal template.
-- `targeting/{both,ref-only,mouse-only}.md` — element targeting guidance.
-- `shell/{capability-note,available-rule,unavailable-rule}.md` — shell tool guidance.
+- `targeting/{both,ref-only,mouse-only}.md` — element-targeting guidance (selected by available tools).
+- `shell/{capability-note,available-rule,unavailable-rule}.md` — shell-tool guidance.
+- `evaluate-goal.md`, `plan-decomposition.md` — evaluator/planner prompts (used when `DOMIA_EVALUATOR`/`DOMIA_PLANNER` are on).
 
-## Variables in use
+## Variables
+- **Build-time `{{name}}`** — substituted once via `shared/reliability/interpolate.ts` before the prompt reaches ADK: `{{toolNames}}`, `{{targetingSection}}`, `{{shellSection}}`, `{{shellExecRule}}`, and the step-goal values (`{{stepGoal}}`, `{{viewportWidth}}`, `{{viewportHeight}}`, `{{url}}`, `{{maxActions}}`). Caller-controlled values are ADK-brace-escaped (`escapeAdkState`) so stray `{state.x}` in untrusted text can't be interpolated.
+- **Live-state `{state.name}`** — re-substituted every model turn by `buildInstructionProvider` from `Session.state`: `{state.currentUrl}`, `{state.lastTool}` (written by `RunMetricsPlugin`). Add more via `toolContext.state.set(...)`.
 
-**Build-time (`{{name}}` — substituted before the prompt is handed to ADK):**
-- `{{toolNames}}` — comma-separated tool list.
-- `{{shellSection}}`, `{{shellExecRule}}`, `{{targetingSection}}` — composed at runtime from the relevant sub-prompts.
-- `{{stepGoal}}`, `{{viewportWidth}}`, `{{viewportHeight}}`, `{{url}}`, `{{maxActions}}` — per-step values.
+## Adding a prompt
+1. Add the `.md` file.
+2. Add the `PromptKey` literal in `domain/ports/agent/IPromptService.ts` (+ its `PromptVariables` entry).
+3. Add the file mapping in `promptDefaults.ts` `PROMPT_FILES`.
+4. If user-editable, surface it in `frontend/features/runs/components/.../PromptEditor`.
 
-**Live-state (`{state.name}` — re-substituted at every model turn from `Session.state`):**
-- `{state.currentUrl}` — last URL the agent observed (written by `RunMetricsPlugin`).
-- `{state.lastTool}` — most recent tool name called (written by `RunMetricsPlugin`).
-- Add new state vars by writing them via `toolContext.state.set(...)` in a plugin or callback.
-
-## Adding a new prompt
-1. Add the `.md` file in the right sub-folder.
-2. Add the `PromptKey` literal to `domain/ports/IPromptService.ts`.
-3. Add the file mapping in `infrastructure/prompts/promptDefaults.ts`'s `PROMPT_FILES`.
-4. Add a label in `frontend/features/runs/components/PromptEditor.tsx` if it should be user-editable.
-
-## Editing prompts
-- Just edit the `.md` file. No compile, no type-check. Restart the running app to pick up the change.
-- Save your changes through the UI's `PromptEditor` to override per-environment without touching the file.
+## Editing
+Edit the `.md` directly. Set `DOMIA_PROMPT_HOT_RELOAD` to pick up changes without a restart; otherwise defaults are cached at startup. UI `PromptEditor` overrides persist per-environment without touching the file.
