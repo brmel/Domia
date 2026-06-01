@@ -83,3 +83,7 @@ test-output.log
 
 # Knip / dep-audit caches
 .knip-cache/
+
+# Generated per-file audit snapshots (regenerate locally: node scripts/file-audit.mjs)
+docs/architecture/file-audit.md
+docs/architecture/file-audit.csv

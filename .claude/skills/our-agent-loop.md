@@ -26,23 +26,27 @@ UI store reducer  /  CLI switch
 ## Inside RunUseCase — a sequence of narrow services
 
 ```
-RunUseCase
+RunUseCase  (orchestrator: injects RunStepEngine + policy/lifecycle/plan services)
 ├── RuntimeReadinessPolicyService.assess()       → may yield ReadinessError
-├── RunExecutionLaneService.acquire()            → lane lock per platform target
+├── engine.acquireLane()                         → lane lock per platform target
 ├── RunLifecycleManager.initializeRun()          → persist Run, emit run.started
-├── RunSessionService.prepare()                  → IAppDriver + IStructuredAutomation
+├── engine.prepareSession()                      → IAppDriver + IStructuredAutomation
 ├── (loop body)
-│   ├── RunDurabilityService.checkpoint(...)    → CheckpointReason
+│   ├── engine.checkpoint(...)                   → CheckpointReason
 │   ├── RunPlanCoordinator.buildSinglePromptPlan()
 │   ├── RunControlGateService.evaluate()         → pause/cancel gate
-│   ├── kernel.throwIfBudgetExceeded()           → BudgetExceededError
 │   ├── RunPlanCoordinator.activate()
-│   ├── StepExecutionKernelService.execute()    → drives IAgentRuntime
+│   ├── engine.executeStep()                     → StepExecutionKernel → IAgentRuntime
 │   └── RunPlanCoordinator.applyOutcome()
-└── RunTerminalizationService.finalize()         → final RunOutput + lifecycle close
+└── engine.concludeRun()                         → terminalize-or-suspend + RunOutput
 ```
 
-Every service has one responsibility. To add a new pipeline step (e.g. a pre-run policy gate), add it as a service and wire it into `RunUseCase` — don't grow the orchestrator.
+`RunStepEngine` (`backend/runs/engine/`) bundles the run-step machinery — kernel,
+durability, session, terminalization, suspension, lane — so both `RunUseCase`
+(fresh run) and `RunResumeService` (resume) inject one engine instead of
+re-wiring six services. Each service has one responsibility; to add a pipeline
+step, add a service (surface it on the engine if shared) — don't grow the
+orchestrator (CLAUDE.md trap #3).
 
 ## StepExecutionKernelService
 

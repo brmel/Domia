@@ -59,6 +59,13 @@ Start the Electron-based desktop application:
 npm run dev
 ```
 
+### Server (read-only HTTP)
+
+Expose run/workflow history over HTTP (same backend, shared container):
+```bash
+npm run server   # GET /health, /runs, /workflows on :4317
+```
+
 ## Validation
 
 Before claiming a change complete, run the project gates (or the `/check` saved command):
