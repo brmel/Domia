@@ -27,18 +27,16 @@ jobs:
       - name: Architecture boundaries
         run: npm run check:architecture
 
-      # Non-blocking: lint currently surfaces pre-existing errors/warnings that
-      # are tracked separately. The canonical boundary/correctness gates are
-      # typecheck + check:architecture above.
       - name: Lint
         run: npm run lint
-        continue-on-error: true
 
       - name: Install Playwright
         run: npx playwright install chromium --with-deps
 
+      # Replay-LLM e2e (deterministic) — includes the CLI + IPC smokes.
       - name: Tests
         run: npm run test
 
-      - name: CLI e2e tests
-        run: npm run test:cli
+      # The live LLM-driven CLI scenarios (`npm run test:cli`) need a real
+      # GOOGLE_API_KEY and are non-deterministic, so they are NOT part of the
+      # per-PR gate. Run them on demand locally or in a separate keyed lane.

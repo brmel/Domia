@@ -1,0 +1,35 @@
+name: Live LLM
+
+# The live, non-deterministic lane: real Gemini calls. Kept out of the per-PR
+# gate (ci.yml). Runs on demand and weekly to catch drift against the real LLM.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner != '' }}
+    env:
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      DOMIA_LIVE_LLM: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright
+        run: npx playwright install chromium --with-deps
+
+      - name: Live LLM e2e (vision + agent runs)
+        run: npm run test
+
+      - name: Live CLI scenarios
+        run: npm run test:cli
