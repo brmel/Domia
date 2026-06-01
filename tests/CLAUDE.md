@@ -20,6 +20,7 @@
 ## Patterns
 - DB tests: `createInMemoryDb()` from `@/tests/support/tempDb`.
 - Fixture HTML: `startFixtureServer(dir)` from `tests/e2e/cli/helpers/web-fixture-server.ts`.
+- Tool/automation cases: `createWebHarness(dir)` / `createElectronHarness(dir)` from `tests/support/toolHarness.ts` — one call returns `{ automation, baseUrl, seedRefs, close }` so a new web *or* electron case is a few lines (see `tools/dom-tools`, `tools/electron-tools`).
 - LLM replay: `LlmReplay` from `tests/support/llmReplay.ts`.
 - Construct infrastructure adapters directly with `new` — no DI in tests. Tests should be transparent about what they wire.
 
