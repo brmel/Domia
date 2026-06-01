@@ -10,11 +10,11 @@ import { RunInput, RunOutput } from '@backend/dto';
 import { resolveUrlFromConfig, resolveLaneKeyFromConfig } from '@backend/platform/platformUrlUtils';
 import { buildRunExecutionOptions } from './runExecutionOptions';
 import { RuntimeReadinessPolicyService } from '@backend/policy/RuntimeReadinessPolicyService';
-import type { RunExecutionContext, PreparedRunSession } from './RunSessionService';
+import type { RunExecutionContext, PreparedRunSession } from './engine/RunSessionService';
 import { RunBudgetPolicyService } from './RunBudgetPolicyService';
 import { RunPlanCoordinator } from './RunPlanCoordinator';
 import { RunControlGateService } from './RunControlGateService';
-import { RunStepEngine } from './RunStepEngine';
+import { RunStepEngine } from './engine/RunStepEngine';
 import { ObservationProfile, DEFAULT_OBSERVATION_PROFILE, type RunId } from '@domain/value-objects';
 import type { ILogger } from '@domain/ports';
 

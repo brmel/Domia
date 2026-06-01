@@ -5,7 +5,7 @@ import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import type { AgentOutcome } from '@domain/ports/agent/IAgentRuntime';
 import { RunState } from '@domain/enums';
 import { ExecutionController } from '@backend/ExecutionController';
-import { RunDurabilityService } from './RunDurabilityService';
+import { RunDurabilityService } from './engine/RunDurabilityService';
 
 export type ControlGateDecision =
     | { readonly kind: 'proceed' }

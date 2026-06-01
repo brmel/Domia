@@ -7,8 +7,8 @@ import { SQLiteRunRepository } from '@infrastructure/persistence/SQLiteRunReposi
 import { SQLiteCheckpointRepository } from '@infrastructure/persistence/SQLiteCheckpointRepository';
 import { FileSystemStorage } from '@infrastructure/FileSystemStorage';
 import { ConsoleLogger } from '@infrastructure/ConsoleLogger';
-import { RunDurabilityService } from '@backend/runs/RunDurabilityService';
-import { RunSuspensionService } from '@backend/runs/RunSuspensionService';
+import { RunDurabilityService } from '@backend/runs/engine/RunDurabilityService';
+import { RunSuspensionService } from '@backend/runs/engine/RunSuspensionService';
 import { Run } from '@domain/entities/Run';
 import { RunIdFactory, UrlFactory } from '@domain/value-objects';
 import { WorkflowState } from '@domain/value-objects/WorkflowState';

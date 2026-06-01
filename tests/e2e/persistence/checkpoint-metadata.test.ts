@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { SQLiteCheckpointRepository } from '@infrastructure/persistence/SQLiteCheckpointRepository';
-import { RunDurabilityService } from '@backend/runs/RunDurabilityService';
+import { RunDurabilityService } from '@backend/runs/engine/RunDurabilityService';
 import { WorkflowState } from '@domain/value-objects/WorkflowState';
 import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import { ConsoleLogger } from '@infrastructure/ConsoleLogger';

@@ -13,7 +13,7 @@ import { RunDurabilityService } from './RunDurabilityService';
 import { RunTerminalizationService } from './RunTerminalizationService';
 import { RunSuspensionService } from './RunSuspensionService';
 import { RunSessionService, type PreparedRunSession, type RunExecutionContext } from './RunSessionService';
-import { createRunObservationCoordinator } from './runObservation';
+import { createRunObservationCoordinator } from '../runObservation';
 
 type StepExecutionOptions = Parameters<StepExecutionKernelService['execute']>[5];
 type BudgetContext = Parameters<StepExecutionKernelService['execute']>[6];

@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { ExecutionController } from '@backend/ExecutionController';
 import { RunControlGateService } from '@backend/runs/RunControlGateService';
-import { RunDurabilityService } from '@backend/runs/RunDurabilityService';
+import { RunDurabilityService } from '@backend/runs/engine/RunDurabilityService';
 import { SQLiteCheckpointRepository } from '@infrastructure/persistence/SQLiteCheckpointRepository';
 import { ConsoleLogger } from '@infrastructure/ConsoleLogger';
 import { WorkflowState } from '@domain/value-objects/WorkflowState';

@@ -10,10 +10,10 @@ import type { PlatformConfig } from '@domain/types/PlatformConfig';
 import type { RunInput, RunOutput } from '@backend/dto';
 import type { AgentOutcome, IAgentRuntime } from '@domain/ports/agent/IAgentRuntime';
 import type { ILogger } from '@domain/ports';
-import type { PreparedRunSession } from './RunSessionService';
-import { RunSuspensionService } from './RunSuspensionService';
+import type { PreparedRunSession } from './engine/RunSessionService';
+import { RunSuspensionService } from './engine/RunSuspensionService';
 import { RunBudgetPolicyService } from './RunBudgetPolicyService';
-import { RunStepEngine } from './RunStepEngine';
+import { RunStepEngine } from './engine/RunStepEngine';
 
 @injectable()
 export class RunResumeService {

@@ -7,7 +7,7 @@ import { WorkflowState } from '@domain/value-objects';
 import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import { RunState } from '@domain/enums';
 import { RunDurabilityService } from './RunDurabilityService';
-import type { RunBudgetLimits } from './RunBudgetPolicyService';
+import type { RunBudgetLimits } from '../RunBudgetPolicyService';
 import type { StepExecutionOptions } from '@backend/platform/platformUrlUtils';
 import type { RunOutput } from '@backend/dto';
 import type { IRunRepository } from '@domain/ports/persistence/IRunRepository';

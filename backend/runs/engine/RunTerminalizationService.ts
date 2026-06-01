@@ -5,11 +5,11 @@ import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import type { AgentOutcome } from '@domain/ports/agent/IAgentRuntime';
 import { RunState } from '@domain/enums';
 import { RunDurabilityService } from './RunDurabilityService';
-import { RunLifecycleManager } from './RunLifecycleManager';
+import { RunLifecycleManager } from '../RunLifecycleManager';
 import { ExecutionController } from '@backend/ExecutionController';
 import type { RunOutput } from '@backend/dto';
 import { RunSummaryDefaults } from '@shared/defaults';
-import { isOutcomeSuccessful, summarizeOutcome } from './outcomes';
+import { isOutcomeSuccessful, summarizeOutcome } from '../outcomes';
 
 interface RunTerminalContext {
     readonly runId: RunId;
