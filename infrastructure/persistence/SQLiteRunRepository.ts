@@ -98,45 +98,45 @@ export class SQLiteRunRepository {
 
     getRuns(limit: number = DEFAULT_RUNS_QUERY_LIMIT): ResultAsync<Run[], PersistenceError> {
         return dbOp(
-            this.db.selectFrom('runs')
+            (async () => (await this.db.selectFrom('runs')
                 .selectAll()
                 .orderBy('started_at', 'desc')
                 .limit(limit)
-                .execute(),
+                .execute()).map(row => this.mapToRun(row)))(),
             'get runs'
-        ).map(rows => rows.map(row => this.mapToRun(row)));
+        );
     }
 
     getRun(id: string): ResultAsync<Run | null, PersistenceError> {
         return dbOp(
-            this.db.selectFrom('runs')
-                .selectAll()
-                .where('id', '=', id)
-                .executeTakeFirst(),
+            (async () => {
+                const row = await this.db.selectFrom('runs').selectAll().where('id', '=', id).executeTakeFirst();
+                return row ? this.mapToRun(row) : null;
+            })(),
             'get run'
-        ).map(row => row ? this.mapToRun(row) : null);
+        );
     }
 
     getSteps(runId: string): ResultAsync<Step[], PersistenceError> {
         return dbOp(
-            this.db.selectFrom('steps')
+            (async () => (await this.db.selectFrom('steps')
                 .selectAll()
                 .where('run_id', '=', runId)
                 .orderBy('step_number', 'asc')
-                .execute(),
+                .execute()).map(row => this.mapToStep(row)))(),
             'get steps'
-        ).map(rows => rows.map(row => this.mapToStep(row)));
+        );
     }
 
     getStep(runId: string, stepNumber: number): ResultAsync<Step | null, PersistenceError> {
         return dbOp(
-            this.db.selectFrom('steps')
-                .selectAll()
-                .where('run_id', '=', runId)
-                .where('step_number', '=', stepNumber)
-                .executeTakeFirst(),
+            (async () => {
+                const row = await this.db.selectFrom('steps').selectAll()
+                    .where('run_id', '=', runId).where('step_number', '=', stepNumber).executeTakeFirst();
+                return row ? this.mapToStep(row) : null;
+            })(),
             'get step'
-        ).map(row => row ? this.mapToStep(row) : null);
+        );
     }
 
     clearHistory(): ResultAsync<void, PersistenceError> {

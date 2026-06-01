@@ -35,20 +35,20 @@ export class SQLiteCheckpointRepository {
 
     getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError> {
         return dbOp(
-            this.db.selectFrom('workflow_checkpoints')
+            (async () => (await this.db.selectFrom('workflow_checkpoints')
                 .select(['run_id', 'checkpoint_id', 'state_json', 'reason', 'created_at', 'metadata_json'])
                 .where('run_id', '=', runId)
                 .orderBy('created_at', 'asc')
-                .execute(),
+                .execute()).map(row => ({
+                    runId: row.run_id,
+                    checkpointId: row.checkpoint_id,
+                    createdAt: row.created_at,
+                    reason: row.reason as CheckpointReason,
+                    state: JSON.parse(row.state_json),
+                    ...(row.metadata_json ? { metadata: JSON.parse(row.metadata_json) as CheckpointMetadata } : {}),
+                })))(),
             'get checkpoint records'
-        ).map(rows => rows.map(row => ({
-            runId: row.run_id,
-            checkpointId: row.checkpoint_id,
-            createdAt: row.created_at,
-            reason: row.reason as CheckpointReason,
-            state: JSON.parse(row.state_json),
-            ...(row.metadata_json ? { metadata: JSON.parse(row.metadata_json) as CheckpointMetadata } : {}),
-        })));
+        );
     }
 
     pruneActionCheckpoints(runId: string, keep: number): ResultAsync<void, PersistenceError> {
