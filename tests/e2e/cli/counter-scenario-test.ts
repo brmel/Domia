@@ -38,7 +38,6 @@ import { join } from 'path';
 import { runCLITest, logTestResult, type CLITestResult } from './helpers/cli-test-helpers';
 import { startFixtureServer, type FixtureServerHandle } from './helpers/web-fixture-server';
 
-// ──────────────────────────────── helpers ────────────────────────────────
 
 /**
  * Strip ISO timestamps from CLI output so that numbers in timestamps
@@ -92,7 +91,6 @@ async function runScenario(spec: ScenarioSpec): Promise<boolean> {
     }
 }
 
-// ──────────────────────────── scenario definitions ──────────────────────
 
 /**
  * FAST COUNTER — Recording Required
@@ -200,7 +198,6 @@ const SLOW_COUNTER: ScenarioSpec = {
     },
 };
 
-// ─────────────────────────────── main ───────────────────────────────────
 
 async function main(): Promise<void> {
     console.log(chalk.cyan.bold('\n  Domia Counter Scenario Tests\n'));

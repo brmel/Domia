@@ -70,7 +70,6 @@ async function main(): Promise<void> {
 
         logTestResult('Recording Tools — Flash Notifications', result);
 
-        // ── Assertion: agent must PASS and mention specific notification content ──
         const agentPassed =
             result.exitCode === 0 ||
             result.output.includes('Mission Accomplished');

@@ -31,14 +31,12 @@ import type { CLITestResult } from './helpers/cli-test-helpers';
 import type { CapabilitySpec, CapabilityVariant } from './helpers/capability-scenario-helpers';
 import { runCapabilityVariants } from './helpers/capability-scenario-helpers';
 
-// ──────────────────────────────── types ─────────────────────────────────────
 
 interface ArticleCtx {
     /** Absolute path of the temp file the agent is instructed to write. */
     readonly outputPath: string;
 }
 
-// ──────────────────────────── spec definition ────────────────────────────────
 
 /**
  * ARTICLE WRITE SPEC
@@ -79,7 +77,6 @@ const ARTICLE_WRITE_SPEC: CapabilitySpec<ArticleCtx> = {
     },
 };
 
-// ─────────────────────────── variant definitions ─────────────────────────────
 
 /**
  * SHELL ENABLED — agent CAN write to disk.
@@ -169,7 +166,6 @@ const WITHOUT_SHELL: CapabilityVariant<ArticleCtx> = {
     },
 };
 
-// ─────────────────────────────── main ────────────────────────────────────────
 
 function requireApiKey(): void {
     if (!process.env['GOOGLE_API_KEY'] && !process.env['GEMINI_API_KEY']) {

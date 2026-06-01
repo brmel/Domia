@@ -23,7 +23,6 @@ import type { CLITestResult } from './cli-test-helpers';
 import { runCLITest, logTestResult } from './cli-test-helpers';
 import { startFixtureServer, type FixtureServerHandle } from './web-fixture-server';
 
-// ──────────────────────────────── types ─────────────────────────────────────
 
 /**
  * Context object created fresh for every variant run.
@@ -87,7 +86,6 @@ export interface CapabilityVariant<C extends CapabilityContext = CapabilityConte
     readonly assert: (result: CLITestResult, ctx: C) => { passed: boolean; reason: string };
 }
 
-// ──────────────────────────── runner ────────────────────────────────────────
 
 /**
  * Executes a single capability variant against its fixture.
