@@ -4,8 +4,13 @@ import { join } from 'path';
 
 export async function launchElectronApp(appPath: string, cdpPort: number = 9222): Promise<ChildProcess> {
     return new Promise((resolve, reject) => {
-        // Use Env Var instead of flag to avoid "bad option" errors
+        // The target app self-enables CDP from ELECTRON_REMOTE_DEBUGGING_PORT.
+        // Strip ELECTRON_RUN_AS_NODE / NODE_OPTIONS so the spawned Electron runs
+        // as Electron (not node) even when this helper is invoked from the
+        // run-as-node CLI — mirrors infrastructure/playwright/electron/electronCdpConnect.
         const env = { ...process.env, ELECTRON_REMOTE_DEBUGGING_PORT: cdpPort.toString() };
+        delete env['ELECTRON_RUN_AS_NODE'];
+        delete env['NODE_OPTIONS'];
 
         const app = spawn(appPath, [], {
             detached: false,
