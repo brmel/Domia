@@ -104,8 +104,7 @@ A feature usually flows: **domain → backend service → IPC router OR CLI comm
 ## Where to find things
 
 - `docs/architecture/audit.md` — measured current-state signals (metrics, coupling, god files) + next/roadmap.
-- `docs/architecture/subsystems.md` — per-subsystem audit: multi-app, agents/ADK, persistence/history, CLI/desktop, logging, testing.
-- `docs/architecture/tool-system.md` — tools/plugins/skills/ADK wiring (cross-app vs app-specific) UML.
+- `docs/architecture/design.md` — class/UML views of every subsystem (apps, tools, plugins, CLI, logging/testing, persistence) + size map + how-to-extend.
 - `docs/architecture/feature-first-migration.md` — the feature-slice migration plan + decision.
 - `CLAUDE.md` and per-area `CLAUDE.md` — agent briefs.
 - `.claude/skills/` — focused skill briefs for stack tech.

@@ -1,9 +1,27 @@
-# UML & Class Views — Apps, Tools, Plugins, CLI, Logging/Testing, Persistence
+# System Design — Apps, Tools, Plugins, CLI, Logging/Testing, Persistence
 
-> Class-level UML for the six subsystems, measured on branch `SupportElectringapp`.
-> Companion to `subsystems.md` (per-subsystem measured signals) and `tool-system.md` (tool assembly deep-dive). This doc is the **class/relationship view**; those are the narrative + metrics.
+> The class/relationship view of the six subsystems + the per-subsystem size map + how to extend each. Whole-repo metrics live in `audit.md`; the layer-first→feature-first decision in `feature-first-migration.md`; how-to/principles in `../ARCHITECTURE.md`.
 
-Spine: one DI container (`backend/container/ContainerBuilder.ts`, 9 phases) wires every adapter under a domain port. Ports now grouped: `domain/ports/{agent,automation,perception,persistence,reporting,plugins,platform}/`.
+Spine: one DI container (`backend/container/ContainerBuilder.ts`, 9 phases) wires every adapter under a domain port. Ports grouped: `domain/ports/{agent,automation,perception,persistence,reporting,plugins,platform}/`.
+
+## Subsystem size map (measured)
+
+| Subsystem | Path | Files | LOC |
+|---|---|---:|---:|
+| Multi-app drivers | `infrastructure/drivers` | 4 | 173 |
+| Playwright (web+electron) | `infrastructure/playwright` | 15 | 1637 |
+| Appium (mobile) | `infrastructure/appium` | 4 | 331 |
+| Agent runtime / ADK | `infrastructure/agent-runtime` | 13 | 853 |
+| Tools | `infrastructure/tools` | 15 | 1317 |
+| Plugins | `infrastructure/plugins` | 5 | 384 |
+| Skills | `infrastructure/skills` | 1 | 137 |
+| Persistence / history | `infrastructure/persistence` | 16 | 1145 |
+| Observability / logging | `infrastructure/observability` (+ `ConsoleLogger`) | 2 | 95 |
+| CLI | `apps/cli` | 19 | 1677 |
+| Desktop (Electron) | `apps/desktop` | 13 | 744 |
+| Run orchestration | `backend/runs` | 20 | 1347 |
+| Workflow orchestration | `backend/workflows` | 7 | 701 |
+| Platform negotiation | `backend/platform` | 4 | 213 |
 
 ---
 
@@ -350,3 +368,39 @@ classDiagram
 | CLI / desktop | shared `AsyncGenerator<RunOutput>` | n/a (one stream) | §4 |
 | Logging / testing | `ILogger` + `IEventBus` / replay seam | the pino adapter / `ReplayLlm` | §5 |
 | Database / persistence | `IPersistenceAdapter` + per-aggregate repos | `persistence/` folder | §6 |
+
+---
+
+## Tool registration — how a tool reaches a session
+
+`AdkAgentRuntime.run()` assembles every session's toolset from three sources, then two filters decide membership:
+
+```mermaid
+sequenceDiagram
+    participant Rt as AdkAgentRuntime
+    participant Drv as IAppDriver
+    participant Plug as PluginRegistry
+    participant Skill as SkillRunnerService
+    participant Cat as buildToolCatalog
+    Rt->>Drv: getSessionExtras() (windowManager | tabManager)
+    Rt->>Plug: getAllTools()
+    Rt->>Skill: buildToolsForSession(deps)
+    Rt->>Rt: extraTools = [...plugins, ...skills]
+    Rt->>Cat: buildToolCatalog(deps, extraTools)
+    Cat->>Cat: assemble built-ins (always + dep-gated)
+    Cat->>Cat: filter by platforms tag
+    Cat-->>Rt: ToolSpec[] -> FunctionTool[] (AdkToolFactory)
+```
+
+**Two independent filters** (belt-and-suspenders):
+1. **Dependency gating** — `OPTIONAL_TOOL_FACTORIES` return `[]` when their dep is absent. `windowManager` comes *only* from `ElectronDriver.getSessionExtras()`, `tabManager` *only* from `WebDriver.getSessionExtras()` (the `PlaywrightTabs`), `shellExecutor` only when shell config is enabled — so off-platform tools are never even constructed.
+2. **`platforms` tag** — `buildToolCatalog` drops a tagged spec unless `deps.platform` is in its list. Electron/tab tools carry both safeguards.
+
+## Extending each subsystem
+
+- **New platform** → implement `IAppDriver` + `IAppDriverProvider` in `infrastructure/<platform>/`; register in `ContainerBuilder.registerPlatform()`; add the schema in `shared/contracts/platform.ts`. No tool/loop changes.
+- **Cross-app tool** → add to `catalog/<area>.tools.ts` with a Zod schema + `ActionType`; thread any new dep through `ToolDependencies`. Leave `platforms` absent.
+- **App-specific tool** → same, plus `platforms: ['<platform>']` and gate its factory on the driver-supplied dep in `OPTIONAL_TOOL_FACTORIES`.
+- **Plugin** → ship a `PluginManifest` of `ToolSpec`s; `PluginRegistry` merges them into every session (collision-checked).
+- **LLM provider** → implement `IAgentRuntime` in `agent-runtime/<provider>/`; register under the `'IAgentRuntime'` token. `ToolSpec`/`buildToolCatalog` are runtime-agnostic.
+- **New aggregate / table** → port in `domain/ports/persistence/`, adapter in `infrastructure/persistence/` behind `SqlJsConnection`, composed into `SQLiteAdapter`.

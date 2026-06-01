@@ -2,7 +2,7 @@
 
 > Living audit. Numbers are **measured** (`find`/`wc`/`knip`/import-graph), not estimated.
 > Regenerate with the commands noted per section. Source = `src` layers excluding `*.test.ts`.
-> Whole-repo signals here; **per-subsystem** audit (apps, agents/ADK, persistence/history, CLI, logging, testing) in `subsystems.md`; tools/plugins/ADK wiring in `tool-system.md`.
+> Whole-repo signals here; the **per-subsystem** class/UML views (apps, agents/ADK, tools/plugins, persistence/history, CLI, logging, testing) + size map live in `design.md`.
 
 ## 1. Size & shape (measured)
 
