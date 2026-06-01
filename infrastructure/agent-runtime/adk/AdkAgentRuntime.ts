@@ -1,12 +1,7 @@
 import { injectable, inject } from 'tsyringe';
-import { LlmAgent, Runner, InMemorySessionService, getFunctionCalls, isFinalResponse, stringifyContent } from '@google/adk';
+import { InMemorySessionService, getFunctionCalls, isFinalResponse, stringifyContent } from '@google/adk';
 import type { Event } from '@google/adk';
-import { LlmConversationCompactor } from './LlmConversationCompactor';
-import { buildCompactionCallback } from './buildCompactionCallback';
-import { buildInstructionProvider } from './buildInstructionProvider';
-import { RunMetricsPlugin } from './RunMetricsPlugin';
 import {
-    type StepExecutionState,
     extractThought,
     flushPending,
     computeLlmLatency,
@@ -14,34 +9,22 @@ import {
     injectVisionMedia,
 } from './adkEventMapping';
 import type { IAdkLlmFactory } from './IAdkLlmFactory';
-import { RunArtifactSink } from './RunArtifactSink';
-import { DEFAULT_ARTIFACT_RETENTION } from '@domain/value-objects/ArtifactRetention';
 import type { IRunHealthMonitor } from '@domain/ports/reporting/IRunHealthMonitor';
 import { SkillRunnerService } from '@infrastructure/skills/SkillRunnerService';
-import type { RunId } from '@domain/value-objects';
-import type { Content } from '@google/genai';
-import { FunctionCallingConfigMode } from '@google/genai';
 import type { IStructuredAutomation, IPerceptionPipeline, ILogger, IStorageService } from '@domain/ports';
 import type { IAgentRuntime, AgentEvent, AgentOutcome, AgentInput } from '@domain/ports/agent/IAgentRuntime';
 import type { ConversationSnapshot } from '@domain/value-objects/ConversationSnapshot';
 import type { IPromptService } from '@domain/ports/agent/IPromptService';
 import { ActionType } from '@domain/enums';
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
-import { createAdkTools } from './AdkToolFactory';
-import { assembleToolDependencies } from './assembleToolDependencies';
-import { ActionMapper } from '@infrastructure/agent/common/ActionMapper';
-import { buildAgentInstruction } from '@infrastructure/agent/common/AgentInstructionBuilder';
-import { PromptKey } from '@domain/ports/agent/IPromptService';
 import { PluginRegistry } from '@infrastructure/plugins/PluginRegistry';
 import { ShellExecutor } from '@infrastructure/shell/ShellExecutor';
 import type { IConfigService } from '@domain/ports/platform/IConfigService';
-import type { PostActionCaptureMiddleware } from '@infrastructure/tools/PostActionCaptureMiddleware';
-import { DEFAULT_LLM_MODEL, LLM_CALL_BUDGET_OFFSET, FINAL_RESPONSE_LOG_CHARS, APP_NAME } from '@shared/defaults';
+import { LLM_CALL_BUDGET_OFFSET, FINAL_RESPONSE_LOG_CHARS, APP_NAME } from '@shared/defaults';
+import { assembleAdkSession } from './assembleAdkSession';
+import { ADK_SNAPSHOT_PROVIDER, ADK_SESSION_USER_ID } from './adkConstants';
 
 const LOG_TAG = '[AdkAgentRuntime]';
-
-const ADK_SNAPSHOT_PROVIDER = 'adk-gemini';
-const ADK_SESSION_USER_ID = 'domia';
 
 @injectable()
 export class AdkAgentRuntime implements IAgentRuntime {
@@ -91,7 +74,20 @@ export class AdkAgentRuntime implements IAgentRuntime {
         input: AgentInput,
         automation: IStructuredAutomation,
     ): AsyncGenerator<AgentEvent, AgentOutcome, unknown> {
-        const setup = await this.prepareRunContext(input, automation);
+        const setup = await assembleAdkSession({
+            perception: this.perception,
+            storage: this.storage,
+            logger: this.logger,
+            llmConfigResolver: this.llmConfigResolver,
+            pluginRegistry: this.pluginRegistry,
+            promptService: this.promptService,
+            shellExecutor: this.shellExecutor,
+            configService: this.configService,
+            llmFactory: this.llmFactory,
+            skillRunner: this.skillRunner,
+            healthMonitor: this.healthMonitor,
+            sessionService: this.sessionService,
+        }, input, automation);
         if (setup.kind === 'error') return setup;
         const { state, captureMiddleware, actionMapper, runner, session, initialMessage, sink } = setup;
         const { stepGoal, maxActions, vision } = input;
@@ -179,97 +175,6 @@ export class AdkAgentRuntime implements IAgentRuntime {
             reason: 'budget_exhausted',
             summary: `LLM call budget exhausted after ${state.actionCount} action(s).`,
         };
-    }
-
-    private async prepareRunContext(
-        input: AgentInput,
-        automation: IStructuredAutomation,
-    ): Promise<
-        | { kind: 'error'; cause: Error }
-        | {
-            kind: 'ok';
-            state: StepExecutionState;
-            captureMiddleware: PostActionCaptureMiddleware;
-            actionMapper: ActionMapper;
-            runner: Runner;
-            session: { userId: string; id: string };
-            initialMessage: Content;
-            sink: RunArtifactSink;
-        }
-    > {
-        const { stepGoal, url, maxActions, vision } = input;
-
-        const llmConfig = this.llmConfigResolver.resolve();
-        const model = llmConfig.model || DEFAULT_LLM_MODEL;
-        let llm;
-        try {
-            llm = this.llmFactory.create({ model, apiKey: llmConfig.apiKey });
-        } catch (err) {
-            return { kind: 'error', cause: err instanceof Error ? err : new Error(String(err)) };
-        }
-
-        const perceptionSource = automation.getPerceptionSource();
-        if (!perceptionSource) {
-            return { kind: 'error', cause: new Error('Automation adapter does not expose a perception source.') };
-        }
-
-        const viewport = await automation.getViewportSize();
-
-        const state: StepExecutionState = {
-            actionCount: 0,
-            lastToolResult: null,
-            pendingYield: null,
-            lastObservedUrl: url,
-            llmTurnStartMs: Date.now(),
-        };
-        const windowManager = input.extras?.windowManager;
-        const observation = input.extras?.observation;
-        const onSuspendRequest = input.extras?.onSuspendRequest;
-        const sink = new RunArtifactSink(
-            input.runId,
-            input.persistArtifacts ?? DEFAULT_ARTIFACT_RETENTION,
-            this.storage,
-            this.logger,
-        );
-        const toolDeps = assembleToolDependencies(
-            { perception: this.perception, configService: this.configService, shellExecutor: this.shellExecutor },
-            { input, automation, perceptionSource, vision, windowManager, getActionCount: () => state.actionCount, sink, observation, onSuspendRequest },
-        );
-        const skillTools = await this.skillRunner.buildToolsForSession(toolDeps);
-        const extraTools = [...this.pluginRegistry.getAllTools(), ...skillTools];
-        const { tools, catalog, captureMiddleware } = createAdkTools(toolDeps, extraTools, this.promptService);
-        const actionMapper = new ActionMapper(catalog);
-        const instruction = buildAgentInstruction(catalog, this.promptService);
-        const stepGoalText = this.promptService.renderPrompt(PromptKey.StepGoal, {
-            stepGoal, viewportWidth: viewport.width, viewportHeight: viewport.height, url, maxActions,
-        });
-        const initialMessage: Content = { role: 'user', parts: [{ text: stepGoalText }] };
-
-        const compactor = new LlmConversationCompactor(llm, this.promptService);
-        const metricsPlugin = new RunMetricsPlugin(input.runId as RunId, state, this.logger, this.healthMonitor);
-        const plugins: import('@google/adk').BasePlugin[] = [metricsPlugin];
-        const agent = new LlmAgent({
-            name: 'app_agent',
-            description: 'Domia application-driving agent: perceives a target app, calls tools, and reports a verdict.',
-            model: llm,
-            instruction: buildInstructionProvider(instruction),
-            tools,
-            generateContentConfig: {
-                temperature: 0,
-                toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
-            },
-            beforeModelCallback: buildCompactionCallback(compactor, this.logger),
-        });
-
-        const runner = new Runner({ agent, appName: APP_NAME, plugins, sessionService: this.sessionService });
-        const existing = await this.sessionService.getSession({
-            appName: APP_NAME, userId: ADK_SESSION_USER_ID, sessionId: input.runId,
-        });
-        const session = existing ?? await this.sessionService.createSession({
-            appName: APP_NAME, userId: ADK_SESSION_USER_ID, sessionId: input.runId,
-        });
-
-        return { kind: 'ok', state, captureMiddleware, actionMapper, runner, session, initialMessage, sink };
     }
 
 }
