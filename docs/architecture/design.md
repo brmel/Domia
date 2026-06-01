@@ -75,8 +75,8 @@ classDiagram
         getSessionExtras() = none
     }
     class PlaywrightAdapter {
-        implements IStructuredAutomation + ITabManager
-        delegates tabs to PlaywrightTabs
+        facade over the active page
+        delegates to PlaywrightTabs / Mouse / Interaction
     }
     class AppiumAdapter
 

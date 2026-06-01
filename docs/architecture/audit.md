@@ -24,12 +24,15 @@ Folder depth (dirs from root): depth-2 = 194 files, depth-3 = 49, depth-4 = 33, 
 
 ## 3. God files (measured: src > 250 LOC)
 
-| LOC | file | verdict |
+| code | file | verdict |
 |--:|---|---|
-| 387 | `infrastructure/playwright/PlaywrightAdapter.ts` | cohesive — ~25 thin `resolveRef().andThen()` action methods + launch/lifecycle over mutable `page`. Tab mgmt now extracted to `PlaywrightTabs`. Remainder is the irreducible `IStructuredAutomation` surface; further splitting adds delegation tax, not clarity. |
-| 275 | `infrastructure/agent-runtime/adk/AdkAgentRuntime.ts` | the ADK run loop + `prepareRunContext`. Event-mapping, metrics, artifact-sink, conversation-compaction and tool-dep assembly (`assembleToolDependencies`) all already extracted; what's left is the orchestration spine. |
+| 270 | `infrastructure/playwright/PlaywrightAdapter.ts` | now a **facade**: owns page/browser/ref state + lifecycle, delegates to `PlaywrightTabs`, `PlaywrightMouse`, `PlaywrightInteraction` (all extracted + tested). Remainder = navigate + launch/close lifecycle + page-recovery over the mutable page; extracting it needs a page-holder rewrite (net-negative). |
 
-**Signal: 0 genuine god files.** Only 2 files exceed 250 LOC and both are length-from-cohesion, not god-objects. The previously-flagged ElectronDriver (now 205), RunForm (145) and SQLiteWorkflowRepository (179) have been split below threshold; RunCommand (203) split into `run/renderRunStream` + `run/promptForMissingRunInputs`.
+**Signal: 0 genuine god files.** Only 1 source file exceeds 250 *code* lines (PlaywrightAdapter 270, a facade). AdkAgentRuntime is now ≤250 code after extracting `assembleToolDependencies`. Earlier-flagged ElectronDriver (205), RunForm (145), SQLiteWorkflowRepository (179), RunCommand (203) all split below threshold; the two test god-files (cli-test-helpers, sqlite-persistence.test) split too.
+
+**Class-view smells (caught by class-graph audit, not layer/cycle checks) — FIXED:**
+- `RunUseCase` 15-dep + `RunResumeService` 11-dep fat orchestrators both re-injected the same 6 run-step services and duplicated a ~30-line block → extracted `RunStepEngine` (now `runs/engine/`); 15→8 and 11→5. A `>12 @inject` **fat-constructor gate** in `check-architecture.mjs` prevents regression (current max: AdkAgentRuntime 11).
+- `RunExecutionLaneService` interface lacked the `I` prefix (read as a concrete dep) → renamed `IRunExecutionLaneService`.
 
 ## 4. Coupling (measured: import graph)
 
@@ -136,10 +139,11 @@ classDiagram
 
 ## 9. Verdict & priorities
 
-**Healthy:** 0% dead code, pure domain, real DI seam, ports/adapters, 0 circular deps (now CI-gated), CI-enforced boundaries.
+**Healthy:** 0% dead code, pure domain, real DI seam, ports/adapters, 0 circular deps (CI-gated), no fat constructors (CI-gated >12), CI-enforced boundaries.
 
 **Real issues (measured, ranked):**
-1. **Layer-first organization** (§5) — every feature spans 5 trees. Biggest "hard to work in" driver. Fix = vertical feature slices; large migration weighed in `feature-first-migration.md` (deferred — net-negative vs the clean base until team-scale justifies it). OPEN / decision-gated.
+1. **Layer-first organization** (§5) — every feature spans 5 trees. Biggest "hard to work in" driver. Fix = vertical feature slices; large migration weighed in `feature-first-migration.md`. **OPEN / decision-gated and deliberately NOT executed**: the plan itself requires it ship *atomically or not at all* (a partial migration is worse than either end state), needs a ~3× per-feature CI guard built first, and the measured verdict is net-negative vs the clean swappable base until the trigger fires (>3 engineers hitting merge contention, or features needing independent build/test/ownership). P0 (ports-by-context split) is done.
+2. ~~Fat orchestrators: RunUseCase (15 deps), RunResumeService (11)~~ — **DONE**: extracted `RunStepEngine` (`runs/engine/`), 15→8 / 11→5, duplicated step block removed; `>12 @inject` gate added.
 2. ~~3 god files (ElectronDriver, RunForm, SQLiteWorkflowRepository)~~ — **DONE**: split into hook/mapper/transport modules; no genuine god file remains (PlaywrightAdapter/RunCommand/AdkAgentRuntime are cohesive/already-split).
 3. ~~`@domain/ports` flat barrel: 32 files, fan-in 60~~ — **DONE**: grouped into 7 concern subfolders (agent/automation/perception/persistence/reporting/plugins/platform); barrel re-exports preserve consumers.
 4. ~~Boundary-guard gaps~~ — **DONE**: `check-architecture` now also enforces `infrastructure-boundary`, `apps-boundary`, and `frontend→@backend/@apps` (only `@backend/dto` + tRPC router type allowed); `reportUtils` routes through the `IRunReportWriter` port.
