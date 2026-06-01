@@ -118,7 +118,7 @@ A feature usually flows: **domain → backend service → IPC router OR CLI comm
 
 - `LlmAgent` + `Runner` + `InMemorySessionService`, one session per `runId`.
 - Instruction = static system prompt + ADK `InstructionProvider` that interpolates `{state.x}` live each turn (`buildInstructionProvider`).
-- `temperature` per role (`AGENT_ROLE_DEFAULTS`), `functionCallingConfig: AUTO`; optional Gemini `thinkingConfig` via `DOMIA_THINKING_BUDGET`.
+- `temperature` (`DEFAULT_AGENT_TEMPERATURE`), `functionCallingConfig: AUTO`; optional Gemini `thinkingConfig` via `DOMIA_THINKING_BUDGET`.
 - `RunMetricsPlugin` (ADK `BasePlugin`) records per-tool metrics + opens per-tool trace spans.
 - `snapshotConversation`/`restoreConversation` persist the ADK event log for suspend/resume.
 - LLM calls are wrapped (`withLlmRetry`) with the provider-neutral retry policy; planner (`AdkPlanner`) and evaluator (`AdkEvaluator`) are gated by `DOMIA_PLANNER`/`DOMIA_EVALUATOR`.

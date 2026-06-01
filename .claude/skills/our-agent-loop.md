@@ -57,4 +57,4 @@ The single terminal tool is `finish({ summary, verdict?, value? })` (`infrastruc
 
 ## Observability
 
-`EventBus` (mitt) emits `DomainEvents`; `EventLogger` → pino, `OtelEventExporter` → OTLP spans (when `DOMIA_OTEL_ENDPOINT` set), `RunTraceWriter` → per-run `trace.jsonl`. Business code emits events, never logs directly.
+`EventBus` (mitt) emits `DomainEvents`; two sinks subscribe — `EventLogger` → pino and `RunTraceWriter` → per-run `trace.jsonl`. `TraceService` emits the run→tool OTLP span tree (when `DOMIA_OTEL_ENDPOINT` is set). Business code emits events, never logs directly.

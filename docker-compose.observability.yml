@@ -1,4 +1,4 @@
-# Local tracing dashboard for Domia's OTLP export (OtelEventExporter).
+# Local tracing dashboard for Domia's OTLP export (TraceService).
 #
 #   docker compose -f docker-compose.observability.yml up -d
 #   export DOMIA_OTEL_ENDPOINT=http://localhost:4318/v1/traces
