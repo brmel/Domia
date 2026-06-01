@@ -28,15 +28,15 @@ export class RunTraceWriter {
 
     install(): void {
         this.events.on('run.started', (e) => this.begin(String(e.runId), { event: 'run.started', url: e.url }));
-        this.events.on('step.persisted', (e) => this.append(String(e.runId), { event: 'agentic_step', stepNumber: e.stepNumber, action: e.action.type }));
-        this.events.on('agent.outcome', (e) => this.append(String(e.runId), { event: 'agent.outcome', kind: e.outcome.kind }));
         this.events.on('observation.frame', (e) => this.append(String(e.frame.runId), { event: 'observation.frame', source: e.frame.source, summaryChars: e.frame.summary.length }));
+        this.events.on('observation.profile_changed', (e) => this.append(String(e.runId), { event: 'observation.profile_changed', profile: e.profile, previous: e.previous }));
         this.events.on('run.degraded', (e) => this.append(String(e.runId), { event: 'run.degraded', metric: e.metric, baselineMs: e.baselineMs, currentMs: e.currentMs }));
         this.events.on('run.suspended', (e) => this.append(String(e.runId), { event: 'run.suspended', reason: e.reason }));
         this.events.on('run.resumed', (e) => this.append(String(e.runId), { event: 'run.resumed' }));
+        this.events.on('run.evaluated', (e) => this.append(String(e.runId), { event: 'run.evaluated', satisfied: e.satisfied, reason: e.reason }));
+        this.events.on('plan.created', (e) => this.append(String(e.runId), { event: 'plan.created', itemCount: e.itemCount }));
         this.events.on('run.completed', (e) => { void this.finish(String(e.runId), { event: 'run.completed', success: e.success, summary: e.summary }); });
         this.events.on('run.failed', (e) => { void this.finish(String(e.runId), { event: 'run.failed', error: e.error }); });
-        this.events.on('run.cancelled', (e) => { void this.finish(String(e.runId), { event: 'run.cancelled' }); });
     }
 
     private bufferFor(runId: string): TraceLine[] {

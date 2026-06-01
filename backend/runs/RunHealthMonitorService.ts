@@ -24,7 +24,7 @@ export class RunHealthMonitorService implements IRunHealthMonitor {
     ) {
         this.events.on('run.completed', (e) => this.forget(e.runId));
         this.events.on('run.failed', (e) => this.forget(e.runId));
-        this.events.on('run.cancelled', (e) => this.forget(e.runId));
+        // Cancellation is finalized as run.completed (success:false), so that covers cleanup.
     }
 
     recordPerceptionLatency(runId: RunId, ms: number): void {
