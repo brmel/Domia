@@ -4,6 +4,7 @@ import { createInMemoryDatabase } from '@infrastructure/persistence/SqlJsProvide
 import { initializeSchema } from '@infrastructure/persistence/SQLiteSchema';
 import { SQLiteRunRepository } from '@infrastructure/persistence/SQLiteRunRepository';
 import { SQLiteCheckpointRepository } from '@infrastructure/persistence/SQLiteCheckpointRepository';
+import { SQLiteSkillRepository } from '@infrastructure/persistence/SQLiteSkillRepository';
 import type { Step } from '@domain/ports';
 import { Run } from '@domain/entities/Run';
 import { RunIdFactory, UrlFactory } from '@domain/value-objects';
@@ -244,5 +245,31 @@ describe('SQLite persistence round-trip', () => {
         // Each checkpoint has a unique ID
         const cpIds = new Set(checkpoints.map(c => c.checkpointId));
         expect(cpIds.size).toBe(3);
+    });
+});
+
+describe('corrupt-row reads return Err, not a thrown rejection', () => {
+    it('getRun surfaces a malformed value_json as Err (run path, commit 3fcb8e1)', async () => {
+        const { db, raw } = await createInMemoryDb();
+        const repo = new SQLiteRunRepository(db);
+        const id = RunIdFactory.create();
+        raw.run(
+            "INSERT INTO runs (id, url, status, started_at, value_json) VALUES (?, ?, 'finished', ?, '{not-json')",
+            [id as string, 'https://example.com', new Date().toISOString()],
+        );
+        const result = await repo.getRun(id);
+        expect(result.isErr()).toBe(true);
+    });
+
+    it('skill list surfaces a malformed parameters_json as Err (skill path, commit b0cda5b)', async () => {
+        const { db, raw } = await createInMemoryDb();
+        const repo = new SQLiteSkillRepository(db);
+        const now = new Date().toISOString();
+        raw.run(
+            "INSERT INTO skills (id, name, description, parameters_json, steps_json, created_at, updated_at) VALUES ('s1', 'broken', '', '{not-json', '[]', ?, ?)",
+            [now, now],
+        );
+        const result = await repo.list();
+        expect(result.isErr()).toBe(true);
     });
 });
