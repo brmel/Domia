@@ -67,7 +67,7 @@ Or run `/check` (a saved command — see `.claude/commands/check.md`).
 
 ## Common traps to avoid
 
-1. **Don't bring back loop-detection or pass/fail-required prompts.** We deleted the loop guard in Phase 4.1. The agent's terminal tool is `finish` with optional `verdict`. Verdict-less is a legitimate outcome.
+1. **Don't bring back loop-detection or pass/fail-required prompts.** We deleted the loop guard deliberately. The agent's terminal tool is `finish` with optional `verdict`. Verdict-less is a legitimate outcome.
 2. **Don't introduce new ports for libraries we already abstract.** Playwright is already hidden behind `IStructuredAutomation` + `IAppDriver`. ADK is hidden behind `IAgentRuntime`. Adding a new port for a single new use is premature.
 3. **Don't grow `RunUseCase`.** It's an orchestrator over narrow services. New responsibilities = new service in `backend/runs/`, not new code in `RunUseCase`.
 4. **Don't put Playwright code outside `infrastructure/playwright/`.** That folder is the unit of replacement.
@@ -86,7 +86,7 @@ Read the one relevant to your task before making non-trivial changes to that are
 ## Slash commands
 
 - `/check` — run the validation gates and report.
-- `/refactor-status` — read the tracker and summarize.
+- `/refactor-status` — summarize architecture state from `docs/ARCHITECTURE.md`.
 
 ## Working style
 

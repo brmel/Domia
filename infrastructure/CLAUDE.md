@@ -13,7 +13,7 @@ A whole sub-folder represents one swappable implementation:
 - `infrastructure/agent-runtime/adk/` — the Google ADK agent runtime. Replace = swap LLM provider.
 - `infrastructure/persistence/` — SQLite + sql.js. Replace = swap DB.
 - `infrastructure/reporting/` — JUnit + HTML report generators.
-- `infrastructure/perception/` — platform-neutral perception orchestration (`PerceptionPipeline`, `VisionSensor`). Sensors that touch a specific browser library go in that library's folder (e.g. `playwright/perception/AriaSensor.ts`).
+- `infrastructure/perception/` — platform-neutral perception orchestration (`PerceptionPipeline`) + cross-platform sensors in `perception/sensors/` (e.g. `VisionSensor`). Library-specific sensors live in that library's folder (e.g. `playwright/perception/AriaSensor.ts`).
 
 ## Layout
 - `agent-runtime/<provider>/` — `IAgentRuntime` impls.

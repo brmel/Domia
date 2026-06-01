@@ -45,6 +45,8 @@ test-results/
 
 # SQLite databases (local dev)
 *.db
+*.db.bak
+*.db.tmp
 *.db-journal
 *.sqlite
 *.sqlite3
