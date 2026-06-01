@@ -59,11 +59,7 @@ export class SqlJsConnection {
         saveDatabase(this.rawDb, this.dbPath);
     }
 
-    /**
-     * Serialize every read-modify-(write-flush) sequence through a single lane so
-     * concurrent run lanes can never interleave a read against an in-flight write
-     * or a half-applied flush against the shared in-memory DB. (W4)
-     */
+    /** Serialize every read-modify-write-flush through one lane so concurrent run lanes can't interleave against the shared in-memory DB. */
     private exclusive<T>(fn: () => Promise<T>): ResultAsync<T, PersistenceError> {
         return ResultAsync.fromPromise(
             this.lock.acquire<T>(SqlJsConnection.LANE, fn),

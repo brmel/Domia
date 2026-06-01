@@ -1,7 +1,6 @@
 import type { BaseLlm, LlmRequest } from '@google/adk';
 
-/** One-shot, non-streaming text generation against an ADK `BaseLlm`. Shared by the
- *  planner (W9) and evaluator (W10), which need a single structured reply, not a loop. */
+/** One-shot, non-streaming text generation against an ADK BaseLlm (planner/evaluator need one reply, not a loop). */
 export async function generateText(llm: BaseLlm, prompt: string): Promise<string> {
     const request = { contents: [{ role: 'user', parts: [{ text: prompt }] }] } as unknown as LlmRequest;
     let out = '';

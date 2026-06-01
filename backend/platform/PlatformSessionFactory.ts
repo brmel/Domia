@@ -44,8 +44,7 @@ export class PlatformSessionFactory {
             || (platformConfig.platform === 'electron' && 'startUrl' in platformConfig && !!platformConfig.startUrl);
 
         const extras = driver.getSessionExtras();
-        // Always surface capabilities to the runtime (W6 capability-driven tool gating),
-        // merged into the existing typed extras bag the driver may also populate.
+        // Surface capabilities so the tool catalog can gate by them.
         const extrasWithCapabilities = { ...(extras ?? {}), capabilities: driver.getCapabilities() };
 
         return {

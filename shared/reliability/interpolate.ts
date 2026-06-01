@@ -8,11 +8,9 @@ export function interpolate(template: string, vars: Readonly<Record<string, stri
 }
 
 /**
- * Neutralize ADK `{state.x}` placeholders in caller-controlled text (W16 adk-escape).
- * ADK's instruction provider does a late `{state.x}` substitution; if untrusted
- * content (page text, a user goal) contains that literal sequence it would be
- * mis-interpolated. Inserting a zero-width break makes the sequence inert without
- * visibly changing the text. Apply to variable *values*, never to our own templates.
+ * Neutralize ADK `{state.x}` placeholders in caller-controlled text: ADK does a late
+ * `{state.x}` substitution, so untrusted content containing that literal would be
+ * mis-interpolated. Inserts a zero-width break. Apply to variable values, not templates.
  */
 export function escapeAdkState(text: string): string {
     return text.replace(ADK_STATE_PATTERN, '{​state.');

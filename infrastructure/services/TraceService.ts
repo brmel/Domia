@@ -11,14 +11,10 @@ const TRACER_NAME = 'domia.run';
 const OTEL_ENDPOINT_VAR = 'DOMIA_OTEL_ENDPOINT';
 
 /**
- * Real OpenTelemetry tracing for runs. Each run gets a root `agent.run` span with
- * a real duration; tool calls become child spans under it (opened by RunMetricsPlugin
- * via `startChildSpan`). When `DOMIA_OTEL_ENDPOINT` is unset no provider is registered,
- * so the global tracer is a no-op and these spans cost nothing. (W5)
- *
- * `endTrace()` carries no runId (port shape), so it ends the most-recently-started run
- * (LIFO). Child-span lookup is keyed by runId, so concurrent runs still nest correctly;
- * only the LIFO end-ordering is approximate under heavy concurrency.
+ * Run = root `agent.run` span; tool calls = child spans (via startChildSpan). No-op unless
+ * DOMIA_OTEL_ENDPOINT is set. endTrace() has no runId (port shape) so it ends the
+ * most-recently-started run (LIFO); child spans key by runId, so nesting stays correct —
+ * only LIFO end-ordering is approximate under concurrency.
  */
 @injectable()
 export class TraceService implements ITraceService {
@@ -27,11 +23,7 @@ export class TraceService implements ITraceService {
     private readonly stack: string[] = [];
     private installed = false;
 
-    /**
-     * Register the OTLP exporter once, at composition root. Sole owner of the OTel
-     * TracerProvider — the run/tool spans (and nothing else) are exported when
-     * DOMIA_OTEL_ENDPOINT is set; otherwise the global tracer stays a no-op.
-     */
+    /** Registers the OTLP TracerProvider once (sole owner), gated by DOMIA_OTEL_ENDPOINT. */
     install(logger: ILogger): void {
         if (this.installed) return;
         this.installed = true;

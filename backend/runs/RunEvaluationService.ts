@@ -4,11 +4,7 @@ import type { IEventBus } from '@domain/ports/platform/IEventBus';
 import type { ILogger } from '@domain/ports';
 import type { RunId } from '@domain/value-objects';
 
-/**
- * Reflection pass over a completed run (W10). Gated by `DOMIA_EVALUATOR` so the
- * verified path is unchanged by default. Advisory: it emits `run.evaluated` and
- * logs an unmet goal; it does not (yet) force a re-loop, and never throws.
- */
+/** Advisory reflection pass, gated by DOMIA_EVALUATOR: emits run.evaluated, logs an unmet goal, never throws. */
 @injectable()
 export class RunEvaluationService {
     constructor(

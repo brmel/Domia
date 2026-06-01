@@ -43,11 +43,7 @@ export class SessionError extends DomainError {
     constructor(message: string, cause?: unknown) { super(message, cause); }
 }
 
-/**
- * Provider-neutral LLM error taxonomy (W13). Adapters classify SDK/transport
- * errors into these so the retry boundary decides retry-vs-surface from the typed
- * `retryable` flag with zero provider knowledge.
- */
+/** Provider-neutral LLM error taxonomy: adapters classify SDK errors into these so retry decides from `retryable` alone. */
 export abstract class LlmError extends DomainError {
     abstract readonly retryable: boolean;
 }

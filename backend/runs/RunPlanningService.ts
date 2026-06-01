@@ -3,11 +3,7 @@ import type { IPlanner } from '@domain/ports/agent/IPlanner';
 import type { IEventBus } from '@domain/ports/platform/IEventBus';
 import type { RunId } from '@domain/value-objects';
 
-/**
- * Goal decomposition for a run (W9). Gated by `DOMIA_PLANNER` so default behavior
- * is unchanged. Returns the ordered sub-goals and emits `plan.created`; the
- * underlying planner falls back to a single item on failure, so this never throws.
- */
+/** Goal decomposition for a run, gated by DOMIA_PLANNER. Emits plan.created; never throws (planner falls back to [goal]). */
 @injectable()
 export class RunPlanningService {
     constructor(

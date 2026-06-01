@@ -1,11 +1,6 @@
 import { LlmError, LlmRateLimitError, LlmServerError, LlmAuthError, LlmBadRequestError } from '@domain/errors';
 
-/**
- * Translate a provider/SDK/transport error into the domain LLM taxonomy (W13).
- * The retry boundary then decides retry-vs-surface from `error.retryable` alone,
- * with no provider knowledge. Unknown/transport failures default to a retryable
- * server error (bounded by the policy's attempt cap).
- */
+/** Translate an SDK/transport error into the domain LLM taxonomy. Unknown failures → retryable LlmServerError (bounded by the attempt cap). */
 export function classifyLlmError(error: unknown): LlmError {
     if (error instanceof LlmError) return error;
 

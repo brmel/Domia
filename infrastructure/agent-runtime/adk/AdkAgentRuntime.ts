@@ -27,12 +27,7 @@ import { ADK_SNAPSHOT_PROVIDER, ADK_SESSION_USER_ID } from './adkConstants';
 
 const LOG_TAG = '[AdkAgentRuntime]';
 
-/**
- * Best-effort cumulative token reading from ADK/genai events. `totalTokenCount`
- * is per-call (prompt+response); summing across turns over-counts re-sent prompt,
- * so the figure is a conservative upper bound — a budget ceiling stops at-or-before
- * real usage, never after. Returns 0 for events without usage metadata.
- */
+/** Cumulative token estimate from ADK usage metadata; over-counts re-sent prompt, so a conservative upper bound (a budget stops at-or-before real usage). */
 function readUsageTokens(event: unknown): number {
     const usage = (event as { usageMetadata?: { totalTokenCount?: number } }).usageMetadata;
     return typeof usage?.totalTokenCount === 'number' ? usage.totalTokenCount : 0;

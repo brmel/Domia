@@ -10,10 +10,7 @@ import { generateText, stripJsonFences } from './adkOneShot';
 
 const TAG = '[AdkEvaluator]';
 
-/**
- * LLM-backed goal-satisfaction evaluator (W10). Degrades to `satisfied: true` on
- * any failure so a transient evaluator problem never blocks a legitimate finish.
- */
+/** LLM-backed IEvaluator; degrades to satisfied:true on any failure so it never blocks a finish. */
 @injectable()
 export class AdkEvaluator implements IEvaluator {
     constructor(

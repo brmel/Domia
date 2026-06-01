@@ -17,12 +17,10 @@ export interface AppiumPerceptionDeps {
 const MAX_ELEMENTS = 200;
 
 /**
- * Appium-backed perception source (W7). Native apps have no DOM, so instead of an
- * ARIA tree we read the platform accessibility hierarchy via `getPageSource()` (XML)
- * and normalize it into a ref-tagged, indentation-free element list the agent can
- * reason over. Refs are keyed to the element's accessibility id (content-desc on
- * Android, name on iOS) so `click(ref)`/`type(ref)` resolve through `~<id>` selectors.
- * `evaluateScript` is unsupported (no JS runtime) — DOM-only tools are gated out by W6.
+ * Native apps have no DOM: read the accessibility hierarchy via getPageSource() (XML)
+ * and normalize it to a ref-tagged element list. Refs key to the accessibility id
+ * (content-desc on Android, name on iOS) so click/type resolve via `~<id>`.
+ * evaluateScript is unsupported (no JS runtime; DOM-only tools are gated out).
  */
 export class AppiumPerceptionSource implements IPerceptionSource {
     constructor(private readonly deps: AppiumPerceptionDeps) {}
@@ -66,11 +64,7 @@ export class AppiumPerceptionSource implements IPerceptionSource {
 
 interface ParsedElement { role: string; name: string; text: string }
 
-/**
- * Pragmatic, dependency-free parse of an Appium page-source XML into a flat,
- * ref-tagged accessibility listing. Not a full tree — it extracts the meaningful
- * (named or text-bearing) elements, which is what the agent needs to target.
- */
+/** Dependency-free flat parse of Appium page-source XML to a ref-tagged listing (named/text-bearing elements only). */
 export function parseAccessibilityTree(xml: string): { lines: string[]; refs: RoleRefMap } {
     const lines: string[] = [];
     const refs: RoleRefMap = {};

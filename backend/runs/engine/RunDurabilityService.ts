@@ -34,7 +34,7 @@ export class RunDurabilityService {
 
         this.lastSignatureByRun.set(runId, signature);
 
-        // Bound unbounded growth: keep only the most recent N action checkpoints (W18).
+        // Bound growth: keep only the most recent N action checkpoints.
         if (reason === CheckpointReason.ActionApplied) {
             const pruned = await this.persistence.pruneActionCheckpoints(runId, DEFAULT_CHECKPOINT_RETENTION);
             if (pruned.isErr()) {

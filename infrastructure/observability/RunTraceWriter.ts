@@ -12,11 +12,9 @@ interface TraceLine {
 }
 
 /**
- * Per-run JSONL trace artifact (W14). Subscribes to the domain event bus and, on
- * run termination, writes `<artifactsDir>/<runId>/trace.jsonl` — one line per
- * lifecycle/step/observation event with event-named records. This is the offline,
- * `jq`-readable twin of the OTLP span tree (W5): every run, pass or fail, leaves a
- * post-mortem trail. Best-effort — a write failure is logged, never thrown.
+ * On run termination, writes <artifactsDir>/<runId>/trace.jsonl — one line per
+ * lifecycle/step event. The offline, jq-readable twin of the OTLP span tree.
+ * Best-effort: a write failure is logged, never thrown.
  */
 @injectable()
 export class RunTraceWriter {

@@ -24,11 +24,7 @@ export class PromptService implements IPromptService {
         this.toolDescriptionOverrides = { ...overrides?.toolDescriptions };
     }
 
-    /**
-     * Source of default prompts. With `DOMIA_PROMPT_HOT_RELOAD` set, re-reads the
-     * `prompts/` dir on every access so edits take effect without a restart (W16);
-     * otherwise serves the once-loaded cache (production behavior unchanged).
-     */
+    /** With DOMIA_PROMPT_HOT_RELOAD set, re-reads prompts/ each access (no restart); else serves the startup cache. */
     private get prompts(): Record<PromptKey, string> {
         return process.env['DOMIA_PROMPT_HOT_RELOAD'] ? loadDefaultPrompts() : this.defaultPrompts;
     }

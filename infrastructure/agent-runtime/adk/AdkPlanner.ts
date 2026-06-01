@@ -11,10 +11,7 @@ import { generateText, stripJsonFences } from './adkOneShot';
 const TAG = '[AdkPlanner]';
 const MAX_ITEMS = 12;
 
-/**
- * LLM-backed goal decomposition (W9). Falls back to a single item (the original
- * goal) on any failure or non-array output, so planning never blocks a run.
- */
+/** LLM-backed IPlanner; falls back to [goal] on any failure or non-array output. */
 @injectable()
 export class AdkPlanner implements IPlanner {
     constructor(

@@ -57,13 +57,7 @@ export interface AdkSessionSetup {
 
 export type AdkSessionResult = AdkSessionSetup | { kind: 'error'; cause: Error };
 
-/**
- * Builds the per-run ADK pipeline: resolve + create the LLM, assemble the tool
- * catalog (built-in + plugins + skills), render the instruction + step goal,
- * construct the LlmAgent (with the metrics plugin), and open the
- * Runner + session. Pure assembly — no event loop — so the runtime file is just
- * the run loop and this is the one place the AI pipeline is wired.
- */
+/** The one place the per-run ADK pipeline is wired (LLM + tools + instruction + Runner). Pure assembly — no event loop. */
 export async function assembleAdkSession(
     deps: AdkSessionDeps,
     input: AgentInput,

@@ -5,11 +5,7 @@ import { DEFAULT_RETRY_ATTEMPTS, DEFAULT_RETRY_MIN_DELAY_MS, DEFAULT_RETRY_MAX_D
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * Bounded exponential-backoff retry (W13). Retries only errors classified as
- * retryable in the domain taxonomy; surfaces everything else immediately. No
- * provider knowledge — callers classify before throwing.
- */
+/** Bounded exponential-backoff IRetryPolicy; retries only errors `isRetryable` accepts, surfaces the rest immediately. */
 @injectable()
 export class ExponentialBackoffRetryPolicy implements IRetryPolicy {
     readonly maxAttempts = DEFAULT_RETRY_ATTEMPTS;

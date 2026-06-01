@@ -107,10 +107,8 @@ export class RunUseCase {
             currentState = WorkflowState.transitionTo(currentState, 'thinking');
             yield { type: 'state_updated', state: currentState };
 
-            // W9: optional goal decomposition (gated by DOMIA_PLANNER). When enabled and
-            // the goal splits into multiple sub-goals, we prepend the ordered plan to the
-            // goal so the agent follows it within its ReAct session. Falls back to the raw
-            // prompt otherwise — the single-step path is unchanged when the flag is off.
+            // Optional goal decomposition (DOMIA_PLANNER): prepend the ordered plan to the
+            // goal so the agent follows it; falls back to the raw prompt when disabled.
             let goalForPlan = input.prompt;
             if (this.planningService.enabled) {
                 const items = await this.planningService.plan(runId as RunId, input.prompt);
@@ -163,8 +161,7 @@ export class RunUseCase {
                 } else {
                     currentState = this.planCoordinator.applyOutcome(currentState, plan, activated.runningItem, outcome);
                     yield { type: 'state_updated', state: currentState };
-                    // W10: optional reflection pass (gated by DOMIA_EVALUATOR). Advisory —
-                    // emits run.evaluated + logs an unmet goal; never blocks the finish.
+                    // Optional reflection pass (DOMIA_EVALUATOR); advisory, never blocks the finish.
                     if (this.evaluationService.enabled && outcome?.kind === 'done') {
                         await this.evaluationService.evaluate(runId as RunId, input.prompt, outcome.output.summary);
                     }

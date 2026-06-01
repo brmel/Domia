@@ -28,10 +28,8 @@ export async function createInMemoryDatabase(): Promise<SqlJsDatabase> {
 }
 
 /**
- * Crash-safe flush: serialize the whole DB to a temp file, fsync-free copy the
- * prior good file to `.bak`, then atomically rename the temp over the real file.
- * A crash mid-write can only damage the temp file — the real `.db` is replaced in
- * a single rename, so it is never left truncated. (W4)
+ * Crash-safe flush: write the DB to a temp file, back up the prior file, then
+ * atomically rename over the real `.db` — a crash mid-write can only damage the temp.
  */
 export function saveDatabase(db: SqlJsDatabase, dbPath: string): void {
     const data = db.export();

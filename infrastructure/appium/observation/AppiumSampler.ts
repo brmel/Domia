@@ -4,11 +4,7 @@ import type { ObservationFrame, FrameAttachment } from '@domain/value-objects/Ob
 
 const MAX_SUMMARY_CHARS = 4000;
 
-/**
- * Real Appium observation sampler (W7). Produces a frame from the native
- * accessibility snapshot (truncated) plus an inline screenshot attachment when a
- * perception source is available. Falls back to a clear note if perception is absent.
- */
+/** Produces an observation frame from the native accessibility snapshot + an inline screenshot when a perception source is present. */
 export class AppiumSampler implements IObservationSampler {
     constructor(private readonly perceptionSource: IPerceptionSource | null = null) {}
 

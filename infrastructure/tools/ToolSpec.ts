@@ -19,11 +19,7 @@ export interface ToolSpec {
     readonly actionType: import('@domain/enums').ActionType;
     readonly parameters: z.ZodObject<z.ZodRawShape>;
     readonly platforms?: readonly PlatformType[];
-    /**
-     * Capability requirements gated against the live `AppCapabilities` at catalog
-     * build time (W6). A tool requiring `dom` is never offered on a DOM-less target
-     * (e.g. native mobile), instead of being advertised and failing at call time.
-     */
+    /** Capability requirements gated against AppCapabilities at catalog-build time, so a tool is never offered where it can't run. */
     readonly requires?: {
         readonly dom?: boolean;
         readonly nativeInteraction?: boolean;

@@ -5,11 +5,9 @@ import { classifyLlmError } from '@infrastructure/llm/classifyLlmError';
 type GenerateFn = (req: unknown, stream?: boolean) => AsyncGenerator<unknown>;
 
 /**
- * Wrap an ADK `BaseLlm` so transient failures at call-start are retried (W13).
- * Retry is applied only to obtaining the first streamed chunk — once any content
- * has been yielded the stream continues un-retried, so no partial output is ever
- * replayed. Errors are classified into the domain taxonomy before the retry
- * decision, and the (classified) error is what surfaces if retries are exhausted.
+ * Retries a transient failure obtaining the FIRST streamed chunk; once any chunk is
+ * yielded the stream continues un-retried (never replays partial output). Errors are
+ * classified into the domain taxonomy before the retry decision.
  */
 export function withLlmRetry(llm: BaseLlm, policy: IRetryPolicy): BaseLlm {
     const original = (llm.generateContentAsync as GenerateFn).bind(llm);

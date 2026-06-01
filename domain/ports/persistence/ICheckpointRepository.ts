@@ -13,6 +13,6 @@ export interface ICheckpointRepository {
         metadata?: CheckpointMetadata,
     ): ResultAsync<void, PersistenceError>;
     getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError>;
-    /** Prune all but the most recent `keep` `action_applied` checkpoints for a run (W18). Suspend/terminal checkpoints are never pruned. */
+    /** Keep only the most recent `keep` action_applied checkpoints; suspend/terminal checkpoints are never pruned. */
     pruneActionCheckpoints(runId: string, keep: number): ResultAsync<void, PersistenceError>;
 }
