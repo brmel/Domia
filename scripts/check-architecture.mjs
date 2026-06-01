@@ -104,6 +104,18 @@ const layerRules = [
 
 const forbiddenRuntimeMarkers = [/\blegacy\b/i, /\bdeprecated\b/i];
 
+// A constructor past this many injected deps is a fat-orchestrator smell (see the
+// RunUseCase 15-dep hub the class-view audit found, now split via RunStepEngine).
+// Headroom above today's max (AdkAgentRuntime = 11) so it guards regression, not style.
+const MAX_CONSTRUCTOR_INJECTS = 12;
+
+function applyFatConstructorRule(filePath, content) {
+    const injectCount = (content.match(/@inject\(/g) || []).length;
+    if (injectCount > MAX_CONSTRUCTOR_INJECTS) {
+        violations.push(`[fat-constructor] ${filePath} injects ${injectCount} deps (max ${MAX_CONSTRUCTOR_INJECTS}) — extract a sub-facade instead of growing the constructor`);
+    }
+}
+
 async function walkFiles(dir) {
     let entries;
     try {
@@ -247,6 +259,7 @@ async function main() {
         const imports = collectImports(content);
         applyLayerRules(relativePath, imports);
         applyRuntimeMarkerRules(relativePath, content);
+        applyFatConstructorRule(relativePath, content);
 
         const edges = imports
             .map((spec) => resolveImport(spec, relativePath, fileSet))

@@ -5,21 +5,21 @@
 
 ## Totals
 
-**360 files · 21369 code lines · 502 comment lines · 3 files >250 code · 13 zero-fan-in (all explained below)**
+**361 files · 21430 code lines · 517 comment lines · 3 files >250 code · 13 zero-fan-in (all explained below)**
 
 ## By category
 
 | category | files | code | comment | exports | god | zero-fan-in |
 |---|--:|--:|--:|--:|--:|--:|
 | domain | 62 | 1459 | 35 | 192 | 0 | 0 |
-| backend | 45 | 2659 | 44 | 66 | 0 | 0 |
+| backend | 46 | 2712 | 56 | 67 | 0 | 0 |
 | infrastructure | 92 | 6193 | 63 | 136 | 1 | 0 |
 | frontend | 58 | 3914 | 8 | 77 | 0 | 1 |
 | cli | 21 | 1548 | 18 | 27 | 0 | 0 |
 | desktop | 13 | 648 | 1 | 19 | 0 | 1 |
 | shared | 18 | 456 | 0 | 129 | 0 | 0 |
 | test | 44 | 3824 | 305 | 19 | 2 | 11 |
-| script | 2 | 414 | 15 | 0 | 0 | 0 |
+| script | 2 | 422 | 18 | 0 | 0 | 0 |
 | config | 5 | 254 | 13 | 2 | 0 | 0 |
 
 ## Signals
@@ -41,7 +41,7 @@
   - `tests/fixtures/electron-app/main.cjs` — runtime-loaded fixture (plugin/electron)
   - `tests/fixtures/plugins-escape/escape-plugin/index.js` — runtime-loaded fixture (plugin/electron)
   - `tests/fixtures/plugins-bad/bad-plugin/index.js` — runtime-loaded fixture (plugin/electron)
-- **Highest fan-in (shared vocabulary):** `index.ts`(73), `index.ts`(63), `enums.ts`(43), `index.ts`(43), `errors.ts`(34), `IAgentRuntime.ts`(27), `PlatformConfig.ts`(23), `ToolSpec.ts`(20)
+- **Highest fan-in (shared vocabulary):** `index.ts`(73), `index.ts`(65), `enums.ts`(43), `index.ts`(43), `errors.ts`(34), `IAgentRuntime.ts`(27), `PlatformConfig.ts`(23), `ToolSpec.ts`(20)
 
 ## Full per-file table
 
@@ -82,11 +82,11 @@ Columns: depth · feature · total · code · comment · exports · fanOut · fa
 | domain/ports/persistence/ICheckpointRepository.ts | 4 | persistence | 17 | 15 | 0 | 1 | 6 | 5 | 0 | I |
 | domain/value-objects/ObservationFrame.ts | 3 | perception | 18 | 15 | 0 | 2 | 1 | 13 | 0 | I |
 | domain/ports/platform/IConfigService.ts | 4 | platform | 21 | 14 | 3 | 1 | 1 | 13 | 0 | I |
-| domain/value-objects/CheckpointReason.ts | 3 | core | 15 | 13 | 0 | 2 | 0 | 15 | 0 | · |
+| domain/value-objects/CheckpointReason.ts | 3 | core | 15 | 13 | 0 | 2 | 0 | 16 | 0 | · |
 | domain/ports/agent/IConversationCompactor.ts | 4 | core | 15 | 12 | 0 | 3 | 0 | 3 | 0 | I |
 | domain/ports/automation/ITabManager.ts | 4 | core | 14 | 12 | 0 | 2 | 0 | 6 | 0 | I |
 | domain/ports/automation/IWindowManager.ts | 4 | core | 22 | 12 | 7 | 2 | 2 | 6 | 0 | I |
-| domain/value-objects/index.ts | 3 | core | 13 | 12 | 0 | 12 | 12 | 63 | 0 | B |
+| domain/value-objects/index.ts | 3 | core | 13 | 12 | 0 | 12 | 12 | 65 | 0 | B |
 | domain/ports/perception/IPerceptionPipeline.ts | 4 | perception | 14 | 11 | 0 | 2 | 4 | 4 | 0 | I |
 | domain/value-objects/CheckpointReadModel.ts | 3 | core | 13 | 11 | 0 | 1 | 3 | 5 | 0 | I |
 | domain/ports/reporting/IReportGenerator.ts | 4 | reporting | 13 | 10 | 0 | 2 | 2 | 4 | 0 | I |
@@ -104,7 +104,7 @@ Columns: depth · feature · total · code · comment · exports · fanOut · fa
 | domain/ports/plugins/IPluginRegistry.ts | 4 | plugin | 8 | 6 | 0 | 1 | 0 | 2 | 0 | I |
 | domain/value-objects/RoleRef.ts | 3 | core | 8 | 6 | 0 | 2 | 0 | 5 | 0 | I |
 | domain/ports/perception/ISensor.ts | 4 | perception | 7 | 5 | 0 | 1 | 1 | 3 | 0 | I |
-| domain/ports/platform/IEventBus.ts | 4 | platform | 7 | 5 | 0 | 1 | 1 | 16 | 0 | I |
+| domain/ports/platform/IEventBus.ts | 4 | platform | 7 | 5 | 0 | 1 | 1 | 15 | 0 | I |
 | domain/value-objects/ConversationSnapshot.ts | 3 | core | 6 | 5 | 0 | 1 | 0 | 12 | 0 | I |
 | domain/value-objects/MediaAttachment.ts | 3 | core | 6 | 5 | 0 | 1 | 0 | 1 | 0 | I |
 | domain/value-objects/WorkflowStepKind.ts | 3 | workflow | 6 | 5 | 0 | 2 | 0 | 8 | 0 | · |
@@ -114,27 +114,28 @@ Columns: depth · feature · total · code · comment · exports · fanOut · fa
 | domain/value-objects/CheckpointMetadata.ts | 3 | core | 4 | 3 | 0 | 1 | 0 | 7 | 0 | · |
 | domain/ports/plugins/IPlugin.ts | 4 | plugin | 3 | 2 | 0 | 1 | 0 | 4 | 0 | · |
 
-### backend (45 files, 2659 code)
+### backend (46 files, 2712 code)
 
 | path | depth | feature | total | code | cmt | exp | out | in | dead% | flags |
 |---|--:|---|--:|--:|--:|--:|--:|--:|--:|---|
-| backend/container/ContainerBuilder.ts | 3 | core | 228 | 213 | 0 | 1 | 68 | 5 | 0 | C |
-| backend/runs/RunUseCase.ts | 3 | run | 206 | 181 | 1 | 1 | 29 | 1 | 0 | C |
+| backend/container/ContainerBuilder.ts | 3 | core | 230 | 215 | 0 | 1 | 69 | 5 | 0 | C |
 | backend/workflows/WorkflowDefinitionService.ts | 3 | workflow | 189 | 161 | 0 | 1 | 8 | 4 | 0 | C |
-| backend/runs/RunResumeService.ts | 3 | run | 175 | 155 | 1 | 1 | 21 | 5 | 0 | C |
-| backend/runs/StepExecutionKernelService.ts | 3 | run | 154 | 131 | 0 | 1 | 16 | 4 | 0 | C |
+| backend/runs/RunUseCase.ts | 3 | run | 173 | 152 | 0 | 1 | 20 | 1 | 0 | C |
+| backend/runs/engine/StepExecutionKernelService.ts | 4 | run | 154 | 131 | 0 | 1 | 16 | 3 | 0 | C |
+| backend/runs/RunResumeService.ts | 3 | run | 144 | 127 | 0 | 1 | 16 | 5 | 0 | C |
 | backend/workflows/WorkflowRunOrchestratorService.ts | 3 | run | 159 | 125 | 12 | 1 | 11 | 4 | 0 | C |
-| backend/runs/RunSuspensionService.ts | 3 | run | 123 | 109 | 0 | 2 | 11 | 6 | 0 | CI |
+| backend/runs/engine/RunSuspensionService.ts | 4 | run | 123 | 109 | 0 | 2 | 11 | 6 | 0 | CI |
+| backend/runs/engine/RunStepEngine.ts | 4 | run | 136 | 108 | 14 | 1 | 16 | 4 | 0 | C |
 | backend/workflows/WorkflowStepRunnerService.ts | 3 | run | 116 | 106 | 0 | 1 | 8 | 3 | 0 | C |
 | backend/observation/ObservationCoordinator.ts | 3 | perception | 108 | 91 | 0 | 2 | 9 | 6 | 0 | CI |
 | backend/workflows/WorkflowLifecycleManager.ts | 3 | workflow | 108 | 86 | 12 | 1 | 7 | 3 | 0 | C |
 | backend/runs/RunLifecycleManager.ts | 3 | run | 84 | 74 | 0 | 1 | 9 | 4 | 0 | C |
 | backend/platform/PlatformSessionFactory.ts | 3 | platform | 79 | 64 | 0 | 1 | 7 | 4 | 0 | C |
 | backend/platform/platformUrlUtils.ts | 3 | platform | 69 | 64 | 0 | 4 | 6 | 5 | 0 | I |
-| backend/runs/RunSessionService.ts | 3 | run | 73 | 63 | 0 | 3 | 10 | 5 | 0 | CI |
-| backend/runs/RunTerminalizationService.ts | 3 | run | 72 | 62 | 0 | 1 | 12 | 4 | 0 | C |
+| backend/runs/engine/RunSessionService.ts | 4 | run | 73 | 63 | 0 | 3 | 10 | 5 | 0 | CI |
+| backend/runs/engine/RunTerminalizationService.ts | 4 | run | 72 | 62 | 0 | 1 | 12 | 3 | 0 | C |
 | backend/runs/RunPlanCoordinator.ts | 3 | run | 68 | 61 | 0 | 1 | 6 | 2 | 0 | C |
-| backend/ExecutionController.ts | 2 | core | 71 | 59 | 0 | 1 | 2 | 18 | 0 | C |
+| backend/ExecutionController.ts | 2 | core | 71 | 59 | 0 | 1 | 2 | 19 | 0 | C |
 | backend/skills/SkillPlaybackService.ts | 3 | skill | 66 | 58 | 0 | 3 | 8 | 2 | 0 | CI |
 | backend/workflows/WorkflowStepPolicyService.ts | 3 | workflow | 69 | 56 | 0 | 1 | 2 | 3 | 0 | C |
 | backend/runs/RunHealthMonitorService.ts | 3 | run | 66 | 55 | 0 | 1 | 5 | 2 | 0 | C |
@@ -142,10 +143,10 @@ Columns: depth · feature · total · code · comment · exports · fanOut · fa
 | backend/skills/SkillsAppService.ts | 3 | skill | 53 | 46 | 0 | 2 | 5 | 3 | 0 | CI |
 | backend/platform/PlatformCapabilityNegotiationService.ts | 3 | platform | 52 | 44 | 0 | 1 | 4 | 4 | 0 | C |
 | backend/runs/RunReplayService.ts | 3 | run | 52 | 42 | 1 | 3 | 5 | 3 | 0 | CI |
-| backend/runs/RunDurabilityService.ts | 3 | run | 46 | 38 | 0 | 1 | 7 | 12 | 0 | C |
+| backend/runs/engine/RunDurabilityService.ts | 4 | run | 46 | 38 | 0 | 1 | 7 | 11 | 0 | C |
 | backend/runs/RunControlGateService.ts | 3 | run | 43 | 36 | 0 | 2 | 8 | 3 | 0 | C |
 | backend/runs/RunQueries.ts | 3 | run | 42 | 35 | 0 | 1 | 3 | 2 | 0 | C |
-| backend/dto.ts | 2 | core | 38 | 34 | 0 | 3 | 6 | 17 | 0 | I |
+| backend/dto.ts | 2 | core | 38 | 34 | 0 | 3 | 6 | 18 | 0 | I |
 | backend/prompts/PromptsAppService.ts | 3 | prompt | 41 | 32 | 0 | 1 | 2 | 2 | 0 | C |
 | backend/policy/RuntimeReadinessPolicyService.ts | 3 | run | 40 | 31 | 0 | 1 | 3 | 4 | 0 | C |
 | backend/skills/SkillExtractionService.ts | 3 | skill | 34 | 29 | 0 | 1 | 4 | 3 | 0 | C |
@@ -153,9 +154,9 @@ Columns: depth · feature · total · code · comment · exports · fanOut · fa
 | backend/workflows/WorkflowStepGovernanceService.ts | 3 | workflow | 32 | 29 | 0 | 1 | 4 | 3 | 0 | C |
 | backend/plugins/PluginsAppService.ts | 3 | plugin | 31 | 26 | 0 | 1 | 3 | 3 | 0 | C |
 | backend/runs/RunBudgetPolicyService.ts | 3 | run | 36 | 26 | 5 | 2 | 4 | 5 | 0 | CI |
-| backend/runs/runObservation.ts | 3 | run | 33 | 24 | 6 | 2 | 5 | 2 | 0 | I |
+| backend/runs/runObservation.ts | 3 | run | 33 | 24 | 6 | 2 | 5 | 1 | 0 | I |
 | backend/runs/runExecutionOptions.ts | 3 | run | 30 | 22 | 6 | 1 | 6 | 2 | 0 | · |
-| backend/runs/RunExecutionLaneService.ts | 3 | run | 26 | 20 | 0 | 2 | 2 | 3 | 0 | CI |
+| backend/runs/engine/RunExecutionLaneService.ts | 4 | run | 26 | 20 | 0 | 2 | 2 | 2 | 0 | CI |
 | backend/container-root.ts | 2 | core | 22 | 18 | 0 | 2 | 2 | 9 | 0 | · |
 | backend/events/EventBus.ts | 3 | logging | 20 | 16 | 0 | 1 | 4 | 1 | 0 | C |
 | backend/runs/outcomes.ts | 3 | run | 19 | 16 | 0 | 2 | 1 | 2 | 0 | · |
@@ -402,7 +403,7 @@ Columns: depth · feature · total · code · comment · exports · fanOut · fa
 | tests/e2e/workflow/workflow-execution.test.ts | 4 | workflow | 206 | 178 | 0 | 0 | 12 | 0 | 0 | · |
 | tests/e2e/runs/run-suspension.test.ts | 4 | run | 199 | 172 | 0 | 0 | 19 | 0 | 0 | · |
 | tests/e2e/agent/vision-multimodal.test.ts | 4 | core | 199 | 170 | 3 | 0 | 27 | 0 | 0 | · |
-| tests/e2e/runs/run-resume.test.ts | 4 | run | 159 | 138 | 0 | 0 | 24 | 0 | 0 | · |
+| tests/e2e/runs/run-resume.test.ts | 4 | run | 159 | 138 | 0 | 0 | 25 | 0 | 0 | · |
 | tests/e2e/cli/counter-scenario-test.ts | 4 | core | 226 | 127 | 76 | 0 | 4 | 0 | 0 | · |
 | tests/e2e/cli/shell-capability-test.ts | 4 | core | 201 | 117 | 57 | 0 | 8 | 0 | 0 | · |
 | tests/e2e/observation/recall-recent.test.ts | 4 | perception | 133 | 116 | 0 | 0 | 18 | 0 | 0 | · |
@@ -440,11 +441,11 @@ Columns: depth · feature · total · code · comment · exports · fanOut · fa
 | tests/fixtures/plugins-escape/escape-plugin/index.js | 5 | plugin | 3 | 2 | 0 | 0 | 1 | 0 | 0 | · |
 | tests/fixtures/plugins-bad/bad-plugin/index.js | 5 | plugin | 2 | 1 | 0 | 0 | 0 | 0 | 0 | · |
 
-### script (2 files, 414 code)
+### script (2 files, 422 code)
 
 | path | depth | feature | total | code | cmt | exp | out | in | dead% | flags |
 |---|--:|---|--:|--:|--:|--:|--:|--:|--:|---|
-| scripts/check-architecture.mjs | 2 | core | 271 | 238 | 1 | 0 | 2 | 0 | 0 | · |
+| scripts/check-architecture.mjs | 2 | core | 284 | 246 | 4 | 0 | 2 | 0 | 0 | · |
 | scripts/file-audit.mjs | 2 | core | 208 | 176 | 14 | 0 | 3 | 0 | 0 | · |
 
 ### config (5 files, 254 code)
@@ -461,8 +462,8 @@ Columns: depth · feature · total · code · comment · exports · fanOut · fa
 
 | feature | files | code |
 |---|--:|--:|
-| run | 93 | 6756 |
-| core | 90 | 4220 |
+| run | 94 | 6807 |
+| core | 90 | 4230 |
 | workflow | 27 | 2162 |
 | platform | 34 | 1926 |
 | tools | 21 | 1749 |
@@ -482,7 +483,7 @@ Columns: depth · feature · total · code · comment · exports · fanOut · fa
 
 **What the data proves is already clean — do NOT touch:**
 - Dead code ≈0 (2 ts-prune artifacts), 0 TODO/FIXME/deprecated in src, 0 truly-orphan files.
-- Comments: 502 total, 305 in tests; source comments are WHY-level per convention. Nothing meaningful to delete.
+- Comments: 517 total, 305 in tests; source comments are WHY-level per convention. Nothing meaningful to delete.
 - Layers clean, 0 circular (gated), ports grouped, lint 0.
 
 **Real levers, ranked by value:**
