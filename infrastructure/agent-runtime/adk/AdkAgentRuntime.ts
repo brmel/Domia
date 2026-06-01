@@ -49,7 +49,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
         @inject('IAdkLlmFactory') private readonly llmFactory: IAdkLlmFactory,
         @inject('IRunHealthMonitor') private readonly healthMonitor: IRunHealthMonitor,
         @inject(SkillRunnerService) private readonly skillRunner: SkillRunnerService,
-        @inject(TraceService) private readonly trace: TraceService = new TraceService(),
+        @inject(TraceService) private readonly trace: TraceService,
     ) {}
 
     async snapshotConversation(runId: string): Promise<ConversationSnapshot | null> {

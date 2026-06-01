@@ -19,6 +19,8 @@ import { ConfigService } from '@infrastructure/ConfigService';
 import { ConsoleLogger } from '@infrastructure/ConsoleLogger';
 import { ShellExecutor } from '@infrastructure/shell/ShellExecutor';
 import { GeminiLlmFactory } from '@infrastructure/agent-runtime/adk/GeminiLlmFactory';
+import { ExponentialBackoffRetryPolicy } from '@infrastructure/llm/ExponentialBackoffRetryPolicy';
+import { TraceService } from '@infrastructure/services/TraceService';
 import { RunHealthMonitorService } from '@backend/runs/RunHealthMonitorService';
 import { SkillRunnerService } from '@infrastructure/skills/SkillRunnerService';
 import { okAsync } from 'neverthrow';
@@ -98,7 +100,7 @@ function buildRuntime(): AdkAgentRuntime {
     const noopBus = { emit: () => {}, on: () => () => {} };
     const pluginRegistry = new PluginRegistry(logger, noopBus);
     const shellExecutor = new ShellExecutor();
-    const llmFactory = new ReplayBackedLlmFactory(replayCache, new GeminiLlmFactory());
+    const llmFactory = new ReplayBackedLlmFactory(replayCache, new GeminiLlmFactory(new ExponentialBackoffRetryPolicy()));
     const healthMonitor = new RunHealthMonitorService(noopBus, logger);
     const skillRunner = new SkillRunnerService({
         list: () => okAsync([]),
@@ -119,6 +121,7 @@ function buildRuntime(): AdkAgentRuntime {
         llmFactory,
         healthMonitor,
         skillRunner,
+        new TraceService(),
     );
 }
 

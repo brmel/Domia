@@ -2,13 +2,11 @@ import { injectable, inject } from 'tsyringe';
 import { Gemini, type BaseLlm } from '@google/adk';
 import type { IAdkLlmFactory, AdkLlmFactoryInput } from './IAdkLlmFactory';
 import type { IRetryPolicy } from '@domain/ports/agent/IRetryPolicy';
-import { ExponentialBackoffRetryPolicy } from '@infrastructure/llm/ExponentialBackoffRetryPolicy';
 import { withLlmRetry } from './withLlmRetry';
 
 @injectable()
 export class GeminiLlmFactory implements IAdkLlmFactory {
-    // Default lets tests `new GeminiLlmFactory()`; the container always injects the registered 'IRetryPolicy'.
-    constructor(@inject('IRetryPolicy') private readonly retry: IRetryPolicy = new ExponentialBackoffRetryPolicy()) {}
+    constructor(@inject('IRetryPolicy') private readonly retry: IRetryPolicy) {}
 
     create(input: AdkLlmFactoryInput): BaseLlm {
         if (!input.apiKey) {
