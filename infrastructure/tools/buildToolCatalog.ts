@@ -12,6 +12,7 @@ import { createSnapshotRecordingTools } from './catalog/snapshot-recording.tools
 import { createShellTools } from './catalog/shell.tools';
 import { createElectronTools } from './catalog/electron.tools';
 import { createTabTools } from './catalog/tab.tools';
+import { createMetaTools } from './catalog/meta.tools';
 import { ActionType } from '@domain/enums';
 
 const RECORDABLE_ACTION_TYPES: ReadonlySet<ActionType> = new Set([
@@ -90,13 +91,16 @@ export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] 
         });
     }
 
-    if (!promptService) return { catalog: filtered, captureMiddleware: middleware };
+    const describe = (spec: ToolSpec): ToolSpec =>
+        promptService ? { ...spec, description: promptService.getToolDescription(spec.name) ?? spec.description } : spec;
 
-    return {
-        catalog: filtered.map((spec) => ({
-            ...spec,
-            description: promptService.getToolDescription(spec.name) ?? spec.description,
-        })),
-        captureMiddleware: middleware,
-    };
+    const catalog: ToolSpec[] = filtered.map(describe);
+
+    // Meta-tools (list_categories / expand_category) let the agent discover tools
+    // by category at runtime. They introspect the assembled catalog, so they're
+    // appended last with a late-bound accessor to the final list — including
+    // themselves, which surface under the `meta` category.
+    catalog.push(...createMetaTools(() => catalog).map(describe));
+
+    return { catalog, captureMiddleware: middleware };
 }
