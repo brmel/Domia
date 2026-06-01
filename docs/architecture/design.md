@@ -293,7 +293,9 @@ classDiagram
     AdkLoggerAdapter ..> ILogger : routes ADK logs
 ```
 
-**Testing** — e2e only, real DB/browser/plugin-loader; **only the LLM is replayed** (`ReplayLlm`). `vitest` serial (`fileParallelism: false`). **26 test files**:
+**Tracing dashboard (opt-in):** `OtelEventExporter` is registered + installed but inert until `DOMIA_OTEL_ENDPOINT` is set. For a local view: `docker compose -f docker-compose.observability.yml up -d`, `export DOMIA_OTEL_ENDPOINT=http://localhost:4318/v1/traces`, run any entry point, then open Jaeger at `http://localhost:16686` (service `domia`).
+
+**Testing** — e2e only, real DB/browser/plugin-loader; **only the LLM is replayed** (`ReplayLlm`). `vitest` serial (`fileParallelism: false`):
 
 | area | files | exercises |
 |---|--:|---|
