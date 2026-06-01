@@ -52,7 +52,7 @@ describe('SQLite persistence round-trip', () => {
         const finished = Run.finish(started, 'Task completed successfully', { count: 42 });
         const update = await repo.updateRun(run.id, {
             status: finished.status,
-            startedAt: started.startedAt,
+            ...(started.startedAt ? { startedAt: started.startedAt } : {}),
             updatedAt: finished.updatedAt,
         });
         expect(update.isOk()).toBe(true);

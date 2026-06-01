@@ -25,5 +25,8 @@
         "apps/**/*.ts",
         "tests/**/*.ts"
     ],
-    "ignoreExportsUsedInFile": true
+    "ignoreExportsUsedInFile": true,
+    "ignoreDependencies": [
+        "@modelcontextprotocol/sdk"
+    ]
 }

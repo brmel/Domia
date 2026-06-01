@@ -53,7 +53,9 @@ export class RunTraceWriter {
     }
 
     private append(runId: string, line: Omit<TraceLine, 'ts'>): void {
-        this.bufferFor(runId).push({ ts: Date.now(), ...line });
+        // `...line` widens to the index signature, dropping the known `event`
+        // requirement in TS's view; the value is always a full TraceLine.
+        this.bufferFor(runId).push({ ts: Date.now(), ...line } as TraceLine);
     }
 
     private async finish(runId: string, line: Omit<TraceLine, 'ts'>): Promise<void> {

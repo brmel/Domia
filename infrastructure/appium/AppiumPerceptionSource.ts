@@ -1,5 +1,5 @@
 import type { IPerceptionSource, ScreenshotOptions } from '@domain/ports/perception/IPerceptionSource';
-import type { RoleRefMap } from '@domain/value-objects/RoleRef';
+import type { RoleRefMap, RoleRef } from '@domain/value-objects/RoleRef';
 
 /** The slice of a webdriverio mobile session the perception source needs. */
 export interface AppiumPerceptionBrowser {
@@ -67,7 +67,7 @@ interface ParsedElement { role: string; name: string; text: string }
 /** Dependency-free flat parse of Appium page-source XML to a ref-tagged listing (named/text-bearing elements only). */
 export function parseAccessibilityTree(xml: string): { lines: string[]; refs: RoleRefMap } {
     const lines: string[] = [];
-    const refs: RoleRefMap = {};
+    const refs: Record<string, RoleRef> = {};
     let counter = 0;
 
     const tagRe = /<([A-Za-z][\w.]*)\s+([^>]*?)\/?>/g;

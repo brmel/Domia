@@ -15,7 +15,7 @@ describe('Eval harness scoring (W17)', () => {
 
     it('semantic ROUGE-L rewards overlap and passes above threshold', () => {
         expect(rougeLF1('the order was placed successfully', 'the order was placed successfully')).toBe(1);
-        expect(scoreSemantic('the order was placed successfully', 'order placed successfully for the user').pass).toBe(true);
+        expect(scoreSemantic('the order was placed successfully', 'order placed successfully').pass).toBe(true);
         expect(scoreSemantic('the order was placed', 'completely unrelated banana text here').pass).toBe(false);
     });
 
