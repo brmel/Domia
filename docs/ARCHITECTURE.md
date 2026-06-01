@@ -105,6 +105,7 @@ A feature usually flows: **domain → backend service → IPC router OR CLI comm
 
 - `docs/architecture/audit.md` — measured current-state signals (metrics, coupling, god files) + next/roadmap.
 - `docs/architecture/design.md` — class/UML views of every subsystem (apps, tools, plugins, CLI, logging/testing, persistence) + size map + how-to-extend.
+- `docs/architecture/adk-conventions.md` — how our `@google/adk` usage maps to ADK best practices (tools, registration, prompts, callbacks, sessions).
 - `docs/architecture/feature-first-migration.md` — the feature-slice migration plan + decision.
 - `CLAUDE.md` and per-area `CLAUDE.md` — agent briefs.
 - `.claude/skills/` — focused skill briefs for stack tech.
