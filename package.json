@@ -19,9 +19,9 @@
     "package": "npm run build && electron-builder"
   },
   "dependencies": {
-    "@google-cloud/opentelemetry-cloud-monitoring-exporter": "^0.21.0",
-    "@google-cloud/opentelemetry-cloud-trace-exporter": "^3.0.0",
-    "@google-cloud/storage": "^7.19.0",
+    "@google-cloud/opentelemetry-cloud-monitoring-exporter": "file:./vendor/otel-cloud-monitoring",
+    "@google-cloud/opentelemetry-cloud-trace-exporter": "file:./vendor/otel-cloud-trace",
+    "@google-cloud/storage": "file:./vendor/google-cloud-storage",
     "@google/adk": "^0.3.0",
     "@google/genai": "^0.8.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -30,7 +30,7 @@
     "@opentelemetry/exporter-logs-otlp-http": "^0.215.0",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.215.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.215.0",
-    "@opentelemetry/resource-detector-gcp": "^0.50.0",
+    "@opentelemetry/resource-detector-gcp": "file:./vendor/otel-resource-detector-gcp",
     "@opentelemetry/resources": "^2.7.1",
     "@opentelemetry/sdk-logs": "^0.215.0",
     "@opentelemetry/sdk-metrics": "^2.7.1",
