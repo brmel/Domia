@@ -139,7 +139,9 @@ export class ElectronDriver implements IAppDriver {
             getAllWindows: () => wm.getAllWindows(),
             getActiveWindow: () => wm.getActiveWindow(),
             switchWindow: (windowId) =>
-                wm.switchWindow(windowId).then((r) => r.map((w) => ({ id: w.id, title: w.title, url: w.url }))),
+                // Pass the live adapter so the switch re-attaches the shared automation
+                // surface (and, via the lazy perception source, observations) to the new window.
+                wm.switchWindow(windowId, this.adapter ?? undefined).then((r) => r.map((w) => ({ id: w.id, title: w.title, url: w.url }))),
         };
         return { windowManager };
     }
@@ -154,21 +156,6 @@ export class ElectronDriver implements IAppDriver {
     createObservationStream(): IObservationStream {
         const automation = this.getAutomation() as PlaywrightAdapter;
         return new PlaywrightStream(() => automation.getPlaywrightPage(), this.logger);
-    }
-
-    switchToWindow(windowId: string): void {
-        const win = this.windowManager.getWindow(windowId);
-        if (win.isErr()) {
-            throw new Error(`${ElectronDriver.TAG} ${win.error.message}`);
-        }
-
-        // switchWindow is async (bringToFront), but callers don't await — fire-and-forget the focus
-        void this.windowManager.switchWindow(windowId, this.adapter ?? undefined);
-        this.logger.info(`${ElectronDriver.TAG} Switched to window: ${windowId}`);
-    }
-
-    async refreshWindows(): Promise<void> {
-        await this.discoverWindows();
     }
 
     private async discoverWindows(): Promise<void> {

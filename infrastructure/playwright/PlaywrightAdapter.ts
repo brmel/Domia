@@ -234,7 +234,9 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
 
     getPerceptionSource(): IPerceptionSource | null {
         this.ensureRecoverablePage();
-        return this.page ? new PlaywrightPerceptionSource(this.page) : null;
+        // Lazy page-getter so the source follows setAttachedPage (e.g. Electron window switch),
+        // rather than pinning to the page present at creation time.
+        return this.page ? new PlaywrightPerceptionSource(() => this.page!) : null;
     }
 
     getPlaywrightPage(): Page | null {
