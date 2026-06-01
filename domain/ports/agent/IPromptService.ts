@@ -9,7 +9,8 @@ export const PromptKey = {
     ShellCapabilityNote: 'shellCapabilityNote',
     ShellAvailableRule: 'shellAvailableRule',
     ShellUnavailableRule: 'shellUnavailableRule',
-    ConversationCompaction: 'conversationCompaction',
+    EvaluateGoal: 'evaluateGoal',
+    PlanDecomposition: 'planDecomposition',
 } as const;
 export type PromptKey = typeof PromptKey[keyof typeof PromptKey];
 
@@ -22,7 +23,8 @@ export interface PromptVariables {
     shellCapabilityNote: Record<string, never>;
     shellAvailableRule: Record<string, never>;
     shellUnavailableRule: Record<string, never>;
-    conversationCompaction: { turns: string; maxChars: number };
+    evaluateGoal: { goal: string; resultSummary: string };
+    planDecomposition: { goal: string };
 }
 
 type ToolDescriptionKey = BuiltInToolName;

@@ -49,6 +49,9 @@ export class RunCommand {
             .option('--report-output <dir>', 'Report output directory')
             .option('--json', 'Emit run events as NDJSON (one JSON object per line, machine-readable)', false)
             .option('--observation-profile <profile>', 'Observation profile: off, on-demand, long-wait, quick-action, high-fidelity')
+            .option('--max-duration <ms>', 'Soft wall-clock budget in ms; the run stops with budget_exhausted when exceeded', parseInt)
+            .option('--max-tokens <n>', 'Soft token budget; the run stops with budget_exhausted when exceeded', parseInt)
+            .option('--thinking <budget>', 'Enable Gemini thinking with the given token budget (0 = off)', parseInt)
             .action(async (options) => {
                 const jsonMode = !!options.json;
                 const log = (msg: string): void => { if (!jsonMode) console.log(msg); };
@@ -118,6 +121,11 @@ export class RunCommand {
                     log(chalk.gray('[Verbose Mode Enabled: Saving artifacts]'));
                 }
 
+                if (options.thinking && Number(options.thinking) > 0) {
+                    process.env['DOMIA_THINKING_BUDGET'] = String(options.thinking);
+                    log(chalk.gray(`[Thinking enabled: budget=${options.thinking}]`));
+                }
+
                 {
                     const { ContainerBuilder: CB } = await import('@backend/container/ContainerBuilder');
                     await new CB().loadPlugins(pluginDir as string | undefined);
@@ -168,6 +176,8 @@ export class RunCommand {
                             ...(recordingMaxDuration !== undefined ? { recordingMaxDurationMs: recordingMaxDuration as number } : {}),
                             ...(recordingInterval !== undefined ? { recordingIntervalMs: recordingInterval as number } : {}),
                             ...(options.observationProfile ? { observationProfile: options.observationProfile as 'off' | 'on-demand' | 'long-wait' | 'quick-action' | 'high-fidelity' } : {}),
+                            ...(options.maxDuration !== undefined ? { maxDurationMs: options.maxDuration as number } : {}),
+                            ...(options.maxTokens !== undefined ? { maxEstimatedTokens: options.maxTokens as number } : {}),
                         },
                     };
 

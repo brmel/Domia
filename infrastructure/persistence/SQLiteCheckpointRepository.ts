@@ -2,7 +2,7 @@ import { Kysely } from 'kysely';
 import { randomUUID } from 'crypto';
 import type { ResultAsync } from 'neverthrow';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
-import type { CheckpointReason } from '@domain/value-objects/CheckpointReason';
+import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 import type { CheckpointMetadata } from '@domain/value-objects/CheckpointMetadata';
 import type { PersistenceError } from '@domain/errors';
@@ -49,5 +49,27 @@ export class SQLiteCheckpointRepository {
             state: JSON.parse(row.state_json),
             ...(row.metadata_json ? { metadata: JSON.parse(row.metadata_json) as CheckpointMetadata } : {}),
         })));
+    }
+
+    pruneActionCheckpoints(runId: string, keep: number): ResultAsync<void, PersistenceError> {
+        return dbOp(
+            (async (): Promise<void> => {
+                const survivors = await this.db.selectFrom('workflow_checkpoints')
+                    .select('id')
+                    .where('run_id', '=', runId)
+                    .where('reason', '=', CheckpointReason.ActionApplied)
+                    .orderBy('id', 'desc')
+                    .limit(keep)
+                    .execute();
+                const keepIds = survivors.map((r) => r.id);
+
+                let query = this.db.deleteFrom('workflow_checkpoints')
+                    .where('run_id', '=', runId)
+                    .where('reason', '=', CheckpointReason.ActionApplied);
+                if (keepIds.length > 0) query = query.where('id', 'not in', keepIds);
+                await query.execute();
+            })(),
+            'prune action checkpoints'
+        ).map(() => undefined);
     }
 }

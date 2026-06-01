@@ -2,6 +2,7 @@ import type { IPerceptionPipeline, IStructuredAutomation } from '@domain/ports';
 import type { IConfigService } from '@domain/ports/platform/IConfigService';
 import type { IObservationCoordinator } from '@domain/ports/perception/IObservationCoordinator';
 import type { IWindowManager } from '@domain/ports/automation/IWindowManager';
+import type { AppCapabilities } from '@domain/ports/automation/IAppDriver';
 import type { AgentInput } from '@domain/ports/agent/IAgentRuntime';
 import type { ToolDependencies } from '@infrastructure/tools/ToolSpec';
 import type { ShellExecutor } from '@infrastructure/shell/ShellExecutor';
@@ -24,6 +25,7 @@ interface ToolDepsParams {
     readonly sink: RunArtifactSink;
     readonly observation: IObservationCoordinator | undefined;
     readonly onSuspendRequest: ((reason: string) => void) | undefined;
+    readonly capabilities: AppCapabilities | undefined;
 }
 
 /**
@@ -32,7 +34,7 @@ interface ToolDepsParams {
  * so the tool-wiring rules live in one testable place outside the run loop.
  */
 export function assembleToolDependencies(runtime: ToolDepsRuntime, params: ToolDepsParams): ToolDependencies {
-    const { input, automation, perceptionSource, vision, windowManager, getActionCount, sink, observation, onSuspendRequest } = params;
+    const { input, automation, perceptionSource, vision, windowManager, getActionCount, sink, observation, onSuspendRequest, capabilities } = params;
     const shell = runtime.configService.get().plugins.shell;
 
     return {
@@ -41,6 +43,7 @@ export function assembleToolDependencies(runtime: ToolDepsRuntime, params: ToolD
         perceptionSource,
         vision,
         platform: input.platform,
+        ...(capabilities && { capabilities }),
         runId: input.runId,
         ...(shell.enabled && {
             shellExecutor: runtime.shellExecutor,

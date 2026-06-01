@@ -47,6 +47,7 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         return this.checkpoints.saveCheckpoint(runId, state, reason, metadata);
     }
     getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError> { return this.checkpoints.getCheckpointRecords(runId); }
+    pruneActionCheckpoints(runId: string, keep: number): ResultAsync<void, PersistenceError> { return this.checkpoints.pruneActionCheckpoints(runId, keep); }
 
     // IWorkflowRepository
     saveWorkflowDefinition(definition: WorkflowDefinition): ResultAsync<void, PersistenceError> { return this.workflows.saveWorkflowDefinition(definition); }

@@ -48,7 +48,7 @@ class MobileAppDriver implements IAppDriver {
         return undefined;
     }
     createObservationSampler(): IObservationSampler {
-        return new AppiumSampler();
+        return new AppiumSampler(this.adapter.getPerceptionSource());
     }
     createObservationStream(): IObservationStream {
         return new AppiumStream();

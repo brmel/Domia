@@ -2,9 +2,10 @@ import { inject, injectable } from 'tsyringe';
 import type { ICheckpointRepository } from '@domain/ports/persistence/ICheckpointRepository';
 import type { ILogger } from '@domain/ports';
 import type { WorkflowState } from '@domain/value-objects/WorkflowState';
-import type { CheckpointReason } from '@domain/value-objects/CheckpointReason';
+import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 import type { CheckpointMetadata } from '@domain/value-objects/CheckpointMetadata';
+import { DEFAULT_CHECKPOINT_RETENTION } from '@shared/defaults';
 
 @injectable()
 export class RunDurabilityService {
@@ -32,6 +33,14 @@ export class RunDurabilityService {
         }
 
         this.lastSignatureByRun.set(runId, signature);
+
+        // Bound unbounded growth: keep only the most recent N action checkpoints (W18).
+        if (reason === CheckpointReason.ActionApplied) {
+            const pruned = await this.persistence.pruneActionCheckpoints(runId, DEFAULT_CHECKPOINT_RETENTION);
+            if (pruned.isErr()) {
+                this.logger.warn(`[RunDurabilityService] Checkpoint prune failed: ${pruned.error.message}`, { runId });
+            }
+        }
     }
 
     async getCheckpointRecords(runId: string): Promise<readonly CheckpointRecord[]> {

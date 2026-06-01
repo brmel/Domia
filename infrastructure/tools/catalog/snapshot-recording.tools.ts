@@ -176,5 +176,5 @@ export function createSnapshotRecordingTools(
                 }
             },
         },
-    ] as ToolSpec[]).map(spec => ({ ...spec, category: 'recording' as const }));
+    ] as ToolSpec[]).map(spec => ({ ...spec, category: 'recording' as const, requires: { dom: true } }));
 }

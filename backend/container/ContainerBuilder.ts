@@ -40,6 +40,11 @@ import { PlatformCapabilityNegotiationService } from '@backend/platform/Platform
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
 import { AdkAgentRuntime } from '@infrastructure/agent-runtime/adk/AdkAgentRuntime';
 import { GeminiLlmFactory } from '@infrastructure/agent-runtime/adk/GeminiLlmFactory';
+import { ExponentialBackoffRetryPolicy } from '@infrastructure/llm/ExponentialBackoffRetryPolicy';
+import { AdkEvaluator } from '@infrastructure/agent-runtime/adk/AdkEvaluator';
+import { AdkPlanner } from '@infrastructure/agent-runtime/adk/AdkPlanner';
+import { RunEvaluationService } from '@backend/runs/RunEvaluationService';
+import { RunPlanningService } from '@backend/runs/RunPlanningService';
 import { PerceptionPipeline } from '@infrastructure/perception/PerceptionPipeline';
 import { VisionSensor } from '@infrastructure/perception/sensors/VisionSensor';
 import { AriaSensor } from '@infrastructure/playwright/perception/AriaSensor';
@@ -58,6 +63,7 @@ import { RunQueries } from '@backend/runs/RunQueries';
 import { WorkflowQueries } from '@backend/workflows/WorkflowQueries';
 import { EventLogger } from '@infrastructure/observability/EventLogger';
 import { OtelEventExporter } from '@infrastructure/observability/OtelEventExporter';
+import { RunTraceWriter } from '@infrastructure/observability/RunTraceWriter';
 import { installAdkLoggerAdapter } from '@infrastructure/agent-runtime/adk/AdkLoggerAdapter';
 import type { ILogger } from '@domain/ports/platform/ILogger';
 import { PluginsAppService } from '@backend/plugins/PluginsAppService';
@@ -137,8 +143,14 @@ export class ContainerBuilder {
 
     registerLlm(): this {
         container.registerSingleton(LlmRuntimeConfigResolver);
+        container.registerSingleton(ExponentialBackoffRetryPolicy);
+        container.register('IRetryPolicy', { useToken: ExponentialBackoffRetryPolicy });
         container.registerSingleton(GeminiLlmFactory);
         container.register('IAdkLlmFactory', { useToken: GeminiLlmFactory });
+        container.registerSingleton(AdkEvaluator);
+        container.register('IEvaluator', { useToken: AdkEvaluator });
+        container.registerSingleton(AdkPlanner);
+        container.register('IPlanner', { useToken: AdkPlanner });
         container.registerSingleton(PluginRegistry);
         container.register('IPluginRegistry', { useToken: PluginRegistry });
         container.registerSingleton(PluginLoader);
@@ -162,18 +174,22 @@ export class ContainerBuilder {
         container.register('ITraceService', { useToken: TraceService });
         container.registerSingleton(EventLogger);
         container.registerSingleton(OtelEventExporter);
+        container.registerSingleton(RunTraceWriter);
         return this;
     }
 
     installEventLogger(): this {
         container.resolve(EventLogger).install();
         container.resolve(OtelEventExporter).install();
+        container.resolve(RunTraceWriter).install();
         installAdkLoggerAdapter(container.resolve<ILogger>('ILogger'));
         return this;
     }
 
     registerUseCases(): this {
         container.register('RunUseCase', { useClass: RunUseCase });
+        container.registerSingleton(RunEvaluationService);
+        container.registerSingleton(RunPlanningService);
         container.registerSingleton(SettingsAppService);
         container.registerSingleton(PromptsAppService);
         container.registerSingleton(RunQueries);

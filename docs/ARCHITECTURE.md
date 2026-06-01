@@ -60,7 +60,7 @@ A feature usually flows: **domain → backend service → IPC router OR CLI comm
    - **CLI**: add `apps/cli/<Feature>Command.ts`, register in `apps/cli/index.ts`.
 6. **Frontend (if user-facing)**: add `frontend/features/<feature>/` with components + store.
 7. **Test**: add `tests/e2e/<feature>/` with real-stack tests.
-8. **Record** the slice in the commit; update `docs/architecture/audit.md` §Next if it shifts the roadmap.
+8. **Record** the slice in the commit message (history lives in `git log`, not a tracked changelog).
 
 ## How to add a new app entry point (e.g. `apps/server/`)
 
@@ -101,15 +101,37 @@ A feature usually flows: **domain → backend service → IPC router OR CLI comm
 2. Register in `ContainerBuilder.registerReporting()`.
 3. Add to the report writer's `IRunReportWriter` formats union.
 
+## Subsystems at a glance
+
+| Subsystem | Where | Notes |
+|---|---|---|
+| Agent runtime | `infrastructure/agent-runtime/adk/` | Google ADK + Gemini behind `IAgentRuntime`. `assembleAdkSession` wires the per-run pipeline; the runtime is just the event loop. Swap the folder to swap LLM provider. |
+| Automation | `infrastructure/playwright/` (web + `electron/` via CDP), `infrastructure/appium/` (mobile) | All behind `IAppDriver` + `IStructuredAutomation`. Web/electron reuse the same Playwright adapter; mobile reads the native accessibility tree. |
+| Tools | `infrastructure/tools/catalog/` | One `ToolSpec` shape for built-ins/plugins/skills. `buildToolCatalog` gates by platform tag **and** `AppCapabilities` (`requires`), so DOM-only tools are never offered on a DOM-less target. |
+| Perception | `infrastructure/perception/` + per-driver sensors | Platform-neutral `PerceptionPipeline`; library-specific sensors live in that library's folder. |
+| Persistence | `infrastructure/persistence/` | sql.js (WASM) + Kysely behind narrow repository ports. Single baseline schema (`SQLiteSchema.ts`), FK-enforced, crash-safe atomic flush, serialized writes. |
+| Plugins / skills | `infrastructure/plugins/`, `infrastructure/skills/` | Plugins load extra `ToolSpec`s; skills replay recorded action sequences as `skill_*` tools. |
+| Observability | `infrastructure/observability/`, `infrastructure/services/TraceService.ts` | `ILogger` (pino), domain-event → log/OTLP-span/JSONL exporters. Real run→tool span tree + per-run `trace.jsonl`. |
+| CLI / desktop | `apps/cli/`, `apps/desktop/` | Both iterate the same `AsyncGenerator<RunOutput>`; desktop uses tRPC over IPC. |
+
+## ADK conventions (`infrastructure/agent-runtime/adk/`)
+
+- `LlmAgent` + `Runner` + `InMemorySessionService`, one session per `runId`.
+- Instruction = static system prompt + ADK `InstructionProvider` that interpolates `{state.x}` live each turn (`buildInstructionProvider`).
+- `temperature` per role (`AGENT_ROLE_DEFAULTS`), `functionCallingConfig: AUTO`; optional Gemini `thinkingConfig` via `DOMIA_THINKING_BUDGET`.
+- `RunMetricsPlugin` (ADK `BasePlugin`) records per-tool metrics + opens per-tool trace spans.
+- `snapshotConversation`/`restoreConversation` persist the ADK event log for suspend/resume.
+- LLM calls are wrapped (`withLlmRetry`) with the provider-neutral retry policy; planner (`AdkPlanner`) and evaluator (`AdkEvaluator`) are gated by `DOMIA_PLANNER`/`DOMIA_EVALUATOR`.
+
+## Current state
+
+Clean layered hexagon: pure `domain/`, real DI seam (`backend/container/`), ports/adapters with swap-by-folder, 0 circular deps and boundary rules both CI-gated (`scripts/check-architecture.mjs`), `Result<T,E>` across boundaries, prompts externalized to `prompts/*.md`. The known open lever is layer-first (not feature-first) organization — deliberately not migrated. Measured signals (size, coupling) live in `git log` history, not a tracked metrics file.
+
 ## Where to find things
 
-- `docs/architecture/audit.md` — measured current-state signals (metrics, coupling, god files) + next/roadmap.
-- `docs/architecture/design.md` — class/UML views of every subsystem (apps, tools, plugins, CLI, logging/testing, persistence) + size map + how-to-extend.
-- `docs/architecture/adk-conventions.md` — how our `@google/adk` usage maps to ADK best practices (tools, registration, prompts, callbacks, sessions).
-- `docs/architecture/feature-first-migration.md` — the feature-slice migration plan + decision.
 - `CLAUDE.md` and per-area `CLAUDE.md` — agent briefs.
-- `.claude/skills/` — focused skill briefs for stack tech.
-- `.claude/commands/` — slash commands.
+- `.claude/skills/` — focused skill briefs (TypeScript-strict, Playwright, result-discipline, the agent loop).
+- `.claude/commands/` — slash commands (`/check`).
 
 ## Validation before claiming done
 

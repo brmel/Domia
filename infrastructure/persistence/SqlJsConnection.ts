@@ -1,12 +1,13 @@
 import { injectable, inject } from 'tsyringe';
 import { ResultAsync } from 'neverthrow';
+import AsyncLock from 'async-lock';
 import type { Database as SqlJsDatabase } from 'sql.js';
 import { Kysely } from 'kysely';
 import { SqlJsDialect } from 'kysely-wasm';
 import { PersistenceError } from '@domain/errors';
 import type { PathsConfigProvider } from '@shared/contracts/config';
 import type { DatabaseSchema } from './DatabaseSchema';
-import { initializeSchema } from './SQLiteMigrationManager';
+import { initializeSchema } from './SQLiteSchema';
 import { SQLiteRunRepository } from './SQLiteRunRepository';
 import { SQLiteCheckpointRepository } from './SQLiteCheckpointRepository';
 import { SQLiteWorkflowRepository } from './SQLiteWorkflowRepository';
@@ -30,6 +31,8 @@ export class SqlJsConnection {
     private skillsRepo!: SQLiteSkillRepository;
     private readonly dbPath: string;
     private readonly ready: Promise<void>;
+    private readonly lock = new AsyncLock();
+    private static readonly LANE = 'sqljs';
 
     constructor(@inject('PathsConfigProvider') paths: PathsConfigProvider) {
         this.dbPath = paths().databasePath;
@@ -38,6 +41,7 @@ export class SqlJsConnection {
 
     private async initialize(): Promise<void> {
         this.rawDb = await openDatabase(this.dbPath);
+        this.rawDb.run('PRAGMA foreign_keys = ON;');
         this.db = new Kysely<DatabaseSchema>({ dialect: new SqlJsDialect({ database: this.rawDb }) });
         initializeSchema(this.rawDb);
         this.runsRepo = new SQLiteRunRepository(this.db);
@@ -55,11 +59,34 @@ export class SqlJsConnection {
         saveDatabase(this.rawDb, this.dbPath);
     }
 
+    /**
+     * Serialize every read-modify-(write-flush) sequence through a single lane so
+     * concurrent run lanes can never interleave a read against an in-flight write
+     * or a half-applied flush against the shared in-memory DB. (W4)
+     */
+    private exclusive<T>(fn: () => Promise<T>): ResultAsync<T, PersistenceError> {
+        return ResultAsync.fromPromise(
+            this.lock.acquire<T>(SqlJsConnection.LANE, fn),
+            (e) => (e instanceof PersistenceError ? e : new PersistenceError(`DB op failed: ${String(e)}`)),
+        );
+    }
+
     withReady<T>(op: () => ResultAsync<T, PersistenceError>): ResultAsync<T, PersistenceError> {
-        return ResultAsync.fromPromise(this.ready, (e) => new PersistenceError(`DB init failed: ${e}`)).andThen(op);
+        return this.exclusive(async () => {
+            await this.ready;
+            const result = await op();
+            if (result.isErr()) throw result.error;
+            return result.value;
+        });
     }
 
     withPersist<T>(op: () => ResultAsync<T, PersistenceError>): ResultAsync<T, PersistenceError> {
-        return this.withReady(op).map((result) => { this.persist(); return result; });
+        return this.exclusive(async () => {
+            await this.ready;
+            const result = await op();
+            if (result.isErr()) throw result.error;
+            this.persist();
+            return result.value;
+        });
     }
 }

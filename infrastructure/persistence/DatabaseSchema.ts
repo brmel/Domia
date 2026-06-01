@@ -11,6 +11,8 @@ export interface RunTable {
     summary: string | null;
     platform_config_json: string | null;
     parent_run_id: string | null;
+    value_json: string | null;
+    updated_at: string | null;
 }
 
 export interface StepTable {

@@ -58,6 +58,10 @@ export class StepExecutionKernelService {
             stepGoal: executionGoal,
             url,
             maxActions: executionOptions.maxActions ?? DEFAULT_MAX_ACTIONS,
+            budget: {
+                maxDurationMs: runtime.budgetLimits.maxDurationMs,
+                maxTokens: runtime.budgetLimits.maxEstimatedTokens,
+            },
             vision: executionOptions.vision,
             platform: executionOptions.platform,
             persistArtifacts: executionOptions.persistArtifacts,

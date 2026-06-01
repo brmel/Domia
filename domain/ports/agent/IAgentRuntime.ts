@@ -46,6 +46,7 @@ export interface AgentRuntimeExtras {
     readonly windowManager?: IWindowManager;
     readonly tabManager?: ITabManager;
     readonly onSuspendRequest?: (reason: string) => void;
+    readonly capabilities?: import('@domain/ports/automation/IAppDriver').AppCapabilities;
 }
 
 export interface AgentInput {
@@ -53,6 +54,15 @@ export interface AgentInput {
     readonly stepGoal: string;
     readonly url: string;
     readonly maxActions: number;
+    /**
+     * Soft ceilings enforced inside the runtime loop. When exceeded the run ends
+     * with `{ kind: 'stopped', reason: 'budget_exhausted' }` (not an error). The
+     * hard backstop is still `maxActions` → ADK `runConfig.maxLlmCalls`.
+     */
+    readonly budget?: {
+        readonly maxDurationMs?: number;
+        readonly maxTokens?: number;
+    };
     readonly vision: boolean;
     readonly platform?: PlatformType | undefined;
     readonly recording?: {

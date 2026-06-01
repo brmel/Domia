@@ -16,7 +16,8 @@ const PROMPT_FILES: Record<PromptKey, string> = {
     shellCapabilityNote: 'shell/capability-note.md',
     shellAvailableRule: 'shell/available-rule.md',
     shellUnavailableRule: 'shell/unavailable-rule.md',
-    conversationCompaction: 'conversation-compaction.md',
+    evaluateGoal: 'evaluate-goal.md',
+    planDecomposition: 'plan-decomposition.md',
 };
 
 function findPromptsRoot(): string {

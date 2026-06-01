@@ -19,12 +19,24 @@ import { ActionType } from '@domain/enums';
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
 import { PluginRegistry } from '@infrastructure/plugins/PluginRegistry';
 import { ShellExecutor } from '@infrastructure/shell/ShellExecutor';
+import { TraceService } from '@infrastructure/services/TraceService';
 import type { IConfigService } from '@domain/ports/platform/IConfigService';
 import { LLM_CALL_BUDGET_OFFSET, FINAL_RESPONSE_LOG_CHARS, APP_NAME } from '@shared/defaults';
 import { assembleAdkSession } from './assembleAdkSession';
 import { ADK_SNAPSHOT_PROVIDER, ADK_SESSION_USER_ID } from './adkConstants';
 
 const LOG_TAG = '[AdkAgentRuntime]';
+
+/**
+ * Best-effort cumulative token reading from ADK/genai events. `totalTokenCount`
+ * is per-call (prompt+response); summing across turns over-counts re-sent prompt,
+ * so the figure is a conservative upper bound — a budget ceiling stops at-or-before
+ * real usage, never after. Returns 0 for events without usage metadata.
+ */
+function readUsageTokens(event: unknown): number {
+    const usage = (event as { usageMetadata?: { totalTokenCount?: number } }).usageMetadata;
+    return typeof usage?.totalTokenCount === 'number' ? usage.totalTokenCount : 0;
+}
 
 @injectable()
 export class AdkAgentRuntime implements IAgentRuntime {
@@ -42,6 +54,7 @@ export class AdkAgentRuntime implements IAgentRuntime {
         @inject('IAdkLlmFactory') private readonly llmFactory: IAdkLlmFactory,
         @inject('IRunHealthMonitor') private readonly healthMonitor: IRunHealthMonitor,
         @inject(SkillRunnerService) private readonly skillRunner: SkillRunnerService,
+        @inject(TraceService) private readonly trace: TraceService = new TraceService(),
     ) {}
 
     async snapshotConversation(runId: string): Promise<ConversationSnapshot | null> {
@@ -87,10 +100,14 @@ export class AdkAgentRuntime implements IAgentRuntime {
             skillRunner: this.skillRunner,
             healthMonitor: this.healthMonitor,
             sessionService: this.sessionService,
+            trace: this.trace,
         }, input, automation);
         if (setup.kind === 'error') return setup;
         const { state, captureMiddleware, actionMapper, runner, session, initialMessage, sink } = setup;
-        const { stepGoal, maxActions, vision } = input;
+        const { stepGoal, maxActions, vision, budget } = input;
+
+        const runStartMs = Date.now();
+        let estimatedTokens = 0;
 
         try {
             state.llmTurnStartMs = Date.now();
@@ -101,6 +118,19 @@ export class AdkAgentRuntime implements IAgentRuntime {
                 newMessage: initialMessage,
                 runConfig: { maxLlmCalls: maxActions + LLM_CALL_BUDGET_OFFSET },
             })) {
+                estimatedTokens += readUsageTokens(event);
+
+                if (budget?.maxDurationMs && Date.now() - runStartMs > budget.maxDurationMs) {
+                    yield* flushPending(state);
+                    this.logger.info(`${LOG_TAG} Duration budget (${budget.maxDurationMs}ms) reached after ${state.actionCount} action(s).`);
+                    return { kind: 'stopped', reason: 'budget_exhausted', summary: `Max duration (${budget.maxDurationMs}ms) reached for step: ${stepGoal}` };
+                }
+                if (budget?.maxTokens && estimatedTokens > budget.maxTokens) {
+                    yield* flushPending(state);
+                    this.logger.info(`${LOG_TAG} Token budget (${budget.maxTokens}) reached (~${estimatedTokens}) after ${state.actionCount} action(s).`);
+                    return { kind: 'stopped', reason: 'budget_exhausted', summary: `Max tokens (${budget.maxTokens}) reached for step: ${stepGoal}` };
+                }
+
                 const functionCalls = getFunctionCalls(event);
                 const thought = extractThought(event);
 

@@ -63,7 +63,7 @@ Or run `/check` (a saved command — see `.claude/commands/check.md`).
 
 ## Where to find current state
 
-`docs/architecture/audit.md` is the authoritative measured state of the codebase (metrics, coupling, god files, dead-code %, and §10 Next/roadmap). Read it before assuming the codebase looks like something it doesn't. History lives in `git log`. Run `/refactor-status` to summarize.
+`docs/ARCHITECTURE.md` is the single canonical reference — layers, boundaries, subsystems, ADK conventions, and current state. Read it before assuming the codebase looks like something it doesn't. Measured history (metrics, coupling) lives in `git log`. Run `/refactor-status` to summarize.
 
 ## Common traps to avoid
 

@@ -1,13 +1,20 @@
-import { injectable } from 'tsyringe';
+import { injectable, inject } from 'tsyringe';
 import { Gemini, type BaseLlm } from '@google/adk';
 import type { IAdkLlmFactory, AdkLlmFactoryInput } from './IAdkLlmFactory';
+import type { IRetryPolicy } from '@domain/ports/agent/IRetryPolicy';
+import { ExponentialBackoffRetryPolicy } from '@infrastructure/llm/ExponentialBackoffRetryPolicy';
+import { withLlmRetry } from './withLlmRetry';
 
 @injectable()
 export class GeminiLlmFactory implements IAdkLlmFactory {
+    // Default lets tests `new GeminiLlmFactory()`; the container always injects the registered 'IRetryPolicy'.
+    constructor(@inject('IRetryPolicy') private readonly retry: IRetryPolicy = new ExponentialBackoffRetryPolicy()) {}
+
     create(input: AdkLlmFactoryInput): BaseLlm {
         if (!input.apiKey) {
             throw new Error('Gemini factory requires an API key. Set GOOGLE_API_KEY, GEMINI_API_KEY, or DOMIA_LLM_API_KEY.');
         }
-        return new Gemini({ model: input.model, apiKey: input.apiKey });
+        const llm = new Gemini({ model: input.model, apiKey: input.apiKey });
+        return withLlmRetry(llm, this.retry);
     }
 }

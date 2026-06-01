@@ -23,8 +23,19 @@ type DispatchHandler = (params: Record<string, unknown>, ctx: SkillPlaybackConte
 const DISPATCH_TABLE: Partial<Record<ActionType, DispatchHandler>> = {
     [ActionType.CLICK]: (params, ctx) => ctx.automation.click(params['ref'] as string),
     [ActionType.TYPE]: (params, ctx) => ctx.automation.type(params['ref'] as string, params['text'] as string),
+    [ActionType.HOVER]: (params, ctx) => ctx.automation.hover(params['ref'] as string),
     [ActionType.PRESS_KEY]: (params, ctx) => ctx.automation.pressKey(params['key'] as string),
     [ActionType.WAIT]: (params, ctx) => ctx.automation.wait((params['durationMs'] as number) ?? DEFAULT_WAIT_DURATION_MS),
+    [ActionType.MOUSE_MOVE]: (params, ctx) => ctx.automation.mouseMove(params['x'] as number, params['y'] as number),
+    [ActionType.MOUSE_CLICK_LEFT]: (params, ctx) => ctx.automation.mouseClick(params['x'] as number, params['y'] as number, 'left'),
+    [ActionType.MOUSE_CLICK_RIGHT]: (params, ctx) => ctx.automation.mouseClick(params['x'] as number, params['y'] as number, 'right'),
+    [ActionType.MOUSE_DOUBLE_CLICK]: (params, ctx) => ctx.automation.mouseDoubleClick(params['x'] as number, params['y'] as number),
+    [ActionType.MOUSE_DRAG]: (params, ctx) => ctx.automation.mouseDrag(
+        params['fromX'] as number, params['fromY'] as number,
+        params['toX'] as number, params['toY'] as number,
+        params['steps'] as number | undefined,
+    ),
+    [ActionType.MOUSE_SCROLL]: (params, ctx) => ctx.automation.mouseScroll((params['deltaX'] as number) ?? 0, params['deltaY'] as number),
     [ActionType.NAVIGATE]: (params, ctx) => {
         const url = UrlFactory.create(String(params['url'] ?? ''));
         if (url.isErr()) return url as unknown as DispatchResult;

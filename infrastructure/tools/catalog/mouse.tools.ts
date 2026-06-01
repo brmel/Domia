@@ -85,5 +85,5 @@ export function createMouseTools(automation: IAppAutomation): ToolSpec[] {
                 await automation.mouseScroll((args['deltaX'] as number) ?? 0, args['deltaY'] as number),
             ),
         },
-    ] as ToolSpec[]).map(spec => ({ ...spec, category: 'mouse' as const }));
+    ] as ToolSpec[]).map(spec => ({ ...spec, category: 'mouse' as const, requires: { dom: true } }));
 }

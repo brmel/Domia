@@ -7,7 +7,7 @@ import type {
     PromptVariables,
 } from '@domain/ports/agent/IPromptService';
 import { loadDefaultPrompts } from './promptDefaults';
-import { interpolate } from '@shared/reliability/interpolate';
+import { interpolate, escapeAdkState } from '@shared/reliability/interpolate';
 
 @injectable()
 export class PromptService implements IPromptService {
@@ -24,12 +24,25 @@ export class PromptService implements IPromptService {
         this.toolDescriptionOverrides = { ...overrides?.toolDescriptions };
     }
 
+    /**
+     * Source of default prompts. With `DOMIA_PROMPT_HOT_RELOAD` set, re-reads the
+     * `prompts/` dir on every access so edits take effect without a restart (W16);
+     * otherwise serves the once-loaded cache (production behavior unchanged).
+     */
+    private get prompts(): Record<PromptKey, string> {
+        return process.env['DOMIA_PROMPT_HOT_RELOAD'] ? loadDefaultPrompts() : this.defaultPrompts;
+    }
+
     getPrompt(key: PromptKey): string {
-        return this.promptOverrides[key] ?? this.defaultPrompts[key];
+        return this.promptOverrides[key] ?? this.prompts[key];
     }
 
     renderPrompt<K extends PromptKey>(key: K, vars: PromptVariables[K]): string {
-        return interpolate(this.getPrompt(key), vars as Record<string, string | number>);
+        const escaped: Record<string, string | number> = {};
+        for (const [k, v] of Object.entries(vars as Record<string, unknown>)) {
+            escaped[k] = typeof v === 'string' ? escapeAdkState(v) : (v as number);
+        }
+        return interpolate(this.getPrompt(key), escaped);
     }
 
     getToolDescription(toolName: string): string | undefined {
@@ -37,7 +50,7 @@ export class PromptService implements IPromptService {
     }
 
     getAllPrompts(): Record<PromptKey, string> {
-        const result = { ...this.defaultPrompts };
+        const result = { ...this.prompts };
         for (const [key, value] of Object.entries(this.promptOverrides)) {
             if (value !== undefined) {
                 result[key as PromptKey] = value;

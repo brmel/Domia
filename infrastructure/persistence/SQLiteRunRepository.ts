@@ -8,22 +8,26 @@ import type { DatabaseSchema, RunTable, StepTable } from './DatabaseSchema';
 import { DEFAULT_RUNS_QUERY_LIMIT } from '@shared/defaults';
 import { dbOp } from './dbOp';
 
-function extractStatusFields(status: RunStatus): { summary: string | null; durationMs: number | null } {
+function extractStatusFields(status: RunStatus): { summary: string | null; durationMs: number | null; valueJson: string | null } {
     switch (status.type) {
-        case 'passed':    return { summary: status.summary, durationMs: status.duration };
-        case 'failed':    return { summary: status.error,   durationMs: status.duration };
-        case 'cancelled': return { summary: status.reason,  durationMs: null };
-        case 'suspended': return { summary: status.reason,  durationMs: null };
-        default:          return { summary: null,           durationMs: null };
+        case 'passed':    return { summary: status.summary, durationMs: status.duration, valueJson: null };
+        case 'finished':  return { summary: status.summary, durationMs: status.duration, valueJson: status.value !== undefined ? JSON.stringify(status.value) : null };
+        case 'failed':    return { summary: status.error,   durationMs: status.duration, valueJson: null };
+        case 'cancelled': return { summary: status.reason,  durationMs: null,            valueJson: null };
+        case 'suspended': return { summary: status.reason,  durationMs: null,            valueJson: null };
+        default:          return { summary: null,           durationMs: null,            valueJson: null };
     }
 }
+
+const COMPLETION_STATUSES: ReadonlySet<RunStatus['type']> = new Set(['passed', 'finished', 'failed', 'cancelled']);
 
 export class SQLiteRunRepository {
     constructor(private readonly db: Kysely<DatabaseSchema>) {}
 
     saveRun(run: Run, platformConfigJson?: string): ResultAsync<void, PersistenceError> {
-        const { summary, durationMs } = extractStatusFields(run.status);
+        const { summary, durationMs, valueJson } = extractStatusFields(run.status);
         const startedAt = run.startedAt ? run.startedAt.toISOString() : run.createdAt.toISOString();
+        const completedAt = COMPLETION_STATUSES.has(run.status.type) ? run.updatedAt.toISOString() : null;
 
         return dbOp(
             this.db.insertInto('runs')
@@ -32,12 +36,14 @@ export class SQLiteRunRepository {
                     url: run.url,
                     status: run.status.type,
                     started_at: startedAt,
-                    completed_at: null,
+                    completed_at: completedAt,
                     duration_ms: durationMs,
                     goal: run.prompt,
                     summary: summary,
+                    value_json: valueJson,
                     platform_config_json: platformConfigJson ?? null,
                     parent_run_id: run.parentRunId ?? null,
+                    updated_at: run.updatedAt.toISOString(),
                 })
                 .execute(),
             'save run'
@@ -49,15 +55,19 @@ export class SQLiteRunRepository {
 
         if (updates.status) {
             values.status = updates.status.type;
-            const { summary, durationMs } = extractStatusFields(updates.status);
+            const { summary, durationMs, valueJson } = extractStatusFields(updates.status);
             values.summary = summary;
             values.duration_ms = durationMs;
+            values.value_json = valueJson;
         }
 
         if (updates.startedAt) values.started_at = updates.startedAt.toISOString();
 
-        if (updates.status && ['passed', 'failed', 'cancelled'].includes(updates.status.type)) {
-            values.completed_at = new Date().toISOString();
+        const updatedAt = (updates.updatedAt ?? new Date()).toISOString();
+        values.updated_at = updatedAt;
+
+        if (updates.status && COMPLETION_STATUSES.has(updates.status.type)) {
+            values.completed_at = updatedAt;
         }
 
         return dbOp(
@@ -153,7 +163,7 @@ export class SQLiteRunRepository {
             ...(row.parent_run_id ? { parentRunId: row.parent_run_id as RunId } : {}),
             createdAt: new Date(row.started_at),
             startedAt: new Date(row.started_at),
-            updatedAt: row.completed_at ? new Date(row.completed_at) : new Date(row.started_at),
+            updatedAt: new Date(row.updated_at ?? row.completed_at ?? row.started_at),
         };
     }
 
@@ -166,6 +176,12 @@ export class SQLiteRunRepository {
 
     private static readonly STATUS_BUILDERS: Record<string, (row: RunTable) => RunStatus> = {
         passed:    (row) => ({ type: 'passed', summary: row.summary || '', duration: row.duration_ms || 0 }),
+        finished:  (row) => ({
+            type: 'finished',
+            summary: row.summary || '',
+            duration: row.duration_ms || 0,
+            ...(row.value_json ? { value: JSON.parse(row.value_json) as unknown } : {}),
+        }),
         failed:    (row) => ({ type: 'failed', error: row.summary || 'Unknown error', duration: row.duration_ms || 0 }),
         cancelled: (row) => ({ type: 'cancelled', reason: row.summary || '' }),
         suspended: (row) => ({ type: 'suspended', reason: row.summary || '' }),

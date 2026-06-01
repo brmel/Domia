@@ -10,6 +10,7 @@ import type { RoleRefMap } from '@domain/value-objects/RoleRef';
 import type { MobilePlatformConfig, MobileCapabilities } from '@domain/types/PlatformConfig';
 import { InteractionError, NavigationError } from '@domain/errors';
 import { errorMsg } from '../tools/toolResult';
+import { AppiumPerceptionSource } from './AppiumPerceptionSource';
 
 const TAG = '[AppiumAdapter]';
 
@@ -19,6 +20,8 @@ interface AppiumBrowser {
     pause(ms: number): Promise<void>;
     keys(text: string): Promise<void>;
     getWindowSize(): Promise<{ width: number; height: number }>;
+    getPageSource(): Promise<string>;
+    takeScreenshot(): Promise<string>;
 }
 
 interface AppiumElement {
@@ -140,7 +143,11 @@ export class AppiumAdapter implements IStructuredAutomation {
     }
 
     getPerceptionSource(): IPerceptionSource | null {
-        return null;
+        return new AppiumPerceptionSource({
+            getSession: () => this.session,
+            getUrl: () => this.getCurrentUrl() ?? '',
+            setRefs: (refs) => this.updateRefs(refs),
+        });
     }
 
     updateRefs(refs: RoleRefMap): void { this.refs = refs; }

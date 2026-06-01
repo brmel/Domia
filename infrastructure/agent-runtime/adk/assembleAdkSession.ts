@@ -9,19 +9,18 @@ import type { IRunHealthMonitor } from '@domain/ports/reporting/IRunHealthMonito
 import type { IConfigService } from '@domain/ports/platform/IConfigService';
 import type { RunId } from '@domain/value-objects';
 import { DEFAULT_ARTIFACT_RETENTION } from '@domain/value-objects/ArtifactRetention';
-import { DEFAULT_LLM_MODEL, APP_NAME } from '@shared/defaults';
+import { DEFAULT_LLM_MODEL, APP_NAME, AGENT_ROLE_DEFAULTS } from '@shared/defaults';
 import { LlmRuntimeConfigResolver } from '@infrastructure/llm/LlmRuntimeConfigResolver';
 import { ActionMapper } from '@infrastructure/agent/common/ActionMapper';
 import { buildAgentInstruction } from '@infrastructure/agent/common/AgentInstructionBuilder';
 import { PluginRegistry } from '@infrastructure/plugins/PluginRegistry';
 import { ShellExecutor } from '@infrastructure/shell/ShellExecutor';
 import { SkillRunnerService } from '@infrastructure/skills/SkillRunnerService';
+import { TraceService } from '@infrastructure/services/TraceService';
 import type { PostActionCaptureMiddleware } from '@infrastructure/tools/PostActionCaptureMiddleware';
 import type { StepExecutionState } from './adkEventMapping';
 import type { IAdkLlmFactory } from './IAdkLlmFactory';
 import { RunArtifactSink } from './RunArtifactSink';
-import { LlmConversationCompactor } from './LlmConversationCompactor';
-import { buildCompactionCallback } from './buildCompactionCallback';
 import { buildInstructionProvider } from './buildInstructionProvider';
 import { RunMetricsPlugin } from './RunMetricsPlugin';
 import { createAdkTools } from './AdkToolFactory';
@@ -42,6 +41,7 @@ export interface AdkSessionDeps {
     readonly skillRunner: SkillRunnerService;
     readonly healthMonitor: IRunHealthMonitor;
     readonly sessionService: InMemorySessionService;
+    readonly trace: TraceService;
 }
 
 export interface AdkSessionSetup {
@@ -97,6 +97,7 @@ export async function assembleAdkSession(
     const windowManager = input.extras?.windowManager;
     const observation = input.extras?.observation;
     const onSuspendRequest = input.extras?.onSuspendRequest;
+    const capabilities = input.extras?.capabilities;
     const sink = new RunArtifactSink(
         input.runId,
         input.persistArtifacts ?? DEFAULT_ARTIFACT_RETENTION,
@@ -105,7 +106,7 @@ export async function assembleAdkSession(
     );
     const toolDeps = assembleToolDependencies(
         { perception: deps.perception, configService: deps.configService, shellExecutor: deps.shellExecutor },
-        { input, automation, perceptionSource, vision, windowManager, getActionCount: () => state.actionCount, sink, observation, onSuspendRequest },
+        { input, automation, perceptionSource, vision, windowManager, getActionCount: () => state.actionCount, sink, observation, onSuspendRequest, capabilities },
     );
     const skillTools = await deps.skillRunner.buildToolsForSession(toolDeps);
     const extraTools = [...deps.pluginRegistry.getAllTools(), ...skillTools];
@@ -117,8 +118,7 @@ export async function assembleAdkSession(
     });
     const initialMessage: Content = { role: 'user', parts: [{ text: stepGoalText }] };
 
-    const compactor = new LlmConversationCompactor(llm, deps.promptService);
-    const metricsPlugin = new RunMetricsPlugin(input.runId as RunId, state, deps.logger, deps.healthMonitor);
+    const metricsPlugin = new RunMetricsPlugin(input.runId as RunId, state, deps.logger, deps.healthMonitor, deps.trace);
     const plugins: import('@google/adk').BasePlugin[] = [metricsPlugin];
     const agent = new LlmAgent({
         name: ADK_AGENT_NAME,
@@ -127,10 +127,12 @@ export async function assembleAdkSession(
         instruction: buildInstructionProvider(instruction),
         tools,
         generateContentConfig: {
-            temperature: 0,
+            temperature: AGENT_ROLE_DEFAULTS.actor.temperature,
             toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
+            ...(llmConfig.thinkingBudget > 0
+                ? { thinkingConfig: { includeThoughts: true, thinkingBudget: llmConfig.thinkingBudget } }
+                : {}),
         },
-        beforeModelCallback: buildCompactionCallback(compactor, deps.logger),
     });
 
     const runner = new Runner({ agent, appName: APP_NAME, plugins, sessionService: deps.sessionService });

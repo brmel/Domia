@@ -28,6 +28,7 @@ const RECORDABLE_ACTION_TYPES: ReadonlySet<ActionType> = new Set([
     ActionType.MOUSE_CLICK_RIGHT,
     ActionType.MOUSE_DOUBLE_CLICK,
     ActionType.MOUSE_DRAG,
+    ActionType.MOUSE_SCROLL,
 ]);
 
 const OPTIONAL_TOOL_FACTORIES: ReadonlyArray<(deps: ToolDependencies) => ToolSpec[]> = [
@@ -63,7 +64,16 @@ export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] 
     ];
 
     const platform = deps.platform;
-    let filtered = raw.filter((spec) => !platform || !spec.platforms?.length || spec.platforms.includes(platform));
+    const caps = deps.capabilities;
+    let filtered = raw.filter((spec) => {
+        if (platform && spec.platforms?.length && !spec.platforms.includes(platform)) return false;
+        if (caps && spec.requires) {
+            if (spec.requires.dom && !caps.supportsDOM) return false;
+            if (spec.requires.nativeInteraction && !caps.supportsNativeInteraction) return false;
+            if (spec.requires.vision && !caps.supportsVision) return false;
+        }
+        return true;
+    });
 
     if (deps.recording?.enabled) {
         const recorder = new ActionRecordingService(deps.perceptionSource);

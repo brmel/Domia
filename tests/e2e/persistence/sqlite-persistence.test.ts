@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { createInMemoryDatabase } from '@infrastructure/persistence/SqlJsProvider';
-import { initializeSchema } from '@infrastructure/persistence/SQLiteMigrationManager';
+import { initializeSchema } from '@infrastructure/persistence/SQLiteSchema';
 import { SQLiteRunRepository } from '@infrastructure/persistence/SQLiteRunRepository';
 import { SQLiteCheckpointRepository } from '@infrastructure/persistence/SQLiteCheckpointRepository';
 import type { Step } from '@domain/ports';
@@ -37,6 +37,32 @@ describe('SQLite persistence round-trip', () => {
         expect(fetched.url).toBe('https://example.com');
         expect(fetched.prompt).toBe('Click the button');
         expect(fetched.status.type).toBe('pending');
+    });
+
+    it('round-trips a verdict-less finished run with summary + value (W1 regression)', async () => {
+        const run = Run.create({
+            id: RunIdFactory.create(),
+            url: UrlFactory.unsafe('https://example.com'),
+            prompt: 'Complete the task',
+        });
+        expect((await repo.saveRun(run)).isOk()).toBe(true);
+
+        const started = Run.start(run);
+        const finished = Run.finish(started, 'Task completed successfully', { count: 42 });
+        const update = await repo.updateRun(run.id, {
+            status: finished.status,
+            startedAt: started.startedAt,
+            updatedAt: finished.updatedAt,
+        });
+        expect(update.isOk()).toBe(true);
+
+        const fetched = (await repo.getRun(run.id))._unsafeUnwrap()!;
+        expect(fetched.status.type).toBe('finished');
+        if (fetched.status.type === 'finished') {
+            expect(fetched.status.summary).toBe('Task completed successfully');
+            expect(fetched.status.value).toEqual({ count: 42 });
+            expect(fetched.status.duration).toBeGreaterThanOrEqual(0);
+        }
     });
 
     it('updates run status from pending to passed', async () => {
@@ -106,17 +132,16 @@ describe('SQLite persistence round-trip', () => {
         expect(steps).toHaveLength(0);
     });
 
-    it('schema migrations are idempotent', async () => {
+    it('schema init is idempotent (safe to call twice)', async () => {
         const raw2 = await createInMemoryDatabase();
         initializeSchema(raw2);
         initializeSchema(raw2);
 
-        const result = raw2.exec('SELECT id FROM schema_migrations');
-        const migrations = (result[0]?.values ?? []).map(row => ({ id: row[0] as string }));
-        expect(migrations.length).toBeGreaterThanOrEqual(1);
-
-        const unique = new Set(migrations.map(m => m.id));
-        expect(unique.size).toBe(migrations.length);
+        const result = raw2.exec("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name");
+        const tables = new Set((result[0]?.values ?? []).map(row => row[0] as string));
+        for (const expected of ['runs', 'steps', 'workflow_checkpoints', 'workflow_definitions', 'workflow_runs', 'workflow_step_runs', 'skills']) {
+            expect(tables.has(expected)).toBe(true);
+        }
     });
 
     it('full run lifecycle: run → steps → checkpoints persisted to history', async () => {

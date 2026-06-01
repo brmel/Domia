@@ -18,6 +18,8 @@ export interface DomainEvents {
     'observation.profile_changed': { runId: RunId; profile: import('../value-objects/ObservationProfile').ObservationProfile; previous: import('../value-objects/ObservationProfile').ObservationProfile };
     'run.suspended': { runId: RunId; reason: string };
     'run.resumed': { runId: RunId };
+    'run.evaluated': { runId: RunId; satisfied: boolean; reason: string };
+    'plan.created': { runId: RunId; itemCount: number };
 }
 
 export type DomainEventName = keyof DomainEvents;

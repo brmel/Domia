@@ -24,4 +24,7 @@ export class CheckpointRepositoryAdapter implements ICheckpointRepository {
     getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError> {
         return this.conn.withReady(() => this.conn.checkpoints().getCheckpointRecords(runId));
     }
+    pruneActionCheckpoints(runId: string, keep: number): ResultAsync<void, PersistenceError> {
+        return this.conn.withPersist(() => this.conn.checkpoints().pruneActionCheckpoints(runId, keep));
+    }
 }

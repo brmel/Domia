@@ -1,7 +1,9 @@
 // agent
 export * from './agent/IAgentRuntime';
-export * from './agent/IConversationCompactor';
 export * from './agent/IPromptService';
+export * from './agent/IRetryPolicy';
+export * from './agent/IEvaluator';
+export * from './agent/IPlanner';
 
 // automation
 export * from './automation/IAppAutomation';
