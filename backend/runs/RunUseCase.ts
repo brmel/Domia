@@ -14,8 +14,8 @@ import type { RunExecutionContext, PreparedRunSession } from './engine/RunSessio
 import { RunBudgetPolicyService } from './RunBudgetPolicyService';
 import { RunPlanCoordinator } from './RunPlanCoordinator';
 import { RunControlGateService } from './RunControlGateService';
-import { RunPlanningService } from './RunPlanningService';
-import { RunEvaluationService } from './RunEvaluationService';
+import type { IRunPlanning } from './RunPlanningService';
+import type { IRunEvaluation } from './RunEvaluationService';
 import { RunStepEngine } from './engine/RunStepEngine';
 import { ObservationProfile, DEFAULT_OBSERVATION_PROFILE, type RunId } from '@domain/value-objects';
 import type { ILogger } from '@domain/ports';
@@ -30,8 +30,8 @@ export class RunUseCase {
         @inject(RuntimeReadinessPolicyService) private readonly readinessPolicy: RuntimeReadinessPolicyService,
         @inject(RunPlanCoordinator) private readonly planCoordinator: RunPlanCoordinator,
         @inject(RunControlGateService) private readonly controlGate: RunControlGateService,
-        @inject(RunPlanningService) private readonly planningService: RunPlanningService,
-        @inject(RunEvaluationService) private readonly evaluationService: RunEvaluationService,
+        @inject('IRunPlanning') private readonly planning: IRunPlanning,
+        @inject('IRunEvaluation') private readonly evaluation: IRunEvaluation,
         @inject('ILogger') private readonly logger: ILogger,
     ) {}
 
@@ -107,17 +107,7 @@ export class RunUseCase {
             currentState = WorkflowState.transitionTo(currentState, 'thinking');
             yield { type: 'state_updated', state: currentState };
 
-            // Optional goal decomposition (DOMIA_PLANNER): prepend the ordered plan to the
-            // goal so the agent follows it; falls back to the raw prompt when disabled.
-            let goalForPlan = input.prompt;
-            if (this.planningService.enabled) {
-                const items = await this.planningService.plan(runId as RunId, input.prompt);
-                if (items.length > 1) {
-                    const numbered = items.map((s, i) => `${i + 1}. ${s}`).join('\n');
-                    goalForPlan = `${input.prompt}\n\nFollow this plan in order:\n${numbered}`;
-                }
-            }
-
+            const goalForPlan = await this.planning.expandGoal(runId as RunId, input.prompt);
             const { plan, item } = this.planCoordinator.buildSinglePromptPlan(goalForPlan);
 
             currentState = WorkflowState.transitionTo(currentState, 'thinking', { plan });
@@ -161,9 +151,8 @@ export class RunUseCase {
                 } else {
                     currentState = this.planCoordinator.applyOutcome(currentState, plan, activated.runningItem, outcome);
                     yield { type: 'state_updated', state: currentState };
-                    // Optional reflection pass (DOMIA_EVALUATOR); advisory, never blocks the finish.
-                    if (this.evaluationService.enabled && outcome?.kind === 'done') {
-                        await this.evaluationService.evaluate(runId as RunId, input.prompt, outcome.output.summary);
+                    if (outcome?.kind === 'done') {
+                        await this.evaluation.evaluate(runId as RunId, input.prompt, outcome.output.summary);
                     }
                     completed = true;
                 }

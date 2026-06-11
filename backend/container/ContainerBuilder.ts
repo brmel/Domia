@@ -1,4 +1,4 @@
-import { container, instanceCachingFactory } from 'tsyringe';
+import { container, instanceCachingFactory, type InjectionToken } from 'tsyringe';
 import { ConfigService } from '@infrastructure/ConfigService';
 import type { IConfigService } from '@domain/ports/platform/IConfigService';
 import { SqlJsConnection } from '@infrastructure/persistence/SqlJsConnection';
@@ -46,8 +46,8 @@ import { GeminiLlmFactory } from '@infrastructure/agent-runtime/adk/GeminiLlmFac
 import { ExponentialBackoffRetryPolicy } from '@infrastructure/llm/ExponentialBackoffRetryPolicy';
 import { AdkEvaluator } from '@infrastructure/agent-runtime/adk/AdkEvaluator';
 import { AdkPlanner } from '@infrastructure/agent-runtime/adk/AdkPlanner';
-import { RunEvaluationService } from '@backend/runs/RunEvaluationService';
-import { RunPlanningService } from '@backend/runs/RunPlanningService';
+import { RunEvaluationService, NoopRunEvaluation, type IRunEvaluation } from '@backend/runs/RunEvaluationService';
+import { RunPlanningService, NoopRunPlanning, type IRunPlanning } from '@backend/runs/RunPlanningService';
 import { PerceptionPipeline } from '@infrastructure/perception/PerceptionPipeline';
 import { VisionSensor } from '@infrastructure/perception/sensors/VisionSensor';
 import { AriaSensor } from '@infrastructure/playwright/perception/AriaSensor';
@@ -186,7 +186,13 @@ export class ContainerBuilder {
     registerUseCases(): this {
         container.register('RunUseCase', { useClass: RunUseCase });
         container.registerSingleton(RunEvaluationService);
+        container.registerSingleton(NoopRunEvaluation);
         container.registerSingleton(RunPlanningService);
+        container.registerSingleton(NoopRunPlanning);
+        const planningToken: InjectionToken<IRunPlanning> = process.env['DOMIA_PLANNER'] ? RunPlanningService : NoopRunPlanning;
+        const evaluationToken: InjectionToken<IRunEvaluation> = process.env['DOMIA_EVALUATOR'] ? RunEvaluationService : NoopRunEvaluation;
+        container.register('IRunPlanning', { useToken: planningToken });
+        container.register('IRunEvaluation', { useToken: evaluationToken });
         container.registerSingleton(SettingsAppService);
         container.registerSingleton(PromptsAppService);
         container.registerSingleton(RunQueries);
