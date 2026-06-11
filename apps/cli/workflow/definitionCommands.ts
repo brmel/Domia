@@ -7,6 +7,7 @@ import { CreateWorkflowInputSchema, UpdateWorkflowInputSchema } from '@shared/co
 import { CLI_DEFAULT_LIST_LIMIT } from '@shared/defaults';
 import { buildPlatformConfig } from '../platformUtils';
 import { stepRecordToInput, readStepsFile } from './workflowStepsFile';
+import { unwrapOr } from '../cliResult';
 
 /** workflow definition CRUD + lifecycle subcommands. */
 export function registerWorkflowDefinitionCommands(workflow: Command): void {
@@ -17,21 +18,17 @@ export function registerWorkflowDefinitionCommands(workflow: Command): void {
         .action(async (options) => {
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
             const limit = parseInt(String(options.limit), 10);
-            const result = await persistence.getWorkflowDefinitions(Number.isFinite(limit) ? limit : CLI_DEFAULT_LIST_LIMIT);
+            const definitions = unwrapOr(await persistence.getWorkflowDefinitions(Number.isFinite(limit) ? limit : CLI_DEFAULT_LIST_LIMIT), 'Failed to list workflows');
+            if (definitions === null) return;
 
-            if (result.isErr()) {
-                console.error(chalk.red(`Failed to list workflows: ${result.error.message}`));
-                process.exit(1);
-            }
-
-            if (result.value.length === 0) {
+            if (definitions.length === 0) {
                 console.log(chalk.gray('No workflow definitions found.'));
                 return;
             }
 
             console.log(chalk.bold('\nWorkflow Definitions'));
             console.log('--------------------------------------------------');
-            result.value.forEach((definition) => {
+            definitions.forEach((definition) => {
                 console.log(`${chalk.gray(definition.id)} | ${chalk.cyan(definition.name)} | v${definition.version} | ${definition.status}`);
                 console.log(chalk.dim(`  Steps: ${definition.steps.length} | Updated: ${definition.updatedAt}`));
                 console.log('');
@@ -43,19 +40,11 @@ export function registerWorkflowDefinitionCommands(workflow: Command): void {
         .description('Show workflow definition details')
         .action(async (workflowDefinitionId: string) => {
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-            const result = await persistence.getWorkflowDefinition(workflowDefinitionId);
-
-            if (result.isErr()) {
-                console.error(chalk.red(`Failed to load workflow: ${result.error.message}`));
-                process.exit(1);
-            }
-
-            if (!result.value) {
+            const definition = unwrapOr(await persistence.getWorkflowDefinition(workflowDefinitionId), 'Failed to load workflow');
+            if (!definition) {
                 console.error(chalk.red('Workflow definition not found.'));
                 process.exit(1);
             }
-
-            const definition = result.value;
             console.log(chalk.bold(`\n${definition.name}`));
             console.log('--------------------------------------------------');
             console.log(`ID: ${definition.id}`);
@@ -125,19 +114,13 @@ export function registerWorkflowDefinitionCommands(workflow: Command): void {
         .action(async (workflowDefinitionId: string, options) => {
             const definitionService = container.resolve(WorkflowDefinitionService);
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-            const existingResult = await persistence.getWorkflowDefinition(workflowDefinitionId);
-
-            if (existingResult.isErr()) {
-                console.error(chalk.red(`Failed to load workflow: ${existingResult.error.message}`));
-                process.exit(1);
-            }
-
-            if (!existingResult.value) {
+            const existing = unwrapOr(await persistence.getWorkflowDefinition(workflowDefinitionId), 'Failed to load workflow');
+            if (!existing) {
                 console.error(chalk.red('Workflow definition not found.'));
                 process.exit(1);
             }
 
-            const platformConfig = buildPlatformConfig(options, existingResult.value.platformConfig);
+            const platformConfig = buildPlatformConfig(options, existing.platformConfig);
             const steps = readStepsFile(options.stepsFile, true);
 
             const payload = UpdateWorkflowInputSchema.parse({

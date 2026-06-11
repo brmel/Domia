@@ -8,6 +8,7 @@ import { CLI_DEFAULT_LIST_LIMIT } from '@shared/defaults';
 import { DEFAULT_REPORT_OUTPUT_DIR } from '@shared/defaults/tools.defaults';
 import inquirer from 'inquirer';
 import { createReportWriter, resolveReportFormats } from './reportUtils';
+import { unwrapOr } from './cliResult';
 
 const getPersistence = () => container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
 const getStorage = () => container.resolve<IStorageService>('IStorageService');
@@ -21,14 +22,8 @@ export class HistoryCommand {
             .description('List recent runs')
             .option('-l, --limit <limit>', 'Number of runs to show', String(CLI_DEFAULT_LIST_LIMIT))
             .action(async (options) => {
-                const result = await getPersistence().getRuns(parseInt(options.limit));
-
-                if (result.isErr()) {
-                    console.error(chalk.red('Failed to fetch history:', result.error.message));
-                    return;
-                }
-
-                const runs = result.value;
+                const runs = unwrapOr(await getPersistence().getRuns(parseInt(options.limit)), 'Failed to fetch history');
+                if (runs === null) return;
                 if (runs.length === 0) {
                     console.log(chalk.gray('No history found.'));
                     return;
@@ -49,14 +44,7 @@ export class HistoryCommand {
             .description('Show details of a specific run')
             .action(async (id) => {
                 const persistence = getPersistence();
-                const runResult = await persistence.getRun(id);
-
-                if (runResult.isErr()) {
-                    console.error(chalk.red('Error:', runResult.error.message));
-                    return;
-                }
-
-                const run = runResult.value;
+                const run = unwrapOr(await persistence.getRun(id), 'Error');
                 if (!run) {
                     console.error(chalk.red('Run not found.'));
                     return;
@@ -97,14 +85,7 @@ export class HistoryCommand {
                     return;
                 }
 
-                const stepResult = await getPersistence().getStep(runId, stepNumber);
-
-                if (stepResult.isErr()) {
-                    console.error(chalk.red('Error:', stepResult.error.message));
-                    return;
-                }
-
-                const step = stepResult.value;
+                const step = unwrapOr(await getPersistence().getStep(runId, stepNumber), 'Error');
                 if (!step) {
                     console.error(chalk.red(`Step ${stepNumber} not found in run ${runId}.`));
                     return;
@@ -158,14 +139,8 @@ export class HistoryCommand {
         history.command('checkpoints <runId>')
             .description('Show checkpoint records for a run')
             .action(async (runId: string) => {
-                const result = await getPersistence().getCheckpointRecords(runId);
-
-                if (result.isErr()) {
-                    console.error(chalk.red('Error:', result.error.message));
-                    return;
-                }
-
-                const records = result.value;
+                const records = unwrapOr(await getPersistence().getCheckpointRecords(runId), 'Error');
+                if (records === null) return;
                 if (records.length === 0) {
                     console.log(chalk.gray('No checkpoints found.'));
                     return;
@@ -212,11 +187,8 @@ export class HistoryCommand {
                     if (!confirm) return;
                 }
 
-                const result = await getPersistence().clearHistory();
-
-                if (result.isErr()) {
-                    console.error(chalk.red('Failed to clear history:', result.error.message));
-                } else {
+                const cleared = unwrapOr(await getPersistence().clearHistory(), 'Failed to clear history');
+                if (cleared !== null) {
                     console.log(chalk.green('History cleared successfully.'));
                 }
             });

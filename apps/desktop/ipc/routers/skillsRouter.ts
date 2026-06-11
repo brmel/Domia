@@ -4,6 +4,7 @@ import { SkillsAppService } from '@backend/skills/SkillsAppService';
 import { SkillExtractionService } from '@backend/skills/SkillExtractionService';
 import { SkillIdFactory } from '@domain/value-objects';
 import { t } from './shared';
+import { unwrap } from './unwrap';
 
 export const skillsRouter = t.router({
     list: t.procedure.query(async () => {
@@ -40,9 +41,7 @@ export const skillsRouter = t.router({
         .input(z.object({ id: z.string().min(1) }))
         .mutation(async ({ input }) => {
             const skills = container.resolve(SkillsAppService);
-            const idResult = SkillIdFactory.create(input.id);
-            if (idResult.isErr()) throw idResult.error;
-            await skills.delete(idResult.value);
+            await skills.delete(unwrap(SkillIdFactory.create(input.id)));
             return { success: true };
         }),
 });

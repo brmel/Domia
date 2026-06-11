@@ -13,6 +13,7 @@ import type { RunId } from '@domain/value-objects';
 import type { RunOutput } from '@backend/dto';
 import debug from 'debug';
 import { t, eventEmitter, activeRunState, startRunStream, startResumeStream } from './shared';
+import { unwrap } from './unwrap';
 
 export const runRouter = t.router({
     run: t.procedure
@@ -76,11 +77,7 @@ export const runRouter = t.router({
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
             const checkpointsResult = await persistence.getCheckpointRecords(input.runId);
 
-            if (checkpointsResult.isErr()) {
-                throw new Error(checkpointsResult.error.message);
-            }
-
-            return checkpointsResult.value;
+            return unwrap(checkpointsResult);
         }),
 
     replay: t.procedure
@@ -114,13 +111,7 @@ export const runRouter = t.router({
         .input(z.object({ runId: z.string() }))
         .query(async ({ input }) => {
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-            const runResult = await persistence.getRun(input.runId);
-
-            if (runResult.isErr()) {
-                throw new Error(runResult.error.message);
-            }
-
-            const run = runResult.value;
+            const run = unwrap(await persistence.getRun(input.runId));
             if (!run) {
                 throw new Error(`Run not found: ${input.runId}`);
             }

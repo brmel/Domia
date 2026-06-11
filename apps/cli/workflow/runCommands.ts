@@ -3,6 +3,7 @@ import { container } from 'tsyringe';
 import chalk from 'chalk';
 import type { IPersistenceAdapter } from '@domain/ports';
 import { CLI_DEFAULT_LIST_LIMIT } from '@shared/defaults';
+import { unwrapOr } from '../cliResult';
 
 /** workflow run inspection subcommands. */
 export function registerWorkflowRunCommands(workflow: Command): void {
@@ -13,21 +14,17 @@ export function registerWorkflowRunCommands(workflow: Command): void {
         .action(async (options) => {
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
             const limit = parseInt(String(options.limit), 10);
-            const result = await persistence.getWorkflowRuns(Number.isFinite(limit) ? limit : CLI_DEFAULT_LIST_LIMIT);
+            const runs = unwrapOr(await persistence.getWorkflowRuns(Number.isFinite(limit) ? limit : CLI_DEFAULT_LIST_LIMIT), 'Failed to list workflow runs');
+            if (runs === null) return;
 
-            if (result.isErr()) {
-                console.error(chalk.red(`Failed to list workflow runs: ${result.error.message}`));
-                process.exit(1);
-            }
-
-            if (result.value.length === 0) {
+            if (runs.length === 0) {
                 console.log(chalk.gray('No workflow runs found.'));
                 return;
             }
 
             console.log(chalk.bold('\nWorkflow Runs'));
             console.log('--------------------------------------------------');
-            result.value.forEach((run) => {
+            runs.forEach((run) => {
                 const statusColor = run.status === 'completed'
                     ? chalk.green
                     : run.status === 'failed'
@@ -49,25 +46,14 @@ export function registerWorkflowRunCommands(workflow: Command): void {
         .description('Show details for a workflow run and step runs')
         .action(async (workflowRunId: string) => {
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-            const runResult = await persistence.getWorkflowRun(workflowRunId);
-
-            if (runResult.isErr()) {
-                console.error(chalk.red(`Failed to load workflow run: ${runResult.error.message}`));
-                process.exit(1);
-            }
-
-            if (!runResult.value) {
+            const run = unwrapOr(await persistence.getWorkflowRun(workflowRunId), 'Failed to load workflow run');
+            if (!run) {
                 console.error(chalk.red('Workflow run not found.'));
                 process.exit(1);
             }
 
-            const stepsResult = await persistence.getWorkflowStepRuns(workflowRunId);
-            if (stepsResult.isErr()) {
-                console.error(chalk.red(`Failed to load workflow step runs: ${stepsResult.error.message}`));
-                process.exit(1);
-            }
-
-            const run = runResult.value;
+            const stepRuns = unwrapOr(await persistence.getWorkflowStepRuns(workflowRunId), 'Failed to load workflow step runs');
+            if (stepRuns === null) return;
             console.log(chalk.bold(`\nWorkflow Run ${run.id}`));
             console.log('--------------------------------------------------');
             console.log(`Definition: ${run.workflowDefinitionId}`);
@@ -82,12 +68,13 @@ export function registerWorkflowRunCommands(workflow: Command): void {
             }
 
             console.log('\nStep Runs:');
-            if (stepsResult.value.length === 0) {
+            if (stepRuns.length === 0) {
                 console.log(chalk.gray('  No step runs found.'));
                 return;
             }
 
-            stepsResult.value
+            stepRuns
+                .slice()
                 .sort((a, b) => a.stepIndex - b.stepIndex)
                 .forEach((stepRun) => {
                     console.log(`  [${stepRun.stepIndex + 1}] ${stepRun.stepId} | ${stepRun.status}`);

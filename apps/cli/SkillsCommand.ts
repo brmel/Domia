@@ -6,6 +6,7 @@ import { SkillExtractionService } from '@backend/skills/SkillExtractionService';
 import { SkillPlaybackService } from '@backend/skills/SkillPlaybackService';
 import { SkillIdFactory } from '@domain/value-objects';
 import { buildPlatformConfig } from './platformUtils';
+import { unwrapOr } from './cliResult';
 
 function parseParamFlags(values: string[] | undefined): Record<string, string> {
     const out: Record<string, string> = {};
@@ -58,14 +59,10 @@ export class SkillsCommand {
         skills.command('delete <skillId>')
             .description('Delete a recorded skill')
             .action(async (skillId: string) => {
-                const idResult = SkillIdFactory.create(skillId);
-                if (idResult.isErr()) {
-                    console.error(chalk.red(idResult.error.message));
-                    process.exitCode = 1;
-                    return;
-                }
+                const id = unwrapOr(SkillIdFactory.create(skillId), 'Invalid skill id');
+                if (id === null) return;
                 const service = container.resolve(SkillsAppService);
-                await service.delete(idResult.value);
+                await service.delete(id);
                 console.log(chalk.green(`Deleted skill ${skillId}`));
             });
 

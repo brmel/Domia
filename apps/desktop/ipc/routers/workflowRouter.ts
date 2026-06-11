@@ -18,6 +18,7 @@ import type { WorkflowEvent } from '@domain/WorkflowEvent';
 import { RunInputSchema } from '@shared/contracts/run';
 import { WorkflowStepKind } from '@domain/value-objects/WorkflowStepKind';
 import { t, eventEmitter, workflowControllerState } from './shared';
+import { unwrap } from './unwrap';
 
 function toPlatformConfig(value: z.infer<typeof RunInputSchema.shape.platformConfig>): PlatformConfig {
     return value as PlatformConfig;
@@ -100,11 +101,7 @@ export const workflowRouter = t.router({
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
             const result = await persistence.getWorkflowDefinition(input.workflowDefinitionId);
 
-            if (result.isErr()) {
-                throw new Error(result.error.message);
-            }
-
-            return result.value;
+            return unwrap(result);
         }),
 
     getDefinitions: t.procedure
@@ -113,11 +110,7 @@ export const workflowRouter = t.router({
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
             const result = await persistence.getWorkflowDefinitions(input?.limit);
 
-            if (result.isErr()) {
-                throw new Error(result.error.message);
-            }
-
-            return result.value;
+            return unwrap(result);
         }),
 
     getRuns: t.procedure
@@ -126,11 +119,7 @@ export const workflowRouter = t.router({
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
             const runsResult = await persistence.getWorkflowRuns(input?.limit);
 
-            if (runsResult.isErr()) {
-                throw new Error(runsResult.error.message);
-            }
-
-            return runsResult.value;
+            return unwrap(runsResult);
         }),
 
     getStepRuns: t.procedure
@@ -139,34 +128,21 @@ export const workflowRouter = t.router({
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
             const stepRunsResult = await persistence.getWorkflowStepRuns(input.workflowRunId);
 
-            if (stepRunsResult.isErr()) {
-                throw new Error(stepRunsResult.error.message);
-            }
-
-            return stepRunsResult.value;
+            return unwrap(stepRunsResult);
         }),
 
     getRunDetails: t.procedure
         .input(GetWorkflowRunDetailsInputSchema)
         .query(async ({ input }) => {
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');
-            const runResult = await persistence.getWorkflowRun(input.workflowRunId);
-            if (runResult.isErr()) {
-                throw new Error(runResult.error.message);
-            }
-
-            if (!runResult.value) {
+            const run = unwrap(await persistence.getWorkflowRun(input.workflowRunId));
+            if (!run) {
                 return null;
             }
 
-            const stepRunsResult = await persistence.getWorkflowStepRuns(input.workflowRunId);
-            if (stepRunsResult.isErr()) {
-                throw new Error(stepRunsResult.error.message);
-            }
-
             return {
-                run: runResult.value,
-                stepRuns: stepRunsResult.value
+                run,
+                stepRuns: unwrap(await persistence.getWorkflowStepRuns(input.workflowRunId))
             };
         }),
 
