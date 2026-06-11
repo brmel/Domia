@@ -1,31 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@frontend/ui/Button';
 import { SegmentedControl } from '@frontend/ui/SegmentedControl';
 import { PlatformSelector } from '@frontend/features/runs/components/platform/PlatformSelector';
 import { platformRegistry } from '@frontend/lib/platformRegistry';
-import { useWorkflowWorkspace } from './useWorkflowWorkspace';
+import { useWorkflowEditor } from '../hooks/useWorkflowEditor';
+import { useWorkflowRuns } from '../hooks/useWorkflowRuns';
+import { useWorkflowDefinitions } from '../hooks/useWorkflowDefinitions';
+import { useWorkflowEventFeed } from '../hooks/useWorkflowEventFeed';
 import { WorkflowStepList } from './WorkflowStepList';
 import { WorkflowRunDrilldown } from './WorkflowRunDrilldown';
 
 export function WorkflowWorkspace(): React.ReactElement {
-    const {
-        selectedDefinitionId, setSelectedDefinitionId,
-        selectedRunId, setSelectedRunId,
-        workflowName, setWorkflowName,
-        workflowDescription, setWorkflowDescription,
-        selectedPlatform, setSelectedPlatform,
-        platformData, setPlatformData,
-        steps,
-        eventFeed,
-        activeTab, setActiveTab,
-        selectedChildRunId, setSelectedChildRunId,
-        definitions, runs,
-        selectedDefinition, selectedRun,
-        runDetailsQuery, childCheckpointsQuery, childRunDetailsQuery,
-        createMutation, updateMutation, publishMutation, nextVersionMutation, startMutation, cancelMutation,
-        appendStep, moveStep, updateStep, removeStep,
-        onCreateDefinition, onUpdateDefinition, onPublishDefinition, onCreateNextVersion, onStartWorkflow, onCreateAndStart,
-    } = useWorkflowWorkspace();
+    const editor = useWorkflowEditor();
+    const workflowRuns = useWorkflowRuns();
+    const workflowDefs = useWorkflowDefinitions(editor, workflowRuns.startWorkflow);
+    const eventFeed = useWorkflowEventFeed(workflowRuns.refetchRuns);
+    const [activeTab, setActiveTab] = useState<'definitions' | 'runs'>('definitions');
+
+    const editingBusy = workflowDefs.createMutation.isPending || workflowDefs.updateMutation.isPending;
+    const startBusy = workflowRuns.startMutation.isPending || workflowDefs.createMutation.isPending;
 
     return (
         <section className="h-full w-full p-6 bg-gray-50 overflow-auto">
@@ -47,17 +40,17 @@ export function WorkflowWorkspace(): React.ReactElement {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <input
-                            value={workflowName}
-                            onChange={(event) => setWorkflowName(event.target.value)}
+                            value={editor.workflowName}
+                            onChange={(event) => editor.setWorkflowName(event.target.value)}
                             placeholder="Workflow name"
                             className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
                         />
                         <Button
                             variant="secondary"
                             size="sm"
-                            onClick={onCreateDefinition}
-                            disabled={createMutation.isPending}
-                            isLoading={createMutation.isPending}
+                            onClick={workflowDefs.createDefinition}
+                            disabled={workflowDefs.createMutation.isPending}
+                            isLoading={workflowDefs.createMutation.isPending}
                         >
                             Create Workflow
                         </Button>
@@ -65,20 +58,20 @@ export function WorkflowWorkspace(): React.ReactElement {
 
                     <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
                         <PlatformSelector
-                            value={selectedPlatform}
+                            value={editor.selectedPlatform}
                             onChange={(platform) => {
-                                setSelectedPlatform(platform);
-                                setPlatformData(platformRegistry[platform].defaultValues);
+                                editor.setSelectedPlatform(platform);
+                                editor.setPlatformData(platformRegistry[platform].defaultValues);
                             }}
-                            disabled={createMutation.isPending || updateMutation.isPending}
+                            disabled={editingBusy}
                         />
 
                         <div className="mt-2">
-                            {React.createElement(platformRegistry[selectedPlatform].renderFields, {
-                                value: platformData,
-                                onChange: setPlatformData,
+                            {React.createElement(platformRegistry[editor.selectedPlatform].renderFields, {
+                                value: editor.platformData,
+                                onChange: editor.setPlatformData,
                                 errors: {},
-                                disabled: createMutation.isPending || updateMutation.isPending
+                                disabled: editingBusy
                             })}
                         </div>
                     </div>
@@ -87,56 +80,61 @@ export function WorkflowWorkspace(): React.ReactElement {
                         <Button
                             variant="primary"
                             size="sm"
-                            onClick={selectedDefinitionId ? onStartWorkflow : onCreateAndStart}
-                            disabled={startMutation.isPending || createMutation.isPending}
-                            isLoading={startMutation.isPending || createMutation.isPending}
+                            onClick={workflowDefs.selectedDefinitionId ? workflowDefs.startSelected : workflowDefs.createAndStart}
+                            disabled={startBusy}
+                            isLoading={startBusy}
                         >
-                            {selectedDefinitionId ? 'Run Selected' : 'Run'}
+                            {workflowDefs.selectedDefinitionId ? 'Run Selected' : 'Run'}
                         </Button>
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={onUpdateDefinition}
-                            disabled={!selectedDefinition || selectedDefinition.status !== 'draft' || updateMutation.isPending}
-                            isLoading={updateMutation.isPending}
+                            onClick={workflowDefs.updateDefinition}
+                            disabled={!workflowDefs.selectedDefinition || workflowDefs.selectedDefinition.status !== 'draft' || workflowDefs.updateMutation.isPending}
+                            isLoading={workflowDefs.updateMutation.isPending}
                         >
                             Save Draft
                         </Button>
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={onPublishDefinition}
-                            disabled={!selectedDefinition || selectedDefinition.status !== 'draft' || publishMutation.isPending}
-                            isLoading={publishMutation.isPending}
+                            onClick={workflowDefs.publishDefinition}
+                            disabled={!workflowDefs.selectedDefinition || workflowDefs.selectedDefinition.status !== 'draft' || workflowDefs.publishMutation.isPending}
+                            isLoading={workflowDefs.publishMutation.isPending}
                         >
                             Publish
                         </Button>
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={onCreateNextVersion}
-                            disabled={!selectedDefinition || nextVersionMutation.isPending}
-                            isLoading={nextVersionMutation.isPending}
+                            onClick={workflowDefs.createNextVersion}
+                            disabled={!workflowDefs.selectedDefinition || workflowDefs.nextVersionMutation.isPending}
+                            isLoading={workflowDefs.nextVersionMutation.isPending}
                         >
                             Next Version
                         </Button>
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={appendStep}
+                            onClick={editor.appendStep}
                         >
                             Add Step
                         </Button>
                     </div>
 
                     <input
-                        value={workflowDescription}
-                        onChange={(event) => setWorkflowDescription(event.target.value)}
+                        value={editor.workflowDescription}
+                        onChange={(event) => editor.setWorkflowDescription(event.target.value)}
                         placeholder="Description"
                         className="mt-3 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
                     />
 
-                    <WorkflowStepList steps={steps} moveStep={moveStep} updateStep={updateStep} removeStep={removeStep} />
+                    <WorkflowStepList
+                        steps={editor.steps}
+                        moveStep={editor.moveStep}
+                        updateStep={editor.updateStep}
+                        removeStep={editor.removeStep}
+                    />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -148,9 +146,9 @@ export function WorkflowWorkspace(): React.ReactElement {
                             <Button
                                 variant="primary"
                                 size="sm"
-                                onClick={onStartWorkflow}
-                                disabled={!selectedDefinitionId || startMutation.isPending}
-                                isLoading={startMutation.isPending}
+                                onClick={workflowDefs.startSelected}
+                                disabled={!workflowDefs.selectedDefinitionId || workflowRuns.startMutation.isPending}
+                                isLoading={workflowRuns.startMutation.isPending}
                             >
                                 Start Selected
                             </Button>
@@ -158,12 +156,12 @@ export function WorkflowWorkspace(): React.ReactElement {
 
                         {activeTab === 'definitions' ? (
                             <div className="space-y-2 max-h-80 overflow-auto">
-                                {definitions.map((definition) => (
+                                {workflowDefs.definitions.map((definition) => (
                                     <button
                                         key={definition.id}
-                                        onClick={() => setSelectedDefinitionId(definition.id)}
+                                        onClick={() => workflowDefs.setSelectedDefinitionId(definition.id)}
                                         className={`w-full text-left rounded-lg border px-3 py-2 transition ${
-                                            selectedDefinitionId === definition.id
+                                            workflowDefs.selectedDefinitionId === definition.id
                                                 ? 'border-blue-500 bg-blue-50'
                                                 : 'border-gray-200 bg-white hover:bg-gray-50'
                                         }`}
@@ -175,12 +173,12 @@ export function WorkflowWorkspace(): React.ReactElement {
                             </div>
                         ) : (
                             <div className="space-y-2 max-h-80 overflow-auto">
-                                {runs.map((run) => (
+                                {workflowRuns.runs.map((run) => (
                                     <button
                                         key={run.id}
-                                        onClick={() => setSelectedRunId(run.id)}
+                                        onClick={() => workflowRuns.setSelectedRunId(run.id)}
                                         className={`w-full text-left rounded-lg border px-3 py-2 transition ${
-                                            selectedRunId === run.id
+                                            workflowRuns.selectedRunId === run.id
                                                 ? 'border-blue-500 bg-blue-50'
                                                 : 'border-gray-200 bg-white hover:bg-gray-50'
                                         }`}
@@ -200,8 +198,8 @@ export function WorkflowWorkspace(): React.ReactElement {
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => cancelMutation.mutate()}
-                                disabled={cancelMutation.isPending}
+                                onClick={() => workflowRuns.cancelMutation.mutate()}
+                                disabled={workflowRuns.cancelMutation.isPending}
                             >
                                 Stop Running
                             </Button>
@@ -221,13 +219,10 @@ export function WorkflowWorkspace(): React.ReactElement {
                 </div>
 
                 <WorkflowRunDrilldown
-                    selectedDefinition={selectedDefinition}
-                    selectedRun={selectedRun}
-                    runDetailsQuery={runDetailsQuery}
-                    selectedChildRunId={selectedChildRunId}
-                    setSelectedChildRunId={setSelectedChildRunId}
-                    childCheckpointsQuery={childCheckpointsQuery}
-                    childRunDetailsQuery={childRunDetailsQuery}
+                    selectedDefinition={workflowDefs.selectedDefinition}
+                    selectedRunId={workflowRuns.selectedRunId}
+                    selectedChildRunId={workflowRuns.selectedChildRunId}
+                    onSelectChildRun={workflowRuns.setSelectedChildRunId}
                 />
             </div>
         </section>

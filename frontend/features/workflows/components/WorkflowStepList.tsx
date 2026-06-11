@@ -1,17 +1,14 @@
 import React from 'react';
 import { Button } from '@frontend/ui/Button';
-import type { useWorkflowWorkspace } from './useWorkflowWorkspace';
-
-type WS = ReturnType<typeof useWorkflowWorkspace>;
+import type { EditableWorkflowStep } from './WorkflowWorkspace.helpers';
 
 interface WorkflowStepListProps {
-    steps: WS['steps'];
-    moveStep: WS['moveStep'];
-    updateStep: WS['updateStep'];
-    removeStep: WS['removeStep'];
+    steps: ReadonlyArray<EditableWorkflowStep>;
+    moveStep: (index: number, delta: number) => void;
+    updateStep: (stepId: string, updates: Partial<EditableWorkflowStep>) => void;
+    removeStep: (stepId: string) => void;
 }
 
-/** The editable step list of a workflow definition (reorder / edit / remove). */
 export function WorkflowStepList({ steps, moveStep, updateStep, removeStep }: WorkflowStepListProps): React.ReactElement {
     return (
         <div className="mt-3 space-y-3 max-h-80 overflow-auto">

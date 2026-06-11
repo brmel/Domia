@@ -69,3 +69,10 @@ export function appendStepToList(steps: ReadonlyArray<EditableWorkflowStep>): Ed
 function createStepId(): string {
     return `new-step-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
+
+export function toArtifactHref(path: string): string {
+    if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('file://')) {
+        return path;
+    }
+    return `file://${path}`;
+}
