@@ -12,9 +12,6 @@ import type { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import type { CheckpointMetadata } from '@domain/value-objects/CheckpointMetadata';
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 import { PersistenceError } from '@domain/errors';
-import { RunRepositoryAdapter } from './RunRepositoryAdapter';
-import { CheckpointRepositoryAdapter } from './CheckpointRepositoryAdapter';
-import { WorkflowRepositoryAdapter } from './WorkflowRepositoryAdapter';
 
 /**
  * Composite IPersistenceAdapter for app-layer entry points (CLI commands, IPC
@@ -26,9 +23,9 @@ import { WorkflowRepositoryAdapter } from './WorkflowRepositoryAdapter';
 @injectable()
 export class SQLiteAdapter implements IPersistenceAdapter {
     constructor(
-        @inject(RunRepositoryAdapter) private readonly runs: IRunRepository,
-        @inject(CheckpointRepositoryAdapter) private readonly checkpoints: ICheckpointRepository,
-        @inject(WorkflowRepositoryAdapter) private readonly workflows: IWorkflowRepository,
+        @inject('IRunRepository') private readonly runs: IRunRepository,
+        @inject('ICheckpointRepository') private readonly checkpoints: ICheckpointRepository,
+        @inject('IWorkflowRepository') private readonly workflows: IWorkflowRepository,
     ) {}
 
     // IRunRepository

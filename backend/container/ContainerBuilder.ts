@@ -1,10 +1,13 @@
-import { container } from 'tsyringe';
+import { container, instanceCachingFactory } from 'tsyringe';
 import { ConfigService } from '@infrastructure/ConfigService';
 import type { IConfigService } from '@domain/ports/platform/IConfigService';
 import { SqlJsConnection } from '@infrastructure/persistence/SqlJsConnection';
-import { RunRepositoryAdapter } from '@infrastructure/persistence/RunRepositoryAdapter';
-import { CheckpointRepositoryAdapter } from '@infrastructure/persistence/CheckpointRepositoryAdapter';
-import { WorkflowRepositoryAdapter } from '@infrastructure/persistence/WorkflowRepositoryAdapter';
+import {
+    createRunRepository,
+    createCheckpointRepository,
+    createWorkflowRepository,
+    createSkillRepository,
+} from '@infrastructure/persistence/repositories';
 import { SQLiteAdapter } from '@infrastructure/persistence/SQLiteAdapter';
 import { ConsoleLogger } from '@infrastructure/ConsoleLogger';
 import { RunUseCase } from '@backend/runs';
@@ -73,7 +76,6 @@ import { SkillsAppService } from '@backend/skills/SkillsAppService';
 import { SkillExtractionService } from '@backend/skills/SkillExtractionService';
 import { SkillPlaybackService } from '@backend/skills/SkillPlaybackService';
 import { SkillRunnerService } from '@infrastructure/skills/SkillRunnerService';
-import { SkillRepositoryAdapter } from '@infrastructure/persistence/SkillRepositoryAdapter';
 import { ShellCommandPolicyService } from '@infrastructure/shell/ShellCommandPolicyService';
 import type { IShellPolicy } from '@domain/ports/automation/IShellPolicy';
 
@@ -85,12 +87,9 @@ export class ContainerBuilder {
         container.register('AiConfigProvider', { useFactory: (c) => () => c.resolve<IConfigService>('IConfigService').getAi() });
         container.register('PathsConfigProvider', { useFactory: (c) => () => c.resolve<IConfigService>('IConfigService').getPaths() });
         container.registerSingleton(SqlJsConnection);
-        container.registerSingleton(RunRepositoryAdapter);
-        container.registerSingleton(CheckpointRepositoryAdapter);
-        container.registerSingleton(WorkflowRepositoryAdapter);
-        container.register('IRunRepository', { useToken: RunRepositoryAdapter });
-        container.register('ICheckpointRepository', { useToken: CheckpointRepositoryAdapter });
-        container.register('IWorkflowRepository', { useToken: WorkflowRepositoryAdapter });
+        container.register('IRunRepository', { useFactory: instanceCachingFactory((c) => createRunRepository(c.resolve(SqlJsConnection))) });
+        container.register('ICheckpointRepository', { useFactory: instanceCachingFactory((c) => createCheckpointRepository(c.resolve(SqlJsConnection))) });
+        container.register('IWorkflowRepository', { useFactory: instanceCachingFactory((c) => createWorkflowRepository(c.resolve(SqlJsConnection))) });
         container.registerSingleton(SQLiteAdapter);
         container.register('IPersistenceAdapter', { useToken: SQLiteAdapter });
         container.registerSingleton(EventBus);
@@ -194,8 +193,7 @@ export class ContainerBuilder {
         container.registerSingleton(WorkflowQueries);
         container.registerSingleton(PluginsAppService);
         container.registerSingleton(RunReplayService);
-        container.registerSingleton(SkillRepositoryAdapter);
-        container.register('ISkillRepository', { useToken: SkillRepositoryAdapter });
+        container.register('ISkillRepository', { useFactory: instanceCachingFactory((c) => createSkillRepository(c.resolve(SqlJsConnection))) });
         container.registerSingleton(SkillsAppService);
         container.registerSingleton(SkillExtractionService);
         container.registerSingleton(SkillRunnerService);
