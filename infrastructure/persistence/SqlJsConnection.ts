@@ -17,9 +17,7 @@ import { openDatabase, saveDatabase } from './SqlJsProvider';
 /**
  * Owns the single sql.js connection lifecycle: async open + schema init, the
  * shared Kysely instance, the per-aggregate raw repositories, and the
- * ready-barrier / full-file flush semantics. Extracted from SQLiteAdapter so the
- * narrow repository ports can each be bound to their own persist-aware adapter
- * (real ISP) while still sharing one connection + one flush.
+ * ready-barrier / full-file flush semantics.
  */
 @injectable()
 export class SqlJsConnection {

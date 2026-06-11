@@ -14,7 +14,7 @@ import { PlaywrightPerceptionSource } from '@infrastructure/playwright/Playwrigh
 import { createSnapshotRecordingTools } from '@infrastructure/tools/catalog/snapshot-recording.tools';
 import { createPollingTools } from '@infrastructure/tools/catalog/polling.tools';
 import { PostActionCaptureMiddleware } from '@infrastructure/tools/PostActionCaptureMiddleware';
-import { buildRoleSnapshot } from '@infrastructure/playwright/perception/RoleRefResolver';
+import { buildRoleSnapshot } from '@infrastructure/playwright/perception/RoleSnapshotBuilder';
 import { startFixtureServer, type FixtureServerHandle } from '../cli/helpers/web-fixture-server';
 import { join } from 'path';
 import { ResultAsync } from 'neverthrow';

@@ -8,7 +8,7 @@ import { SnapshotError } from '@domain/errors';
 import { randomUUID } from 'crypto';
 import { VisionSensor } from './sensors/VisionSensor';
 import { AriaSensor } from '@infrastructure/playwright/perception/AriaSensor';
-import { buildRoleSnapshot } from '@infrastructure/playwright/perception/RoleRefResolver';
+import { buildRoleSnapshot } from '@infrastructure/playwright/perception/RoleSnapshotBuilder';
 import { VisualContext } from '@domain/value-objects/VisualContext';
 
 @injectable()

@@ -1,4 +1,5 @@
 import { DEFAULT_RETRY_ATTEMPTS, DEFAULT_RETRY_MIN_DELAY_MS, DEFAULT_RETRY_MAX_DELAY_MS } from '@shared/defaults';
+import { sleep } from './sleep';
 
 type RetryInfo = {
     attempt: number;
@@ -24,10 +25,6 @@ const DEFAULT_RETRY_OPTIONS: Required<Pick<RetryOptions, 'attempts' | 'minDelayM
     maxDelayMs: DEFAULT_RETRY_MAX_DELAY_MS,
     jitter: 0,
 };
-
-function sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 function clamp(value: number, min: number, max: number): number {
     return Math.min(Math.max(value, min), max);

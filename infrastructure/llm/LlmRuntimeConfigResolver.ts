@@ -18,10 +18,7 @@ export class LlmRuntimeConfigResolver {
         const ai = this.ai();
         const model = process.env['DOMIA_LLM_MODEL'] || ai.model;
 
-        const apiKey = process.env['DOMIA_LLM_API_KEY']
-            || process.env['GOOGLE_API_KEY']
-            || process.env['GEMINI_API_KEY']
-            || ai.apiKey;
+        const apiKey = process.env['DOMIA_LLM_API_KEY'] || ai.apiKey;
 
         const thinkingRaw = process.env['DOMIA_THINKING_BUDGET'];
         const parsed = thinkingRaw ? Number.parseInt(thinkingRaw, 10) : DEFAULT_THINKING_BUDGET;

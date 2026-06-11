@@ -90,4 +90,3 @@ export function useWorkflowDefinitions(editor: Pick<WorkflowEditor, 'hydrate' | 
     };
 }
 
-export type WorkflowDefinitions = ReturnType<typeof useWorkflowDefinitions>;

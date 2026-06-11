@@ -3,6 +3,8 @@ import { describe, it, expect } from 'vitest';
 import { ExponentialBackoffRetryPolicy } from '@infrastructure/llm/ExponentialBackoffRetryPolicy';
 import { classifyLlmError } from '@infrastructure/llm/classifyLlmError';
 import { LlmRateLimitError, LlmServerError, LlmAuthError, LlmBadRequestError } from '@domain/errors';
+import { withLlmRetry } from '@infrastructure/agent-runtime/adk/withLlmRetry';
+import type { BaseLlm } from '@google/adk';
 
 describe('LLM error classification (W13)', () => {
     it('classifies 429 / RESOURCE_EXHAUSTED as retryable rate-limit', () => {
@@ -27,26 +29,43 @@ describe('LLM error classification (W13)', () => {
     });
 });
 
-describe('Exponential backoff retry (W13)', () => {
-    it('retries a retryable failure then succeeds', async () => {
-        const policy = new ExponentialBackoffRetryPolicy();
+describe('LLM retry via withLlmRetry (W13)', () => {
+    const instantPolicy = { maxAttempts: 3, delayMs: () => 0 };
+
+    function fakeLlm(generate: () => AsyncGenerator<unknown>): BaseLlm {
+        return { generateContentAsync: generate } as unknown as BaseLlm;
+    }
+
+    it('retries a retryable first-chunk failure then streams', async () => {
         let calls = 0;
-        const result = await policy.execute(async () => {
+        const llm = withLlmRetry(fakeLlm(async function* () {
             calls += 1;
-            if (calls < 2) throw new LlmRateLimitError('rate limited');
-            return 'ok';
-        });
-        expect(result).toBe('ok');
+            if (calls < 2) throw { status: 429, message: 'Too Many Requests' };
+            yield 'chunk';
+        }), instantPolicy);
+
+        const chunks: unknown[] = [];
+        for await (const chunk of (llm.generateContentAsync as () => AsyncGenerator<unknown>)()) {
+            chunks.push(chunk);
+        }
+        expect(chunks).toEqual(['chunk']);
         expect(calls).toBe(2);
     });
 
     it('surfaces a non-retryable failure immediately (no retry)', async () => {
-        const policy = new ExponentialBackoffRetryPolicy();
         let calls = 0;
-        await expect(policy.execute(async () => {
+        const llm = withLlmRetry(fakeLlm(async function* () {
             calls += 1;
-            throw new LlmAuthError('no key');
-        })).rejects.toBeInstanceOf(LlmAuthError);
+            throw { status: 401, message: 'Invalid API key' };
+            yield 'unreachable';
+        }), instantPolicy);
+
+        const consume = async () => {
+            for await (const chunk of (llm.generateContentAsync as () => AsyncGenerator<unknown>)()) {
+                void chunk;
+            }
+        };
+        await expect(consume()).rejects.toBeInstanceOf(LlmAuthError);
         expect(calls).toBe(1);
     });
 

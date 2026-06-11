@@ -15,6 +15,38 @@ import {
 import { toolError, toolSuccess } from '../toolResult';
 import type { IObservationCoordinator } from '@domain/ports/perception/IObservationCoordinator';
 
+interface PollArgs {
+    readonly pattern: string;
+    readonly timeoutMs: number;
+    readonly pollIntervalMs: number;
+    readonly regex: RegExp | null;
+    readonly matches: (text: string) => boolean;
+}
+
+function parsePollArgs(args: Record<string, unknown>): PollArgs | { invalidRegex: string } {
+    const pattern = args['pattern'] as string;
+    const isRegex = (args['isRegex'] as boolean | undefined) ?? false;
+    const timeoutMs = Math.min((args['timeoutMs'] as number | undefined) ?? DEFAULT_POLL_TIMEOUT_MS, MAX_POLL_DURATION_MS);
+    const pollIntervalMs = Math.max(
+        MIN_POLL_INTERVAL_MS,
+        Math.min((args['pollIntervalMs'] as number | undefined) ?? DEFAULT_POLL_INTERVAL_MS, MAX_POLL_INTERVAL_MS),
+    );
+    let regex: RegExp | null = null;
+    if (isRegex) {
+        try {
+            regex = new RegExp(pattern, 'i');
+        } catch {
+            return { invalidRegex: `Invalid regex pattern: ${pattern}` };
+        }
+    }
+    const matches = (text: string): boolean => (regex ? regex.test(text) : text.toLowerCase().includes(pattern.toLowerCase()));
+    return { pattern, timeoutMs, pollIntervalMs, regex, matches };
+}
+
+function isInvalidRegex(parsed: PollArgs | { invalidRegex: string }): parsed is { invalidRegex: string } {
+    return 'invalidRegex' in parsed;
+}
+
 export function createPollingTools(
     automation: IStructuredAutomation,
     captureMiddleware: PostActionCaptureMiddleware,
@@ -52,28 +84,11 @@ export function createPollingTools(
                 ),
             }),
             execute: async (args) => {
-                const pattern = args['pattern'] as string;
-                const isRegex = (args['isRegex'] as boolean | undefined) ?? false;
-                const timeoutMs = Math.min(
-                    (args['timeoutMs'] as number | undefined) ?? DEFAULT_POLL_TIMEOUT_MS,
-                    MAX_POLL_DURATION_MS,
-                );
-                const pollIntervalMs = Math.max(
-                    MIN_POLL_INTERVAL_MS,
-                    Math.min(
-                        (args['pollIntervalMs'] as number | undefined) ?? DEFAULT_POLL_INTERVAL_MS,
-                        MAX_POLL_INTERVAL_MS,
-                    ),
-                );
-
-                let regex: RegExp | null = null;
-                if (isRegex) {
-                    try {
-                        regex = new RegExp(pattern, 'i');
-                    } catch {
-                        return { status: 'error', error: `Invalid regex pattern: ${pattern}` };
-                    }
+                const parsed = parsePollArgs(args);
+                if (isInvalidRegex(parsed)) {
+                    return { status: 'error', error: parsed.invalidRegex };
                 }
+                const { pattern, timeoutMs, pollIntervalMs, regex, matches } = parsed;
 
                 const startMs = Date.now();
                 let polls = 0;
@@ -90,11 +105,7 @@ export function createPollingTools(
                     const snapshot = (captureResult['elements'] as string) ?? '';
                     lastSnapshot = snapshot;
 
-                    const matched = regex
-                        ? regex.test(snapshot)
-                        : snapshot.toLowerCase().includes(pattern.toLowerCase());
-
-                    if (matched) {
+                    if (matches(snapshot)) {
                         const matchedText = regex
                             ? (snapshot.match(regex)?.[0] ?? pattern)
                             : pattern;
@@ -135,21 +146,11 @@ export function createPollingTools(
                 pollIntervalMs: z.number().int().min(MIN_POLL_INTERVAL_MS).max(MAX_POLL_INTERVAL_MS).optional(),
             }),
             execute: async (args) => {
-                const pattern = args['pattern'] as string;
-                const isRegex = (args['isRegex'] as boolean | undefined) ?? false;
-                const timeoutMs = Math.min(
-                    (args['timeoutMs'] as number | undefined) ?? DEFAULT_POLL_TIMEOUT_MS,
-                    MAX_POLL_DURATION_MS,
-                );
-                const pollIntervalMs = Math.max(
-                    MIN_POLL_INTERVAL_MS,
-                    Math.min((args['pollIntervalMs'] as number | undefined) ?? MIN_POLL_INTERVAL_MS, MAX_POLL_INTERVAL_MS),
-                );
-
-                let regex: RegExp | null = null;
-                if (isRegex) {
-                    try { regex = new RegExp(pattern, 'i'); } catch { return toolError(`Invalid regex pattern: ${pattern}`); }
+                const parsed = parsePollArgs(args);
+                if (isInvalidRegex(parsed)) {
+                    return toolError(parsed.invalidRegex);
                 }
+                const { timeoutMs, pollIntervalMs, matches } = parsed;
 
                 const startMs = Date.now();
                 let polls = 0;
@@ -158,8 +159,7 @@ export function createPollingTools(
                 while (Date.now() - startMs < timeoutMs) {
                     polls++;
                     url = automation.getCurrentUrl() ?? '';
-                    const matched = regex ? regex.test(url) : url.toLowerCase().includes(pattern.toLowerCase());
-                    if (matched) {
+                    if (matches(url)) {
                         return toolSuccess({ url, elapsedMs: Date.now() - startMs, polls, matched: true });
                     }
                     await sleep(pollIntervalMs);
@@ -187,15 +187,11 @@ export function createPollingTools(
                 if (!observation || !runId) {
                     return toolError('wait_for_change requires an active observation coordinator');
                 }
-                const pattern = args['pattern'] as string;
-                const isRegex = (args['isRegex'] as boolean | undefined) ?? false;
-                const timeoutMs = Math.min((args['timeoutMs'] as number | undefined) ?? DEFAULT_POLL_TIMEOUT_MS, MAX_POLL_DURATION_MS);
-
-                let regex: RegExp | null = null;
-                if (isRegex) {
-                    try { regex = new RegExp(pattern, 'i'); } catch { return toolError(`Invalid regex pattern: ${pattern}`); }
+                const parsed = parsePollArgs(args);
+                if (isInvalidRegex(parsed)) {
+                    return toolError(parsed.invalidRegex);
                 }
-                const matches = (text: string): boolean => regex ? regex.test(text) : text.toLowerCase().includes(pattern.toLowerCase());
+                const { timeoutMs, matches } = parsed;
 
                 const startMs = Date.now();
                 const recent = observation.recent(timeoutMs);

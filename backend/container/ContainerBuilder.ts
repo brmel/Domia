@@ -7,8 +7,8 @@ import {
     createCheckpointRepository,
     createWorkflowRepository,
     createSkillRepository,
+    createPersistenceAdapter,
 } from '@infrastructure/persistence/repositories';
-import { SQLiteAdapter } from '@infrastructure/persistence/SQLiteAdapter';
 import { ConsoleLogger } from '@infrastructure/ConsoleLogger';
 import { RunUseCase } from '@backend/runs';
 import {
@@ -92,8 +92,9 @@ export class ContainerBuilder {
         container.register('IRunRepository', { useFactory: instanceCachingFactory((c) => createRunRepository(c.resolve(SqlJsConnection))) });
         container.register('ICheckpointRepository', { useFactory: instanceCachingFactory((c) => createCheckpointRepository(c.resolve(SqlJsConnection))) });
         container.register('IWorkflowRepository', { useFactory: instanceCachingFactory((c) => createWorkflowRepository(c.resolve(SqlJsConnection))) });
-        container.registerSingleton(SQLiteAdapter);
-        container.register('IPersistenceAdapter', { useToken: SQLiteAdapter });
+        container.register('IPersistenceAdapter', { useFactory: instanceCachingFactory((c) => createPersistenceAdapter(
+            c.resolve('IRunRepository'), c.resolve('ICheckpointRepository'), c.resolve('IWorkflowRepository'),
+        )) });
         container.registerSingleton(EventBus);
         container.register('IEventBus', { useToken: EventBus });
         return this;

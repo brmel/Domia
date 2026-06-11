@@ -54,7 +54,7 @@ export class ElectronWindowManager {
         return this.windows.get(this.activeWindowId) ?? null;
     }
 
-    setActiveWindow(windowId: string): Result<void, ValidationError> {
+    private setActiveWindow(windowId: string): Result<void, ValidationError> {
         const validation = CDPValidator.validateWindowId(windowId);
         if (validation.isErr()) return err(validation.error);
 

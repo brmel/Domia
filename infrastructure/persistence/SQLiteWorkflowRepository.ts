@@ -4,9 +4,10 @@ import { Kysely } from 'kysely';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
 import type { AtomicWorkflowTransitionInput } from '@domain/ports/persistence/IWorkflowRepository';
 import { PersistenceError } from '@domain/errors';
+import type { Updateable } from 'kysely';
 import type { DatabaseSchema } from './DatabaseSchema';
 import { DEFAULT_WORKFLOWS_QUERY_LIMIT } from '@shared/defaults';
-import { dbOp } from './dbOp';
+import { dbOp, pickDefined } from './dbOp';
 import { rowToWorkflowDefinition, rowToWorkflowRun, rowToWorkflowStepRun } from './workflowRowMappers';
 import { commitAtomicWorkflowTransition as runAtomicTransition } from './workflowAtomicTransition';
 
@@ -85,14 +86,14 @@ export class SQLiteWorkflowRepository {
     updateWorkflowRun(id: string, updates: Partial<WorkflowRunRecord>): ResultAsync<void, PersistenceError> {
         return dbOp(
             this.db.updateTable('workflow_runs')
-                .set({
-                    ...(updates.workflowDefinitionId !== undefined ? { workflow_definition_id: updates.workflowDefinitionId } : {}),
-                    ...(updates.workflowVersion !== undefined ? { workflow_version: updates.workflowVersion } : {}),
-                    ...(updates.status !== undefined ? { status: updates.status } : {}),
-                    ...(updates.summary !== undefined ? { summary: updates.summary } : {}),
-                    ...(updates.startedAt !== undefined ? { started_at: updates.startedAt } : {}),
-                    ...(updates.completedAt !== undefined ? { completed_at: updates.completedAt } : {})
-                })
+                .set(pickDefined<Updateable<DatabaseSchema['workflow_runs']>>([
+                    ['workflow_definition_id', updates.workflowDefinitionId],
+                    ['workflow_version', updates.workflowVersion],
+                    ['status', updates.status],
+                    ['summary', updates.summary],
+                    ['started_at', updates.startedAt],
+                    ['completed_at', updates.completedAt],
+                ]))
                 .where('id', '=', id)
                 .execute(),
             'update workflow run'
@@ -142,16 +143,16 @@ export class SQLiteWorkflowRepository {
     updateWorkflowStepRun(id: string, updates: Partial<WorkflowStepRunRecord>): ResultAsync<void, PersistenceError> {
         return dbOp(
             this.db.updateTable('workflow_step_runs')
-                .set({
-                    ...(updates.workflowRunId !== undefined ? { workflow_run_id: updates.workflowRunId } : {}),
-                    ...(updates.stepId !== undefined ? { step_id: updates.stepId } : {}),
-                    ...(updates.stepIndex !== undefined ? { step_index: updates.stepIndex } : {}),
-                    ...(updates.runId !== undefined ? { run_id: updates.runId } : {}),
-                    ...(updates.status !== undefined ? { status: updates.status } : {}),
-                    ...(updates.summary !== undefined ? { summary: updates.summary } : {}),
-                    ...(updates.startedAt !== undefined ? { started_at: updates.startedAt } : {}),
-                    ...(updates.completedAt !== undefined ? { completed_at: updates.completedAt } : {})
-                })
+                .set(pickDefined<Updateable<DatabaseSchema['workflow_step_runs']>>([
+                    ['workflow_run_id', updates.workflowRunId],
+                    ['step_id', updates.stepId],
+                    ['step_index', updates.stepIndex],
+                    ['run_id', updates.runId],
+                    ['status', updates.status],
+                    ['summary', updates.summary],
+                    ['started_at', updates.startedAt],
+                    ['completed_at', updates.completedAt],
+                ]))
                 .where('id', '=', id)
                 .execute(),
             'update workflow step run'

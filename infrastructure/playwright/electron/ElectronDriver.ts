@@ -121,15 +121,10 @@ export class ElectronDriver implements IAppDriver {
     }
 
     getAutomation(): IStructuredAutomation {
-        if (this.adapter) return this.adapter;
-
-        const win = this.windowManager.getActiveWindow();
-        if (!win) {
+        if (!this.adapter) this.buildAdapter();
+        if (!this.adapter) {
             throw new Error(`${ElectronDriver.TAG} No active window available`);
         }
-
-        this.adapter = new PlaywrightAdapter(this.logger);
-        this.adapter.setAttachedPage(win.page);
         return this.adapter;
     }
 

@@ -1,3 +1,4 @@
+import type { IPersistenceAdapter } from '@domain/ports';
 import type { IRunRepository } from '@domain/ports/persistence/IRunRepository';
 import type { ICheckpointRepository } from '@domain/ports/persistence/ICheckpointRepository';
 import type { IWorkflowRepository } from '@domain/ports/persistence/IWorkflowRepository';
@@ -47,3 +48,9 @@ export const createSkillRepository = (conn: SqlJsConnection): ISkillRepository =
         get: 'read',
         delete: 'write',
     });
+
+export const createPersistenceAdapter = (
+    runs: IRunRepository,
+    checkpoints: ICheckpointRepository,
+    workflows: IWorkflowRepository,
+): IPersistenceAdapter => ({ ...runs, ...checkpoints, ...workflows });

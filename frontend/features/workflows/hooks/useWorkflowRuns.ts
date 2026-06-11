@@ -29,4 +29,3 @@ export function useWorkflowRuns() {
     };
 }
 
-export type WorkflowRuns = ReturnType<typeof useWorkflowRuns>;

@@ -17,7 +17,7 @@ infrastructure/playwright/
 ├── perception/                     # Playwright-bound sensors
 │   ├── AriaSensor.ts
 │   ├── SmartScrollCapture.ts
-│   └── RoleRefResolver.ts
+│   └── RoleSnapshotBuilder.ts
 └── electron/                       # Playwright-via-CDP for Electron
     ├── ElectronDriver.ts
     ├── ElectronDriverProvider.ts
@@ -38,7 +38,7 @@ await locator.click({ timeout: ELEMENT_WAIT_TIMEOUT_MS });
 
 ## Role refs
 
-`AriaSensor` snapshots `aria(role + name)` pairs. `RoleRefResolver` maps a logical ref string back to a `Locator`. Tools never deal with Playwright selectors directly — they pass refs and `RoleRefResolver` resolves.
+`AriaSensor` snapshots `aria(role + name)` pairs via `RoleSnapshotBuilder`. Ref→`Locator` resolution lives in `PlaywrightAdapter.resolveRef`. Tools never deal with Playwright selectors directly — they pass refs.
 
 ## Common timeout traps
 
