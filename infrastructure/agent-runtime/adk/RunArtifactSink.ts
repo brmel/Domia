@@ -3,6 +3,7 @@ import type { ILogger } from '@domain/ports';
 import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import type { ActionRecordingData } from '@domain/types/ActionRecordingTypes';
 import { ArtifactRetention } from '@domain/value-objects/ArtifactRetention';
+import { bestEffort } from '@shared/reliability/bestEffort';
 
 interface BufferedFrame { actionIndex: number; frame: PerceptionFrame }
 interface BufferedRecording { actionIndex: number; recording: ActionRecordingData }
@@ -51,10 +52,10 @@ export class RunArtifactSink {
     async flushOnFailure(): Promise<void> {
         if (this.retention !== ArtifactRetention.OnFailure) return;
         for (const { actionIndex, frame } of this.bufferedFrames) {
-            await this.storage.savePerceptionAssets(this.runId, actionIndex, frame).catch(() => {});
+            await bestEffort(this.logger, `flush perception assets for action ${actionIndex}`, () => this.storage.savePerceptionAssets(this.runId, actionIndex, frame).then(() => undefined));
         }
         for (const { actionIndex, recording } of this.bufferedRecordings) {
-            await this.storage.saveActionRecording(this.runId, actionIndex, recording).catch(() => {});
+            await bestEffort(this.logger, `flush action recording for action ${actionIndex}`, () => this.storage.saveActionRecording(this.runId, actionIndex, recording));
         }
         this.bufferedFrames.length = 0;
         this.bufferedRecordings.length = 0;

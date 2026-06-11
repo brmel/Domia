@@ -94,7 +94,7 @@ async function assembleTooling(
     const viewport = await automation.getViewportSize();
 
     const toolDeps = assembleToolDependencies(
-        { perception: deps.perception, configService: deps.configService, shellExecutor: deps.shellExecutor },
+        { perception: deps.perception, logger: deps.logger, configService: deps.configService, shellExecutor: deps.shellExecutor },
         {
             input,
             automation,

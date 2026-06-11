@@ -8,6 +8,7 @@ import type { PlatformSession } from '@backend/platform/PlatformSession';
 import type { ObservationFactoryDeps } from '@domain/ports/automation/IAppDriver';
 import type { IObservationSampler } from '@domain/ports/perception/IObservationSampler';
 import type { IObservationStream } from '@domain/ports/perception/IObservationStream';
+import { bestEffort } from '@shared/reliability/bestEffort';
 
 export interface RunExecutionContext {
     readonly session?: PlatformSession;
@@ -54,7 +55,7 @@ export class RunSessionService {
             };
         } catch (error) {
             if (disposeSession && ownsSession) {
-                await disposeSession().catch(() => undefined);
+                await bestEffort(this.logger, 'dispose session after prepare failure', disposeSession);
             }
 
             const message = error instanceof Error ? error.message : String(error);

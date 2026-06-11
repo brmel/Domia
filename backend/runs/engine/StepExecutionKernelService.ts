@@ -14,6 +14,7 @@ import type { IRunRepository } from '@domain/ports/persistence/IRunRepository';
 import type { ExecutionController } from '@backend/ExecutionController';
 import { DEFAULT_MAX_ACTIONS } from '@shared/defaults';
 import { randomUUID } from 'crypto';
+import { bestEffort } from '@shared/reliability/bestEffort';
 
 interface KernelRuntime {
     readonly budgetLimits: RunBudgetLimits;
@@ -126,7 +127,7 @@ export class StepExecutionKernelService {
 
                     if (controller?.hasPendingSuspendRequest()) {
                         const req = controller.consumeSuspendRequest()!;
-                        await stepGen.return(undefined as never).catch(() => undefined);
+                        await bestEffort(this.logger, 'close step generator on suspend', () => stepGen.return(undefined as never).then(() => undefined));
                         return {
                             state: currentState,
                             outcome: { kind: 'stopped', reason: 'cancelled', summary: `Suspended: ${req.reason}` },

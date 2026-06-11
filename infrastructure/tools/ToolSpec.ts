@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { ToolNameValue, ToolCategory, ToolResult } from '@domain/types/ToolTypes';
 import type { PlatformType } from '@domain/types/PlatformConfig';
-import type { IStructuredAutomation, IPerceptionPipeline, IPerceptionSource } from '@domain/ports';
+import type { IStructuredAutomation, IPerceptionPipeline, IPerceptionSource, ILogger } from '@domain/ports';
 import type { AppCapabilities } from '@domain/ports/automation/IAppDriver';
 import type { PerceptionFrame } from '@domain/value-objects/PerceptionFrame';
 import type { ActionRecordingData } from '@domain/types/ActionRecordingTypes';
@@ -36,6 +36,7 @@ interface RecordingConfig {
 
 export interface ToolDependencies {
     readonly automation: IStructuredAutomation;
+    readonly logger: ILogger;
     readonly perception: IPerceptionPipeline;
     readonly perceptionSource: IPerceptionSource;
     readonly vision: boolean;

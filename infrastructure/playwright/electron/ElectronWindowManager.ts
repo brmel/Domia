@@ -4,6 +4,7 @@ import type { ILogger } from '@domain/ports';
 import { CDPValidator } from '@domain/CDPValidator';
 import { ValidationError } from '@domain/errors';
 import type { PlaywrightAdapter } from '../PlaywrightAdapter';
+import { bestEffort } from '@shared/reliability/bestEffort';
 
 export interface ElectronWindow {
     readonly id: string;
@@ -80,7 +81,7 @@ export class ElectronWindowManager {
         if (setResult.isErr()) return err(setResult.error);
 
         const win = this.windows.get(windowId)!;
-        await win.page.bringToFront().catch(() => undefined);
+        await bestEffort(this.logger, `bring window '${win.title}' to front`, () => win.page.bringToFront());
 
         if (adapter) {
             adapter.setAttachedPage(win.page);

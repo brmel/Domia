@@ -16,6 +16,7 @@ import { PlaywrightMouse } from './PlaywrightMouse';
 import { PlaywrightInteraction } from './PlaywrightInteraction';
 import { wrapInteraction } from './wrapInteraction';
 import type { BrowserPool } from './BrowserPool';
+import { bestEffort } from '@shared/reliability/bestEffort';
 
 const BROWSER_NOT_LAUNCHED = 'Browser not launched';
 const TAG = '[PlaywrightAdapter]';
@@ -203,7 +204,8 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
 
         if (!this._ownsBrowser) {
             if (this.page && !this.page.isClosed()) {
-                await this.page.goto('about:blank').catch(() => {});
+                const page = this.page;
+                await bestEffort(this.logger, 'reset detached page to about:blank', () => page.goto('about:blank').then(() => undefined));
             }
         } else if (this.pool) {
             this.pool.release();

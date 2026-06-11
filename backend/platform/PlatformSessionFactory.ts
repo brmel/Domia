@@ -5,6 +5,7 @@ import { WorkflowError } from '@domain/errors';
 import type { IAppDriverFactory, AppDriverCreateOptions } from '@domain/ports/automation/IAppDriverFactory';
 import type { PlatformSession } from './PlatformSession';
 import { resolveUrlFromConfig } from './platformUrlUtils';
+import { bestEffort } from '@shared/reliability/bestEffort';
 
 @injectable()
 export class PlatformSessionFactory {
@@ -34,7 +35,7 @@ export class PlatformSessionFactory {
         try {
             automation = driver.getAutomation();
         } catch (error) {
-            await driver.disconnect().catch(() => undefined);
+            await bestEffort(this.logger, 'disconnect driver after automation failure', () => driver.disconnect());
             const message = error instanceof Error ? error.message : String(error);
             throw new WorkflowError(`Driver is connected but automation bridge is unavailable: ${message}`);
         }

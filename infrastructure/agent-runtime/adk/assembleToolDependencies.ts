@@ -1,4 +1,4 @@
-import type { IPerceptionPipeline, IStructuredAutomation } from '@domain/ports';
+import type { IPerceptionPipeline, IStructuredAutomation, ILogger } from '@domain/ports';
 import type { IConfigService } from '@domain/ports/platform/IConfigService';
 import type { IObservationCoordinator } from '@domain/ports/perception/IObservationCoordinator';
 import type { IWindowManager } from '@domain/ports/automation/IWindowManager';
@@ -11,6 +11,7 @@ import type { RunArtifactSink } from './RunArtifactSink';
 
 interface ToolDepsRuntime {
     readonly perception: IPerceptionPipeline;
+    readonly logger: ILogger;
     readonly configService: IConfigService;
     readonly shellExecutor: ShellExecutor;
 }
@@ -35,6 +36,7 @@ export function assembleToolDependencies(runtime: ToolDepsRuntime, params: ToolD
 
     return {
         automation,
+        logger: runtime.logger,
         perception: runtime.perception,
         perceptionSource,
         vision,

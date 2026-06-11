@@ -14,6 +14,7 @@ import { createElectronTools } from './catalog/electron.tools';
 import { createTabTools } from './catalog/tab.tools';
 import { createMetaTools } from './catalog/meta.tools';
 import { ActionType } from '@domain/enums';
+import { bestEffort } from '@shared/reliability/bestEffort';
 
 const RECORDABLE_ACTION_TYPES: ReadonlySet<ActionType> = new Set([
     ActionType.CLICK,
@@ -92,7 +93,8 @@ export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] 
                     );
 
                     if (deps.onRecording) {
-                        try { await deps.onRecording(recording); } catch { /* non-fatal */ }
+                        const onRecording = deps.onRecording;
+                        await bestEffort(deps.logger, `onRecording callback for ${spec.name}`, () => Promise.resolve(onRecording(recording)));
                     }
 
                     return result;
