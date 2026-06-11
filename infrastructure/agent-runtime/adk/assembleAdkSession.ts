@@ -3,7 +3,7 @@ import type { Content } from '@google/genai';
 import { FunctionCallingConfigMode } from '@google/genai';
 import type { IStructuredAutomation, IPerceptionPipeline, ILogger, IStorageService } from '@domain/ports';
 import type { AgentInput } from '@domain/ports/agent/IAgentRuntime';
-import type { IPromptService } from '@domain/ports/agent/IPromptService';
+import type { IPromptRenderer, IToolDescriptionProvider } from '@domain/ports/agent/IPromptService';
 import { PromptKey } from '@domain/ports/agent/IPromptService';
 import type { IRunHealthMonitor } from '@domain/ports/reporting/IRunHealthMonitor';
 import type { IConfigService } from '@domain/ports/platform/IConfigService';
@@ -34,7 +34,7 @@ export interface AdkSessionDeps {
     readonly logger: ILogger;
     readonly llmConfigResolver: LlmRuntimeConfigResolver;
     readonly pluginRegistry: PluginRegistry;
-    readonly promptService: IPromptService;
+    readonly promptService: IPromptRenderer & IToolDescriptionProvider;
     readonly shellExecutor: ShellExecutor;
     readonly configService: IConfigService;
     readonly llmFactory: IAdkLlmFactory;

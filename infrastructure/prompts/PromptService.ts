@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import type { IConfigService } from '@domain/ports/platform/IConfigService';
 import type {
-    IPromptService,
+    IPromptRenderer, IToolDescriptionProvider, IPromptOverrideStore,
     PromptKey,
     PromptOverrides,
     PromptVariables,
@@ -10,7 +10,7 @@ import { loadDefaultPrompts } from './promptDefaults';
 import { interpolate, escapeAdkState } from '@shared/reliability/interpolate';
 
 @injectable()
-export class PromptService implements IPromptService {
+export class PromptService implements IPromptRenderer, IToolDescriptionProvider, IPromptOverrideStore {
     private readonly defaultPrompts: Record<PromptKey, string>;
     private promptOverrides: Partial<Record<PromptKey, string>>;
     private toolDescriptionOverrides: Partial<Record<string, string>>;

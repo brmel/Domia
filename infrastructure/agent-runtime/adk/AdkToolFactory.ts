@@ -2,7 +2,7 @@ import { FunctionTool, LongRunningFunctionTool } from '@google/adk';
 import { buildToolCatalog } from '../../tools/buildToolCatalog';
 import type { ToolDependencies, ToolSpec } from '../../tools/ToolSpec';
 import type { PostActionCaptureMiddleware } from '../../tools/PostActionCaptureMiddleware';
-import type { IPromptService } from '@domain/ports/agent/IPromptService';
+import type { IToolDescriptionProvider } from '@domain/ports/agent/IPromptService';
 
 function toFunctionTool(spec: ToolSpec): FunctionTool {
     const opts = {
@@ -21,7 +21,7 @@ function toFunctionTool(spec: ToolSpec): FunctionTool {
 export function createAdkTools(
     deps: ToolDependencies,
     extraTools: ToolSpec[] = [],
-    promptService?: IPromptService,
+    promptService?: IToolDescriptionProvider,
 ): { tools: FunctionTool[]; catalog: ToolSpec[]; captureMiddleware: PostActionCaptureMiddleware } {
     const { catalog, captureMiddleware } = buildToolCatalog(deps, extraTools, promptService);
     return { tools: catalog.map(toFunctionTool), catalog, captureMiddleware };

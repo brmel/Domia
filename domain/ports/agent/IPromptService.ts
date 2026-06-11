@@ -34,10 +34,16 @@ export interface PromptOverrides {
     readonly toolDescriptions?: Partial<Record<ToolDescriptionKey, string>> | undefined;
 }
 
-export interface IPromptService {
+export interface IPromptRenderer {
     getPrompt(key: PromptKey): string;
     renderPrompt<K extends PromptKey>(key: K, vars: PromptVariables[K]): string;
+}
+
+export interface IToolDescriptionProvider {
     getToolDescription(toolName: string): string | undefined;
+}
+
+export interface IPromptOverrideStore {
     getAllPrompts(): Record<PromptKey, string>;
     getAllToolDescriptions(): Record<string, string>;
     setPromptOverride(key: PromptKey, value: string): void;
@@ -47,3 +53,5 @@ export interface IPromptService {
     resetAll(): void;
     getOverrides(): PromptOverrides;
 }
+
+export type IPromptService = IPromptRenderer & IToolDescriptionProvider & IPromptOverrideStore;

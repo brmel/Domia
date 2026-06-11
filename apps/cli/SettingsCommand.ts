@@ -2,10 +2,10 @@ import { Command } from 'commander';
 import { container } from 'tsyringe';
 import chalk from 'chalk';
 import type { IConfigService } from '@domain/ports/platform/IConfigService';
-import type { IPromptService } from '@domain/ports/agent/IPromptService';
+import type { IPromptOverrideStore } from '@domain/ports/agent/IPromptService';
 
 const getConfig = () => container.resolve<IConfigService>('IConfigService');
-const getPrompts = () => container.resolve<IPromptService>('IPromptService');
+const getPrompts = () => container.resolve<IPromptOverrideStore>('IPromptOverrideStore');
 
 export class SettingsCommand {
     static register(program: Command): void {

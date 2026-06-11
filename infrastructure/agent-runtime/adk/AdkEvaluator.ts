@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import type { IEvaluator, EvaluationVerdict } from '@domain/ports/agent/IEvaluator';
-import type { IPromptService } from '@domain/ports/agent/IPromptService';
+import type { IPromptRenderer } from '@domain/ports/agent/IPromptService';
 import { PromptKey } from '@domain/ports/agent/IPromptService';
 import type { ILogger } from '@domain/ports';
 import { DEFAULT_LLM_MODEL } from '@shared/defaults';
@@ -16,7 +16,7 @@ export class AdkEvaluator implements IEvaluator {
     constructor(
         @inject('IAdkLlmFactory') private readonly llmFactory: IAdkLlmFactory,
         @inject(LlmRuntimeConfigResolver) private readonly llmConfig: LlmRuntimeConfigResolver,
-        @inject('IPromptService') private readonly prompts: IPromptService,
+        @inject('IPromptRenderer') private readonly prompts: IPromptRenderer,
         @inject('ILogger') private readonly logger: ILogger,
     ) {}
 

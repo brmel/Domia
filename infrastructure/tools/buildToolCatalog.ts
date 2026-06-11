@@ -1,5 +1,5 @@
 import type { ToolDependencies, ToolSpec } from './ToolSpec';
-import type { IPromptService } from '@domain/ports/agent/IPromptService';
+import type { IToolDescriptionProvider } from '@domain/ports/agent/IPromptService';
 import { PostActionCaptureMiddleware } from './PostActionCaptureMiddleware';
 import { ActionRecordingService } from '../ActionRecordingService';
 import { createInteractionTools } from './catalog/interaction.tools';
@@ -43,7 +43,7 @@ interface ToolCatalogResult {
     captureMiddleware: PostActionCaptureMiddleware;
 }
 
-export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] = [], promptService?: IPromptService): ToolCatalogResult {
+export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] = [], promptService?: IToolDescriptionProvider): ToolCatalogResult {
     const middleware = new PostActionCaptureMiddleware(
         deps.perceptionSource,
         deps.perception,

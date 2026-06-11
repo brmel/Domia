@@ -1,10 +1,10 @@
 import { inject, injectable } from 'tsyringe';
-import type { IPromptService, PromptKey } from '@domain/ports/agent/IPromptService';
+import type { IPromptOverrideStore, PromptKey } from '@domain/ports/agent/IPromptService';
 
 @injectable()
 export class PromptsAppService {
     constructor(
-        @inject('IPromptService') private readonly promptService: IPromptService,
+        @inject('IPromptOverrideStore') private readonly promptService: IPromptOverrideStore,
     ) {}
 
     getAllPrompts() {

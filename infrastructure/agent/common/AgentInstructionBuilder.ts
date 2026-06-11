@@ -1,9 +1,9 @@
 import type { ToolSpec } from '@infrastructure/tools/ToolSpec';
-import type { IPromptService } from '@domain/ports/agent/IPromptService';
+import type { IPromptRenderer } from '@domain/ports/agent/IPromptService';
 import { PromptKey } from '@domain/ports/agent/IPromptService';
 import { ToolCategory } from '@domain/types/ToolTypes';
 
-export function buildAgentInstruction(tools: readonly ToolSpec[], promptService: IPromptService): string {
+export function buildAgentInstruction(tools: readonly ToolSpec[], promptService: IPromptRenderer): string {
     const toolNames = tools.map((t) => t.name).join(', ');
 
     const hasInteractionTools = tools.some((t) => t.category === ToolCategory.Interaction);
