@@ -5,17 +5,16 @@ import type { ILogger } from '@domain/ports';
 import { RunState } from '@domain/enums';
 import { ExecutionController } from '@backend/ExecutionController';
 import { WorkflowStepPolicyService } from './WorkflowStepPolicyService';
-import { WorkflowStepGovernanceService } from './WorkflowStepGovernanceService';
+import { WorkflowStepEvaluationService } from './WorkflowStepEvaluationService';
 import { WorkflowStepRunnerService } from './WorkflowStepRunnerService';
 import { WorkflowLifecycleManager } from './WorkflowLifecycleManager';
-import { PlatformCapabilityNegotiationService } from '../platform/PlatformCapabilityNegotiationService';
 
 /**
  * Pure sequencer over a workflow definition. Owns NO persistence mechanics — all
  * workflow/step row writes go through WorkflowLifecycleManager (mirrors how runs/
  * decomposes RunUseCase from RunLifecycleManager/RunTerminalizationService). It loads
  * the definition (read), opens one shared browser session, and drives each step through
- * governance → capability → policy → runner, emitting WorkflowEvents as it goes.
+ * evaluation (governance + capability) → policy → runner, emitting WorkflowEvents as it goes.
  */
 @injectable()
 export class WorkflowRunOrchestratorService {
@@ -23,9 +22,8 @@ export class WorkflowRunOrchestratorService {
         @inject('IWorkflowRepository') private readonly persistence: IWorkflowRepository,
         @inject('ILogger') private readonly logger: ILogger,
         @inject(WorkflowStepPolicyService) private readonly stepPolicy: WorkflowStepPolicyService,
-        @inject(WorkflowStepGovernanceService) private readonly governance: WorkflowStepGovernanceService,
+        @inject(WorkflowStepEvaluationService) private readonly stepEvaluation: WorkflowStepEvaluationService,
         @inject(WorkflowStepRunnerService) private readonly stepRunner: WorkflowStepRunnerService,
-        @inject(PlatformCapabilityNegotiationService) private readonly capabilityNegotiation: PlatformCapabilityNegotiationService,
         @inject(WorkflowLifecycleManager) private readonly lifecycle: WorkflowLifecycleManager,
     ) {}
 
@@ -60,7 +58,6 @@ export class WorkflowRunOrchestratorService {
             return;
         }
 
-        let shouldNavigateSharedSession = sharedSession.shouldNavigate;
         let completedSteps = 0;
         const totalSteps = definition.steps.length;
 
@@ -82,33 +79,24 @@ export class WorkflowRunOrchestratorService {
 
                 yield { type: 'workflow_step_started', workflowRunId, stepId: step.id, stepIndex };
 
-                const governanceDecision = this.governance.assess(step, definition);
-                for (const warning of governanceDecision.warnings) {
+                const evaluation = this.stepEvaluation.evaluate(step, definition);
+                for (const warning of evaluation.warnings) {
                     this.logger.warn(`[WorkflowOrchestrator] step ${step.id}: ${warning}`);
                 }
-
-                const capabilityAssessment = this.capabilityNegotiation.assessStep(step, definition.platformConfig.platform);
-                if (capabilityAssessment.blocked) {
-                    const blockedReason = capabilityAssessment.reason ?? `Step '${step.name}' blocked by platform capability policy.`;
-                    await this.lifecycle.failStepAtomic(workflowRunId, stepRunId, blockedReason);
-                    yield { type: 'workflow_step_completed', workflowRunId, stepId: step.id, stepIndex, success: false, summary: blockedReason };
-                    yield { type: 'workflow_failed', workflowRunId, reason: blockedReason };
+                if (!evaluation.allowed) {
+                    await this.lifecycle.failStepAtomic(workflowRunId, stepRunId, evaluation.blockedReason);
+                    yield { type: 'workflow_step_completed', workflowRunId, stepId: step.id, stepIndex, success: false, summary: evaluation.blockedReason };
+                    yield { type: 'workflow_failed', workflowRunId, reason: evaluation.blockedReason };
                     return;
                 }
-
-                const degradedCapabilities = capabilityAssessment.decisions.filter((d) => d.support === 'degraded');
-                const degradationSummary = degradedCapabilities.length > 0
-                    ? `Capability degradation: ${degradedCapabilities.map((d) => d.capability).join(', ')}`
-                    : undefined;
+                const degradationSummary = evaluation.degradationSummary;
 
                 const stepResult = await this.stepPolicy.runWithPolicy(step, async () =>
                     this.stepRunner.runStep(step, stepIndex, definition, controller, {
                         session: sharedSession,
-                        shouldNavigate: shouldNavigateSharedSession,
+                        shouldNavigate: sharedSession.shouldNavigate && stepIndex === 0,
                     })
                 );
-
-                shouldNavigateSharedSession = false;
 
                 if (stepResult.runId) {
                     yield { type: 'workflow_step_bound', workflowRunId, stepId: step.id, stepIndex, runId: stepResult.runId };

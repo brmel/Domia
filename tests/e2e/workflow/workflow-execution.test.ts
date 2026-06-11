@@ -6,6 +6,7 @@ import { WorkflowLifecycleManager } from '@backend/workflows/WorkflowLifecycleMa
 import { WorkflowStepPolicyService } from '@backend/workflows/WorkflowStepPolicyService';
 import { WorkflowStepRunnerService } from '@backend/workflows/WorkflowStepRunnerService';
 import { WorkflowStepGovernanceService } from '@backend/workflows/WorkflowStepGovernanceService';
+import { WorkflowStepEvaluationService } from '@backend/workflows/WorkflowStepEvaluationService';
 import { PlatformCapabilityNegotiationService } from '@backend/platform/PlatformCapabilityNegotiationService';
 import { ExecutionController } from '@backend/ExecutionController';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
@@ -114,9 +115,8 @@ describe('Workflow execution integration', () => {
             persistence as unknown as never,
             noopLogger as unknown as never,
             new WorkflowStepPolicyService(),
-            governance,
+            new WorkflowStepEvaluationService(governance, new PlatformCapabilityNegotiationService()),
             createStepRunner('succeed'),
-            new PlatformCapabilityNegotiationService(),
             new WorkflowLifecycleManager(persistence as unknown as never, noopLogger as unknown as never)
         );
         const controller = new ExecutionController();
@@ -152,9 +152,8 @@ describe('Workflow execution integration', () => {
             persistence as unknown as never,
             noopLogger as unknown as never,
             new WorkflowStepPolicyService(),
-            governance,
+            new WorkflowStepEvaluationService(governance, new PlatformCapabilityNegotiationService()),
             createStepRunner('fail'),
-            new PlatformCapabilityNegotiationService(),
             new WorkflowLifecycleManager(persistence as unknown as never, noopLogger as unknown as never)
         );
         const controller = new ExecutionController();
@@ -183,9 +182,11 @@ describe('Workflow execution integration', () => {
             persistence as unknown as never,
             noopLogger as unknown as never,
             new WorkflowStepPolicyService(),
-            new WorkflowStepGovernanceService({ assess: vi.fn() } as unknown as never),
+            new WorkflowStepEvaluationService(
+                new WorkflowStepGovernanceService({ assess: vi.fn() } as unknown as never),
+                new PlatformCapabilityNegotiationService(),
+            ),
             createStepRunner('succeed'),
-            new PlatformCapabilityNegotiationService(),
             new WorkflowLifecycleManager(persistence as unknown as never, noopLogger as unknown as never)
         );
         const controller = new ExecutionController();

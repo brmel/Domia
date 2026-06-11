@@ -36,6 +36,7 @@ import { WorkflowDefinitionService } from '@backend/workflows/WorkflowDefinition
 import { WorkflowRunOrchestratorService } from '@backend/workflows/WorkflowRunOrchestratorService';
 import { WorkflowLifecycleManager } from '@backend/workflows/WorkflowLifecycleManager';
 import { WorkflowStepGovernanceService } from '@backend/workflows/WorkflowStepGovernanceService';
+import { WorkflowStepEvaluationService } from '@backend/workflows/WorkflowStepEvaluationService';
 import { WorkflowStepRunnerService } from '@backend/workflows/WorkflowStepRunnerService';
 import { WorkflowStepPolicyService } from '@backend/workflows/WorkflowStepPolicyService';
 import { SettingsAppService } from '@backend/settings/SettingsAppService';
@@ -134,6 +135,7 @@ export class ContainerBuilder {
         container.registerSingleton(WorkflowDefinitionService);
         container.registerSingleton(WorkflowStepPolicyService);
         container.registerSingleton(WorkflowStepGovernanceService);
+        container.registerSingleton(WorkflowStepEvaluationService);
         container.registerSingleton(WorkflowStepRunnerService);
         container.registerSingleton(WorkflowLifecycleManager);
         container.registerSingleton(WorkflowRunOrchestratorService);
