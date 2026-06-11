@@ -18,6 +18,11 @@ export class PersistenceError extends DomainError {
     constructor(message: string, cause?: unknown) { super(message, cause); }
 }
 
+export class RunStateError extends DomainError {
+    readonly code = 'RUN_STATE_ERROR';
+    constructor(message: string) { super(message); }
+}
+
 export class WorkflowError extends DomainError {
     readonly code = 'WORKFLOW_ERROR';
     constructor(message: string, cause?: unknown) { super(message, cause); }

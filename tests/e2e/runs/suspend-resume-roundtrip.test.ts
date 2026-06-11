@@ -9,7 +9,6 @@ import { FileSystemStorage } from '@infrastructure/FileSystemStorage';
 import { ConsoleLogger } from '@infrastructure/ConsoleLogger';
 import { RunDurabilityService } from '@backend/runs/engine/RunDurabilityService';
 import { RunSuspensionService } from '@backend/runs/engine/RunSuspensionService';
-import { Run } from '@domain/entities/Run';
 import { RunIdFactory, UrlFactory } from '@domain/value-objects';
 import { WorkflowState } from '@domain/value-objects/WorkflowState';
 import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
@@ -17,6 +16,7 @@ import { createInMemoryDb } from '../../support/tempDb';
 import type { ConversationSnapshot } from '@domain/value-objects/ConversationSnapshot';
 import type { IAgentRuntime } from '@domain/ports/agent/IAgentRuntime';
 import type { IEventBus } from '@domain/ports/platform/IEventBus';
+import { createRun, startRun } from '../../support/runFixtures';
 
 let tmpRoot: string;
 
@@ -72,7 +72,7 @@ describe('Suspend → snapshot to disk → fresh process resume', () => {
         const suspension1 = new RunSuspensionService(runRepo1, dur1, bus1, new ConsoleLogger(), storage1, runtimeA);
 
         const id = RunIdFactory.create();
-        const run = Run.start(Run.create({ id, url: UrlFactory.unsafe('https://example.com'), prompt: 'long task' }));
+        const run = startRun(createRun({ id, url: UrlFactory.unsafe('https://example.com'), prompt: 'long task' }));
         const platformConfigJson = JSON.stringify({ platform: 'web', url: 'https://example.com' });
         const save = await runRepo1.saveRun(run, platformConfigJson);
         if (save.isErr()) throw save.error;

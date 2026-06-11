@@ -58,8 +58,14 @@ export class SkillsCommand {
         skills.command('delete <skillId>')
             .description('Delete a recorded skill')
             .action(async (skillId: string) => {
+                const idResult = SkillIdFactory.create(skillId);
+                if (idResult.isErr()) {
+                    console.error(chalk.red(idResult.error.message));
+                    process.exitCode = 1;
+                    return;
+                }
                 const service = container.resolve(SkillsAppService);
-                await service.delete(SkillIdFactory.create(skillId));
+                await service.delete(idResult.value);
                 console.log(chalk.green(`Deleted skill ${skillId}`));
             });
 

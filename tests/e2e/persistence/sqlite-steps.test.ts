@@ -2,10 +2,10 @@ import 'reflect-metadata';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { SQLiteRunRepository } from '@infrastructure/persistence/SQLiteRunRepository';
 import type { Step } from '@domain/ports';
-import { Run } from '@domain/entities/Run';
 import { RunIdFactory, UrlFactory } from '@domain/value-objects';
 import { ActionType } from '@domain/enums';
 import { createInMemoryDb } from '../../support/tempDb';
+import { createRun } from '../../support/runFixtures';
 
 describe('SQLite step persistence', () => {
     let repo: SQLiteRunRepository;
@@ -17,7 +17,7 @@ describe('SQLite step persistence', () => {
 
     it('saves and retrieves steps by run', async () => {
         const runId = RunIdFactory.create();
-        const run = Run.create({
+        const run = createRun({
             id: runId,
             url: UrlFactory.unsafe('https://example.com'),
             prompt: 'Multi-step',
@@ -66,7 +66,7 @@ describe('SQLite step persistence', () => {
 
     it('retrieves a single step by stepNumber', async () => {
         const runId = RunIdFactory.create();
-        await repo.saveRun(Run.create({
+        await repo.saveRun(createRun({
             id: runId,
             url: UrlFactory.unsafe('https://example.com'),
             prompt: 'Test getStep',
@@ -100,7 +100,7 @@ describe('SQLite step persistence', () => {
 
     it('step actionPayload survives JSON serialization round-trip', async () => {
         const runId = RunIdFactory.create();
-        await repo.saveRun(Run.create({
+        await repo.saveRun(createRun({
             id: runId,
             url: UrlFactory.unsafe('https://example.com'),
             prompt: 'Payload test',
@@ -127,7 +127,7 @@ describe('SQLite step persistence', () => {
 
     it('step assets survive JSON serialization round-trip', async () => {
         const runId = RunIdFactory.create();
-        await repo.saveRun(Run.create({
+        await repo.saveRun(createRun({
             id: runId,
             url: UrlFactory.unsafe('https://example.com'),
             prompt: 'Assets test',

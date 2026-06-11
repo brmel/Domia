@@ -6,11 +6,11 @@ import { SQLiteRunRepository } from '@infrastructure/persistence/SQLiteRunReposi
 import { SQLiteCheckpointRepository } from '@infrastructure/persistence/SQLiteCheckpointRepository';
 import { SQLiteSkillRepository } from '@infrastructure/persistence/SQLiteSkillRepository';
 import type { Step } from '@domain/ports';
-import { Run } from '@domain/entities/Run';
 import { RunIdFactory, UrlFactory } from '@domain/value-objects';
 import { WorkflowState } from '@domain/value-objects/WorkflowState';
 import { ActionType } from '@domain/enums';
 import { createInMemoryDb } from '../../support/tempDb';
+import { createRun, startRun, passRun, finishRun } from '../../support/runFixtures';
 
 describe('SQLite persistence round-trip', () => {
     let repo: SQLiteRunRepository;
@@ -21,7 +21,7 @@ describe('SQLite persistence round-trip', () => {
     });
 
     it('saves and retrieves a run', async () => {
-        const run = Run.create({
+        const run = createRun({
             id: RunIdFactory.create(),
             url: UrlFactory.unsafe('https://example.com'),
             prompt: 'Click the button',
@@ -41,15 +41,15 @@ describe('SQLite persistence round-trip', () => {
     });
 
     it('round-trips a verdict-less finished run with summary + value (W1 regression)', async () => {
-        const run = Run.create({
+        const run = createRun({
             id: RunIdFactory.create(),
             url: UrlFactory.unsafe('https://example.com'),
             prompt: 'Complete the task',
         });
         expect((await repo.saveRun(run)).isOk()).toBe(true);
 
-        const started = Run.start(run);
-        const finished = Run.finish(started, 'Task completed successfully', { count: 42 });
+        const started = startRun(run);
+        const finished = finishRun(started, 'Task completed successfully', { count: 42 });
         const update = await repo.updateRun(run.id, {
             status: finished.status,
             ...(started.startedAt ? { startedAt: started.startedAt } : {}),
@@ -67,7 +67,7 @@ describe('SQLite persistence round-trip', () => {
     });
 
     it('updates run status from pending to passed', async () => {
-        const run = Run.create({
+        const run = createRun({
             id: RunIdFactory.create(),
             url: UrlFactory.unsafe('https://example.com'),
             prompt: 'Test',
@@ -75,10 +75,10 @@ describe('SQLite persistence round-trip', () => {
 
         await repo.saveRun(run);
 
-        const started = Run.start(run);
+        const started = startRun(run);
         await repo.updateRun(run.id, { status: started.status, ...(started.startedAt && { startedAt: started.startedAt }) });
 
-        const passed = Run.pass(started, 'All good');
+        const passed = passRun(started, 'All good');
         await repo.updateRun(run.id, { status: passed.status });
 
         const fetched = (await repo.getRun(run.id))._unsafeUnwrap()!;
@@ -90,7 +90,7 @@ describe('SQLite persistence round-trip', () => {
         const ids = [RunIdFactory.create(), RunIdFactory.create(), RunIdFactory.create()];
 
         for (const id of ids) {
-            await repo.saveRun(Run.create({
+            await repo.saveRun(createRun({
                 id,
                 url: UrlFactory.unsafe('https://example.com'),
                 prompt: `Run ${id}`,
@@ -110,7 +110,7 @@ describe('SQLite persistence round-trip', () => {
 
     it('clearHistory removes all runs and steps', async () => {
         const runId = RunIdFactory.create();
-        await repo.saveRun(Run.create({
+        await repo.saveRun(createRun({
             id: runId,
             url: UrlFactory.unsafe('https://example.com'),
             prompt: 'To be cleared',
@@ -152,7 +152,7 @@ describe('SQLite persistence round-trip', () => {
 
         // 1. Create and save a new run
         const runId = RunIdFactory.create();
-        const run = Run.create({
+        const run = createRun({
             id: runId,
             url: UrlFactory.unsafe('https://example.com'),
             prompt: 'Verify the homepage loads correctly',
@@ -160,7 +160,7 @@ describe('SQLite persistence round-trip', () => {
         expect((await runRepo.saveRun(run)).isOk()).toBe(true);
 
         // 2. Transition to running
-        const started = Run.start(run);
+        const started = startRun(run);
         await runRepo.updateRun(run.id, {
             status: started.status,
             ...(started.startedAt && { startedAt: started.startedAt }),
@@ -205,7 +205,7 @@ describe('SQLite persistence round-trip', () => {
         expect((await checkpointRepo.saveCheckpoint(runId as string, state, 'terminal_success')).isOk()).toBe(true);
 
         // 5. Mark run as passed
-        const passed = Run.pass(started, 'Homepage loaded and verified');
+        const passed = passRun(started, 'Homepage loaded and verified');
         await runRepo.updateRun(run.id, { status: passed.status });
 
         // ── Validate full history ──

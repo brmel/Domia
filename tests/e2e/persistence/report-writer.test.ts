@@ -8,10 +8,10 @@ import { SQLiteRunRepository } from '@infrastructure/persistence/SQLiteRunReposi
 import { ReportWriterService } from '@infrastructure/reporting/ReportWriterService';
 import { JUnitXmlReportGenerator } from '@infrastructure/reporting/JUnitXmlReportGenerator';
 import { HtmlReportGenerator } from '@infrastructure/reporting/HtmlReportGenerator';
-import { Run } from '@domain/entities/Run';
 import { RunIdFactory, UrlFactory } from '@domain/value-objects';
 import { ActionType } from '@domain/enums';
 import { createInMemoryDb } from '../../support/tempDb';
+import { createRun, startRun, passRun } from '../../support/runFixtures';
 
 describe('ReportWriterService integration', () => {
     let repo: SQLiteRunRepository;
@@ -32,13 +32,13 @@ describe('ReportWriterService integration', () => {
 
     async function seedRun(): Promise<string> {
         const runId = RunIdFactory.create();
-        const run = Run.create({ id: runId, url: UrlFactory.unsafe('https://example.com'), prompt: 'Integration test' });
+        const run = createRun({ id: runId, url: UrlFactory.unsafe('https://example.com'), prompt: 'Integration test' });
         await repo.saveRun(run);
 
-        const started = Run.start(run);
+        const started = startRun(run);
         await repo.updateRun(runId, { status: started.status, ...(started.startedAt && { startedAt: started.startedAt }) });
 
-        const passed = Run.pass(started, 'Everything passed');
+        const passed = passRun(started, 'Everything passed');
         await repo.updateRun(runId, { status: passed.status });
 
         await repo.saveStep({

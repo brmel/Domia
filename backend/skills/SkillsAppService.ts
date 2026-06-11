@@ -19,9 +19,10 @@ export class SkillsAppService {
     ) {}
 
     async create(req: CreateSkillRequest): Promise<Skill> {
-        const id = SkillIdFactory.create(crypto.randomUUID());
+        const idResult = SkillIdFactory.create(crypto.randomUUID());
+        if (idResult.isErr()) throw idResult.error;
         const skill = SkillFactory.create({
-            id,
+            id: idResult.value,
             name: req.name.trim(),
             description: req.description.trim(),
             parameters: req.parameters ?? [],

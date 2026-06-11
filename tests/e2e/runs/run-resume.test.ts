@@ -15,7 +15,6 @@ import { RunLifecycleManager } from '@backend/runs/RunLifecycleManager';
 import { StepExecutionKernelService } from '@backend/runs/engine/StepExecutionKernelService';
 import { RunStepEngine } from '@backend/runs/engine/RunStepEngine';
 import { ExecutionController } from '@backend/ExecutionController';
-import { Run } from '@domain/entities/Run';
 import { RunIdFactory, UrlFactory } from '@domain/value-objects';
 import { WorkflowState } from '@domain/value-objects/WorkflowState';
 import { ConsoleLogger } from '@infrastructure/ConsoleLogger';
@@ -24,6 +23,7 @@ import type { ConversationSnapshot } from '@domain/value-objects/ConversationSna
 import type { IAgentRuntime, AgentInput } from '@domain/ports/agent/IAgentRuntime';
 import type { IEventBus } from '@domain/ports/platform/IEventBus';
 import type { ITraceService } from '@domain/ports';
+import { createRun, startRun } from '../../support/runFixtures';
 
 function fakeRuntime(): IAgentRuntime & { sessions: Map<string, unknown[]>; restoreCount: number } {
     const sessions = new Map<string, unknown[]>();
@@ -113,7 +113,7 @@ describe('RunResumeService — load envelope, restore, mark resumed', () => {
         const suspension = new RunSuspensionService(runRepo, durability, noopBus(), logger, storage, runtime);
 
         const id = RunIdFactory.create();
-        const run = Run.start(Run.create({ id, url: UrlFactory.unsafe('https://example.com'), prompt: 'do work' }));
+        const run = startRun(createRun({ id, url: UrlFactory.unsafe('https://example.com'), prompt: 'do work' }));
         const save = await runRepo.saveRun(run, JSON.stringify({ platform: 'web', url: 'https://example.com' }));
         if (save.isErr()) throw save.error;
 
@@ -142,7 +142,7 @@ describe('RunResumeService — load envelope, restore, mark resumed', () => {
         const suspension = new RunSuspensionService(runRepo, durability, noopBus(), logger, storage, runtime);
 
         const id = RunIdFactory.create();
-        const run = Run.start(Run.create({ id, url: UrlFactory.unsafe('https://example.com'), prompt: 'do' }));
+        const run = startRun(createRun({ id, url: UrlFactory.unsafe('https://example.com'), prompt: 'do' }));
         const save = await runRepo.saveRun(run, JSON.stringify({ platform: 'web', url: 'https://example.com' }));
         if (save.isErr()) throw save.error;
 

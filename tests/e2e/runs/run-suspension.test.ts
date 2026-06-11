@@ -8,7 +8,6 @@ import { SQLiteCheckpointRepository } from '@infrastructure/persistence/SQLiteCh
 import { FileSystemStorage } from '@infrastructure/FileSystemStorage';
 import { RunDurabilityService } from '@backend/runs/engine/RunDurabilityService';
 import { RunSuspensionService } from '@backend/runs/engine/RunSuspensionService';
-import { Run } from '@domain/entities/Run';
 import { RunIdFactory, UrlFactory } from '@domain/value-objects';
 import { WorkflowState } from '@domain/value-objects/WorkflowState';
 import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
@@ -18,6 +17,7 @@ import type { DomainEventName, DomainEvents } from '@domain/events';
 import type { IEventBus } from '@domain/ports/platform/IEventBus';
 import type { IAgentRuntime } from '@domain/ports/agent/IAgentRuntime';
 import type { ConversationSnapshot } from '@domain/value-objects/ConversationSnapshot';
+import { createRun, startRun } from '../../support/runFixtures';
 
 function createRecordingBus(): IEventBus & { events: Array<{ name: DomainEventName; payload: unknown }> } {
     const events: Array<{ name: DomainEventName; payload: unknown }> = [];
@@ -77,8 +77,8 @@ describe('RunSuspensionService — suspend/wake foundation', () => {
 
     async function createRunningRun(): Promise<ReturnType<typeof RunIdFactory.create>> {
         const id = RunIdFactory.create();
-        const created = Run.create({ id, url: UrlFactory.unsafe('https://example.com'), prompt: 'long-job' });
-        const started = Run.start(created);
+        const created = createRun({ id, url: UrlFactory.unsafe('https://example.com'), prompt: 'long-job' });
+        const started = startRun(created);
         const save = await runRepo.saveRun(started, JSON.stringify({ platform: 'web', url: 'https://example.com' }));
         if (save.isErr()) throw save.error;
         return id;

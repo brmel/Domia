@@ -5,10 +5,10 @@ import { SQLiteRunRepository } from '@infrastructure/persistence/SQLiteRunReposi
 import { RunDurabilityService } from '@backend/runs/engine/RunDurabilityService';
 import { WorkflowState } from '@domain/value-objects/WorkflowState';
 import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
-import { Run } from '@domain/entities/Run';
 import { UrlFactory, type RunId } from '@domain/value-objects';
 import { ConsoleLogger } from '@infrastructure/ConsoleLogger';
 import { createInMemoryDb } from '../../support/tempDb';
+import { createRun } from '../../support/runFixtures';
 
 describe('Checkpoint metadata round-trip', () => {
     let repo: SQLiteCheckpointRepository;
@@ -21,7 +21,7 @@ describe('Checkpoint metadata round-trip', () => {
         // checkpoints FK to runs(id); seed the parent runs the cases reference.
         const runRepo = new SQLiteRunRepository(db);
         for (const id of ['run-1', 'run-2', 'run-3']) {
-            await runRepo.saveRun(Run.create({ id: id as RunId, url: UrlFactory.unsafe('https://example.com'), prompt: 'test' }));
+            await runRepo.saveRun(createRun({ id: id as RunId, url: UrlFactory.unsafe('https://example.com'), prompt: 'test' }));
         }
     });
 

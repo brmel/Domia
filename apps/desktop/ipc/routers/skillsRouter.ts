@@ -40,7 +40,9 @@ export const skillsRouter = t.router({
         .input(z.object({ id: z.string().min(1) }))
         .mutation(async ({ input }) => {
             const skills = container.resolve(SkillsAppService);
-            await skills.delete(SkillIdFactory.create(input.id));
+            const idResult = SkillIdFactory.create(input.id);
+            if (idResult.isErr()) throw idResult.error;
+            await skills.delete(idResult.value);
             return { success: true };
         }),
 });

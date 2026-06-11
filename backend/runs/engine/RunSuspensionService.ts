@@ -36,7 +36,9 @@ export class RunSuspensionService {
         if (existing.isErr() || !existing.value) {
             throw new Error(`Cannot suspend run ${runId}: not found`);
         }
-        const suspended = Run.suspend(existing.value, reason);
+        const suspendedResult = Run.suspend(existing.value, reason, new Date());
+        if (suspendedResult.isErr()) throw suspendedResult.error;
+        const suspended = suspendedResult.value;
         const update = await this.runs.updateRun(runId, { status: suspended.status, updatedAt: suspended.updatedAt });
         if (update.isErr()) throw update.error;
 
@@ -100,7 +102,9 @@ export class RunSuspensionService {
         if (existing.value.status.type !== 'suspended') {
             throw new Error(`Cannot resume run ${runId}: status is ${existing.value.status.type}`);
         }
-        const resumed = Run.resume(existing.value);
+        const resumedResult = Run.resume(existing.value, new Date());
+        if (resumedResult.isErr()) throw resumedResult.error;
+        const resumed = resumedResult.value;
         const update = await this.runs.updateRun(runId, { status: resumed.status, updatedAt: resumed.updatedAt });
         if (update.isErr()) throw update.error;
 
