@@ -57,85 +57,146 @@ export interface AdkSessionSetup {
 
 export type AdkSessionResult = AdkSessionSetup | { kind: 'error'; cause: Error };
 
+interface LlmSetup {
+    readonly llm: ReturnType<IAdkLlmFactory['create']>;
+    readonly thinkingBudget: number;
+}
+
+interface ToolingSetup {
+    readonly tools: ReturnType<typeof createAdkTools>['tools'];
+    readonly catalog: ReturnType<typeof createAdkTools>['catalog'];
+    readonly captureMiddleware: PostActionCaptureMiddleware;
+    readonly actionMapper: ActionMapper;
+    readonly initialMessage: Content;
+}
+
+function resolveLlm(deps: AdkSessionDeps): LlmSetup | Error {
+    const llmConfig = deps.llmConfigResolver.resolve();
+    const model = llmConfig.model || DEFAULT_LLM_MODEL;
+    try {
+        return { llm: deps.llmFactory.create({ model, apiKey: llmConfig.apiKey }), thinkingBudget: llmConfig.thinkingBudget };
+    } catch (err) {
+        return err instanceof Error ? err : new Error(String(err));
+    }
+}
+
+async function assembleTooling(
+    deps: AdkSessionDeps,
+    input: AgentInput,
+    automation: IStructuredAutomation,
+    state: StepExecutionState,
+    sink: RunArtifactSink,
+): Promise<ToolingSetup | Error> {
+    const perceptionSource = automation.getPerceptionSource();
+    if (!perceptionSource) {
+        return new Error('Automation adapter does not expose a perception source.');
+    }
+    const viewport = await automation.getViewportSize();
+
+    const toolDeps = assembleToolDependencies(
+        { perception: deps.perception, configService: deps.configService, shellExecutor: deps.shellExecutor },
+        {
+            input,
+            automation,
+            perceptionSource,
+            vision: input.vision,
+            windowManager: input.extras?.windowManager,
+            getActionCount: () => state.actionCount,
+            sink,
+            observation: input.extras?.observation,
+            onSuspendRequest: input.extras?.onSuspendRequest,
+            capabilities: input.extras?.capabilities,
+        },
+    );
+    const skillTools = await deps.skillRunner.buildToolsForSession(toolDeps);
+    const extraTools = [...deps.pluginRegistry.getAllTools(), ...skillTools];
+    const { tools, catalog, captureMiddleware } = createAdkTools(toolDeps, extraTools, deps.promptService);
+
+    const stepGoalText = deps.promptService.renderPrompt(PromptKey.StepGoal, {
+        stepGoal: input.stepGoal,
+        viewportWidth: viewport.width,
+        viewportHeight: viewport.height,
+        url: input.url,
+        maxActions: input.maxActions,
+    });
+
+    return {
+        tools,
+        catalog,
+        captureMiddleware,
+        actionMapper: new ActionMapper(catalog),
+        initialMessage: { role: 'user', parts: [{ text: stepGoalText }] },
+    };
+}
+
+async function assembleRunner(
+    deps: AdkSessionDeps,
+    input: AgentInput,
+    llmSetup: LlmSetup,
+    tooling: ToolingSetup,
+    state: StepExecutionState,
+): Promise<{ runner: Runner; session: { userId: string; id: string } }> {
+    const instruction = buildAgentInstruction(tooling.catalog, deps.promptService);
+    const agent = new LlmAgent({
+        name: ADK_AGENT_NAME,
+        description: ADK_AGENT_DESCRIPTION,
+        model: llmSetup.llm,
+        instruction: buildInstructionProvider(instruction),
+        tools: tooling.tools,
+        generateContentConfig: {
+            temperature: DEFAULT_AGENT_TEMPERATURE,
+            toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
+            ...(llmSetup.thinkingBudget > 0
+                ? { thinkingConfig: { includeThoughts: true, thinkingBudget: llmSetup.thinkingBudget } }
+                : {}),
+        },
+    });
+
+    const metricsPlugin = new RunMetricsPlugin(input.runId as RunId, state, deps.logger, deps.healthMonitor, deps.trace);
+    const runner = new Runner({ agent, appName: APP_NAME, plugins: [metricsPlugin], sessionService: deps.sessionService });
+
+    const sessionKey = { appName: APP_NAME, userId: ADK_SESSION_USER_ID, sessionId: input.runId };
+    const session = await deps.sessionService.getSession(sessionKey)
+        ?? await deps.sessionService.createSession(sessionKey);
+    return { runner, session };
+}
+
 /** The one place the per-run ADK pipeline is wired (LLM + tools + instruction + Runner). Pure assembly — no event loop. */
 export async function assembleAdkSession(
     deps: AdkSessionDeps,
     input: AgentInput,
     automation: IStructuredAutomation,
 ): Promise<AdkSessionResult> {
-    const { stepGoal, url, maxActions, vision } = input;
-
-    const llmConfig = deps.llmConfigResolver.resolve();
-    const model = llmConfig.model || DEFAULT_LLM_MODEL;
-    let llm;
-    try {
-        llm = deps.llmFactory.create({ model, apiKey: llmConfig.apiKey });
-    } catch (err) {
-        return { kind: 'error', cause: err instanceof Error ? err : new Error(String(err)) };
-    }
-
-    const perceptionSource = automation.getPerceptionSource();
-    if (!perceptionSource) {
-        return { kind: 'error', cause: new Error('Automation adapter does not expose a perception source.') };
-    }
-
-    const viewport = await automation.getViewportSize();
+    const llmSetup = resolveLlm(deps);
+    if (llmSetup instanceof Error) return { kind: 'error', cause: llmSetup };
 
     const state: StepExecutionState = {
         actionCount: 0,
         lastToolResult: null,
         pendingYield: null,
-        lastObservedUrl: url,
+        lastObservedUrl: input.url,
         llmTurnStartMs: Date.now(),
     };
-    const windowManager = input.extras?.windowManager;
-    const observation = input.extras?.observation;
-    const onSuspendRequest = input.extras?.onSuspendRequest;
-    const capabilities = input.extras?.capabilities;
     const sink = new RunArtifactSink(
         input.runId,
         input.persistArtifacts ?? DEFAULT_ARTIFACT_RETENTION,
         deps.storage,
         deps.logger,
     );
-    const toolDeps = assembleToolDependencies(
-        { perception: deps.perception, configService: deps.configService, shellExecutor: deps.shellExecutor },
-        { input, automation, perceptionSource, vision, windowManager, getActionCount: () => state.actionCount, sink, observation, onSuspendRequest, capabilities },
-    );
-    const skillTools = await deps.skillRunner.buildToolsForSession(toolDeps);
-    const extraTools = [...deps.pluginRegistry.getAllTools(), ...skillTools];
-    const { tools, catalog, captureMiddleware } = createAdkTools(toolDeps, extraTools, deps.promptService);
-    const actionMapper = new ActionMapper(catalog);
-    const instruction = buildAgentInstruction(catalog, deps.promptService);
-    const stepGoalText = deps.promptService.renderPrompt(PromptKey.StepGoal, {
-        stepGoal, viewportWidth: viewport.width, viewportHeight: viewport.height, url, maxActions,
-    });
-    const initialMessage: Content = { role: 'user', parts: [{ text: stepGoalText }] };
 
-    const metricsPlugin = new RunMetricsPlugin(input.runId as RunId, state, deps.logger, deps.healthMonitor, deps.trace);
-    const plugins: import('@google/adk').BasePlugin[] = [metricsPlugin];
-    const agent = new LlmAgent({
-        name: ADK_AGENT_NAME,
-        description: ADK_AGENT_DESCRIPTION,
-        model: llm,
-        instruction: buildInstructionProvider(instruction),
-        tools,
-        generateContentConfig: {
-            temperature: DEFAULT_AGENT_TEMPERATURE,
-            toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
-            ...(llmConfig.thinkingBudget > 0
-                ? { thinkingConfig: { includeThoughts: true, thinkingBudget: llmConfig.thinkingBudget } }
-                : {}),
-        },
-    });
+    const tooling = await assembleTooling(deps, input, automation, state, sink);
+    if (tooling instanceof Error) return { kind: 'error', cause: tooling };
 
-    const runner = new Runner({ agent, appName: APP_NAME, plugins, sessionService: deps.sessionService });
-    const existing = await deps.sessionService.getSession({
-        appName: APP_NAME, userId: ADK_SESSION_USER_ID, sessionId: input.runId,
-    });
-    const session = existing ?? await deps.sessionService.createSession({
-        appName: APP_NAME, userId: ADK_SESSION_USER_ID, sessionId: input.runId,
-    });
+    const { runner, session } = await assembleRunner(deps, input, llmSetup, tooling, state);
 
-    return { kind: 'ok', state, captureMiddleware, actionMapper, runner, session, initialMessage, sink };
+    return {
+        kind: 'ok',
+        state,
+        captureMiddleware: tooling.captureMiddleware,
+        actionMapper: tooling.actionMapper,
+        runner,
+        session,
+        initialMessage: tooling.initialMessage,
+        sink,
+    };
 }
