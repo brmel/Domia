@@ -27,7 +27,6 @@ import { createAdkTools } from './AdkToolFactory';
 import { assembleToolDependencies } from './assembleToolDependencies';
 import { ADK_SESSION_USER_ID, ADK_AGENT_NAME, ADK_AGENT_DESCRIPTION } from './adkConstants';
 
-/** Runtime singletons the assembler wires the per-run ADK pipeline from. */
 export interface AdkSessionDeps {
     readonly perception: IPerceptionPipeline;
     readonly storage: IStorageService;
@@ -161,7 +160,6 @@ async function assembleRunner(
     return { runner, session };
 }
 
-/** The one place the per-run ADK pipeline is wired (LLM + tools + instruction + Runner). Pure assembly — no event loop. */
 export async function assembleAdkSession(
     deps: AdkSessionDeps,
     input: AgentInput,

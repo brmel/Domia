@@ -29,7 +29,6 @@ interface ToolDepsParams {
     readonly capabilities: AppCapabilities | undefined;
 }
 
-/** Maps runtime singletons + per-session handles into the ToolDependencies bag — one testable place, no ADK/loop state. */
 export function assembleToolDependencies(runtime: ToolDepsRuntime, params: ToolDepsParams): ToolDependencies {
     const { input, automation, perceptionSource, vision, windowManager, getActionCount, sink, observation, onSuspendRequest, capabilities } = params;
     const shell = runtime.configService.get().plugins.shell;

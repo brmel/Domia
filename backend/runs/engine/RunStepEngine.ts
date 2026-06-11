@@ -33,13 +33,6 @@ interface ConcludeParams {
     readonly beforeFinalize?: () => Promise<void>;
 }
 
-/**
- * The shared run-step machinery. Both RunUseCase (fresh run) and
- * RunResumeService (resumed run) drove the identical lane / session /
- * observation / kernel / terminalize-or-suspend sequence, each re-injecting the
- * same 6 services. This bundles that machinery so an orchestrator injects one
- * engine and supplies only its own flow (plan/control-gate vs envelope-load).
- */
 @injectable()
 export class RunStepEngine {
     constructor(

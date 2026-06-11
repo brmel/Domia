@@ -72,10 +72,6 @@ export class ElectronWindowManager {
         return w ? ok(w) : err(new Error(`No window found matching title '${title}'`));
     }
 
-    /**
-     * Switch to window, bring it to front, and attach the page to the adapter.
-     * Consolidates logic previously duplicated in electron.tools.ts, ElectronDriver, and ElectronWindowSelectionPolicy.
-     */
     async switchWindow(windowId: string, adapter?: PlaywrightAdapter): Promise<Result<ElectronWindow, ValidationError>> {
         const setResult = this.setActiveWindow(windowId);
         if (setResult.isErr()) return err(setResult.error);

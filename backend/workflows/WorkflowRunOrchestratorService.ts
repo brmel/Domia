@@ -9,13 +9,6 @@ import { WorkflowStepEvaluationService } from './WorkflowStepEvaluationService';
 import { WorkflowStepRunnerService } from './WorkflowStepRunnerService';
 import { WorkflowLifecycleManager } from './WorkflowLifecycleManager';
 
-/**
- * Pure sequencer over a workflow definition. Owns NO persistence mechanics — all
- * workflow/step row writes go through WorkflowLifecycleManager (mirrors how runs/
- * decomposes RunUseCase from RunLifecycleManager/RunTerminalizationService). It loads
- * the definition (read), opens one shared browser session, and drives each step through
- * evaluation (governance + capability) → policy → runner, emitting WorkflowEvents as it goes.
- */
 @injectable()
 export class WorkflowRunOrchestratorService {
     constructor(
@@ -116,9 +109,6 @@ export class WorkflowRunOrchestratorService {
                 if (stepResult.success) completedSteps += 1;
 
                 if (stepResult.success && stepIndex === totalSteps - 1) {
-                    // Final step succeeded: commit the step completion AND the workflow
-                    // completion in one atomic transition — closes the crash-between-writes
-                    // gap the old separate updateStepRun + updateWorkflowRun success path had.
                     const summary = `Workflow completed (${completedSteps}/${totalSteps} steps succeeded).`;
                     await this.lifecycle.completeAtomic(workflowRunId, stepRunId, summary, combinedSummary, stepResult.runId);
                     yield { type: 'workflow_step_completed', workflowRunId, stepId: step.id, stepIndex, success: true, ...summaryEvent };
@@ -130,8 +120,6 @@ export class WorkflowRunOrchestratorService {
                 yield { type: 'workflow_step_completed', workflowRunId, stepId: step.id, stepIndex, success: stepResult.success, ...summaryEvent };
             }
 
-            // Reached only when the last step failed under continueOnFailure (no atomic
-            // completion fired above): the step row is already updated; finalize the workflow.
             const summary = `Workflow completed (${completedSteps}/${totalSteps} steps succeeded).`;
             await this.lifecycle.terminate(workflowRunId, 'completed', summary);
             yield { type: 'workflow_completed', workflowRunId, success: true, summary };

@@ -9,7 +9,6 @@ import { buildPlatformConfig } from '../platformUtils';
 import { stepRecordToInput, readStepsFile } from './workflowStepsFile';
 import { unwrapOr } from '../cliResult';
 
-/** workflow definition CRUD + lifecycle subcommands. */
 export function registerWorkflowDefinitionCommands(workflow: Command): void {
     workflow
         .command('list')

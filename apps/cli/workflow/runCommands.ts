@@ -5,7 +5,6 @@ import type { IPersistenceAdapter } from '@domain/ports';
 import { CLI_DEFAULT_LIST_LIMIT } from '@shared/defaults';
 import { unwrapOr } from '../cliResult';
 
-/** workflow run inspection subcommands. */
 export function registerWorkflowRunCommands(workflow: Command): void {
     workflow
         .command('runs')

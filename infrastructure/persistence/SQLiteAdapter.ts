@@ -13,13 +13,6 @@ import type { CheckpointMetadata } from '@domain/value-objects/CheckpointMetadat
 import type { CheckpointRecord } from '@domain/value-objects/CheckpointReadModel';
 import { PersistenceError } from '@domain/errors';
 
-/**
- * Composite IPersistenceAdapter for app-layer entry points (CLI commands, IPC
- * routers, ReportWriterService) that need the cross-aggregate union view. Pure
- * delegation to the per-aggregate adapters bound to the narrow ports — it holds
- * no connection or DB logic of its own. Backend services inject the narrow ports
- * directly (real ISP); this exists only for the few consumers that span aggregates.
- */
 @injectable()
 export class SQLiteAdapter implements IPersistenceAdapter {
     constructor(
@@ -28,7 +21,6 @@ export class SQLiteAdapter implements IPersistenceAdapter {
         @inject('IWorkflowRepository') private readonly workflows: IWorkflowRepository,
     ) {}
 
-    // IRunRepository
     saveRun(run: Run, platformConfigJson?: string): ResultAsync<void, PersistenceError> { return this.runs.saveRun(run, platformConfigJson); }
     getPlatformConfigJson(runId: string): ResultAsync<string | null, PersistenceError> { return this.runs.getPlatformConfigJson(runId); }
     updateRun(id: string, updates: Partial<Run>): ResultAsync<void, PersistenceError> { return this.runs.updateRun(id, updates); }
@@ -39,14 +31,12 @@ export class SQLiteAdapter implements IPersistenceAdapter {
     getSteps(runId: string): ResultAsync<Step[], PersistenceError> { return this.runs.getSteps(runId); }
     clearHistory(): ResultAsync<void, PersistenceError> { return this.runs.clearHistory(); }
 
-    // ICheckpointRepository
     saveCheckpoint(runId: string, state: WorkflowState, reason: CheckpointReason, metadata?: CheckpointMetadata): ResultAsync<void, PersistenceError> {
         return this.checkpoints.saveCheckpoint(runId, state, reason, metadata);
     }
     getCheckpointRecords(runId: string): ResultAsync<CheckpointRecord[], PersistenceError> { return this.checkpoints.getCheckpointRecords(runId); }
     pruneActionCheckpoints(runId: string, keep: number): ResultAsync<void, PersistenceError> { return this.checkpoints.pruneActionCheckpoints(runId, keep); }
 
-    // IWorkflowRepository
     saveWorkflowDefinition(definition: WorkflowDefinition): ResultAsync<void, PersistenceError> { return this.workflows.saveWorkflowDefinition(definition); }
     getWorkflowDefinition(id: string): ResultAsync<WorkflowDefinition | null, PersistenceError> { return this.workflows.getWorkflowDefinition(id); }
     getWorkflowDefinitions(limit?: number): ResultAsync<WorkflowDefinition[], PersistenceError> { return this.workflows.getWorkflowDefinitions(limit); }
