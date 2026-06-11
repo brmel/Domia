@@ -9,6 +9,7 @@ import { FileSystemStorage } from '@infrastructure/FileSystemStorage';
 import { RunDurabilityService } from '@backend/runs/engine/RunDurabilityService';
 import { RunSuspensionService } from '@backend/runs/engine/RunSuspensionService';
 import { RunResumeService } from '@backend/runs/RunResumeService';
+import { RunOrchestrationService } from '@backend/runs/RunOrchestrationService';
 import { RunBudgetPolicyService } from '@backend/runs/RunBudgetPolicyService';
 import { RunTerminalizationService } from '@backend/runs/engine/RunTerminalizationService';
 import { RunLifecycleManager } from '@backend/runs/RunLifecycleManager';
@@ -90,7 +91,7 @@ describe('RunResumeService — load envelope, restore, mark resumed', () => {
         const perception = { capture: async () => undefined } as never;
 
         const engine = new RunStepEngine(kernel, durability, terminalization, suspension, session, lane, perception, noopBus(), logger);
-        const resume = new RunResumeService(engine, suspension, new RunBudgetPolicyService(), runtime, logger);
+        const resume = new RunResumeService(engine, new RunOrchestrationService(engine), suspension, new RunBudgetPolicyService(), runtime, logger);
 
         const events: string[] = [];
         const controller = new ExecutionController();

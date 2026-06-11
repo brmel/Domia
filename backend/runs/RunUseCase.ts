@@ -1,29 +1,34 @@
 import { injectable, inject } from 'tsyringe';
-import type { IStructuredAutomation } from '@domain/ports';
-import type { AgentRuntimeExtras, AgentOutcome } from '@domain/ports/agent/IAgentRuntime';
-import { UrlFactory, WorkflowState } from '@domain/value-objects';
+import { WorkflowState } from '@domain/value-objects';
 import { CheckpointReason } from '@domain/value-objects/CheckpointReason';
 import { ExecutionController } from '@backend/ExecutionController';
-import { WorkflowError } from '@domain/errors';
 import { RunLifecycleManager } from './RunLifecycleManager';
 import { RunInput, RunOutput } from '@backend/dto';
 import { resolveUrlFromConfig, resolveLaneKeyFromConfig } from '@backend/platform/platformUrlUtils';
 import { buildRunExecutionOptions } from './runExecutionOptions';
 import { RuntimeReadinessPolicyService } from '@backend/policy/RuntimeReadinessPolicyService';
-import type { RunExecutionContext, PreparedRunSession } from './engine/RunSessionService';
+import type { RunExecutionContext } from './engine/RunSessionService';
 import { RunBudgetPolicyService } from './RunBudgetPolicyService';
 import { RunPlanCoordinator } from './RunPlanCoordinator';
 import { RunControlGateService } from './RunControlGateService';
 import type { IRunPlanning } from './RunPlanningService';
 import type { IRunEvaluation } from './RunEvaluationService';
 import { RunStepEngine } from './engine/RunStepEngine';
+import { RunOrchestrationService, type RunFlowContext, type RunFlowResult } from './RunOrchestrationService';
 import { ObservationProfile, DEFAULT_OBSERVATION_PROFILE, type RunId } from '@domain/value-objects';
 import type { ILogger } from '@domain/ports';
+
+interface BudgetContext {
+    budgetLimits: ReturnType<RunBudgetPolicyService['resolveLimits']>;
+    runStartMs: number;
+    estimatedTokensUsed: number;
+}
 
 @injectable()
 export class RunUseCase {
     constructor(
         @inject(RunStepEngine) private readonly engine: RunStepEngine,
+        @inject(RunOrchestrationService) private readonly orchestration: RunOrchestrationService,
         @inject(RunLifecycleManager) private readonly lifecycleManager: RunLifecycleManager,
         @inject('ITraceService') private readonly trace: import('@domain/ports/reporting/ITraceService').ITraceService,
         @inject(RunBudgetPolicyService) private readonly budgetPolicy: RunBudgetPolicyService,
@@ -47,134 +52,91 @@ export class RunUseCase {
             this.logger.warn(`[RunUseCase] readiness advisory: ${readinessReport.message ?? readinessReport.report.failedRequiredGateIds.join(', ')}`);
         }
 
-        const laneKey = resolveLaneKeyFromConfig(input.platformConfig);
-        const releaseLane = await this.engine.acquireLane(laneKey);
+        const budget: BudgetContext = {
+            budgetLimits: this.budgetPolicy.resolveLimits(input.options),
+            runStartMs: Date.now(),
+            estimatedTokensUsed: 0,
+        };
 
-        const initResult = await this.lifecycleManager.initializeRun(url, input.prompt, {
-            platformConfigJson: JSON.stringify(input.platformConfig),
-            ...(input.parentRunId ? { parentRunId: input.parentRunId } : {}),
+        yield* this.orchestration.orchestrate({
+            input,
+            url,
+            laneKey: resolveLaneKeyFromConfig(input.platformConfig),
+            stateRef: { current: WorkflowState.initial() },
+            vision: input.options?.vision ?? true,
+            profile: (input.options?.observationProfile as ObservationProfile | undefined) ?? DEFAULT_OBSERVATION_PROFILE,
+            controller,
+            ...(runContext ? { runContext } : {}),
+            beforeFinalize: () => this.trace.endTrace(),
+            initRun: async () => this.lifecycleManager.initializeRun(url, input.prompt, {
+                platformConfigJson: JSON.stringify(input.platformConfig),
+                ...(input.parentRunId ? { parentRunId: input.parentRunId } : {}),
+            }) as Promise<import('neverthrow').Result<RunId, Error>>,
+            announce: async (ctx) => {
+                await this.engine.checkpoint(ctx.runId, ctx.stateRef.current, CheckpointReason.RunInitialized);
+                return [{ type: 'started', runId: ctx.runId }];
+            },
+            runFlow: (ctx) => this.freshFlow(ctx, input, controller, budget),
         });
-        if (initResult.isErr()) {
-            releaseLane();
-            yield { type: 'error', error: initResult.error };
-            return;
-        }
-        const runId = initResult.value;
-        const budgetLimits = this.budgetPolicy.resolveLimits(input.options);
-        const runStartMs = Date.now();
-        let estimatedTokensUsed = 0;
+    }
 
-        let automation: IStructuredAutomation;
-        let sessionExtras: AgentRuntimeExtras | undefined;
-        let preparedSession: PreparedRunSession | undefined;
+    private async *freshFlow(
+        ctx: RunFlowContext,
+        input: RunInput,
+        controller: ExecutionController,
+        budget: BudgetContext,
+    ): AsyncGenerator<RunOutput, RunFlowResult, unknown> {
+        ctx.stateRef.current = WorkflowState.transitionTo(ctx.stateRef.current, 'thinking');
+        yield { type: 'state_updated', state: ctx.stateRef.current };
 
-        try {
-            preparedSession = await this.engine.prepareSession(input, runContext);
-            automation = preparedSession.automation;
-            sessionExtras = preparedSession.sessionExtras;
-        } catch (error) {
-            const err = error instanceof Error ? error : new Error(String(error));
-            yield { type: 'error', error: err };
-            releaseLane();
-            return;
+        const goalForPlan = await this.planning.expandGoal(ctx.runId, input.prompt);
+        const { plan, item } = this.planCoordinator.buildSinglePromptPlan(goalForPlan);
+
+        ctx.stateRef.current = WorkflowState.transitionTo(ctx.stateRef.current, 'thinking', { plan });
+        yield { type: 'state_updated', state: ctx.stateRef.current };
+        await this.engine.checkpoint(ctx.runId, ctx.stateRef.current, CheckpointReason.PlanReady);
+
+        const gate = await this.controlGate.evaluate(ctx.runId, ctx.stateRef.current, controller);
+        if (gate.kind === 'cancelled') {
+            return { outcome: gate.outcome, suspendedReason: null, completed: true };
         }
 
-        let currentState = WorkflowState.initial();
-        await this.engine.checkpoint(runId, currentState, CheckpointReason.RunInitialized);
-        yield { type: 'started', runId };
+        const activated = this.planCoordinator.activate(ctx.stateRef.current, plan, item);
+        ctx.stateRef.current = activated.state;
+        yield { type: 'state_updated', state: ctx.stateRef.current };
 
-        let completed = false;
-        let outcome: AgentOutcome | undefined;
-        let terminalError: Error | null = null;
-        let suspendedReason: string | null = null;
+        const executionOptions = buildRunExecutionOptions({
+            options: input.options,
+            platform: input.platformConfig.platform,
+            sessionExtras: ctx.preparedSession.sessionExtras,
+            observation: ctx.observation,
+            controller,
+        });
 
-        const initialProfile = (input.options?.observationProfile as ObservationProfile | undefined) ?? DEFAULT_OBSERVATION_PROFILE;
-        const visionEnabled = input.options?.vision ?? true;
-        const observation = this.engine.startObservation({ runId: runId as RunId, preparedSession, vision: visionEnabled, initialProfile });
-        await observation.start();
+        const kernelResult = yield* this.engine.executeStep(
+            ctx.runId,
+            item.description,
+            ctx.automation,
+            ctx.url,
+            ctx.stateRef.current,
+            executionOptions,
+            budget,
+            controller,
+        );
 
-        try {
-            const urlResult = UrlFactory.create(url);
-            if (urlResult.isErr()) throw new WorkflowError(`Invalid URL: ${urlResult.error.message}`);
+        ctx.stateRef.current = kernelResult.state;
+        budget.estimatedTokensUsed = kernelResult.estimatedTokensUsed;
+        const outcome = kernelResult.outcome;
 
-            if (preparedSession.shouldNavigate) {
-                const navResult = await automation.navigateTo(urlResult.value);
-                if (navResult.isErr()) throw new WorkflowError(`Navigation failed: ${navResult.error.message}`);
-            } else {
-                await automation.waitForReady();
-            }
-
-            currentState = WorkflowState.transitionTo(currentState, 'thinking');
-            yield { type: 'state_updated', state: currentState };
-
-            const goalForPlan = await this.planning.expandGoal(runId as RunId, input.prompt);
-            const { plan, item } = this.planCoordinator.buildSinglePromptPlan(goalForPlan);
-
-            currentState = WorkflowState.transitionTo(currentState, 'thinking', { plan });
-            yield { type: 'state_updated', state: currentState };
-            await this.engine.checkpoint(runId, currentState, CheckpointReason.PlanReady);
-
-            const gate = await this.controlGate.evaluate(runId, currentState, controller);
-            if (gate.kind === 'cancelled') {
-                completed = true;
-                outcome = gate.outcome;
-            } else {
-                const activated = this.planCoordinator.activate(currentState, plan, item);
-                currentState = activated.state;
-                yield { type: 'state_updated', state: currentState };
-
-                const executionOptions = buildRunExecutionOptions({
-                    options: input.options,
-                    platform: input.platformConfig.platform,
-                    sessionExtras,
-                    observation,
-                    controller,
-                });
-
-                const kernelResult = yield* this.engine.executeStep(
-                    runId,
-                    item.description,
-                    automation,
-                    url,
-                    currentState,
-                    executionOptions,
-                    { budgetLimits, runStartMs, estimatedTokensUsed },
-                    controller,
-                );
-
-                currentState = kernelResult.state;
-                estimatedTokensUsed = kernelResult.estimatedTokensUsed;
-                outcome = kernelResult.outcome;
-
-                if (kernelResult.suspendedReason) {
-                    suspendedReason = kernelResult.suspendedReason;
-                } else {
-                    currentState = this.planCoordinator.applyOutcome(currentState, plan, activated.runningItem, outcome);
-                    yield { type: 'state_updated', state: currentState };
-                    if (outcome?.kind === 'done') {
-                        await this.evaluation.evaluate(runId as RunId, input.prompt, outcome.output.summary);
-                    }
-                    completed = true;
-                }
-            }
-        } catch (error) {
-            const msg = error instanceof Error ? error.message : String(error);
-            terminalError = error instanceof Error ? error : new Error(msg);
-            await this.engine.recordMidRunFailure(runId, msg);
-        } finally {
-            yield* this.engine.concludeRun({
-                runId: runId as RunId,
-                observation,
-                preparedSession,
-                releaseLane,
-                completed,
-                terminalError,
-                outcome,
-                currentState,
-                suspendedReason,
-                controller,
-                beforeFinalize: () => this.trace.endTrace(),
-            });
+        if (kernelResult.suspendedReason) {
+            return { outcome, suspendedReason: kernelResult.suspendedReason, completed: false };
         }
+
+        ctx.stateRef.current = this.planCoordinator.applyOutcome(ctx.stateRef.current, plan, activated.runningItem, outcome);
+        yield { type: 'state_updated', state: ctx.stateRef.current };
+        if (outcome?.kind === 'done') {
+            await this.evaluation.evaluate(ctx.runId, input.prompt, outcome.output.summary);
+        }
+        return { outcome, suspendedReason: null, completed: true };
     }
 }

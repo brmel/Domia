@@ -30,6 +30,7 @@ import { RunPlanCoordinator } from '@backend/runs/RunPlanCoordinator';
 import { RunControlGateService } from '@backend/runs/RunControlGateService';
 import { StepExecutionKernelService } from '@backend/runs/engine/StepExecutionKernelService';
 import { RunStepEngine } from '@backend/runs/engine/RunStepEngine';
+import { RunOrchestrationService } from '@backend/runs/RunOrchestrationService';
 import { RuntimeReadinessPolicyService } from '@backend/policy/RuntimeReadinessPolicyService';
 import { WorkflowDefinitionService } from '@backend/workflows/WorkflowDefinitionService';
 import { WorkflowRunOrchestratorService } from '@backend/workflows/WorkflowRunOrchestratorService';
@@ -123,6 +124,7 @@ export class ContainerBuilder {
         container.registerSingleton(StepExecutionKernelService);
         container.registerSingleton(RuntimeReadinessPolicyService);
         container.registerSingleton(RunStepEngine);
+        container.registerSingleton(RunOrchestrationService);
         container.registerSingleton(RunHealthMonitorService);
         container.register('IRunHealthMonitor', { useToken: RunHealthMonitorService });
         return this;
