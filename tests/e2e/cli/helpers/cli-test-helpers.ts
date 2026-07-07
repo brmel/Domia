@@ -225,6 +225,7 @@ function spawnCLI(args: string[], extraEnv: Record<string, string> = {}): Promis
         
         const cli = spawn('npm', ['run', 'cli', '--', ...args], {
             cwd: process.cwd(),
+            shell: true, // npm resolves to npm.cmd on Windows; shell lets spawn find it
             env: { ...process.env, ...extraEnv, NODE_OPTIONS: '--no-deprecation' }
         });
         
