@@ -6,6 +6,7 @@ import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
 import { PlaywrightSampler } from '../playwright/observation/PlaywrightSampler';
 import { PlaywrightStream } from '../playwright/observation/PlaywrightStream';
 import type { ILogger } from '@domain/ports';
+import { Platform } from '@domain/value-objects';
 
 export class WebDriver implements IAppDriver {
     constructor(
@@ -26,7 +27,7 @@ export class WebDriver implements IAppDriver {
 
     getCapabilities(): AppCapabilities {
         return {
-            platform: 'web',
+            platform: Platform.Web,
             supportsDOM: true,
             supportsVision: true,
             supportsMultiWindow: false,

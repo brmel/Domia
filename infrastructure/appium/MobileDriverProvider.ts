@@ -5,18 +5,19 @@ import type { IAppDriverProvider, AppDriverCreateConfig } from '@domain/ports/au
 import type { IStructuredAutomation } from '@domain/ports';
 import type { IObservationSampler } from '@domain/ports/perception/IObservationSampler';
 import type { IObservationStream } from '@domain/ports/perception/IObservationStream';
+import { Platform } from '@domain/value-objects';
 import { AppiumAdapter } from './AppiumAdapter';
 import { AppiumSampler } from './observation/AppiumSampler';
 import { AppiumStream } from './observation/AppiumStream';
 
 @injectable()
 export class MobileDriverProvider implements IAppDriverProvider {
-    readonly platform = 'mobile';
+    readonly platform = Platform.Mobile;
 
     constructor(@inject('ILogger') private readonly logger: ILogger) {}
 
     async createDriver(config: AppDriverCreateConfig): Promise<IAppDriver> {
-        if (config.platformConfig.platform !== 'mobile') {
+        if (config.platformConfig.platform !== Platform.Mobile) {
             throw new Error('[MobileDriverProvider] Invalid platform config');
         }
         const adapter = new AppiumAdapter(this.logger, config.platformConfig);
@@ -34,7 +35,7 @@ class MobileAppDriver implements IAppDriver {
     }
     getCapabilities(): AppCapabilities {
         return {
-            platform: 'mobile',
+            platform: Platform.Mobile,
             supportsDOM: false,
             supportsVision: true,
             supportsMultiWindow: false,

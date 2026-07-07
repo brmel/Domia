@@ -2,6 +2,7 @@ import { inject, injectable } from 'tsyringe';
 import type { RunInput } from '@backend/dto';
 import type { ILogger, IStructuredAutomation } from '@domain/ports';
 import { WorkflowError } from '@domain/errors';
+import { Platform } from '@domain/value-objects';
 import type { IAppDriverFactory, AppDriverCreateOptions } from '@domain/ports/automation/IAppDriverFactory';
 import type { PlatformSession } from './PlatformSession';
 import { resolveUrlFromConfig } from './platformUrlUtils';
@@ -41,8 +42,8 @@ export class PlatformSessionFactory {
         }
 
         const executionUrl = resolveUrlFromConfig(input.platformConfig);
-        const shouldNavigate = platformConfig.platform === 'web'
-            || (platformConfig.platform === 'electron' && 'startUrl' in platformConfig && !!platformConfig.startUrl);
+        const shouldNavigate = platformConfig.platform === Platform.Web
+            || (platformConfig.platform === Platform.Electron && 'startUrl' in platformConfig && !!platformConfig.startUrl);
 
         const extras = driver.getSessionExtras();
         // Surface capabilities so the tool catalog can gate by them.
