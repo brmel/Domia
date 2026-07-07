@@ -45,8 +45,10 @@ export class RunTerminalizationService {
         if (controller.state === RunState.CANCELLED) {
             currentState = WorkflowState.applyTerminal(currentState, 'idle', 'cancelled');
             await this.durability.checkpoint(runId, currentState, CheckpointReason.TerminalCancelled);
-            yield { type: 'cancelled', summary: RunSummaryDefaults.CancelledByUser };
+            // Persist the terminal status before yielding: a CLI consumer exits the
+            // process on the terminal event, which would otherwise abandon this write.
             await this.lifecycleManager.finalizeRun(runId, undefined, RunSummaryDefaults.CancelledByUser);
+            yield { type: 'cancelled', summary: RunSummaryDefaults.CancelledByUser };
             return;
         }
 
@@ -65,7 +67,9 @@ export class RunTerminalizationService {
             currentState,
             success ? CheckpointReason.TerminalSuccess : CheckpointReason.TerminalFailure,
         );
-        yield { type: 'completed', success, summary };
+        // Persist the terminal status before yielding: a CLI consumer exits the
+        // process on the terminal event, which would otherwise abandon this write.
         await this.lifecycleManager.finalizeRun(runId, outcome, summary);
+        yield { type: 'completed', success, summary };
     }
 }
