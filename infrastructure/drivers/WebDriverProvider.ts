@@ -2,6 +2,7 @@ import { injectable, inject } from 'tsyringe';
 import type { IAppDriverProvider, AppDriverCreateConfig } from '@domain/ports/automation/IAppDriverFactory';
 import type { IAppDriver } from '@domain/ports/automation/IAppDriver';
 import type { ILogger, IConfigService } from '@domain/ports';
+import { Platform } from '@domain/value-objects';
 import { WebDriver } from './WebDriver';
 import { PlaywrightAdapter } from '../playwright/PlaywrightAdapter';
 import { BrowserPool } from '../playwright/BrowserPool';
@@ -11,7 +12,7 @@ const AGENT_VIEW_MARKER = 'domia-agent-view';
 
 @injectable()
 export class WebDriverProvider implements IAppDriverProvider {
-    readonly platform = 'web' as const;
+    readonly platform = Platform.Web;
 
     constructor(
         @inject('ILogger') private readonly logger: ILogger,
@@ -20,7 +21,7 @@ export class WebDriverProvider implements IAppDriverProvider {
     ) {}
 
     async createDriver(config: AppDriverCreateConfig): Promise<IAppDriver> {
-        if (config.platformConfig.platform !== 'web') {
+        if (config.platformConfig.platform !== Platform.Web) {
             throw new Error('[WebDriverProvider] Invalid platform config');
         }
 
@@ -68,7 +69,7 @@ export class WebDriverProvider implements IAppDriverProvider {
         const adapter = new PlaywrightAdapter(this.logger, this.pool);
         const driver = new WebDriver(adapter, this.logger);
         const headless = config.options?.headless ?? true;
-        const device = config.platformConfig.platform === 'web' ? config.platformConfig.device : undefined;
+        const device = config.platformConfig.platform === Platform.Web ? config.platformConfig.device : undefined;
 
         const connectResult = await driver.connect({ headless, ...(device ? { device } : {}) });
         if (connectResult.isErr()) {

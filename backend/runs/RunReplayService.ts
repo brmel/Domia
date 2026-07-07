@@ -1,7 +1,7 @@
 import { inject, injectable } from 'tsyringe';
 import type { IRunRepository } from '@domain/ports/persistence/IRunRepository';
 import type { PlatformConfig } from '@domain/types/PlatformConfig';
-import type { RunId } from '@domain/value-objects';
+import { Platform, type RunId } from '@domain/value-objects';
 import type { RunInput } from '@backend/dto';
 
 export interface ReplayBuildOptions {
@@ -46,6 +46,6 @@ export class RunReplayService {
                 // fall through to URL-based reconstruction
             }
         }
-        return { platform: 'web', url: fallbackUrl };
+        return { platform: Platform.Web, url: fallbackUrl };
     }
 }

@@ -1,8 +1,12 @@
 # Follow-ups — open work
 
-Verified state (2026-06-11): dependencies install, `tsc` is at 0 errors, `check:architecture` passes,
+Verified state (2026-07-06): dependencies install, `tsc` is at 0 errors, `check:architecture` passes,
 the full vitest suite is green, and `knip` reports no unused files/deps. Everything from the old
 blocked-registry era is done or obsolete; what remains is below.
+
+## Agent quality
+
+- [ ] **Default model rarely acts** — `DEFAULT_LLM_MODEL = 'gemini-2.0-flash'` observes and calls `finish` with 0 interaction actions even for imperative goals ("click the button"), and reports success on unsatisfiable goals. Loop/tooling is correct; the model is weak. Evaluate bumping the default to a stronger Gemini and/or a prompt nudge that requires an interaction before `finish` when the goal is imperative. **M**
 
 ## Tests to add
 

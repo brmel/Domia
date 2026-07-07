@@ -1,5 +1,6 @@
 import inquirer from 'inquirer';
 import { CLI_DEFAULT_STEPS, CLI_DEFAULT_URL } from '@shared/defaults';
+import { Platform } from '@domain/value-objects';
 
 interface RunInputSeed {
     readonly url?: string;
@@ -35,7 +36,7 @@ export async function promptForMissingRunInputs(seed: RunInputSeed): Promise<Fil
             type: 'list',
             name: 'platformChoice',
             message: 'Select platform:',
-            choices: ['web', 'electron (CDP)', 'electron (executable)'],
+            choices: [Platform.Web, 'electron (CDP)', 'electron (executable)'],
             when: needsTarget,
         },
         {
@@ -43,7 +44,7 @@ export async function promptForMissingRunInputs(seed: RunInputSeed): Promise<Fil
             name: 'url',
             message: 'Target URL:',
             default: CLI_DEFAULT_URL,
-            when: (ans: Record<string, unknown>): boolean => noExplicitTarget && (!platformFlag || platformFlag === 'web') && (ans['platformChoice'] === 'web' || !ans['platformChoice']),
+            when: (ans: Record<string, unknown>): boolean => noExplicitTarget && (!platformFlag || platformFlag === Platform.Web) && (ans['platformChoice'] === Platform.Web || !ans['platformChoice']),
         },
         {
             type: 'input',

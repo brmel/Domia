@@ -2,12 +2,15 @@
 import 'reflect-metadata';
 import 'dotenv/config';
 import http from 'node:http';
+import { container } from 'tsyringe';
 import { registerCoreServices } from '@backend/container-root';
 import { DEFAULT_SERVER_PORT } from '@shared/defaults';
+import type { ILogger } from '@domain/ports';
 import { handleDomiaRequest } from './routes';
 
 registerCoreServices();
 
+const logger = container.resolve<ILogger>('ILogger');
 const port = Number(process.env['DOMIA_SERVER_PORT'] ?? DEFAULT_SERVER_PORT);
 
 const server = http.createServer(async (req, res) => {
@@ -21,5 +24,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(port, () => {
-    console.log(`[domia-server] listening on http://localhost:${port}`);
+    logger.info(`[domia-server] listening on http://localhost:${port}`);
 });

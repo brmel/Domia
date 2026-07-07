@@ -91,7 +91,7 @@ const layerRules = [
     },
     {
         name: 'shared-defaults-no-node-builtins',
-        scope: /^shared\/defaults\/(?!plugin\.)/,
+        scope: /^shared\/defaults\//,
         forbiddenImportPatterns: [
             /^os$/,
             /^path$/,

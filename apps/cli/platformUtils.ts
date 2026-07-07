@@ -1,4 +1,5 @@
 import type { PlatformConfig } from '@domain/types/PlatformConfig';
+import { Platform } from '@domain/value-objects';
 
 interface PlatformOptions {
     url?: string;
@@ -26,11 +27,11 @@ export function buildPlatformConfig(
 
     switch (resolvePlatform(options)) {
         case 'web':
-            return { platform: 'web', url: url! };
+            return { platform: Platform.Web, url: url! };
 
         case 'electron-cdp':
             return {
-                platform: 'electron',
+                platform: Platform.Electron,
                 connection: {
                     type: 'cdp',
                     cdpUrl: cdpUrl!,
@@ -40,7 +41,7 @@ export function buildPlatformConfig(
 
         case 'electron-exec':
             return {
-                platform: 'electron',
+                platform: Platform.Electron,
                 connection: {
                     type: 'executable',
                     executablePath: executablePath!,
@@ -51,7 +52,7 @@ export function buildPlatformConfig(
 
         case 'unspecified':
             if (defaultPlatformConfig) return defaultPlatformConfig;
-            if (platform === 'electron') {
+            if (platform === Platform.Electron) {
                 throw new Error('Electron platform requires --cdp-url or --executable-path.');
             }
             throw new Error('Must provide one of --url, --cdp-url, or --executable-path.');

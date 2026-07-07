@@ -7,6 +7,7 @@ export { ArtifactRetention, DEFAULT_ARTIFACT_RETENTION } from './ArtifactRetenti
 export { SkillIdFactory, type SkillId } from './SkillId';
 export { WorkflowStepKind } from './WorkflowStepKind';
 export { ObservationProfile, DEFAULT_OBSERVATION_PROFILE } from './ObservationProfile';
+export { Platform, type BuiltInPlatformType, type PlatformType } from './Platform';
 export type { ObservationFrame, FrameAttachment } from './ObservationFrame';
 export type { CheckpointMetadata } from './CheckpointMetadata';
 export type { ConversationSnapshot } from './ConversationSnapshot';

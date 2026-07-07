@@ -3,6 +3,7 @@ import type { IAppDriverProvider, AppDriverCreateConfig } from '@domain/ports/au
 import type { IAppDriver } from '@domain/ports/automation/IAppDriver';
 import type { ILogger } from '@domain/ports';
 import type { ElectronConnection } from '@domain/types/PlatformConfig';
+import { Platform } from '@domain/value-objects';
 import { ElectronDriver } from './ElectronDriver';
 import type { ElectronConnectionConfig } from './electronCdpConnect';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
@@ -10,7 +11,7 @@ import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
 @injectable()
 export class ElectronDriverProvider implements IAppDriverProvider {
     private static readonly TAG = '[ElectronDriverProvider]';
-    readonly platform = 'electron' as const;
+    readonly platform = Platform.Electron;
 
     constructor(
         @inject(ElectronWindowSelectionPolicy) private readonly windowSelectionPolicy: ElectronWindowSelectionPolicy,
@@ -18,7 +19,7 @@ export class ElectronDriverProvider implements IAppDriverProvider {
     ) {}
 
     async createDriver(config: AppDriverCreateConfig): Promise<IAppDriver> {
-        if (config.platformConfig.platform !== 'electron') {
+        if (config.platformConfig.platform !== Platform.Electron) {
             throw new Error(`${ElectronDriverProvider.TAG} Invalid platform config`);
         }
 

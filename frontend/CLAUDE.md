@@ -19,7 +19,7 @@
 
 ## Patterns
 - State per feature in `features/<feature>/store.ts` using Zustand.
-- tRPC subscriptions consumed in custom hooks (`useRunPanel`, `useWorkflowWorkspace`).
+- tRPC subscriptions consumed in custom hooks (`useRunPanel`; workflows split across `useWorkflowDefinitions` / `useWorkflowEditor` / `useWorkflowRuns` / `useWorkflowEventFeed`).
 - Components import `cn` from `@frontend/lib/cn` for class merging.
 - Logging via `@frontend/lib/logger` (browser-safe pino).
 

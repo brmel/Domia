@@ -64,6 +64,7 @@ export async function renderRunStream(params: RenderRunStreamParams): Promise<vo
         switch (event.type) {
             case 'started':
                 capturedRunId = event.runId;
+                console.log(chalk.gray(`Run ID: ${event.runId}`));
                 break;
             case 'acting': {
                 const a = event.action;

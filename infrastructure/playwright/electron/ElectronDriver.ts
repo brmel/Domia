@@ -8,6 +8,7 @@ import type { IWindowManager } from '@domain/ports/automation/IWindowManager';
 import { NavigationError } from '@domain/errors';
 import { CDP_DEFAULT_URL, WINDOW_WAIT_TIMEOUT_MS, WINDOW_POLL_INTERVAL_MS } from '@shared/defaults';
 import { CDPValidator } from '@domain/CDPValidator';
+import { Platform } from '@domain/value-objects';
 import { sleep } from '@shared/reliability/sleep';
 import { connectCDP, launchWithCDP, launchWithPlaywright, type ElectronConnectionConfig } from './electronCdpConnect';
 import { ElectronWindowManager } from './ElectronWindowManager';
@@ -112,7 +113,7 @@ export class ElectronDriver implements IAppDriver {
 
     getCapabilities(): AppCapabilities {
         return {
-            platform: 'electron',
+            platform: Platform.Electron,
             supportsDOM: true,
             supportsVision: true,
             supportsMultiWindow: true,

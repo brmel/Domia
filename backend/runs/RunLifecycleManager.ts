@@ -51,13 +51,12 @@ export class RunLifecycleManager {
         if (startResult.isErr()) {
             return err(startResult.error);
         }
-        try {
-            await this.persistence.saveRun(startResult.value, opts?.platformConfigJson);
-            this.events.emit('run.started', { runId: id, url: urlString, prompt });
-            return ok(id);
-        } catch (error) {
-            return err(new PersistenceError(`Failed to save run: ${error}`, error));
+        const saveResult = await this.persistence.saveRun(startResult.value, opts?.platformConfigJson);
+        if (saveResult.isErr()) {
+            return err(saveResult.error);
         }
+        this.events.emit('run.started', { runId: id, url: urlString, prompt });
+        return ok(id);
     }
 
     async finalizeRun(id: RunId, outcome: AgentOutcome | undefined, fallbackSummary: string): Promise<void> {
@@ -78,7 +77,10 @@ export class RunLifecycleManager {
         }
         const { run: finalized, success } = finalizedResult.value;
 
-        await this.persistence.updateRun(id, { status: finalized.status, updatedAt: finalized.updatedAt });
+        const updateResult = await this.persistence.updateRun(id, { status: finalized.status, updatedAt: finalized.updatedAt });
+        if (updateResult.isErr()) {
+            this.logger.warn(`Failed to persist finalize for run ${id}: ${updateResult.error.message}`);
+        }
         this.events.emit('run.completed', { runId: id, success, summary });
     }
 
@@ -94,7 +96,10 @@ export class RunLifecycleManager {
             return;
         }
         const failed = failedResult.value;
-        await this.persistence.updateRun(id, { status: failed.status, updatedAt: failed.updatedAt });
+        const updateResult = await this.persistence.updateRun(id, { status: failed.status, updatedAt: failed.updatedAt });
+        if (updateResult.isErr()) {
+            this.logger.warn(`Failed to persist failure for run ${id}: ${updateResult.error.message}`);
+        }
         this.events.emit('run.failed', { runId: id, error: message });
     }
 }

@@ -41,7 +41,7 @@ interface IAgentRuntime {
     run(input: AgentInput, automation: IStructuredAutomation): AsyncGenerator<AgentEvent, AgentOutcome>;
 }
 ```
-Only impl: `AdkAgentRuntime` (`infrastructure/agent-runtime/adk/`). New provider → implement the port in `infrastructure/agent-runtime/<provider>/`, register under `'IAgentRuntime'`. ADK-specific concerns stay in that folder; generic loop helpers go in `infrastructure/agent/common/`.
+Only impl: `AdkAgentRuntime` (`infrastructure/agent-runtime/adk/`). New provider → implement the port in `infrastructure/agent-runtime/<provider>/`, register under `'IAgentRuntime'`. ADK-specific concerns stay in that folder; generic loop helpers go in `infrastructure/agent/`.
 
 ## AgentOutcome routing (verdict is OPTIONAL)
 

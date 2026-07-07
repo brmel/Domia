@@ -159,6 +159,12 @@ export async function runCLITest(config: CLITestConfig): Promise<CLITestResult> 
 }
 
 function extractRunId(output: string): string | undefined {
+    // Human mode prints `Run ID: <id>`; --json mode emits `"runId":"<id>"` / `"id":"<id>"`.
+    const humanMatch = output.match(/Run ID:\s*([A-Za-z0-9_-]+)/);
+    if (humanMatch?.[1]) {
+        return humanMatch[1];
+    }
+
     const jsonMatch = output.match(/"id"\s*:\s*"([A-Za-z0-9_-]+)"/);
     if (jsonMatch?.[1]) {
         return jsonMatch[1];
@@ -219,6 +225,7 @@ function spawnCLI(args: string[], extraEnv: Record<string, string> = {}): Promis
         
         const cli = spawn('npm', ['run', 'cli', '--', ...args], {
             cwd: process.cwd(),
+            shell: true, // npm resolves to npm.cmd on Windows; shell lets spawn find it
             env: { ...process.env, ...extraEnv, NODE_OPTIONS: '--no-deprecation' }
         });
         

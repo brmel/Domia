@@ -2,7 +2,7 @@ import type { Part } from '@google/genai';
 import type { AgentEvent } from '@domain/ports/agent/IAgentRuntime';
 import type { ILogger } from '@domain/ports';
 import type { RunMetricsState } from './RunMetricsPlugin';
-import type { ActionMapper } from '@infrastructure/agent/common/ActionMapper';
+import type { ActionMapper } from '@infrastructure/agent/ActionMapper';
 import type { PostActionCaptureMiddleware } from '@infrastructure/tools/PostActionCaptureMiddleware';
 import { TOOL_TIME_LOG_THRESHOLD_MS } from '@shared/defaults';
 
