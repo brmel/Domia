@@ -60,8 +60,12 @@ export class RunOrchestrationService {
         try {
             preparedSession = await this.engine.prepareSession(p.input, p.runContext);
         } catch (error) {
+            const failure = error instanceof Error ? error : new Error(String(error));
+            // The run row already exists (initRun); finalize it as failed so a failed
+            // session prep (e.g. browser launch timeout) can't orphan it in RUNNING.
+            await this.engine.recordMidRunFailure(runId, failure.message);
             releaseLane();
-            yield { type: 'error', error: error instanceof Error ? error : new Error(String(error)) };
+            yield { type: 'error', error: failure };
             return 'aborted';
         }
 
