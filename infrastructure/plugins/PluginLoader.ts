@@ -1,5 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import { promises as fs } from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { Worker } from 'node:worker_threads';
 import type { ILogger } from '@domain/ports';
@@ -13,10 +14,11 @@ import {
     type WorkerToolDescriptor,
 } from './PluginManifest';
 import { PLUGIN_WORKER_HARNESS_SOURCE } from './PluginWorkerHarness';
-import { DEFAULT_PLUGIN_DIR, PLUGIN_TOOL_EXEC_TIMEOUT_MS, PLUGIN_VM_TIMEOUT_MS } from '@shared/defaults/plugin.defaults';
+import { PLUGIN_TOOL_EXEC_TIMEOUT_MS, PLUGIN_VM_TIMEOUT_MS } from '@shared/defaults/plugin.defaults';
 
 const PLUGIN_ENTRY_FILE = 'index.js';
 const PLUGIN_METADATA_FILE = 'plugin.json';
+const DEFAULT_PLUGIN_DIR = path.join(os.homedir(), '.domia', 'plugins');
 
 interface PendingCall {
     resolve: (value: unknown) => void;
