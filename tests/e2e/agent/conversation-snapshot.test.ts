@@ -7,7 +7,11 @@ import type { ConversationSnapshot } from '@domain/value-objects/ConversationSna
 function buildRuntime(): AdkAgentRuntime {
     const logger = new ConsoleLogger();
     const stub = {} as never;
-    return new AdkAgentRuntime(stub, stub, logger, stub, stub, stub, stub, stub, stub, stub, stub, stub);
+    const storage = {
+        saveConversationSnapshot: async () => '',
+        loadConversationSnapshotForRun: async () => null,
+    } as never;
+    return new AdkAgentRuntime(stub, storage, logger, stub, stub, stub, stub, stub, stub, stub, stub, stub);
 }
 
 function makeFakeEvent(invocationId: string, author: string, text: string): unknown {
