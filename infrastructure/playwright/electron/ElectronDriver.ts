@@ -71,6 +71,7 @@ export class ElectronDriver implements IAppDriver {
 
     private async initializeWindows(config: ElectronConnectionConfig): Promise<void> {
         await this.discoverWindows();
+        this.trackFutureWindows();
 
         if (config.waitForWindow !== false && this.windowManager.getWindowCount() === 0) {
             await this.waitForWindow(WINDOW_WAIT_TIMEOUT_MS);
@@ -78,6 +79,19 @@ export class ElectronDriver implements IAppDriver {
 
         await this.windowSelectionPolicy.selectTargetWindow(this.windowManager, config.windowTitle);
         this.buildAdapter();
+    }
+
+    // Complex apps open windows mid-run (modals, settings, children); without
+    // this, list_windows/switch_window only ever see the connect-time set.
+    private trackFutureWindows(): void {
+        if (!this.browser) return;
+        for (const context of this.browser.contexts()) {
+            context.on('page', (page) => {
+                void this.windowManager.registerWindow(page).then((result) => {
+                    if (result.isOk()) this.logger.info(`${ElectronDriver.TAG} New window discovered: ${result.value}`);
+                });
+            });
+        }
     }
 
     private buildAdapter(): void {

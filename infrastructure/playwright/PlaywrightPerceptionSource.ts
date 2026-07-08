@@ -40,11 +40,22 @@ export class PlaywrightPerceptionSource implements IPerceptionSource {
 
     async getAriaSnapshot(): Promise<string> {
         try {
-            return await this.getPage().locator('body').ariaSnapshot();
+            const snapshot = await this.getPage().locator('body').ariaSnapshot();
+            return `${snapshot}${this.describeChildFrames()}`;
         } catch {
             // ariaSnapshot is best-effort — not all pages/contexts support it
             return '';
         }
+    }
+
+    // ariaSnapshot covers the main frame only; complex apps embed webviews/iframes
+    // whose content would otherwise be invisible to the agent.
+    private describeChildFrames(): string {
+        const page = this.getPage();
+        const frames = page.frames().filter((f) => f !== page.mainFrame() && f.url() && f.url() !== 'about:blank');
+        if (frames.length === 0) return '';
+        const lines = frames.slice(0, 10).map((f) => `${f.name() || '(unnamed frame)'}: ${f.url()}`);
+        return `\n\nEMBEDDED FRAMES — content NOT included above (${frames.length}):\n${lines.join('\n')}`;
     }
 
     async waitForContentReady(timeout = CONTENT_READY_TIMEOUT_MS): Promise<void> {

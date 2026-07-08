@@ -12,13 +12,13 @@ blocked-registry era is done or obsolete; what remains is below.
 
 - [ ] **Budget enforcement** — drive `RunBudgetPolicyService` / the runtime to a small `maxActions`/`maxTokens`/`maxDurationMs` and assert the run stops with `budget_exhausted`. **M**
 - [ ] **`TraceService` + `RunTraceWriter`** — assert one TracerProvider is installed and a per-run `trace.jsonl` is written (real `FileSystemStorage` over a tmp dir, no OTLP collector). **M**
-- [ ] **Electron `switch_window` 2-window case** — open a second page over CDP, switch, assert the interaction lands on the new window. **M**
+- [x] **Electron `switch_window` 2-window case** — done 2026-07-08: `electron-multiwindow.test.ts` opens a child mid-run, asserts discovery, switches, clicks in it, and asserts closed windows are pruned.
 - [ ] **Integrated `RunUseCase` e2e** — needs a recorded LLM replay fixture; run the full orchestrator once deterministically. **L**
 - [ ] **De-mock the workflow tests** — `workflow-execution.test.ts` still uses `vi.fn()` + Map fakes; rewire to the real `SQLiteWorkflowRepository` + `createInMemoryDb()` (pattern in `run-resume.test.ts`). **M**
 
 ## Robustness
 
-- [ ] **`PlaywrightStream` hooks on window switch** — console/network/pageerror hooks don't migrate on a mid-stream Electron window switch; verify whether that happens in practice, re-attach if so. **M**
+- [x] **`PlaywrightStream` hooks on window switch** — fixed 2026-07-08: each tick re-attaches console/network/pageerror hooks when the active page identity changes.
 - [x] **`.db.bak` restore path** — fixed 2026-07-08: `openDatabase` integrity-checks the primary file (`PRAGMA schema_version`), falls back to `.bak`, then to a fresh DB.
 - [ ] **Versioned JSON blobs** — `state_json` / `steps_json` / `platform_config_json` have no schema-version tag; add a version + Zod validation on read (matters most for resume rehydration). **M**
 

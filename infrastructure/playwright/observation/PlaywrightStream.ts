@@ -15,6 +15,7 @@ interface RunStreamState {
     captureInFlight: boolean;
     handlers: Set<FrameHandler>;
     detach: Array<() => void>;
+    hookedPage: Page | null;
 }
 
 export class PlaywrightStream implements IObservationStream {
@@ -37,6 +38,7 @@ export class PlaywrightStream implements IObservationStream {
             captureInFlight: false,
             handlers: new Set(),
             detach: [],
+            hookedPage: null,
         };
         this.states.set(runId, state);
         this.attachPageHooks(state);
@@ -95,6 +97,12 @@ export class PlaywrightStream implements IObservationStream {
         if (state.captureInFlight) return;
         const page = this.getPage();
         if (!page || page.isClosed()) return;
+        // Console/network hooks must follow the active page across Electron
+        // window switches; the screenshot already does via the lazy getter.
+        if (state.hookedPage !== page) {
+            this.detachPageHooks(state);
+            this.attachPageHooks(state);
+        }
         state.captureInFlight = true;
         try {
             const buffer = await page.screenshot({ type: 'jpeg', quality: 60, fullPage: false });
@@ -120,6 +128,7 @@ export class PlaywrightStream implements IObservationStream {
     private attachPageHooks(state: RunStreamState): void {
         const page = this.getPage();
         if (!page) return;
+        state.hookedPage = page;
         const { hookConsole, hookPageError, hookNetwork } = state.settings;
 
         if (hookConsole) {
@@ -170,6 +179,7 @@ export class PlaywrightStream implements IObservationStream {
             try { detach(); } catch { /* hook already gone */ }
         }
         state.detach = [];
+        state.hookedPage = null;
     }
 
     private simpleFrame(runId: RunId, source: string, summary: string, attachments: readonly FrameAttachment[]): ObservationFrame {
