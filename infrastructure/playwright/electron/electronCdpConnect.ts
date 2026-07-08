@@ -41,6 +41,9 @@ export async function connectCDP(logger: ILogger, cdpUrl: string, timeoutMs?: nu
 }
 
 export async function launchWithCDP(logger: ILogger, config: ElectronConnectionConfig): Promise<{ browser: Browser; process: ChildProcess }> {
+    if (!config.executablePath) {
+        throw new Error(`${TAG} executablePath is required to launch an Electron app`);
+    }
     const port = config.cdpPort ?? CDP_DEFAULT_PORT;
     logger.info(`${TAG} Launching with CDP port ${port}: ${config.executablePath}`);
 
@@ -55,7 +58,7 @@ export async function launchWithCDP(logger: ILogger, config: ElectronConnectionC
         ? [...userArgs]
         : [...userArgs, `--remote-debugging-port=${port}`];
 
-    const appProcess = spawn(config.executablePath!, args, { env, detached: false, stdio: 'pipe' });
+    const appProcess = spawn(config.executablePath, args, { env, detached: false, stdio: 'pipe' });
     logger.debug(`${TAG} Process spawned: PID ${appProcess.pid}`);
     appProcess.stdout?.on('data', (data: Buffer) => logger.debug(`[ElectronApp] ${data.toString().trimEnd()}`));
     appProcess.stderr?.on('data', (data: Buffer) => logger.debug(`[ElectronApp:err] ${data.toString().trimEnd()}`));
@@ -71,20 +74,3 @@ export async function launchWithCDP(logger: ILogger, config: ElectronConnectionC
     }
 }
 
-export async function launchWithPlaywright(logger: ILogger, config: ElectronConnectionConfig): Promise<Browser> {
-    if (!config.executablePath) {
-        throw new Error(`${TAG} executablePath is required to launch via Playwright`);
-    }
-    logger.info(`${TAG} Launching via Playwright: ${config.executablePath}`);
-
-    const defaultArgs = [`--remote-debugging-port=${CDP_DEFAULT_PORT}`];
-    const userArgs = config.launchArgs ?? [];
-    const hasPortArg = userArgs.some((a) => a.includes('remote-debugging-port'));
-
-    return chromium.launch({
-        executablePath: config.executablePath,
-        args: [...userArgs, ...(hasPortArg ? [] : defaultArgs)],
-        timeout: config.connectionTimeout ?? CDP_CONNECTION_TIMEOUT_MS,
-        ignoreDefaultArgs: true,
-    });
-}

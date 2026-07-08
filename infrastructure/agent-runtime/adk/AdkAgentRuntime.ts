@@ -23,7 +23,8 @@ import { ShellExecutor } from '@infrastructure/shell/ShellExecutor';
 import { TraceService } from '@infrastructure/services/TraceService';
 import type { IConfigService } from '@domain/ports/platform/IConfigService';
 import { LLM_CALL_BUDGET_OFFSET, LLM_ERROR_RETRIES, FINAL_RESPONSE_LOG_CHARS, APP_NAME } from '@shared/defaults';
-import { assembleAdkSession } from './assembleAdkSession';
+import { assembleAdkSession, type AdkSessionSetup } from './assembleAdkSession';
+import type { Content } from '@google/genai';
 import { ADK_SNAPSHOT_PROVIDER, ADK_SESSION_USER_ID } from './adkConstants';
 
 const LOG_TAG = '[AdkAgentRuntime]';
@@ -33,6 +34,27 @@ function readUsageTokens(event: unknown): number {
     const usage = (event as { usageMetadata?: { totalTokenCount?: number } }).usageMetadata;
     return typeof usage?.totalTokenCount === 'number' ? usage.totalTokenCount : 0;
 }
+
+interface InvocationContext {
+    readonly runner: AdkSessionSetup['runner'];
+    readonly session: AdkSessionSetup['session'];
+    readonly state: AdkSessionSetup['state'];
+    readonly captureMiddleware: AdkSessionSetup['captureMiddleware'];
+    readonly actionMapper: AdkSessionSetup['actionMapper'];
+    readonly stepGoal: string;
+    readonly maxActions: number;
+    readonly vision: boolean;
+    readonly budget: AgentInput['budget'];
+    readonly runStartMs: number;
+    readonly tokens: { total: number };
+}
+
+type InvocationEnd =
+    | { readonly kind: 'outcome'; readonly outcome: AgentOutcome }
+    | { readonly kind: 'llm_error'; readonly code: string; readonly message: string }
+    | { readonly kind: 'exhausted' };
+
+const outcomeEnd = (outcome: AgentOutcome): InvocationEnd => ({ kind: 'outcome', outcome });
 
 @injectable()
 export class AdkAgentRuntime implements IAgentRuntime {
@@ -104,24 +126,67 @@ export class AdkAgentRuntime implements IAgentRuntime {
         const { state, captureMiddleware, actionMapper, runner, session, initialMessage, sink } = setup;
         const { stepGoal, maxActions, vision, budget } = input;
 
-        const runStartMs = Date.now();
-        let estimatedTokens = 0;
-        let nextMessage = initialMessage;
-        let llmErrorRetries = 0;
-        let llmError: { code: string; message: string } | null = null;
+        const invocation: InvocationContext = {
+            runner,
+            session,
+            state,
+            captureMiddleware,
+            actionMapper,
+            stepGoal,
+            maxActions,
+            vision,
+            budget,
+            runStartMs: Date.now(),
+            tokens: { total: 0 },
+        };
 
         try {
-            retry: for (;;) {
-            llmError = null;
-            state.llmTurnStartMs = Date.now();
+            let nextMessage = initialMessage;
+            for (let retries = 0; ; ) {
+                const end = yield* this.driveInvocation(invocation, nextMessage);
+                if (end.kind === 'outcome') return end.outcome;
+                if (end.kind === 'exhausted') break;
+                if (retries >= LLM_ERROR_RETRIES) {
+                    await sink.flushOnFailure();
+                    return { kind: 'error', cause: new Error(`LLM rejected the conversation (${end.code}): ${end.message.slice(0, 500)}`) };
+                }
+                retries++;
+                this.logger.warn(`${LOG_TAG} Retrying after LLM error (${end.code}), attempt ${retries}/${LLM_ERROR_RETRIES}`);
+                nextMessage = {
+                    role: 'user',
+                    parts: [{ text: `Your previous response was rejected (${end.code}). Continue toward the goal, calling exactly one tool with valid JSON arguments.` }],
+                };
+            }
+        } catch (error) {
+            const cause = error instanceof Error ? error : new Error(String(error));
+            this.logger.error(`${LOG_TAG} Agent error: ${cause.message}`);
+            await sink.flushOnFailure();
+            return { kind: 'error', cause };
+        }
 
-            for await (const event of runner.runAsync({
-                userId: session.userId,
-                sessionId: session.id,
-                newMessage: nextMessage,
-                runConfig: { maxLlmCalls: maxActions + LLM_CALL_BUDGET_OFFSET },
-            })) {
-                estimatedTokens += readUsageTokens(event);
+        return {
+            kind: 'stopped',
+            reason: 'budget_exhausted',
+            summary: `LLM call budget exhausted after ${state.actionCount} action(s).`,
+        };
+    }
+
+    private async *driveInvocation(
+        ctx: InvocationContext,
+        newMessage: Content,
+    ): AsyncGenerator<AgentEvent, InvocationEnd, unknown> {
+        const { state, captureMiddleware, actionMapper, stepGoal, maxActions, vision, budget } = ctx;
+        let llmError: { code: string; message: string } | null = null;
+        state.llmTurnStartMs = Date.now();
+
+        for await (const event of ctx.runner.runAsync({
+            userId: ctx.session.userId,
+            sessionId: ctx.session.id,
+            newMessage,
+            runConfig: { maxLlmCalls: maxActions + LLM_CALL_BUDGET_OFFSET },
+        })) {
+                ctx.tokens.total += readUsageTokens(event);
+                const estimatedTokens = ctx.tokens.total;
 
                 const errorCode = (event as { errorCode?: string; errorMessage?: string }).errorCode;
                 if (errorCode) {
@@ -130,15 +195,15 @@ export class AdkAgentRuntime implements IAgentRuntime {
                     continue;
                 }
 
-                if (budget?.maxDurationMs && Date.now() - runStartMs > budget.maxDurationMs) {
+                if (budget?.maxDurationMs && Date.now() - ctx.runStartMs > budget.maxDurationMs) {
                     yield* flushPending(state);
                     this.logger.info(`${LOG_TAG} Duration budget (${budget.maxDurationMs}ms) reached after ${state.actionCount} action(s).`);
-                    return { kind: 'stopped', reason: 'budget_exhausted', summary: `Max duration (${budget.maxDurationMs}ms) reached for step: ${stepGoal}` };
+                    return outcomeEnd({ kind: 'stopped', reason: 'budget_exhausted', summary: `Max duration (${budget.maxDurationMs}ms) reached for step: ${stepGoal}` });
                 }
                 if (budget?.maxTokens && estimatedTokens > budget.maxTokens) {
                     yield* flushPending(state);
                     this.logger.info(`${LOG_TAG} Token budget (${budget.maxTokens}) reached (~${estimatedTokens}) after ${state.actionCount} action(s).`);
-                    return { kind: 'stopped', reason: 'budget_exhausted', summary: `Max tokens (${budget.maxTokens}) reached for step: ${stepGoal}` };
+                    return outcomeEnd({ kind: 'stopped', reason: 'budget_exhausted', summary: `Max tokens (${budget.maxTokens}) reached for step: ${stepGoal}` });
                 }
 
                 const functionCalls = getFunctionCalls(event);
@@ -163,34 +228,34 @@ export class AdkAgentRuntime implements IAgentRuntime {
                         if (action.type === ActionType.FINISH) {
                             yield actionEvent;
                             const finishAction = action as { summary: string; verdict?: 'pass' | 'fail'; value?: unknown };
-                            return {
+                            return outcomeEnd({
                                 kind: 'done',
                                 output: {
                                     summary: finishAction.summary,
                                     ...(finishAction.verdict !== undefined ? { verdict: finishAction.verdict } : {}),
                                     ...(finishAction.value !== undefined ? { value: finishAction.value } : {}),
                                 },
-                            };
+                            });
                         }
 
                         if (action.type === ActionType.ITERATE) {
                             yield actionEvent;
                             const iterateAction = action as { summary: string; nextGoal?: string; toolCategories?: readonly string[] };
-                            return {
+                            return outcomeEnd({
                                 kind: 'iterate',
                                 summary: iterateAction.summary,
                                 ...(iterateAction.nextGoal !== undefined ? { nextGoal: iterateAction.nextGoal } : {}),
                                 ...(iterateAction.toolCategories !== undefined ? { toolCategories: iterateAction.toolCategories } : {}),
-                            };
+                            });
                         }
 
                         if (state.actionCount >= maxActions) {
                             yield actionEvent;
-                            return {
+                            return outcomeEnd({
                                 kind: 'stopped',
                                 reason: 'budget_exhausted',
                                 summary: `Max actions (${maxActions}) reached for step: ${stepGoal}`,
-                            };
+                            });
                         }
 
                         state.pendingYield = actionEvent;
@@ -206,43 +271,14 @@ export class AdkAgentRuntime implements IAgentRuntime {
                     yield* flushPending(state);
                     const text = stringifyContent(event);
                     this.logger.info(`${LOG_TAG} Final response: ${text.slice(0, FINAL_RESPONSE_LOG_CHARS)}`);
-                    return {
+                    return outcomeEnd({
                         kind: 'done',
                         output: { summary: text || `Completed ${state.actionCount} action(s).` },
-                    };
+                    });
                 }
-            }
-
-            yield* flushPending(state);
-
-            if (llmError && llmErrorRetries < LLM_ERROR_RETRIES) {
-                llmErrorRetries++;
-                this.logger.warn(`${LOG_TAG} Retrying after LLM error (${llmError.code}), attempt ${llmErrorRetries}/${LLM_ERROR_RETRIES}`);
-                nextMessage = {
-                    role: 'user',
-                    parts: [{ text: `Your previous response was rejected (${llmError.code}). Continue toward the goal, calling exactly one tool with valid JSON arguments.` }],
-                };
-                continue retry;
-            }
-            break retry;
-            }
-        } catch (error) {
-            const cause = error instanceof Error ? error : new Error(String(error));
-            this.logger.error(`${LOG_TAG} Agent error: ${cause.message}`);
-            await sink.flushOnFailure();
-            return { kind: 'error', cause };
         }
 
-        if (llmError) {
-            await sink.flushOnFailure();
-            return { kind: 'error', cause: new Error(`LLM rejected the conversation (${llmError.code}): ${llmError.message.slice(0, 500)}`) };
-        }
-
-        return {
-            kind: 'stopped',
-            reason: 'budget_exhausted',
-            summary: `LLM call budget exhausted after ${state.actionCount} action(s).`,
-        };
+        yield* flushPending(state);
+        return llmError ? { kind: 'llm_error', ...llmError } : { kind: 'exhausted' };
     }
-
 }
