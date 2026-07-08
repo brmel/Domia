@@ -73,17 +73,6 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
 
-# DMG config for macOS
-dmg:
-  title: "${productName} ${version}"
-  contents:
-    - x: 130
-      y: 220
-    - x: 410
-      y: 220
-      type: link
-      path: /Applications
-
 # Auto-update configuration
 publish:
   provider: github
