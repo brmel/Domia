@@ -5,7 +5,6 @@ import type { ToolSpec } from '../ToolSpec';
 import type { PostActionCaptureMiddleware } from '../PostActionCaptureMiddleware';
 import { sleep } from '@shared/reliability/sleep';
 import {
-    MAX_POLL_DURATION_MS,
     MIN_POLL_INTERVAL_MS,
     MAX_POLL_INTERVAL_MS,
     DEFAULT_POLL_INTERVAL_MS,
@@ -26,7 +25,7 @@ interface PollArgs {
 function parsePollArgs(args: Record<string, unknown>): PollArgs | { invalidRegex: string } {
     const pattern = args['pattern'] as string;
     const isRegex = (args['isRegex'] as boolean | undefined) ?? false;
-    const timeoutMs = Math.min((args['timeoutMs'] as number | undefined) ?? DEFAULT_POLL_TIMEOUT_MS, MAX_POLL_DURATION_MS);
+    const timeoutMs = (args['timeoutMs'] as number | undefined) ?? DEFAULT_POLL_TIMEOUT_MS;
     const pollIntervalMs = Math.max(
         MIN_POLL_INTERVAL_MS,
         Math.min((args['pollIntervalMs'] as number | undefined) ?? DEFAULT_POLL_INTERVAL_MS, MAX_POLL_INTERVAL_MS),
@@ -63,7 +62,7 @@ export function createPollingTools(
                 'it is more efficient and avoids burning your action budget. ' +
                 'Typical situations: waiting for a background process to finish, a status to change, a counter to complete, ' +
                 'a loading indicator to disappear, or a confirmation message to appear. ' +
-                'Input: { pattern: string, isRegex?: boolean, timeoutMs?: number (default 30 000, max 600 000), pollIntervalMs?: number (default 2 000) }. ' +
+                'Input: { pattern: string, isRegex?: boolean, timeoutMs?: number (default 30 000, no upper limit), pollIntervalMs?: number (default 2 000) }. ' +
                 'Output: { status: "matched", matchedText: string, elapsedMs: number, polls: number } or ' +
                 '{ status: "timeout", elapsedMs: number, polls: number, lastSnapshot: string (first 500 chars) }.',
             actionType: ActionType.WAIT_FOR_CONDITION,
@@ -76,8 +75,8 @@ export function createPollingTools(
                 isRegex: z.boolean().optional().describe(
                     'If true, treat `pattern` as a JavaScript regex (case-insensitive). Default false (plain text includes-check).'
                 ),
-                timeoutMs: z.number().int().min(1000).max(MAX_POLL_DURATION_MS).optional().describe(
-                    `Max milliseconds to poll before giving up. Default ${DEFAULT_POLL_TIMEOUT_MS}, max ${MAX_POLL_DURATION_MS}.`
+                timeoutMs: z.number().int().min(1000).optional().describe(
+                    `Max milliseconds to poll before giving up. Default ${DEFAULT_POLL_TIMEOUT_MS}. Set as high as the task needs.`
                 ),
                 pollIntervalMs: z.number().int().min(MIN_POLL_INTERVAL_MS).max(MAX_POLL_INTERVAL_MS).optional().describe(
                     `Milliseconds between each poll. Default ${DEFAULT_POLL_INTERVAL_MS}.`
@@ -142,7 +141,7 @@ export function createPollingTools(
             parameters: z.object({
                 pattern: z.string().describe('URL substring or regex (case-insensitive when isRegex). Examples: "/dashboard", "^https://app\\\\.example\\\\.com/orders/\\\\d+$".'),
                 isRegex: z.boolean().optional().describe('Treat pattern as regex. Default false.'),
-                timeoutMs: z.number().int().min(1000).max(MAX_POLL_DURATION_MS).optional(),
+                timeoutMs: z.number().int().min(1000).optional(),
                 pollIntervalMs: z.number().int().min(MIN_POLL_INTERVAL_MS).max(MAX_POLL_INTERVAL_MS).optional(),
             }),
             execute: async (args) => {
@@ -181,7 +180,7 @@ export function createPollingTools(
             parameters: z.object({
                 pattern: z.string().describe('Substring or regex to match against frame summaries.'),
                 isRegex: z.boolean().optional().describe('Treat pattern as regex (case-insensitive). Default false.'),
-                timeoutMs: z.number().int().min(1000).max(MAX_POLL_DURATION_MS).optional(),
+                timeoutMs: z.number().int().min(1000).optional(),
             }),
             execute: async (args) => {
                 if (!observation || !runId) {

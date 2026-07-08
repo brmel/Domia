@@ -16,6 +16,7 @@ export const BROWSER_IDLE_TIMEOUT_MS = 60_000;
 export const CHROMIUM_LAUNCH_ARGS: readonly string[] = [
     '--no-sandbox',
     '--disable-setuid-sandbox',
+    '--disable-blink-features=AutomationControlled',
 ];
 
 export const DEFAULT_SCREENSHOT_QUALITY = 60;

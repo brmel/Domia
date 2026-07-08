@@ -4,7 +4,9 @@ import type {
     IPerceptionSource,
     LaunchOptions,
     ILogger,
+    PageReadiness,
 } from '@domain/ports';
+import { IMMEDIATE_READINESS } from '@domain/ports';
 import type { Url } from '@domain/value-objects';
 import type { RoleRefMap } from '@domain/value-objects/RoleRef';
 import type { MobilePlatformConfig, MobileCapabilities } from '@domain/types/PlatformConfig';
@@ -85,7 +87,7 @@ export class AppiumAdapter implements IStructuredAutomation {
         };
     }
 
-    navigateTo(_url: Url): ResultAsync<void, NavigationError> {
+    navigateTo(_url: Url): ResultAsync<PageReadiness, NavigationError> {
         return errAsync(new NavigationError('Mobile native apps do not support URL navigation. Use launch with bundle/package id.'));
     }
 
@@ -130,7 +132,7 @@ export class AppiumAdapter implements IStructuredAutomation {
         }
     }
 
-    waitForReady(): Promise<void> { return Promise.resolve(); }
+    waitForReady(): Promise<PageReadiness> { return Promise.resolve(IMMEDIATE_READINESS); }
 
     async close(): Promise<void> {
         if (!this.session) return;

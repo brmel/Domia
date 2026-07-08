@@ -10,9 +10,25 @@ export interface LaunchOptions {
     readonly device?: string;
 }
 
+export interface TimeoutOptions {
+    readonly timeoutMs?: number;
+}
+
+export interface InteractionOptions extends TimeoutOptions {
+    readonly force?: boolean;
+}
+
+export interface PageReadiness {
+    readonly loadComplete: boolean;
+    readonly networkIdle: boolean;
+    readonly waitedMs: number;
+}
+
+export const IMMEDIATE_READINESS: PageReadiness = { loadComplete: true, networkIdle: true, waitedMs: 0 };
+
 export interface IAppAutomation {
     launch(options: LaunchOptions): ResultAsync<void, NavigationError>;
-    navigateTo(url: Url): ResultAsync<void, NavigationError>;
+    navigateTo(url: Url, options?: TimeoutOptions): ResultAsync<PageReadiness, NavigationError>;
     mouseMove(x: number, y: number): ResultAsync<void, InteractionError>;
     mouseClick(x: number, y: number, button: 'left' | 'right'): ResultAsync<void, InteractionError>;
     mouseDoubleClick(x: number, y: number): ResultAsync<void, InteractionError>;
@@ -24,7 +40,7 @@ export interface IAppAutomation {
 
     getCurrentUrl(): string | null;
     getViewportSize(): Promise<{ width: number; height: number }>;
-    waitForReady(timeout?: number): Promise<void>;
+    waitForReady(timeoutMs?: number): Promise<PageReadiness>;
     close(): Promise<void>;
 
     getPerceptionSource(): IPerceptionSource | null;
@@ -32,11 +48,11 @@ export interface IAppAutomation {
 
 export interface IStructuredAutomation extends IAppAutomation {
     updateRefs(refs: RoleRefMap): void;
-    click(ref: string, options?: { force?: boolean; timeout?: number }): ResultAsync<void, InteractionError>;
-    type(ref: string, text: string): ResultAsync<void, InteractionError>;
-    hover(ref: string): ResultAsync<void, InteractionError>;
-    selectOption(ref: string, values: string[]): ResultAsync<void, InteractionError>;
-    dragTo(fromRef: string, toRef: string): ResultAsync<void, InteractionError>;
+    click(ref: string, options?: InteractionOptions): ResultAsync<void, InteractionError>;
+    type(ref: string, text: string, options?: TimeoutOptions): ResultAsync<void, InteractionError>;
+    hover(ref: string, options?: TimeoutOptions): ResultAsync<void, InteractionError>;
+    selectOption(ref: string, values: string[], options?: TimeoutOptions): ResultAsync<void, InteractionError>;
+    dragTo(fromRef: string, toRef: string, options?: TimeoutOptions): ResultAsync<void, InteractionError>;
     extractText(ref: string): ResultAsync<string, InteractionError>;
     highlight(ref: string): ResultAsync<void, InteractionError>;
 }

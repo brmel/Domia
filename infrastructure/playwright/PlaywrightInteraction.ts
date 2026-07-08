@@ -1,30 +1,29 @@
 import { ResultAsync, errAsync } from 'neverthrow';
 import type { Locator } from 'playwright';
-import type { ILogger } from '@domain/ports';
+import type { ILogger, TimeoutOptions, InteractionOptions } from '@domain/ports';
 import { InteractionError } from '@domain/errors';
 import { ELEMENT_WAIT_TIMEOUT_MS, HIGHLIGHT_DURATION_MS } from '@shared/defaults';
 import { wrapInteraction } from './wrapInteraction';
 
 const TAG = '[PlaywrightAdapter]';
 
-/**
- * Ref-based DOM element interaction (resolves a RoleRef to a Locator, then acts).
- * Split out of PlaywrightAdapter; driven through the adapter's `resolveRef`
- * accessor so ref state stays owned by the adapter.
- */
+function elementTimeout(options?: TimeoutOptions): number {
+    return options?.timeoutMs ?? ELEMENT_WAIT_TIMEOUT_MS;
+}
+
 export class PlaywrightInteraction {
     constructor(
         private readonly resolveRef: (ref: string) => ResultAsync<Locator, InteractionError>,
         private readonly logger: ILogger,
     ) {}
 
-    click(ref: string, options?: { force?: boolean; timeout?: number }): ResultAsync<void, InteractionError> {
+    click(ref: string, options?: InteractionOptions): ResultAsync<void, InteractionError> {
         this.logger.debug(`${TAG} Clicking element: ${ref}${options?.force ? ' (forced)' : ''}`);
 
         return this.resolveRef(ref).andThen((locator) => {
             const clickOptions = {
                 force: options?.force ?? false,
-                timeout: options?.timeout ?? ELEMENT_WAIT_TIMEOUT_MS
+                timeout: elementTimeout(options)
             };
 
             return wrapInteraction(locator.click(clickOptions), 'Click', ref).orElse((err) => {
@@ -37,32 +36,32 @@ export class PlaywrightInteraction {
         });
     }
 
-    type(ref: string, text: string): ResultAsync<void, InteractionError> {
+    type(ref: string, text: string, options?: TimeoutOptions): ResultAsync<void, InteractionError> {
         this.logger.debug(`${TAG} Typing into element: ${ref}`);
         return this.resolveRef(ref).andThen((locator) =>
-            wrapInteraction(locator.fill(text), 'Type', ref)
+            wrapInteraction(locator.fill(text, { timeout: elementTimeout(options) }), 'Type', ref)
         );
     }
 
-    hover(ref: string): ResultAsync<void, InteractionError> {
+    hover(ref: string, options?: TimeoutOptions): ResultAsync<void, InteractionError> {
         this.logger.debug(`${TAG} Hovering element: ${ref}`);
         return this.resolveRef(ref).andThen((locator) =>
-            wrapInteraction(locator.hover({ timeout: ELEMENT_WAIT_TIMEOUT_MS }), 'Hover', ref)
+            wrapInteraction(locator.hover({ timeout: elementTimeout(options) }), 'Hover', ref)
         );
     }
 
-    selectOption(ref: string, values: string[]): ResultAsync<void, InteractionError> {
+    selectOption(ref: string, values: string[], options?: TimeoutOptions): ResultAsync<void, InteractionError> {
         this.logger.debug(`${TAG} Selecting option on element: ${ref}`);
         return this.resolveRef(ref).andThen((locator) =>
-            wrapInteraction(locator.selectOption(values, { timeout: ELEMENT_WAIT_TIMEOUT_MS }).then(() => {}), 'Select option', ref)
+            wrapInteraction(locator.selectOption(values, { timeout: elementTimeout(options) }).then(() => {}), 'Select option', ref)
         );
     }
 
-    dragTo(fromRef: string, toRef: string): ResultAsync<void, InteractionError> {
+    dragTo(fromRef: string, toRef: string, options?: TimeoutOptions): ResultAsync<void, InteractionError> {
         this.logger.debug(`${TAG} Dragging element ${fromRef} to ${toRef}`);
         return this.resolveRef(fromRef).andThen((source) =>
             this.resolveRef(toRef).andThen((target) =>
-                wrapInteraction(source.dragTo(target, { timeout: ELEMENT_WAIT_TIMEOUT_MS }), 'Drag', fromRef)
+                wrapInteraction(source.dragTo(target, { timeout: elementTimeout(options) }), 'Drag', fromRef)
             )
         );
     }

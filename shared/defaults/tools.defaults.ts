@@ -2,7 +2,6 @@
 export const DEFAULT_WAIT_DURATION_MS = 1000;
 export const DEFAULT_RECALL_WINDOW_MS = 5000;
 
-export const MAX_POLL_DURATION_MS = 10 * 60 * 1000;
 export const MIN_POLL_INTERVAL_MS = 200;
 export const MAX_POLL_INTERVAL_MS = 30_000;
 export const DEFAULT_POLL_INTERVAL_MS = 2_000;

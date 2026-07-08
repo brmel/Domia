@@ -3,7 +3,8 @@ import type { IAppAutomation } from '@domain/ports';
 import { ActionType } from '@domain/enums';
 import { UrlFactory } from '@domain/value-objects';
 import type { ToolSpec } from '../ToolSpec';
-import { unwrapResult, toolError } from '../toolResult';
+import { unwrapResult, toolError, toolSuccess } from '../toolResult';
+import { navigationTimeoutMsParam, timeoutOption, readinessFields } from './pageReadiness';
 
 export function createNavigationTools(automation: IAppAutomation): ToolSpec[] {
     return ([
@@ -20,16 +21,18 @@ export function createNavigationTools(automation: IAppAutomation): ToolSpec[] {
         },
         {
             name: 'navigate',
-            description: 'Navigate to an absolute URL. Waits for the page to load then captures DOM and optional screenshot. Input: { url: string }. URL must include protocol (e.g. https://example.com). Output: { status: "success" } with updated page state, or { status: "error", error: string }.',
+            description: 'Navigate to an absolute URL. Waits for the page to load then captures DOM and optional screenshot. Input: { url: string, timeoutMs?: number }. URL must include protocol (e.g. https://example.com). Output: { status: "success", loadComplete, networkIdle, waitedMs } — loadComplete=false means the page is still loading (slow site); wait for content or retry with a higher timeoutMs. Errors return { status: "error", error: string }.',
             actionType: ActionType.NAVIGATE,
             parameters: z.object({
                 url: z.string().describe('Absolute URL to navigate to (must include protocol, e.g. https://example.com).'),
+                timeoutMs: navigationTimeoutMsParam,
             }),
             execute: async (args) => {
                 const urlVO = UrlFactory.create(args['url'] as string);
                 if (urlVO.isErr()) return toolError(`Invalid URL: ${urlVO.error.message}`);
-                const result = await automation.navigateTo(urlVO.value);
-                return unwrapResult(result);
+                const result = await automation.navigateTo(urlVO.value, timeoutOption(args));
+                if (result.isErr()) return toolError(result.error.message);
+                return toolSuccess(readinessFields(result.value));
             },
         },
     ] as ToolSpec[]).map(spec => ({ ...spec, category: 'navigation' as const }));

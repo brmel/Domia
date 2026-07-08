@@ -3,7 +3,6 @@ import {
     DEFAULT_LLM_MODEL,
     DEFAULT_LLM_PROVIDER,
     DEFAULT_MAX_ACTIONS,
-    DEFAULT_DELAY_BETWEEN_STEPS_MS,
     DEFAULT_VIEWPORT_WIDTH,
     DEFAULT_VIEWPORT_HEIGHT,
     DEFAULT_ARTIFACTS_DIR,
@@ -20,10 +19,8 @@ export const RuntimeConfigSchema = z.object({
     }).default({ width: DEFAULT_VIEWPORT_WIDTH, height: DEFAULT_VIEWPORT_HEIGHT }),
     limits: z.object({
         maxSteps: z.number().default(DEFAULT_MAX_ACTIONS),
-        delayBetweenSteps: z.number().default(DEFAULT_DELAY_BETWEEN_STEPS_MS),
     }).default({
         maxSteps: DEFAULT_MAX_ACTIONS,
-        delayBetweenSteps: DEFAULT_DELAY_BETWEEN_STEPS_MS,
     }),
 });
 

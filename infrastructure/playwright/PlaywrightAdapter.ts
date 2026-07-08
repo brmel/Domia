@@ -1,6 +1,9 @@
 import { ResultAsync, okAsync, errAsync } from 'neverthrow';
 import { type Browser, type BrowserContext, type Page, type Locator } from 'playwright';
-import type { IStructuredAutomation, LaunchOptions, ILogger, IPerceptionSource } from '@domain/ports';
+import type {
+    IStructuredAutomation, LaunchOptions, ILogger, IPerceptionSource,
+    TimeoutOptions, InteractionOptions, PageReadiness,
+} from '@domain/ports';
 import type { ITabManager, TabInfo } from '@domain/ports/automation/ITabManager';
 import type { Url } from '@domain/value-objects';
 import type { RoleRefMap } from '@domain/value-objects/RoleRef';
@@ -39,7 +42,7 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
             activePage: (): Page | null => this.page,
             setActivePage: (page): void => { this.page = page; },
             attachLifecycle: (page): void => this.attachPageLifecycleHandlers(page),
-            waitForReady: (): Promise<void> => this.waitForReady(),
+            waitForReady: async (): Promise<void> => { await this.waitForReady(); },
         });
         this.mouse = new PlaywrightMouse(() => this.requirePage(), this.logger);
         this.interaction = new PlaywrightInteraction((ref) => this.resolveRef(ref), this.logger);
@@ -86,19 +89,31 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         this.logger.info(`${TAG} Created new page`);
     }
 
-    navigateTo(url: Url): ResultAsync<void, NavigationError> {
+    navigateTo(url: Url, options?: TimeoutOptions): ResultAsync<PageReadiness, NavigationError> {
         this.ensureRecoverablePage();
         if (!this.page) {
             return errAsync(new NavigationError(BROWSER_NOT_LAUNCHED));
         }
-        this.logger.debug(`${TAG} Navigating to: ${url}`);
+        const timeoutMs = options?.timeoutMs ?? NAVIGATION_TIMEOUT_MS;
+        this.logger.debug(`${TAG} Navigating to: ${url} (timeout ${timeoutMs}ms)`);
         return ResultAsync.fromPromise(
-            this.page.goto(url, { waitUntil: 'load', timeout: NAVIGATION_TIMEOUT_MS }),
+            this.gotoToleratingSlowLoad(this.page, url, timeoutMs),
             (e) => new NavigationError(`Navigation failed: ${String(e)}`)
-        ).andThen(() => ResultAsync.fromPromise(this.waitForReady(), e => new NavigationError(String(e))));
+        );
     }
 
-    click(ref: string, options?: { force?: boolean; timeout?: number }): ResultAsync<void, InteractionError> {
+    private async gotoToleratingSlowLoad(page: Page, url: string, timeoutMs: number): Promise<PageReadiness> {
+        try {
+            await page.goto(url, { waitUntil: 'load', timeout: timeoutMs });
+        } catch (e) {
+            if (!(e instanceof Error && e.name === 'TimeoutError')) throw e;
+            this.logger.warn(`${TAG} Load not finished after ${timeoutMs}ms, continuing with partial page`);
+            return { loadComplete: false, networkIdle: false, waitedMs: timeoutMs };
+        }
+        return this.waitForReady();
+    }
+
+    click(ref: string, options?: InteractionOptions): ResultAsync<void, InteractionError> {
         return this.interaction.click(ref, options);
     }
 
@@ -118,20 +133,20 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         return this.mouse.drag(fromX, fromY, toX, toY, steps);
     }
 
-    type(ref: string, text: string): ResultAsync<void, InteractionError> {
-        return this.interaction.type(ref, text);
+    type(ref: string, text: string, options?: TimeoutOptions): ResultAsync<void, InteractionError> {
+        return this.interaction.type(ref, text, options);
     }
 
-    hover(ref: string): ResultAsync<void, InteractionError> {
-        return this.interaction.hover(ref);
+    hover(ref: string, options?: TimeoutOptions): ResultAsync<void, InteractionError> {
+        return this.interaction.hover(ref, options);
     }
 
-    selectOption(ref: string, values: string[]): ResultAsync<void, InteractionError> {
-        return this.interaction.selectOption(ref, values);
+    selectOption(ref: string, values: string[], options?: TimeoutOptions): ResultAsync<void, InteractionError> {
+        return this.interaction.selectOption(ref, values, options);
     }
 
-    dragTo(fromRef: string, toRef: string): ResultAsync<void, InteractionError> {
-        return this.interaction.dragTo(fromRef, toRef);
+    dragTo(fromRef: string, toRef: string, options?: TimeoutOptions): ResultAsync<void, InteractionError> {
+        return this.interaction.dragTo(fromRef, toRef, options);
     }
 
     pressKey(key: string): ResultAsync<void, InteractionError> {
@@ -181,22 +196,25 @@ export class PlaywrightAdapter implements IStructuredAutomation, ITabManager {
         return size ?? { width: AGENT_VIEW_WIDTH, height: AGENT_VIEW_HEIGHT };
     }
 
-    async waitForReady(timeout: number = CONTENT_READY_TIMEOUT_MS): Promise<void> {
+    async waitForReady(timeoutMs: number = CONTENT_READY_TIMEOUT_MS): Promise<PageReadiness> {
         this.ensureRecoverablePage();
-        if (!this.page) return;
+        if (!this.page) return { loadComplete: false, networkIdle: false, waitedMs: 0 };
         const start = Date.now();
-        this.logger.debug(`${TAG} Waiting for page ready`);
+        const loadComplete = await this.reachedLoadState('load', timeoutMs);
+        const networkIdle = await this.reachedLoadState('networkidle', timeoutMs);
+        const waitedMs = Date.now() - start;
+        this.logger.debug(`${TAG} Readiness after ${waitedMs}ms: load=${loadComplete} networkIdle=${networkIdle}`);
+        return { loadComplete, networkIdle, waitedMs };
+    }
+
+    private async reachedLoadState(state: 'load' | 'networkidle', timeoutMs: number): Promise<boolean> {
+        if (!this.page) return false;
         try {
-            await this.page.waitForLoadState('load', { timeout });
+            await this.page.waitForLoadState(state, { timeout: timeoutMs });
+            return true;
         } catch {
-            this.logger.debug(`${TAG} Load-state timeout, proceeding`);
+            return false;
         }
-        try {
-            await this.page.waitForLoadState('networkidle', { timeout });
-        } catch {
-            this.logger.debug(`${TAG} Network idle timeout, proceeding`);
-        }
-        this.logger.debug(`${TAG} Page ready in ${Date.now() - start}ms`);
     }
 
     async close(): Promise<void> {
