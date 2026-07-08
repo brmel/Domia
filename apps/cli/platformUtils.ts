@@ -7,6 +7,7 @@ interface PlatformOptions {
     cdpUrl?: string;
     executablePath?: string;
     launchArgs?: string[];
+    cdpPort?: number;
     windowTitle?: string;
 }
 
@@ -23,7 +24,7 @@ export function buildPlatformConfig(
     options: PlatformOptions,
     defaultPlatformConfig?: PlatformConfig,
 ): PlatformConfig {
-    const { url, platform, cdpUrl, executablePath, launchArgs, windowTitle } = options;
+    const { url, platform, cdpUrl, executablePath, launchArgs, cdpPort, windowTitle } = options;
 
     switch (resolvePlatform(options)) {
         case 'web':
@@ -46,6 +47,7 @@ export function buildPlatformConfig(
                     type: 'executable',
                     executablePath: executablePath!,
                     ...(launchArgs?.length ? { launchArgs } : {}),
+                    ...(cdpPort !== undefined ? { cdpPort } : {}),
                     ...(windowTitle ? { windowTitle } : {}),
                 },
             };

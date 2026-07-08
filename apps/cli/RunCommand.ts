@@ -29,6 +29,7 @@ export class RunCommand {
             .option('--cdp-url <cdpUrl>', 'CDP URL for Electron (e.g., http://localhost:9222)')
             .option('--executable-path <path>', 'Path to Electron executable')
             .option('--launch-args <args...>', 'Launch arguments for Electron (space-separated)')
+            .option('--cdp-port <port>', 'CDP port to expose when launching an Electron executable', parseInt)
             .option('--window-title <title>', 'Target window title (Electron)')
             .option('-p, --prompt <prompt>', 'Goal or instruction for the agent')
             .option('-s, --steps <steps>', 'Max steps', String(CLI_DEFAULT_STEPS))
@@ -72,6 +73,7 @@ export class RunCommand {
                     cdpUrl,
                     executablePath,
                     launchArgs,
+                    cdpPort,
                     windowTitle,
                     model,
                     apiKey,
@@ -157,6 +159,7 @@ export class RunCommand {
                         cdpUrl,
                         executablePath,
                         launchArgs,
+                        cdpPort,
                         windowTitle,
                     });
 
