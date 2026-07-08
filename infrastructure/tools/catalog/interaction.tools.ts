@@ -11,7 +11,6 @@ export function createInteractionTools(automation: IStructuredAutomation): ToolS
             name: 'click',
             description: 'Click an element by its ref from the ARIA snapshot. Input: { ref: string, timeoutMs?: number }. Output: { status: "success", navigatedUrl: string } or { status: "error", error: string }.',
             actionType: ActionType.CLICK,
-            platforms: WEB_ELECTRON_PLATFORMS,
             parameters: z.object({
                 ref: z.string().describe('Element ref from the ARIA snapshot (e.g. "e3").'),
                 timeoutMs: elementTimeoutMsParam,
@@ -26,7 +25,6 @@ export function createInteractionTools(automation: IStructuredAutomation): ToolS
             name: 'type',
             description: 'Type text into an input, textarea, or contenteditable element. Replaces any existing value. Set submit=true to press Enter after typing. Input: { ref: string, text: string, submit?: boolean, timeoutMs?: number }. Output: { status: "success" } or { status: "error", error: string }.',
             actionType: ActionType.TYPE,
-            platforms: WEB_ELECTRON_PLATFORMS,
             parameters: z.object({
                 ref: z.string().describe('Element ref of the target input from the ARIA snapshot.'),
                 text: z.string().describe('Text to type into the element. Replaces current content.'),
@@ -47,7 +45,6 @@ export function createInteractionTools(automation: IStructuredAutomation): ToolS
             name: 'hover',
             description: 'Hover over an element to trigger tooltips, dropdown menus, or hover states. Input: { ref: string, timeoutMs?: number }. Output: { status: "success" } or { status: "error", error: string }.',
             actionType: ActionType.HOVER,
-            platforms: WEB_ELECTRON_PLATFORMS,
             parameters: z.object({
                 ref: z.string().describe('Element ref from the ARIA snapshot.'),
                 timeoutMs: elementTimeoutMsParam,

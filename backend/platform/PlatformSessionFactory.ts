@@ -43,7 +43,7 @@ export class PlatformSessionFactory {
 
         const executionUrl = resolveUrlFromConfig(input.platformConfig);
         const shouldNavigate = platformConfig.platform === Platform.Web
-            || (platformConfig.platform === Platform.Electron && 'startUrl' in platformConfig && !!platformConfig.startUrl);
+            || (platformConfig.platform === Platform.Electron && !!platformConfig.startUrl);
 
         const extras = driver.getSessionExtras();
         // Surface capabilities so the tool catalog can gate by them.

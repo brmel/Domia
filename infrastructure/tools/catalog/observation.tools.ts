@@ -33,7 +33,6 @@ export function createObservationTools(
             name: 'extract',
             description: `Extract the visible text content of an element for assertion or verification. Returns up to ${MAX_EXTRACT_TEXT_LENGTH} characters of whitespace-normalized text. Input: { ref: string }. Output: { status: "success", extractedText: string, fullLength: number, truncated: boolean } or { status: "error", error: string }.`,
             actionType: ActionType.EXTRACT,
-            platforms: WEB_ELECTRON_PLATFORMS,
             parameters: z.object({
                 ref: z.string().describe('Element ref from the ARIA snapshot (e.g. "e3").'),
             }),
