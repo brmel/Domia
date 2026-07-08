@@ -112,7 +112,7 @@ Every entry point (IPC `runRouter`, CLI `run`, workflow steps) drives `MetaAgent
 
 Composition happens at run level, not inside ADK: `SequentialAgent`/`ParallelAgent` trees were deliberately not adopted — `iterate` covers sequential, sub-runs cover parallel, and both keep every pass observable as a normal run. Don't add an ADK agent tree until a real consumer needs one.
 
-Known limitation: sub-runs inherit the parent's platform config. On web each child gets an isolated browser; on Electron they would target the same app/CDP endpoint (or collide on the launch port), so parallel sub-runs are only meaningful for web targets today.
+Sub-run isolation (`backend/runs/subRunPlatform.ts`): web children get their own browser; electron-executable children launch a separate app instance on a fresh CDP port. Targets that cannot be isolated (electron-CDP attach, mobile) simply don't get the subrun tools — `supportsSubRuns` gates the coordinator, so the agent never sees tools it can't use.
 
 The remaining unification step (roadmap slice 19): fold `backend/workflows/` step definitions into stored meta-run plans so Workflow/Skill/Run become one execution model. Workflow steps already execute through the meta loop.
 

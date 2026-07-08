@@ -96,6 +96,12 @@ export const useRunStore = create<RunStore>()(persist((set) => ({
                     currentAction: null,
                 });
                 break;
+            case 'iterating':
+                set({
+                    summary: `Iterating: ${event.summary}`,
+                    currentAction: null,
+                });
+                break;
             case 'cancelled':
                 set({
                     status: RunState.CANCELLED,

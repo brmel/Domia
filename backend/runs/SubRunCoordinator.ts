@@ -1,10 +1,10 @@
 import { randomUUID } from 'crypto';
 import type { ISubRunLauncher, SubRunHandle, SubRunRequest, SubRunResult, ILogger } from '@domain/ports';
 import type { RunId } from '@domain/value-objects';
-import type { PlatformConfig } from '@domain/types/PlatformConfig';
 import type { RunInput, RunOutput } from '@backend/dto';
 import type { ExecutionController } from '@backend/ExecutionController';
 import type { RunExecutionContext } from './engine/RunSessionService';
+import { isolatedChildConfig } from './subRunPlatform';
 
 export interface SubRunRunner {
     execute(
@@ -27,7 +27,7 @@ export class SubRunCoordinator implements ISubRunLauncher {
 
     async spawn(request: SubRunRequest): Promise<SubRunHandle> {
         const controller = this.parentController.spawnChild();
-        const input = this.childInput(request);
+        const input = await this.childInput(request);
         const generator = this.runner.execute(input, controller, { laneKey: `subrun:${randomUUID()}` });
 
         const runId = await this.driveUntilStarted(generator);
@@ -46,10 +46,10 @@ export class SubRunCoordinator implements ISubRunLauncher {
         return this.pending.size;
     }
 
-    private childInput(request: SubRunRequest): RunInput {
+    private async childInput(request: SubRunRequest): Promise<RunInput> {
         const parentRunId = this.parentRunId();
         return {
-            platformConfig: overrideStartUrl(this.baseInput.platformConfig, request.url),
+            platformConfig: await isolatedChildConfig(this.baseInput.platformConfig, request.url),
             prompt: request.goal,
             ...(this.baseInput.options ? { options: this.baseInput.options } : {}),
             ...(parentRunId ? { parentRunId } : {}),
@@ -99,9 +99,3 @@ export class SubRunCoordinator implements ISubRunLauncher {
     }
 }
 
-function overrideStartUrl(config: PlatformConfig, url: string | undefined): PlatformConfig {
-    if (!url) return config;
-    if (config.platform === 'web') return { ...config, url };
-    if (config.platform === 'electron') return { ...config, startUrl: url };
-    return config;
-}
