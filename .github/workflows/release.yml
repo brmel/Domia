@@ -12,6 +12,8 @@ on:
 jobs:
   release:
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     
     strategy:
       fail-fast: false
@@ -33,9 +35,8 @@ jobs:
         run: npx playwright install chromium
       
       - name: Build and package
-        run: npm run package
+        run: npm run build && npx electron-builder --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Unsigned builds until real certificates exist. To sign: remove this
           # flag and set CSC_LINK/CSC_KEY_PASSWORD (macOS) and WIN_CSC_LINK/
           # WIN_CSC_KEY_PASSWORD (Windows) as repository secrets — empty secrets
