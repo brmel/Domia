@@ -24,7 +24,7 @@ export class AdkPlanner implements IPlanner {
     async decompose(goal: string): Promise<readonly string[]> {
         try {
             const cfg = this.llmConfig.resolve();
-            const llm = this.llmFactory.create({ model: cfg.model || DEFAULT_LLM_MODEL, apiKey: cfg.apiKey });
+            const llm = this.llmFactory.create({ model: cfg.model || DEFAULT_LLM_MODEL, auth: cfg.auth });
             const prompt = this.prompts.renderPrompt(PromptKey.PlanDecomposition, { goal });
             const text = await generateText(llm, prompt);
             const parsed = JSON.parse(stripJsonFences(text)) as unknown;

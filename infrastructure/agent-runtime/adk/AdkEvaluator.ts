@@ -23,7 +23,7 @@ export class AdkEvaluator implements IEvaluator {
     async evaluate(goal: string, resultSummary: string): Promise<EvaluationVerdict> {
         try {
             const cfg = this.llmConfig.resolve();
-            const llm = this.llmFactory.create({ model: cfg.model || DEFAULT_LLM_MODEL, apiKey: cfg.apiKey });
+            const llm = this.llmFactory.create({ model: cfg.model || DEFAULT_LLM_MODEL, auth: cfg.auth });
             const prompt = this.prompts.renderPrompt(PromptKey.EvaluateGoal, { goal, resultSummary });
             const text = await generateText(llm, prompt);
             const parsed = JSON.parse(stripJsonFences(text)) as { satisfied?: unknown; reason?: unknown };

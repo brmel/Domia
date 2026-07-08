@@ -48,7 +48,7 @@ let replayCache: ReplayCache;
 class ReplayBackedLlmFactory implements IAdkLlmFactory {
     constructor(private readonly cache: ReplayCache, private readonly liveFactory: GeminiLlmFactory) {}
     create(input: AdkLlmFactoryInput): BaseLlm {
-        const fallback = input.apiKey ? this.liveFactory.create(input) : null;
+        const fallback = input.auth.mode !== 'none' ? this.liveFactory.create(input) : null;
         return new ReplayLlm(input.model, this.cache, fallback);
     }
 }
