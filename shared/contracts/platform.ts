@@ -30,10 +30,14 @@ const ElectronExecutableConnectionSchema = z.object({
     type: z.literal('executable'),
     executablePath: z.string()
         .min(1, 'Executable path is required')
-        .refine(path => /\.(exe|app)$/i.test(path) || !path.includes('.'), {
+        .refine(path => {
+            const basename = path.split(/[\\/]/).pop() ?? '';
+            return /\.(exe|app)$/i.test(basename) || !basename.includes('.');
+        }, {
             message: 'Must be a valid executable (.exe, .app, or no extension)',
         }),
     launchArgs: z.array(z.string()).optional(),
+    cdpPort: z.number().int().min(1).max(65535).optional(),
     windowTitle: z.string().optional(),
 });
 
@@ -43,6 +47,7 @@ export const ElectronConfigSchema = z.object({
         ElectronCDPConnectionSchema,
         ElectronExecutableConnectionSchema,
     ]),
+    startUrl: z.string().optional(),
 });
 
 const MobileIosCapabilitiesSchema = z.object({

@@ -41,14 +41,24 @@ export async function connectCDP(logger: ILogger, cdpUrl: string, timeoutMs?: nu
 }
 
 export async function launchWithCDP(logger: ILogger, config: ElectronConnectionConfig): Promise<{ browser: Browser; process: ChildProcess }> {
-    const port = config.cdpPort!;
+    if (!config.executablePath) {
+        throw new Error(`${TAG} executablePath is required to launch an Electron app`);
+    }
+    const port = config.cdpPort ?? CDP_DEFAULT_PORT;
     logger.info(`${TAG} Launching with CDP port ${port}: ${config.executablePath}`);
 
-    const env = { ...process.env };
+    // Both channels: the Chromium switch covers arbitrary Electron apps; the env
+    // var covers apps (like Domia itself) that opt in via ELECTRON_REMOTE_DEBUGGING_PORT.
+    const env: NodeJS.ProcessEnv = { ...process.env, ELECTRON_REMOTE_DEBUGGING_PORT: String(port) };
     delete env['ELECTRON_RUN_AS_NODE'];
     delete env['NODE_OPTIONS'];
 
-    const appProcess = spawn(config.executablePath!, [...(config.launchArgs ?? [])], { env, detached: false, stdio: 'pipe' });
+    const userArgs = config.launchArgs ?? [];
+    const args = userArgs.some((a) => a.includes('remote-debugging-port'))
+        ? [...userArgs]
+        : [...userArgs, `--remote-debugging-port=${port}`];
+
+    const appProcess = spawn(config.executablePath, args, { env, detached: false, stdio: 'pipe' });
     logger.debug(`${TAG} Process spawned: PID ${appProcess.pid}`);
     appProcess.stdout?.on('data', (data: Buffer) => logger.debug(`[ElectronApp] ${data.toString().trimEnd()}`));
     appProcess.stderr?.on('data', (data: Buffer) => logger.debug(`[ElectronApp:err] ${data.toString().trimEnd()}`));
@@ -64,20 +74,3 @@ export async function launchWithCDP(logger: ILogger, config: ElectronConnectionC
     }
 }
 
-export async function launchWithPlaywright(logger: ILogger, config: ElectronConnectionConfig): Promise<Browser> {
-    if (!config.executablePath) {
-        throw new Error(`${TAG} executablePath is required to launch via Playwright`);
-    }
-    logger.info(`${TAG} Launching via Playwright: ${config.executablePath}`);
-
-    const defaultArgs = [`--remote-debugging-port=${CDP_DEFAULT_PORT}`];
-    const userArgs = config.launchArgs ?? [];
-    const hasPortArg = userArgs.some((a) => a.includes('remote-debugging-port'));
-
-    return chromium.launch({
-        executablePath: config.executablePath,
-        args: [...userArgs, ...(hasPortArg ? [] : defaultArgs)],
-        timeout: config.connectionTimeout ?? CDP_CONNECTION_TIMEOUT_MS,
-        ignoreDefaultArgs: true,
-    });
-}

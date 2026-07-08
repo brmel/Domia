@@ -27,7 +27,6 @@
     ],
     "ignoreExportsUsedInFile": true,
     "ignoreDependencies": [
-        "@modelcontextprotocol/sdk",
         "tailwindcss"
     ]
 }

@@ -85,3 +85,6 @@ test-output.log
 
 # Knip / dep-audit caches
 .knip-cache/
+
+# Local runtime config (auto-created; settings UI writes it)
+domia.config.json

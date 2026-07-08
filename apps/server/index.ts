@@ -12,6 +12,8 @@ registerCoreServices();
 
 const logger = container.resolve<ILogger>('ILogger');
 const port = Number(process.env['DOMIA_SERVER_PORT'] ?? DEFAULT_SERVER_PORT);
+// Localhost by default — run data should not be LAN-visible unless opted in.
+const host = process.env['DOMIA_SERVER_HOST'] ?? '127.0.0.1';
 
 const server = http.createServer(async (req, res) => {
     const pathname = new URL(req.url ?? '/', `http://localhost:${port}`).pathname;
@@ -23,6 +25,6 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify(body));
 });
 
-server.listen(port, () => {
-    logger.info(`[domia-server] listening on http://localhost:${port}`);
+server.listen(port, host, () => {
+    logger.info(`[domia-server] listening on http://${host}:${port}`);
 });

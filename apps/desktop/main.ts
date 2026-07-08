@@ -9,9 +9,11 @@ import { createIPCHandler } from 'trpc-electron/main';
 import { appRouter } from './ipc/router';
 import { ContainerBuilder } from '@backend/container/ContainerBuilder';
 import { ELECTRON_DEBUG_PORT, AGENT_VIEW_WIDTH, AGENT_VIEW_HEIGHT } from '@shared/defaults';
+import { configureBrowserPath, ensureChromium } from './browserBootstrap';
 
 export const AGENT_VIEW_MARKER = 'domia-agent-view';
 
+configureBrowserPath();
 registerCoreServices();
 new ContainerBuilder().initializePlatformProviders();
 
@@ -50,7 +52,9 @@ function createAgentView(): void {
 }
 
 ipcMain.handle('agent-view:set-bounds', (_event, bounds: { x: number; y: number; width: number; height: number }) => {
-  if (agentView) agentView.setBounds(bounds);
+  if (!agentView) return;
+  const finite = (n: unknown): number => (typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0);
+  agentView.setBounds({ x: finite(bounds?.x), y: finite(bounds?.y), width: finite(bounds?.width), height: finite(bounds?.height) });
 });
 
 ipcMain.handle('agent-view:clear', () => {
@@ -103,4 +107,7 @@ app.on('activate', () => {
   }
 });
 
-app.whenReady().then(createWindow);
+app.whenReady()
+    .then(ensureChromium)
+    .then(createWindow)
+    .catch(() => app.quit());

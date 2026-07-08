@@ -6,6 +6,7 @@ import type { ISkillRepository } from '@domain/ports/persistence/ISkillRepositor
 import { PersistenceError } from '@domain/errors';
 import type { DatabaseSchema, SkillTable } from './DatabaseSchema';
 import { dbOp } from './dbOp';
+import { packBlob, unpackBlob } from './blob';
 
 const DEFAULT_LIMIT = 200;
 
@@ -17,8 +18,8 @@ export class SQLiteSkillRepository implements ISkillRepository {
             id: skill.id,
             name: skill.name,
             description: skill.description,
-            parameters_json: JSON.stringify(skill.parameters),
-            steps_json: JSON.stringify(skill.steps),
+            parameters_json: packBlob(skill.parameters),
+            steps_json: packBlob(skill.steps),
             created_from_run_id: skill.createdFromRunId ?? null,
             created_at: skill.createdAt.toISOString(),
             updated_at: skill.updatedAt.toISOString(),
@@ -58,8 +59,8 @@ export class SQLiteSkillRepository implements ISkillRepository {
             id: row.id as SkillId,
             name: row.name,
             description: row.description,
-            parameters: JSON.parse(row.parameters_json),
-            steps: JSON.parse(row.steps_json),
+            parameters: unpackBlob(row.parameters_json),
+            steps: unpackBlob(row.steps_json),
             ...(row.created_from_run_id ? { createdFromRunId: row.created_from_run_id } : {}),
             createdAt: new Date(row.created_at),
             updatedAt: new Date(row.updated_at),

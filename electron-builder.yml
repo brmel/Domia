@@ -9,11 +9,36 @@ directories:
   output: release
   buildResources: build
 
+# The main bundle is vite-built, so node_modules is excluded except the vite
+# externals and their full transitive runtime closure (regenerate with the
+# dep-walk in scripts/package-smoke.mjs if the externals list changes).
 files:
   - dist
   - dist-electron
   - prompts/**/*
   - "!node_modules/**/*"
+  - node_modules/ajv/**/*
+  - node_modules/ajv-formats/**/*
+  - node_modules/fast-deep-equal/**/*
+  - node_modules/fast-uri/**/*
+  - node_modules/json-schema-traverse/**/*
+  - node_modules/junit-report-builder/**/*
+  - node_modules/kysely/**/*
+  - node_modules/kysely-generic-sqlite/**/*
+  - node_modules/kysely-wasm/**/*
+  - node_modules/lodash/**/*
+  - node_modules/make-dir/**/*
+  - node_modules/playwright/**/*
+  - node_modules/playwright-core/**/*
+  - node_modules/require-from-string/**/*
+  - node_modules/semver/**/*
+  - node_modules/sql.js/**/*
+  - node_modules/xmlbuilder/**/*
+
+# The first-run browser bootstrap spawns playwright's CLI as a plain node
+# process, which cannot read from inside the asar archive.
+asarUnpack:
+  - node_modules/playwright/**/*
   - node_modules/playwright-core/**/*
 
 # macOS configuration

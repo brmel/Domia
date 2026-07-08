@@ -112,6 +112,8 @@ Every entry point (IPC `runRouter`, CLI `run`, workflow steps) drives `MetaAgent
 
 Composition happens at run level, not inside ADK: `SequentialAgent`/`ParallelAgent` trees were deliberately not adopted — `iterate` covers sequential, sub-runs cover parallel, and both keep every pass observable as a normal run. Don't add an ADK agent tree until a real consumer needs one.
 
+Sub-run isolation (`backend/runs/subRunPlatform.ts`): web children get their own browser; electron-executable children launch a separate app instance on a fresh CDP port. Targets that cannot be isolated (electron-CDP attach, mobile) simply don't get the subrun tools — `supportsSubRuns` gates the coordinator, so the agent never sees tools it can't use.
+
 The remaining unification step (roadmap slice 19): fold `backend/workflows/` step definitions into stored meta-run plans so Workflow/Skill/Run become one execution model. Workflow steps already execute through the meta loop.
 
 ## Subsystems at a glance
@@ -145,6 +147,13 @@ Clean layered hexagon: pure `domain/`, real DI seam (`backend/container/`), port
 - `CLAUDE.md` and per-area `CLAUDE.md` — agent briefs.
 - `.claude/skills/` — focused skill briefs (TypeScript-strict, Playwright, the agent loop).
 - `.claude/commands/` — slash commands (`/check`).
+
+## Security posture (entry points)
+
+- **Renderer**: `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true` on both the main window and the agent WebContentsView. Preload exposes exactly two things: the tRPC bridge and `agentView.setBounds/clear` (bounds are clamped to finite non-negative integers in the main process).
+- **IPC**: every parameterized tRPC procedure validates with a Zod schema from `shared/contracts`; `Result` errors are unwrapped to plain messages (`unwrap.ts`) — no stack traces or objects cross the wire. Destructive UI actions (history clear) require an explicit confirm.
+- **HTTP server** (`apps/server`): read-only queries, binds `127.0.0.1` unless `DOMIA_SERVER_HOST` is set.
+- **CDP port** (`remote-debugging-port` on the desktop app): required by design — the embedded web driver attaches to the agent view through it. Chromium binds it to localhost only; any local process could attach, which is the accepted trade-off for embedded mode.
 
 ## Validation before claiming done
 

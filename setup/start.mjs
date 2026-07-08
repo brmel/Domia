@@ -9,8 +9,9 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const [, , targetArg, ...rest] = process.argv;
+const [, , targetArg, ...restRaw] = process.argv;
 const target = (targetArg ?? 'desktop').toLowerCase();
+const rest = restRaw[0] === '--' ? restRaw.slice(1) : restRaw;
 
 if (!existsSync(join(ROOT, 'node_modules'))) {
     console.error('Dependencies missing. Run setup first: npm run setup');
@@ -29,6 +30,11 @@ if (!args) {
     process.exit(1);
 }
 
+// The desktop app must boot as Electron, not Node — an inherited
+// ELECTRON_RUN_AS_NODE (e.g. from an Electron-hosted terminal) breaks it.
+const env = { ...process.env };
+if (target === 'desktop') delete env.ELECTRON_RUN_AS_NODE;
+
 // npm is npm.cmd on Windows — shell:true resolves it.
-const r = spawnSync('npm', args, { cwd: ROOT, stdio: 'inherit', shell: true, env: process.env });
+const r = spawnSync('npm', args, { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32', env });
 process.exit(r.status ?? 1);

@@ -103,7 +103,7 @@ export async function buildElectronApp(): Promise<boolean> {
     console.log('📦 Building Electron app...');
 
     return new Promise((resolve) => {
-        const build = spawn('npm', ['run', 'build'], {
+        const build = spawn('npm', ['run', 'package'], {
             cwd: process.cwd(),
             shell: true, // npm resolves to npm.cmd on Windows; shell lets spawn find it
             env: process.env,

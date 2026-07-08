@@ -7,6 +7,7 @@ import type { IEventBus } from '@domain/ports/platform/IEventBus';
 import type { ILogger } from '@domain/ports';
 import type { AgentOutcome, AgentVerdict } from '@domain/ports/agent/IAgentRuntime';
 import { ValidationError, PersistenceError, RunStateError } from '@domain/errors';
+import { describeForFinalize } from './outcomes';
 
 interface FinalizedRun {
     readonly run: Run;
@@ -66,15 +67,9 @@ export class RunLifecycleManager {
             return;
         }
         const existing = existingResult.value;
-        const summary = outcome?.kind === 'done' ? (outcome.output.summary || fallbackSummary)
-            : outcome?.kind === 'iterate' ? (outcome.summary || fallbackSummary)
-            : fallbackSummary;
-
-        const handlerKey = outcome?.kind === 'done' ? (outcome.output.verdict ?? 'finish')
-            : outcome?.kind === 'iterate' ? 'finish'
-            : 'fail';
-        const value = outcome?.kind === 'done' ? outcome.output.value : undefined;
-        const finalizedResult = VERDICT_HANDLERS[handlerKey](existing, summary, new Date(), value);
+        const descriptor = describeForFinalize(outcome);
+        const summary = descriptor.summary ?? fallbackSummary;
+        const finalizedResult = VERDICT_HANDLERS[descriptor.handlerKey](existing, summary, new Date(), descriptor.value);
         if (finalizedResult.isErr()) {
             this.logger.warn(`Cannot finalize run ${id}: ${finalizedResult.error.message}`);
             return;

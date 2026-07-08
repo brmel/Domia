@@ -11,8 +11,9 @@ Node scripts (`setup.mjs`, `start.mjs`), so behaviour is identical everywhere.
 
 ## 1. Setup (once)
 
-Installs dependencies, installs the Playwright Chromium browser, and creates a
-local `.env`.
+Installs dependencies (`npm ci`), installs the Playwright Chromium browser
+(on Linux with its system libraries — may prompt for sudo once), clears stale
+build output, and creates a local `.env`.
 
 | OS | Command |
 |----|---------|
@@ -40,6 +41,12 @@ npm run package
 ```
 
 ## Verify the install
+
+```
+npm run doctor             # fast health check: Node, deps, Chromium, API key
+```
+
+Full gates (what CI runs):
 
 ```
 npm run typecheck          # 0 errors

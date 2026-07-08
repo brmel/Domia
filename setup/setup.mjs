@@ -2,7 +2,7 @@
 // Cross-platform setup: verifies Node, installs dependencies + the Playwright
 // browser, and seeds a local .env. Runs identically on macOS, Windows, Linux.
 import { spawnSync } from 'node:child_process';
-import { existsSync, copyFileSync } from 'node:fs';
+import { existsSync, copyFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -21,7 +21,7 @@ const fail = (m) => { log(`${c.red}✗ ${m}${c.reset}`); process.exit(1); };
 
 // npm/npx are .cmd shims on Windows — shell:true lets spawn resolve them.
 function run(cmd, args) {
-    const r = spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit', shell: true, env: process.env });
+    const r = spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32', env: process.env });
     if (r.status !== 0) fail(`\`${cmd} ${args.join(' ')}\` failed (exit ${r.status ?? 'signal'}).`);
 }
 
@@ -33,12 +33,18 @@ if (major < MIN_NODE_MAJOR) fail(`Node ${MIN_NODE_MAJOR}+ required, found ${proc
 ok(`Node ${process.versions.node}`);
 
 step('Installing dependencies');
-run('npm', ['install']);
+run('npm', [existsSync(join(ROOT, 'package-lock.json')) ? 'ci' : 'install']);
 ok('Dependencies installed');
 
 step('Installing the Playwright browser (Chromium)');
-run('npx', ['playwright', 'install', 'chromium']);
+// Linux needs the system libraries too; --with-deps may ask for sudo once.
+run('npx', ['playwright', 'install', ...(process.platform === 'linux' ? ['--with-deps'] : []), 'chromium']);
 ok('Chromium ready');
+
+step('Clearing stale build output');
+// Mixed-generation chunks in dist-electron crash the dev app at startup.
+for (const dir of ['dist', 'dist-electron']) rmSync(join(ROOT, dir), { recursive: true, force: true });
+ok('dist/ and dist-electron/ cleared');
 
 step('Preparing .env');
 const envPath = join(ROOT, '.env');

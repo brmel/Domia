@@ -67,6 +67,11 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
         : connection.launchArgs !== undefined
           ? { launchArgs: connection.launchArgs }
           : {}),
+      ...(updates.cdpPort !== undefined
+        ? { cdpPort: updates.cdpPort }
+        : connection.cdpPort !== undefined
+          ? { cdpPort: connection.cdpPort }
+          : {}),
       ...(updates.windowTitle !== undefined
         ? { windowTitle: updates.windowTitle }
         : connection.windowTitle !== undefined
@@ -177,6 +182,25 @@ export function ElectronPlatformFields({ value, onChange, errors, disabled }: Fi
             />
             <p className="text-xs text-gray-500">
               Space-separated command line arguments
+            </p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              CDP Port <span className="text-gray-400">(Optional, default 9222)</span>
+            </label>
+            <input
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all font-mono hover:border-gray-400"
+              type="number"
+              placeholder="9222"
+              value={connection.cdpPort ?? ''}
+              onChange={(e) => {
+                const port = e.target.value ? Number(e.target.value) : undefined;
+                updateExecutableConnection(port === undefined ? {} : { cdpPort: port });
+              }}
+              disabled={disabled}
+            />
+            <p className="text-xs text-gray-500">
+              Debug port the launched app exposes for the agent connection
             </p>
           </div>
         </>

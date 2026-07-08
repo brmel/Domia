@@ -6,7 +6,7 @@ blocked-registry era is done or obsolete; what remains is below.
 
 ## Agent quality
 
-- [ ] **Default model rarely acts** — `DEFAULT_LLM_MODEL = 'gemini-2.0-flash'` observes and calls `finish` with 0 interaction actions even for imperative goals ("click the button"), and reports success on unsatisfiable goals. Loop/tooling is correct; the model is weak. Evaluate bumping the default to a stronger Gemini and/or a prompt nudge that requires an interaction before `finish` when the goal is imperative. **M**
+- [x] **Default model rarely acts** — fixed 2026-07-08: default bumped to `gemini-2.5-flash` (2.0-flash was retired server-side); LLM error events (400 / MALFORMED_FUNCTION_CALL) now retry with a nudge and surface as real errors instead of silent 0-action success. Verified live on google.com (CLI + app) and against the Electron fixture app.
 
 ## Tests to add
 
@@ -19,7 +19,7 @@ blocked-registry era is done or obsolete; what remains is below.
 ## Robustness
 
 - [ ] **`PlaywrightStream` hooks on window switch** — console/network/pageerror hooks don't migrate on a mid-stream Electron window switch; verify whether that happens in practice, re-attach if so. **M**
-- [ ] **`.db.bak` restore path** — the crash-safety backup is write-only; add a "load `.bak` if `.db` is corrupt" path or document manual recovery. **S**
+- [x] **`.db.bak` restore path** — fixed 2026-07-08: `openDatabase` integrity-checks the primary file (`PRAGMA schema_version`), falls back to `.bak`, then to a fresh DB.
 - [ ] **Versioned JSON blobs** — `state_json` / `steps_json` / `platform_config_json` have no schema-version tag; add a version + Zod validation on read (matters most for resume rehydration). **M**
 
 ## Mobile (Appium)

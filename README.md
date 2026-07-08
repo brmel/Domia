@@ -20,9 +20,11 @@ Domia drives an LLM-powered agent (Google ADK + Gemini) against a real target ap
 ```bash
 git clone https://github.com/brmel/Domia.git
 cd Domia
-npm install
-echo "GOOGLE_API_KEY=your_key_here" > .env
+npm run setup     # deps + Playwright Chromium + .env (Windows: setup\setup.cmd)
+# put your key in .env: GOOGLE_API_KEY=your_key_here
+npm run doctor    # verify the install
 ```
+Details and per-OS launchers: [setup/README.md](./setup/README.md).
 
 ## Usage
 ```bash

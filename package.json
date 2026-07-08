@@ -9,7 +9,7 @@
   "scripts": {
     "start": "vite",
     "dev": "vite",
-    "build": "tsc && vite build && electron-builder",
+    "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint domain backend infrastructure frontend shared apps --ext .ts,.tsx",
@@ -21,7 +21,9 @@
     "cli": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs apps/cli/index.ts",
     "server": "tsx apps/server/index.ts",
     "package": "npm run build && electron-builder",
-    "setup": "node setup/setup.mjs"
+    "setup": "node setup/setup.mjs",
+    "doctor": "node setup/doctor.mjs",
+    "package:smoke": "node scripts/package-smoke.mjs"
   },
   "dependencies": {
     "@google-cloud/opentelemetry-cloud-monitoring-exporter": "file:./vendor/otel-cloud-monitoring",
@@ -29,7 +31,6 @@
     "@google-cloud/storage": "file:./vendor/google-cloud-storage",
     "@google/adk": "^0.3.0",
     "@google/genai": "^0.8.0",
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.215.0",
     "@opentelemetry/exporter-logs-otlp-http": "^0.215.0",

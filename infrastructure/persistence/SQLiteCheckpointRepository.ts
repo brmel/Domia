@@ -8,6 +8,7 @@ import type { CheckpointMetadata } from '@domain/value-objects/CheckpointMetadat
 import type { PersistenceError } from '@domain/errors';
 import type { DatabaseSchema } from './DatabaseSchema';
 import { dbOp } from './dbOp';
+import { packBlob, unpackBlob } from './blob';
 
 export class SQLiteCheckpointRepository {
     constructor(private readonly db: Kysely<DatabaseSchema>) {}
@@ -23,10 +24,10 @@ export class SQLiteCheckpointRepository {
                 .values({
                     run_id: runId,
                     checkpoint_id: randomUUID(),
-                    state_json: JSON.stringify(state),
+                    state_json: packBlob(state),
                     reason,
                     created_at: new Date().toISOString(),
-                    metadata_json: metadata ? JSON.stringify(metadata) : null,
+                    metadata_json: metadata ? packBlob(metadata) : null,
                 })
                 .execute(),
             'save checkpoint'
@@ -44,8 +45,8 @@ export class SQLiteCheckpointRepository {
                     checkpointId: row.checkpoint_id,
                     createdAt: row.created_at,
                     reason: row.reason as CheckpointReason,
-                    state: JSON.parse(row.state_json),
-                    ...(row.metadata_json ? { metadata: JSON.parse(row.metadata_json) as CheckpointMetadata } : {}),
+                    state: unpackBlob(row.state_json),
+                    ...(row.metadata_json ? { metadata: unpackBlob<CheckpointMetadata>(row.metadata_json) } : {}),
                 })))(),
             'get checkpoint records'
         );

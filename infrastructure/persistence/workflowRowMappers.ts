@@ -1,18 +1,20 @@
 import { WorkflowStepKind } from '@domain/value-objects/WorkflowStepKind';
 import type { WorkflowDefinition, WorkflowRunRecord, WorkflowStepRunRecord } from '@domain/entities/Workflow';
 import type { WorkflowDefinitionTable, WorkflowRunTable, WorkflowStepRunTable } from './DatabaseSchema';
+import { unpackBlob } from './blob';
+import { PlatformConfigSchema } from '@shared/contracts/run';
 
 /** Pure row -> domain mappers for the workflow aggregate (no DB access). */
 
 export function rowToWorkflowDefinition(row: WorkflowDefinitionTable): WorkflowDefinition {
-    const rawSteps = JSON.parse(row.steps_json) as Array<Record<string, unknown>>;
+    const rawSteps = unpackBlob<Array<Record<string, unknown>>>(row.steps_json);
     return {
         id: row.id,
         name: row.name,
         ...(row.description ? { description: row.description } : {}),
         status: row.status as WorkflowDefinition['status'],
         version: row.version,
-        platformConfig: JSON.parse(row.platform_config_json),
+        platformConfig: PlatformConfigSchema.parse(unpackBlob(row.platform_config_json)) as WorkflowDefinition['platformConfig'],
         steps: rawSteps.map((s) => (s['kind'] === WorkflowStepKind.ForEach ? s : { kind: WorkflowStepKind.Agent, ...s })) as unknown as WorkflowDefinition['steps'],
         createdAt: row.created_at,
         updatedAt: row.updated_at,

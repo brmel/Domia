@@ -7,6 +7,7 @@ import { PersistenceError } from '@domain/errors';
 import type { DatabaseSchema, RunTable, StepTable } from './DatabaseSchema';
 import { DEFAULT_RUNS_QUERY_LIMIT } from '@shared/defaults';
 import { dbOp } from './dbOp';
+import { packBlob, unpackBlob } from './blob';
 
 function extractStatusFields(status: RunStatus): { summary: string | null; durationMs: number | null; valueJson: string | null } {
     switch (status.type) {
@@ -87,8 +88,8 @@ export class SQLiteRunRepository {
                     run_id: step.runId,
                     step_number: step.stepNumber,
                     action_type: step.actionType,
-                    action_payload: JSON.stringify(step.actionPayload),
-                    assets_json: step.assets ? JSON.stringify(step.assets) : null,
+                    action_payload: packBlob(step.actionPayload),
+                    assets_json: step.assets ? packBlob(step.assets) : null,
                     timestamp: step.timestamp
                 })
                 .execute(),
@@ -194,14 +195,14 @@ export class SQLiteRunRepository {
     }
 
     private mapToStep(row: StepTable): Step {
-        const action = JSON.parse(row.action_payload);
+        const action = unpackBlob<Step['actionPayload']>(row.action_payload);
         return {
             id: row.id,
             runId: row.run_id,
             stepNumber: row.step_number,
             actionType: row.action_type as import('@domain/enums').ActionType,
             actionPayload: action,
-            assets: row.assets_json ? JSON.parse(row.assets_json) : undefined,
+            ...(row.assets_json ? { assets: unpackBlob<Record<string, string>>(row.assets_json) } : {}),
             timestamp: row.timestamp
         };
     }

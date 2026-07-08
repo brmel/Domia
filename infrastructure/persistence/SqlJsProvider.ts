@@ -15,11 +15,18 @@ export async function openDatabase(dbPath: string): Promise<SqlJsDatabase> {
     const SQL = await getSqlJs();
     fs.ensureDirSync(path.dirname(dbPath));
 
-    if (fs.existsSync(dbPath)) {
-        const buffer = fs.readFileSync(dbPath);
-        return new SQL.Database(buffer);
-    }
-    return new SQL.Database();
+    const tryLoad = (file: string): SqlJsDatabase | null => {
+        if (!fs.existsSync(file)) return null;
+        try {
+            const db = new SQL.Database(fs.readFileSync(file));
+            db.exec('PRAGMA schema_version');
+            return db;
+        } catch {
+            return null;
+        }
+    };
+
+    return tryLoad(dbPath) ?? tryLoad(`${dbPath}.bak`) ?? new SQL.Database();
 }
 
 export async function createInMemoryDatabase(): Promise<SqlJsDatabase> {

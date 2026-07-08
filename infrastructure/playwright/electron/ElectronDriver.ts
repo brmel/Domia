@@ -10,7 +10,7 @@ import { CDP_DEFAULT_URL, WINDOW_WAIT_TIMEOUT_MS, WINDOW_POLL_INTERVAL_MS } from
 import { CDPValidator } from '@domain/CDPValidator';
 import { Platform } from '@domain/value-objects';
 import { sleep } from '@shared/reliability/sleep';
-import { connectCDP, launchWithCDP, launchWithPlaywright, type ElectronConnectionConfig } from './electronCdpConnect';
+import { connectCDP, launchWithCDP, type ElectronConnectionConfig } from './electronCdpConnect';
 import { ElectronWindowManager } from './ElectronWindowManager';
 import { ElectronWindowSelectionPolicy } from './ElectronWindowSelectionPolicy';
 import { PlaywrightAdapter } from '../PlaywrightAdapter';
@@ -50,25 +50,21 @@ export class ElectronDriver implements IAppDriver {
         }
 
         return ResultAsync.fromPromise(
-            this.doConnect({ ...config, cdpUrl: validation.value }),
+            this.doConnect(validation.value, config ?? {}),
             (e) => new NavigationError(`ElectronDriver connection failed: ${e instanceof Error ? e.message : String(e)}`),
         );
     }
 
-    private async doConnect(config: ElectronConnectionConfig): Promise<void> {
-        this.browser = await connectCDP(this.logger, config.cdpUrl!, config.connectionTimeout);
+    private async doConnect(cdpUrl: string, config: ElectronConnectionConfig): Promise<void> {
+        this.browser = await connectCDP(this.logger, cdpUrl, config.connectionTimeout);
         await this.initializeWindows(config);
         this.logger.info(`${ElectronDriver.TAG} Connected with ${this.windowManager.getWindowCount()} window(s)`);
     }
 
     private async doLaunch(config: ElectronConnectionConfig): Promise<void> {
-        if (config.cdpPort) {
-            const { browser, process: proc } = await launchWithCDP(this.logger, config);
-            this.browser = browser;
-            this.appProcess = proc;
-        } else {
-            this.browser = await launchWithPlaywright(this.logger, config);
-        }
+        const { browser, process: proc } = await launchWithCDP(this.logger, config);
+        this.browser = browser;
+        this.appProcess = proc;
         await this.initializeWindows(config);
         this.logger.info(`${ElectronDriver.TAG} Launched with ${this.windowManager.getWindowCount()} window(s)`);
     }

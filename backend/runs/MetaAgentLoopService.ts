@@ -6,6 +6,7 @@ import type { ExecutionController } from '@backend/ExecutionController';
 import type { RunExecutionContext } from './engine/RunSessionService';
 import { RunUseCase } from './RunUseCase';
 import { SubRunCoordinator } from './SubRunCoordinator';
+import { supportsSubRuns } from './subRunPlatform';
 
 interface NextPass {
     readonly prompt: string;
@@ -31,18 +32,14 @@ export class MetaAgentLoopService {
         for (;;) {
             passNumber++;
             let currentRunId: RunId | null = null;
-            const subRuns = new SubRunCoordinator(
-                this.runUseCase,
-                input,
-                controller,
-                () => currentRunId,
-                this.logger,
-            );
+            const subRuns = supportsSubRuns(input.platformConfig)
+                ? new SubRunCoordinator(this.runUseCase, input, controller, () => currentRunId, this.logger)
+                : undefined;
 
             let iterating: { summary: string; nextGoal?: string; toolCategories?: readonly string[] } | null = null;
             const passInput = this.buildPassInput(input, pass, rootRunId);
 
-            for await (const output of this.runUseCase.execute(passInput, controller, { ...(runContext ?? {}), subRuns })) {
+            for await (const output of this.runUseCase.execute(passInput, controller, { ...(runContext ?? {}), ...(subRuns ? { subRuns } : {}) })) {
                 if (output.type === 'started') {
                     currentRunId = output.runId;
                     rootRunId ??= output.runId;
@@ -53,7 +50,7 @@ export class MetaAgentLoopService {
                 yield output;
             }
 
-            await this.settleOrphanedChildren(subRuns, passNumber);
+            if (subRuns) await this.settleOrphanedChildren(subRuns, passNumber);
 
             if (!iterating || controller.isStopped()) return;
             pass = {
