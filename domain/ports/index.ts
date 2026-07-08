@@ -1,5 +1,6 @@
 // agent
 export * from './agent/IAgentRuntime';
+export * from './agent/ISubRunLauncher';
 export * from './agent/IPromptService';
 export * from './agent/IRetryPolicy';
 export * from './agent/IEvaluator';

@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { container } from 'tsyringe';
 import chalk from 'chalk';
-import { RunUseCase } from '@backend/runs';
+import { MetaAgentLoopService } from '@backend/runs';
 import { ExecutionController } from '@backend/ExecutionController';
 
 export function registerReplayCommand(program: Command): void {
@@ -12,7 +12,7 @@ export function registerReplayCommand(program: Command): void {
         .action(async (runId: string, options: { prompt?: string }) => {
             const { RunReplayService } = await import('@backend/runs/RunReplayService');
             const replayService = container.resolve(RunReplayService);
-            const useCase = container.resolve(RunUseCase);
+            const useCase = container.resolve(MetaAgentLoopService);
             const controller = new ExecutionController();
             controller.start();
             try {

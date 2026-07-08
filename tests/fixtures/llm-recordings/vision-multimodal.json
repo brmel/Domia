@@ -78,5 +78,39 @@
         "finishReason": "STOP"
       }
     ]
+  },
+  {
+    "hash": "80275a465bbeb263",
+    "response": [
+      {
+        "content": {
+          "parts": [
+            {
+              "functionCall": {
+                "name": "observe",
+                "args": {},
+                "id": "adk-c3a25ac0-ff3e-41ef-ab12-a849c7f98e7b"
+              },
+              "thoughtSignature": "CvYDARFNMg/Zp6u/nqR9ujpASYD3VOCX4q7oHersyQgZPgIWmgrYOcaG1uUBWcw4MUMfAqa9CMzd9pMcJLFB2wcwl+Z4quLbiNXjOyWpdzy/jpppZZ/Ylx0HNBvEudHq1dj2fxhTAmvqeE+LgHLjj78DfSD9zQIYTKjhFdZjRrUm+j6z++p906ffw9QigzgifJ2zo+7NnG+/T16fwC30TYLGf97OsE4f7gAouwD7HKpOT2jYgrKfJ3iQhvbhfzStyXUUUKQJuN/byvwBds7d8rxDvBIUtEAy/apaRZpkrnoPCS3GjbJ2NVaTOEBAP0BG/PHD1PNXTn/J9ES7/mc6+Ar5r4NDNX1VBXvzeKe550jEr5CjPyttROpRwR9z3FGhMdFHLFN1HS6ad41go+ZUqUjg/Dmhr9fm62as0zsOaqoomoDj1rWzedIZDqx3tQ8uDgcQZF+dBQ1HXR6612Qxl+PBH6Ug0Z6+pM74/o8ColbkyQWm27AMko0ZIyX2b08qyNaR274I1ATKxSBVd0/2X9ydMcKLbJDIh9PvfNycgAnV09iFfpxAXC/YW5rcSaaVh5qNQHxdYavLFCp0kseo6P0oL2M4wribeK4V+ayHRMSpDwqhTH2ulzJUavXjirgwybjTm/ahPgzgVgODhYovHYeNMiHLQPLv0Q=="
+            }
+          ],
+          "role": "model"
+        },
+        "usageMetadata": {
+          "promptTokenCount": 5703,
+          "candidatesTokenCount": 8,
+          "totalTokenCount": 5814,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 5703
+            }
+          ],
+          "thoughtsTokenCount": 103,
+          "serviceTier": "standard"
+        },
+        "finishReason": "STOP"
+      }
+    ]
   }
 ]

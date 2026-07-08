@@ -5,6 +5,19 @@ export class ExecutionController extends EventEmitter {
     private _state: RunState = RunState.IDLE;
     private _resumeResolver: (() => void) | null = null;
     private _suspendRequest: { reason: string } | null = null;
+    private readonly _children = new Set<ExecutionController>();
+
+    spawnChild(): ExecutionController {
+        const child = new ExecutionController();
+        this._children.add(child);
+        child.start();
+        if (this._state === RunState.PAUSED) child.pause();
+        return child;
+    }
+
+    releaseChild(child: ExecutionController): void {
+        this._children.delete(child);
+    }
 
     get state(): RunState {
         return this._state;
@@ -37,6 +50,7 @@ export class ExecutionController extends EventEmitter {
     pause(): void {
         if (this._state === RunState.RUNNING) {
             this._state = RunState.PAUSED;
+            this._children.forEach((child) => child.pause());
             this.emit('stateChanged', this._state);
         }
     }
@@ -48,6 +62,7 @@ export class ExecutionController extends EventEmitter {
                 this._resumeResolver();
                 this._resumeResolver = null;
             }
+            this._children.forEach((child) => child.resume());
             this.emit('stateChanged', this._state);
         }
     }
@@ -58,6 +73,7 @@ export class ExecutionController extends EventEmitter {
             this._resumeResolver();
             this._resumeResolver = null;
         }
+        this._children.forEach((child) => child.stop());
         this.emit('stateChanged', this._state);
     }
 

@@ -165,6 +165,12 @@ export class FileSystemStorage implements IStorageService {
         return (await fs.readJson(resolved)) as ConversationSnapshot;
     }
 
+    async loadConversationSnapshotForRun(runId: string): Promise<ConversationSnapshot | null> {
+        const filePath = path.resolve(this.paths().artifactsDir, runId, 'conversation-snapshot.json');
+        if (!(await fs.pathExists(filePath))) return null;
+        return this.loadConversationSnapshot(filePath);
+    }
+
     async deleteConversationSnapshot(filePath: string): Promise<void> {
         const artifactsDir = path.resolve(this.paths().artifactsDir);
         const resolved = path.resolve(filePath);

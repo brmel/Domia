@@ -22,6 +22,20 @@ export function createTerminalTools(onSuspendRequest?: (reason: string) => void)
             }),
         },
         {
+            name: 'iterate',
+            description:
+                'End this pass and start a fresh one with a clean context. Use when the conversation has grown long, when you want to restart with a sharper goal, or when you want a different tool set for the next phase of the task. ' +
+                'State everything the next pass needs in nextGoal — it starts with no memory of this conversation. ' +
+                'Input: { summary: string, nextGoal?: string, toolCategories?: string[] (from list_categories; omit to keep the current set) }. Output: terminates this pass.',
+            actionType: ActionType.ITERATE,
+            parameters: z.object({
+                summary: z.string().min(1).describe('What this pass accomplished and what remains.'),
+                nextGoal: z.string().optional().describe('Complete goal for the next pass, including any findings it must know. Defaults to the original goal plus your summary.'),
+                toolCategories: z.array(z.string()).optional().describe('Tool categories to enable next pass. Terminal and meta tools are always included.'),
+            }),
+            execute: (args) => toolSuccess({ status: 'iterating', summary: args['summary'] as string }),
+        },
+        {
             name: 'suspend',
             description:
                 'Suspend the run for later resumption. Use when a task requires waiting for an external trigger (human approval, long batch job, scheduled event) where staying active would waste compute. ' +

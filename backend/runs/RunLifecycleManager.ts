@@ -66,9 +66,13 @@ export class RunLifecycleManager {
             return;
         }
         const existing = existingResult.value;
-        const summary = outcome?.kind === 'done' ? (outcome.output.summary || fallbackSummary) : fallbackSummary;
+        const summary = outcome?.kind === 'done' ? (outcome.output.summary || fallbackSummary)
+            : outcome?.kind === 'iterate' ? (outcome.summary || fallbackSummary)
+            : fallbackSummary;
 
-        const handlerKey = outcome?.kind === 'done' ? (outcome.output.verdict ?? 'finish') : 'fail';
+        const handlerKey = outcome?.kind === 'done' ? (outcome.output.verdict ?? 'finish')
+            : outcome?.kind === 'iterate' ? 'finish'
+            : 'fail';
         const value = outcome?.kind === 'done' ? outcome.output.value : undefined;
         const finalizedResult = VERDICT_HANDLERS[handlerKey](existing, summary, new Date(), value);
         if (finalizedResult.isErr()) {

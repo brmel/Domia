@@ -59,6 +59,8 @@ function describeOutcome(outcome: AgentOutcome): string {
     switch (outcome.kind) {
         case 'done':
             return outcome.output.summary || 'agent finished';
+        case 'iterate':
+            return outcome.summary || 'iterating';
         case 'stopped':
             return `${outcome.reason}: ${outcome.summary}`;
         case 'error':

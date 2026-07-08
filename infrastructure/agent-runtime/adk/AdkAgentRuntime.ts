@@ -1,6 +1,7 @@
 import { injectable, inject } from 'tsyringe';
-import { InMemorySessionService, getFunctionCalls, isFinalResponse, stringifyContent } from '@google/adk';
+import { getFunctionCalls, isFinalResponse, stringifyContent } from '@google/adk';
 import type { Event } from '@google/adk';
+import { PersistentSessionService } from './PersistentSessionService';
 import {
     extractThought,
     flushPending,
@@ -21,7 +22,7 @@ import { PluginRegistry } from '@infrastructure/plugins/PluginRegistry';
 import { ShellExecutor } from '@infrastructure/shell/ShellExecutor';
 import { TraceService } from '@infrastructure/services/TraceService';
 import type { IConfigService } from '@domain/ports/platform/IConfigService';
-import { LLM_CALL_BUDGET_OFFSET, FINAL_RESPONSE_LOG_CHARS, APP_NAME } from '@shared/defaults';
+import { LLM_CALL_BUDGET_OFFSET, LLM_ERROR_RETRIES, FINAL_RESPONSE_LOG_CHARS, APP_NAME } from '@shared/defaults';
 import { assembleAdkSession } from './assembleAdkSession';
 import { ADK_SNAPSHOT_PROVIDER, ADK_SESSION_USER_ID } from './adkConstants';
 
@@ -35,7 +36,7 @@ function readUsageTokens(event: unknown): number {
 
 @injectable()
 export class AdkAgentRuntime implements IAgentRuntime {
-    private readonly sessionService = new InMemorySessionService();
+    private readonly sessionService: PersistentSessionService;
 
     constructor(
         @inject('IPerceptionPipeline') private readonly perception: IPerceptionPipeline,
@@ -50,7 +51,9 @@ export class AdkAgentRuntime implements IAgentRuntime {
         @inject('IRunHealthMonitor') private readonly healthMonitor: IRunHealthMonitor,
         @inject(SkillRunnerService) private readonly skillRunner: SkillRunnerService,
         @inject(TraceService) private readonly trace: TraceService,
-    ) {}
+    ) {
+        this.sessionService = new PersistentSessionService(this.storage, this.logger);
+    }
 
     async snapshotConversation(runId: string): Promise<ConversationSnapshot | null> {
         const session = await this.sessionService.getSession({ appName: APP_NAME, userId: ADK_SESSION_USER_ID, sessionId: runId });
@@ -103,17 +106,29 @@ export class AdkAgentRuntime implements IAgentRuntime {
 
         const runStartMs = Date.now();
         let estimatedTokens = 0;
+        let nextMessage = initialMessage;
+        let llmErrorRetries = 0;
+        let llmError: { code: string; message: string } | null = null;
 
         try {
+            retry: for (;;) {
+            llmError = null;
             state.llmTurnStartMs = Date.now();
 
             for await (const event of runner.runAsync({
                 userId: session.userId,
                 sessionId: session.id,
-                newMessage: initialMessage,
+                newMessage: nextMessage,
                 runConfig: { maxLlmCalls: maxActions + LLM_CALL_BUDGET_OFFSET },
             })) {
                 estimatedTokens += readUsageTokens(event);
+
+                const errorCode = (event as { errorCode?: string; errorMessage?: string }).errorCode;
+                if (errorCode) {
+                    llmError = { code: errorCode, message: (event as { errorMessage?: string }).errorMessage ?? '' };
+                    this.logger.warn(`${LOG_TAG} LLM error event: ${errorCode} ${llmError.message.slice(0, 300)}`);
+                    continue;
+                }
 
                 if (budget?.maxDurationMs && Date.now() - runStartMs > budget.maxDurationMs) {
                     yield* flushPending(state);
@@ -158,6 +173,17 @@ export class AdkAgentRuntime implements IAgentRuntime {
                             };
                         }
 
+                        if (action.type === ActionType.ITERATE) {
+                            yield actionEvent;
+                            const iterateAction = action as { summary: string; nextGoal?: string; toolCategories?: readonly string[] };
+                            return {
+                                kind: 'iterate',
+                                summary: iterateAction.summary,
+                                ...(iterateAction.nextGoal !== undefined ? { nextGoal: iterateAction.nextGoal } : {}),
+                                ...(iterateAction.toolCategories !== undefined ? { toolCategories: iterateAction.toolCategories } : {}),
+                            };
+                        }
+
                         if (state.actionCount >= maxActions) {
                             yield actionEvent;
                             return {
@@ -188,11 +214,28 @@ export class AdkAgentRuntime implements IAgentRuntime {
             }
 
             yield* flushPending(state);
+
+            if (llmError && llmErrorRetries < LLM_ERROR_RETRIES) {
+                llmErrorRetries++;
+                this.logger.warn(`${LOG_TAG} Retrying after LLM error (${llmError.code}), attempt ${llmErrorRetries}/${LLM_ERROR_RETRIES}`);
+                nextMessage = {
+                    role: 'user',
+                    parts: [{ text: `Your previous response was rejected (${llmError.code}). Continue toward the goal, calling exactly one tool with valid JSON arguments.` }],
+                };
+                continue retry;
+            }
+            break retry;
+            }
         } catch (error) {
             const cause = error instanceof Error ? error : new Error(String(error));
             this.logger.error(`${LOG_TAG} Agent error: ${cause.message}`);
             await sink.flushOnFailure();
             return { kind: 'error', cause };
+        }
+
+        if (llmError) {
+            await sink.flushOnFailure();
+            return { kind: 'error', cause: new Error(`LLM rejected the conversation (${llmError.code}): ${llmError.message.slice(0, 500)}`) };
         }
 
         return {

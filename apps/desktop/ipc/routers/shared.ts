@@ -2,7 +2,7 @@ import { initTRPC } from '@trpc/server';
 import { EventEmitter } from 'events';
 import { ExecutionController } from '@backend/ExecutionController';
 import type { RunInput, RunOutput } from '@backend/dto';
-import type { RunUseCase } from '@backend/runs';
+import type { MetaAgentLoopService } from '@backend/runs';
 import type { RunResumeService } from '@backend/runs/RunResumeService';
 import type { RunId } from '@domain/value-objects';
 import { serializeRunOutput } from './serializeRunOutput';
@@ -41,7 +41,7 @@ function consumeRunGenerator(generator: AsyncGenerator<RunOutput, void, unknown>
     })();
 }
 
-export function startRunStream(useCase: RunUseCase, input: RunInput): void {
+export function startRunStream(useCase: MetaAgentLoopService, input: RunInput): void {
     if (activeRunState.current) activeRunState.current.stop();
     activeRunState.current = new ExecutionController();
     activeRunState.current.start();

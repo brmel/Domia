@@ -18,6 +18,7 @@ export type RunOutput =
     | { type: 'state_updated'; state: import('@domain/value-objects').WorkflowState }
     | { type: 'observation'; frame: import('@domain/value-objects/ObservationFrame').ObservationFrame }
     | { type: 'completed'; success: boolean; summary?: string }
+    | { type: 'iterating'; runId: RunId; summary: string; nextGoal?: string; toolCategories?: readonly string[] }
     | { type: 'cancelled'; summary?: string }
     | { type: 'suspended'; runId: RunId; reason: string }
     | { type: 'error'; error: WorkflowError | Error };

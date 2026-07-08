@@ -10,7 +10,7 @@ import {
     createPersistenceAdapter,
 } from '@infrastructure/persistence/repositories';
 import { ConsoleLogger } from '@infrastructure/ConsoleLogger';
-import { RunUseCase } from '@backend/runs';
+import { RunUseCase, MetaAgentLoopService } from '@backend/runs';
 import {
     WebDriverProvider,
     ElectronDriverProvider,
@@ -190,6 +190,7 @@ export class ContainerBuilder {
 
     registerUseCases(): this {
         container.register('RunUseCase', { useClass: RunUseCase });
+        container.register('MetaAgentLoopService', { useClass: MetaAgentLoopService });
         container.registerSingleton(RunEvaluationService);
         container.registerSingleton(NoopRunEvaluation);
         container.registerSingleton(RunPlanningService);

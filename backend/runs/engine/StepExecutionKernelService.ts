@@ -65,6 +65,7 @@ export class StepExecutionKernelService {
             },
             vision: executionOptions.vision,
             platform: executionOptions.platform,
+            ...(executionOptions.toolCategories ? { toolCategories: executionOptions.toolCategories } : {}),
             persistArtifacts: executionOptions.persistArtifacts,
             ...(executionOptions.extras ? { extras: executionOptions.extras } : {}),
             ...(executionOptions.recording ? { recording: executionOptions.recording } : {}),

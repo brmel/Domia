@@ -2,7 +2,7 @@ import { inject, injectable } from 'tsyringe';
 import type { WorkflowDefinition, WorkflowStepDefinition, AgentWorkflowStep, ForEachWorkflowStep } from '@domain/entities/Workflow';
 import { WorkflowStepKind } from '@domain/value-objects/WorkflowStepKind';
 import { interpolate } from '@shared/reliability/interpolate';
-import { RunUseCase } from '@backend/runs';
+import { MetaAgentLoopService } from '@backend/runs';
 import { ExecutionController } from '@backend/ExecutionController';
 import type { PlatformSession } from '@backend/platform/PlatformSession';
 import { PlatformSessionFactory } from '@backend/platform/PlatformSessionFactory';
@@ -22,7 +22,7 @@ interface WorkflowStepRuntimeContext {
 @injectable()
 export class WorkflowStepRunnerService {
     constructor(
-        @inject(RunUseCase) private readonly runUseCase: RunUseCase,
+        @inject(MetaAgentLoopService) private readonly runLoop: MetaAgentLoopService,
         @inject(PlatformSessionFactory) private readonly sessionFactory: PlatformSessionFactory
     ) {}
 
@@ -57,7 +57,7 @@ export class WorkflowStepRunnerService {
         let runId: string | undefined;
         let completedSummary: string | undefined;
 
-        const generator = this.runUseCase.execute(
+        const generator = this.runLoop.execute(
             {
                 platformConfig: definition.platformConfig,
                 prompt,

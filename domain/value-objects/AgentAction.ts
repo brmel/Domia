@@ -22,6 +22,9 @@ export type AgentAction =
     | StartRecordingAction
     | StopAndReviewRecordingAction
     | FinishAction
+    | IterateAction
+    | SpawnSubrunAction
+    | AwaitSubrunsAction
     | ShellExecAction
     | ListWindowsAction
     | SwitchWindowAction
@@ -173,6 +176,26 @@ interface FinishAction {
     readonly summary: string;
     readonly verdict?: 'pass' | 'fail';
     readonly value?: unknown;
+    readonly thought?: string;
+}
+
+interface IterateAction {
+    readonly type: ActionType.ITERATE;
+    readonly summary: string;
+    readonly nextGoal?: string;
+    readonly toolCategories?: readonly string[];
+    readonly thought?: string;
+}
+
+interface SpawnSubrunAction {
+    readonly type: ActionType.SPAWN_SUBRUN;
+    readonly goal: string;
+    readonly url?: string;
+    readonly thought?: string;
+}
+
+interface AwaitSubrunsAction {
+    readonly type: ActionType.AWAIT_SUBRUNS;
     readonly thought?: string;
 }
 

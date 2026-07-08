@@ -50,6 +50,8 @@ export function assembleToolDependencies(runtime: ToolDepsRuntime, params: ToolD
         ...(windowManager && { windowManager }),
         ...(onSuspendRequest && { onSuspendRequest }),
         ...(input.extras?.tabManager && { tabManager: input.extras.tabManager }),
+        ...(input.extras?.subRuns && { subRuns: input.extras.subRuns }),
+        ...(input.toolCategories && { toolCategories: input.toolCategories }),
         onCapture: (capturedFrame) => sink.onPerceptionFrame(getActionCount(), capturedFrame),
         ...(input.recording?.enabled && {
             recording: {

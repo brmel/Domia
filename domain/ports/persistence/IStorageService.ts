@@ -18,5 +18,6 @@ export interface IStorageService {
     saveActionRecording(runId: string, actionIndex: number, recording: import('../../types/ActionRecordingTypes').ActionRecordingData): Promise<void>;
     saveConversationSnapshot(runId: string, snapshot: ConversationSnapshot): Promise<string>;
     loadConversationSnapshot(filePath: string): Promise<ConversationSnapshot>;
+    loadConversationSnapshotForRun(runId: string): Promise<ConversationSnapshot | null>;
     deleteConversationSnapshot(filePath: string): Promise<void>;
 }

@@ -70,6 +70,18 @@ export class RunTerminalizationService {
         // Persist the terminal status before yielding: a CLI consumer exits the
         // process on the terminal event, which would otherwise abandon this write.
         await this.lifecycleManager.finalizeRun(runId, outcome, summary);
+
+        if (outcome?.kind === 'iterate') {
+            yield {
+                type: 'iterating',
+                runId,
+                summary,
+                ...(outcome.nextGoal !== undefined ? { nextGoal: outcome.nextGoal } : {}),
+                ...(outcome.toolCategories !== undefined ? { toolCategories: outcome.toolCategories } : {}),
+            };
+            return;
+        }
+
         yield { type: 'completed', success, summary };
     }
 }

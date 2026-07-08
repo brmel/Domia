@@ -25,7 +25,7 @@ The single canonical reference for layers, boundaries, and how to add features. 
 
 | Context | Folder | Responsibility |
 |---|---|---|
-| Runs | `backend/runs/` | Single-prompt agent run lifecycle |
+| Runs | `backend/runs/` | Agent run lifecycle + the meta-agent loop (`MetaAgentLoopService`) |
 | Workflows | `backend/workflows/` | Multi-step orchestration over runs |
 | Settings | `backend/settings/` | Config facade |
 | Prompts | `backend/prompts/` | Prompt override facade |
@@ -37,6 +37,7 @@ Cross-context imports are allowed (e.g. `WorkflowStepRunnerService` calls `RunUs
 
 ## CI guards (`scripts/check-architecture.mjs`)
 
+- `god-file` — no source file over 400 lines; split by concern before it grows.
 - `domain-purity` — `domain/` imports nothing outside `domain/` and pure utilities.
 - `backend-boundary` — `backend/` may not import `@infrastructure`/`@frontend`/`@apps` except `backend/container/`.
 - `infrastructure-boundary` — `infrastructure/` may not import `@backend`/`@frontend`/`@apps`.
@@ -101,6 +102,18 @@ A feature usually flows: **domain → backend service → IPC router OR CLI comm
 2. Register in `ContainerBuilder.registerReporting()`.
 3. Add to the report writer's `IRunReportWriter` formats union.
 
+## Run composition (the agentic loop)
+
+Every entry point (IPC `runRouter`, CLI `run`, workflow steps) drives `MetaAgentLoopService`, not `RunUseCase` directly. The loop treats `RunUseCase` as a primitive and gives the agent three composition powers:
+
+- **`iterate`** (terminal tool) — end the pass, start a fresh one with clean context. The agent carries state forward via `nextGoal` and can request a different tool set via `toolCategories` (per-pass dynamic tool registration; terminal + meta categories always stay on). Each pass is its own run row, linked by `parentRunId`.
+- **`spawn_subrun` / `await_subruns`** — fan out independent child agents in parallel, each in its own browser session and execution lane. Wired per run as a `SubRunCoordinator` (implements `ISubRunLauncher`); child controllers cascade pause/resume/cancel from the parent (`ExecutionController.spawnChild`).
+- **`suspend`** — persist and stop until `domia resume <runId>` (pre-existing).
+
+Composition happens at run level, not inside ADK: `SequentialAgent`/`ParallelAgent` trees were deliberately not adopted — `iterate` covers sequential, sub-runs cover parallel, and both keep every pass observable as a normal run. Don't add an ADK agent tree until a real consumer needs one.
+
+The remaining unification step (roadmap slice 19): fold `backend/workflows/` step definitions into stored meta-run plans so Workflow/Skill/Run become one execution model. Workflow steps already execute through the meta loop.
+
 ## Subsystems at a glance
 
 | Subsystem | Where | Notes |
@@ -116,7 +129,7 @@ A feature usually flows: **domain → backend service → IPC router OR CLI comm
 
 ## ADK conventions (`infrastructure/agent-runtime/adk/`)
 
-- `LlmAgent` + `Runner` + `InMemorySessionService`, one session per `runId`.
+- `LlmAgent` + `Runner` + `PersistentSessionService` (write-through to `<artifactsDir>/<runId>/conversation-snapshot.json`, rehydrates on cache miss — conversations survive process death), one session per `runId`.
 - Instruction = static system prompt + ADK `InstructionProvider` that interpolates `{state.x}` live each turn (`buildInstructionProvider`).
 - `temperature` (`DEFAULT_AGENT_TEMPERATURE`), `functionCallingConfig: AUTO`; optional Gemini `thinkingConfig` via `DOMIA_THINKING_BUDGET`.
 - `RunMetricsPlugin` (ADK `BasePlugin`) records per-tool metrics + opens per-tool trace spans.
@@ -125,7 +138,7 @@ A feature usually flows: **domain → backend service → IPC router OR CLI comm
 
 ## Current state
 
-Clean layered hexagon: pure `domain/`, real DI seam (`backend/container/`), ports/adapters with swap-by-folder, 0 circular deps and boundary rules both CI-gated (`scripts/check-architecture.mjs`), `Result<T,E>` across boundaries, prompts externalized to `prompts/*.md`. The known open lever is layer-first (not feature-first) organization — deliberately not migrated. Measured signals (size, coupling) live in `git log` history, not a tracked metrics file.
+Clean layered hexagon: pure `domain/`, real DI seam (`backend/container/`), ports/adapters with swap-by-folder, 0 circular deps, boundary + god-file rules CI-gated (`scripts/check-architecture.mjs`), coverage floor gated in `vitest.config.ts`, `Result<T,E>` across boundaries, prompts externalized to `prompts/*.md`. The agent composes its own execution (iterate passes, parallel sub-runs, suspend/resume) via `MetaAgentLoopService`; timeouts and waits are agent-controllable informants, not fixed vetoes (slow sites are covered by `tests/e2e/tools/slow-site.test.ts`). The known open levers: layer-first (not feature-first) organization — deliberately not migrated — and roadmap slice 19 (fold workflows into stored meta-run plans). Measured signals (size, coupling) live in `git log` history, not a tracked metrics file.
 
 ## Where to find things
 

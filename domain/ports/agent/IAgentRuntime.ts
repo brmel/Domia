@@ -19,6 +19,12 @@ type StopReason = 'cancelled' | 'budget_exhausted' | 'no_progress';
 
 export type AgentOutcome =
     | { readonly kind: 'done'; readonly output: AgentOutput }
+    | {
+          readonly kind: 'iterate';
+          readonly summary: string;
+          readonly nextGoal?: string;
+          readonly toolCategories?: readonly string[];
+      }
     | { readonly kind: 'stopped'; readonly reason: StopReason; readonly summary: string }
     | { readonly kind: 'error'; readonly cause: Error };
 
@@ -47,6 +53,7 @@ export interface AgentRuntimeExtras {
     readonly tabManager?: ITabManager;
     readonly onSuspendRequest?: (reason: string) => void;
     readonly capabilities?: import('@domain/ports/automation/IAppDriver').AppCapabilities;
+    readonly subRuns?: import('./ISubRunLauncher').ISubRunLauncher;
 }
 
 export interface AgentInput {
@@ -65,6 +72,7 @@ export interface AgentInput {
     };
     readonly vision: boolean;
     readonly platform?: PlatformType | undefined;
+    readonly toolCategories?: readonly string[];
     readonly recording?: {
         readonly enabled: boolean;
         readonly maxDurationMs?: number;

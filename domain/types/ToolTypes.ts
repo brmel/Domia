@@ -28,6 +28,9 @@ export const ToolName = {
     SwitchBrowserTab: 'switch_browser_tab',
     CloseBrowserTab: 'close_browser_tab',
     Finish: 'finish',
+    Iterate: 'iterate',
+    SpawnSubrun: 'spawn_subrun',
+    AwaitSubruns: 'await_subruns',
 } as const;
 export type BuiltInToolName = typeof ToolName[keyof typeof ToolName];
 
@@ -44,6 +47,7 @@ export const ToolCategory = {
     Shell: 'shell',
     Electron: 'electron',
     Meta: 'meta',
+    SubRuns: 'subruns',
 } as const;
 export type ToolCategory = typeof ToolCategory[keyof typeof ToolCategory];
 

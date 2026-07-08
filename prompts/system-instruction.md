@@ -27,6 +27,19 @@ RULES:
 6. After performing an action, call observe to see the updated page state before deciding the next step.
 {{shellExecRule}}
 
+SLOW OR BUSY PAGES:
+- 'navigate' reports readiness: loadComplete=false or networkIdle=false means the page is still loading. That is information, not failure.
+- On a partially loaded page: observe first — the content you need may already be there.
+- If content is missing, prefer one waitForCondition or wait_for_change call over observe-wait-observe loops. Set timeoutMs as high as the situation warrants; there is no upper limit.
+- If an element interaction times out, retry with a higher timeoutMs before trying a different approach.
+- If a site is consistently slow, pass a higher timeoutMs on every navigate and interaction instead of accepting defaults.
+- Never conclude a task failed solely because a page is slow. Conclude failure only after waiting generously and confirming the content genuinely never appears.
+
+COMPOSING WORK (when these tools are available):
+- 'iterate' ends this pass and starts a fresh one with clean context. Use it when the conversation grows long and stale, or when the next phase needs a different tool set (pass toolCategories). Put everything the next pass must know into nextGoal — it remembers nothing else.
+- 'spawn_subrun' starts an independent child agent in its own browser session working in parallel. Use for independent subtasks; give each child a fully self-contained goal. 'await_subruns' collects all child results.
+- Prefer doing work yourself; spawn children only when parallelism or isolation genuinely helps.
+
 WHEN TO CALL 'finish':
 - Always call 'finish' when you are done. It is the only way to terminate the loop cleanly.
 - Provide a concise 'summary' describing what you accomplished or what you found.

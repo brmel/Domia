@@ -11,6 +11,7 @@ import type { IShellPolicy } from '@domain/ports/automation/IShellPolicy';
 import type { IWindowManager } from '@domain/ports/automation/IWindowManager';
 import type { ITabManager } from '@domain/ports/automation/ITabManager';
 import type { IObservationCoordinator } from '@domain/ports/perception/IObservationCoordinator';
+import type { ISubRunLauncher } from '@domain/ports/agent/ISubRunLauncher';
 
 export interface ToolSpec {
     readonly name: ToolNameValue;
@@ -52,4 +53,6 @@ export interface ToolDependencies {
     readonly observation?: IObservationCoordinator;
     readonly runId?: string;
     readonly onSuspendRequest?: (reason: string) => void;
+    readonly subRuns?: ISubRunLauncher;
+    readonly toolCategories?: readonly string[];
 }

@@ -14,6 +14,8 @@ export interface RunExecutionContext {
     readonly session?: PlatformSession;
     readonly shouldNavigate?: boolean;
     readonly disposeSessionOnComplete?: boolean;
+    readonly subRuns?: import('@domain/ports').ISubRunLauncher;
+    readonly laneKey?: string;
 }
 
 export interface PreparedRunSession {

@@ -19,7 +19,8 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
     recording: 'Capture rapid DOM mutations to verify transient UI events (toasts, counters, flashes).',
     shell: 'Execute approved shell commands when configured.',
     electron: 'List + switch among Electron application windows.',
-    terminal: 'finish (declare task complete) and suspend (pause for later resume).',
+    terminal: 'finish (declare task complete), iterate (fresh pass with clean context), suspend (pause for later resume).',
+    subruns: 'Spawn parallel child agent runs and await their results.',
 };
 
 export function createMetaTools(getCatalog: () => readonly ToolSpec[]): ToolSpec[] {

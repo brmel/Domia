@@ -1,4 +1,4 @@
-export const DEFAULT_LLM_MODEL = 'gemini-2.0-flash';
+export const DEFAULT_LLM_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_LLM_PROVIDER = 'google' as const;
 export const LLM_CALL_BUDGET_OFFSET = 2;
 
@@ -9,7 +9,6 @@ export const DEFAULT_THINKING_BUDGET = 0;
 export const DEFAULT_MAX_ACTIONS = 1000;
 export const DEFAULT_MAX_DURATION_MS = 24 * 60 * 60 * 1000;
 export const DEFAULT_MAX_ESTIMATED_TOKENS = 2_000_000;
-export const DEFAULT_DELAY_BETWEEN_STEPS_MS = 1000;
 
 
 
@@ -19,6 +18,8 @@ export const CLI_DEFAULT_URL = 'https://ibraverse.ca';
 
 
 export const CONFIG_FILE_NAME = 'domia.config.json';
+
+export const LLM_ERROR_RETRIES = 2;
 
 export const DEFAULT_RETRY_ATTEMPTS = 3;
 export const DEFAULT_RETRY_MIN_DELAY_MS = 300;

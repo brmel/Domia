@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { container } from '@backend/container-root';
-import { RunUseCase } from '@backend/runs';
+import { MetaAgentLoopService } from '@backend/runs';
 import { IPersistenceAdapter } from '@domain/ports';
 import { observable } from '@trpc/server/observable';
 import { RunInput } from '@backend/dto';
@@ -20,7 +20,7 @@ export const runRouter = t.router({
         .input(RunInputSchema)
         .mutation(async ({ input }: { input: z.infer<typeof RunInputSchema> }) => {
             if (input.options?.debug) debug.enable('domia:*');
-            const useCase = container.resolve(RunUseCase);
+            const useCase = container.resolve(MetaAgentLoopService);
             startRunStream(useCase, input as RunInput);
             return { success: true };
         }),
@@ -90,7 +90,7 @@ export const runRouter = t.router({
             const built = await replayService.build(input.parentRunId, {
                 ...(input.promptOverride ? { promptOverride: input.promptOverride } : {}),
             });
-            const useCase = container.resolve(RunUseCase);
+            const useCase = container.resolve(MetaAgentLoopService);
             startRunStream(useCase, built.input);
             return { success: true, parentRunId: built.parentRunId };
         }),

@@ -9,6 +9,7 @@ export interface StepExecutionOptions {
     vision: boolean;
     maxActions: number;
     platform?: PlatformType | undefined;
+    toolCategories?: readonly string[];
     recording?: {
         enabled: boolean;
         maxDurationMs?: number;
@@ -52,6 +53,7 @@ export function buildExecutionOptions(options?: RunOptions, platform?: PlatformT
         vision: options?.vision ?? true,
         maxActions: options?.maxSteps ?? DEFAULT_MAX_ACTIONS,
         platform,
+        ...(options?.toolCategories ? { toolCategories: options.toolCategories } : {}),
         persistArtifacts: (options?.persistArtifacts as ArtifactRetention | undefined) ?? DEFAULT_ARTIFACT_RETENTION,
     };
     if (options?.recording) {

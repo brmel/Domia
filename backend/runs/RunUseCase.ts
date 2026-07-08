@@ -61,7 +61,7 @@ export class RunUseCase {
         yield* this.orchestration.orchestrate({
             input,
             url,
-            laneKey: resolveLaneKeyFromConfig(input.platformConfig),
+            laneKey: runContext?.laneKey ?? resolveLaneKeyFromConfig(input.platformConfig),
             stateRef: { current: WorkflowState.initial() },
             vision: input.options?.vision ?? true,
             profile: (input.options?.observationProfile as ObservationProfile | undefined) ?? DEFAULT_OBSERVATION_PROFILE,
@@ -76,7 +76,7 @@ export class RunUseCase {
                 await this.engine.checkpoint(ctx.runId, ctx.stateRef.current, CheckpointReason.RunInitialized);
                 return [{ type: 'started', runId: ctx.runId }];
             },
-            runFlow: (ctx) => this.freshFlow(ctx, input, controller, budget),
+            runFlow: (ctx) => this.freshFlow(ctx, input, controller, budget, runContext),
         });
     }
 
@@ -85,6 +85,7 @@ export class RunUseCase {
         input: RunInput,
         controller: ExecutionController,
         budget: BudgetContext,
+        runContext?: RunExecutionContext,
     ): AsyncGenerator<RunOutput, RunFlowResult, unknown> {
         ctx.stateRef.current = WorkflowState.transitionTo(ctx.stateRef.current, 'thinking');
         yield { type: 'state_updated', state: ctx.stateRef.current };
@@ -111,6 +112,7 @@ export class RunUseCase {
             sessionExtras: ctx.preparedSession.sessionExtras,
             observation: ctx.observation,
             controller,
+            ...(runContext?.subRuns ? { subRuns: runContext.subRuns } : {}),
         });
 
         const kernelResult = yield* this.engine.executeStep(

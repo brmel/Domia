@@ -3,7 +3,7 @@ import { container } from 'tsyringe';
 import ora from 'ora';
 import chalk from 'chalk';
 import figlet from 'figlet';
-import { RunUseCase } from '@backend/runs';
+import { MetaAgentLoopService } from '@backend/runs';
 import { ExecutionController } from '@backend/ExecutionController';
 import { buildPlatformConfig } from './platformUtils';
 import type { ILogger } from '@domain/ports';
@@ -33,7 +33,7 @@ export class RunCommand {
             .option('-p, --prompt <prompt>', 'Goal or instruction for the agent')
             .option('-s, --steps <steps>', 'Max steps', String(CLI_DEFAULT_STEPS))
             .option('-H, --no-headless', 'Run in headful mode (visible window)', false)
-            .option('--model <model>', 'LLM model name (e.g., gemini-2.0-flash)')
+            .option('--model <model>', 'LLM model name (e.g., gemini-2.5-flash)')
             .option('--api-key <key>', 'LLM API key override for this run')
             .option('--log-level <level>', 'Log level: error, warn, info, debug', 'info')
             .option('--verbose', 'Enable verbose artifact export', false)
@@ -138,7 +138,7 @@ export class RunCommand {
                 const spinner = ora({ text: 'Initializing Agent...', isSilent: jsonMode }).start();
 
                 try {
-                    const useCase = container.resolve(RunUseCase);
+                    const useCase = container.resolve(MetaAgentLoopService);
                     const controller = new ExecutionController();
                     controller.start();
                     const controls = createInteractiveControls(controller, spinner, log);

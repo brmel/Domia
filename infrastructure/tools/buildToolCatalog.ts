@@ -13,6 +13,8 @@ import { createShellTools } from './catalog/shell.tools';
 import { createElectronTools } from './catalog/electron.tools';
 import { createTabTools } from './catalog/tab.tools';
 import { createMetaTools } from './catalog/meta.tools';
+import { createSubRunTools } from './catalog/subrun.tools';
+import { ToolCategory } from '@domain/types/ToolTypes';
 import { ActionType } from '@domain/enums';
 import { bestEffort } from '@shared/reliability/bestEffort';
 
@@ -36,7 +38,18 @@ const OPTIONAL_TOOL_FACTORIES: ReadonlyArray<(deps: ToolDependencies) => ToolSpe
     (deps) => deps.shellExecutor ? createShellTools(deps.shellExecutor, deps.shellPolicy) : [],
     (deps) => deps.windowManager ? createElectronTools(deps.windowManager) : [],
     (deps) => deps.tabManager ? createTabTools(deps.tabManager) : [],
+    (deps) => deps.subRuns ? createSubRunTools(deps.subRuns) : [],
 ];
+
+const ALWAYS_ON_CATEGORIES: ReadonlySet<string> = new Set([ToolCategory.Terminal, ToolCategory.Meta]);
+
+function filterByRequestedCategories(catalog: ToolSpec[], requested: readonly string[] | undefined): ToolSpec[] {
+    if (!requested?.length) return catalog;
+    const wanted = new Set(requested);
+    return catalog.filter((spec) =>
+        !spec.category || wanted.has(spec.category) || ALWAYS_ON_CATEGORIES.has(spec.category),
+    );
+}
 
 interface ToolCatalogResult {
     catalog: ToolSpec[];
@@ -66,7 +79,7 @@ export function buildToolCatalog(deps: ToolDependencies, extraTools: ToolSpec[] 
 
     const platform = deps.platform;
     const caps = deps.capabilities;
-    let filtered = raw.filter((spec) => {
+    let filtered = filterByRequestedCategories(raw, deps.toolCategories).filter((spec) => {
         if (platform && spec.platforms?.length && !spec.platforms.includes(platform)) return false;
         if (caps && spec.requires) {
             if (spec.requires.dom && !caps.supportsDOM) return false;

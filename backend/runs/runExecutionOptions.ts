@@ -2,6 +2,7 @@ import { buildExecutionOptions, type StepExecutionOptions } from '@backend/platf
 import type { RunOptions } from '@shared/contracts/run';
 import type { PlatformType } from '@domain/types/PlatformConfig';
 import type { AgentRuntimeExtras } from '@domain/ports/agent/IAgentRuntime';
+import type { ISubRunLauncher } from '@domain/ports';
 import type { IObservationCoordinator } from '@domain/ports/perception/IObservationCoordinator';
 import type { ExecutionController } from '@backend/ExecutionController';
 
@@ -17,6 +18,7 @@ export function buildRunExecutionOptions(params: {
     readonly sessionExtras: AgentRuntimeExtras | undefined;
     readonly observation: IObservationCoordinator;
     readonly controller: ExecutionController;
+    readonly subRuns?: ISubRunLauncher;
 }): StepExecutionOptions {
     return {
         ...buildExecutionOptions(params.options, params.platform),
@@ -24,6 +26,7 @@ export function buildRunExecutionOptions(params: {
             ...(params.sessionExtras ?? {}),
             observation: params.observation,
             onSuspendRequest: (reason: string) => params.controller.requestSuspend(reason),
+            ...(params.subRuns ? { subRuns: params.subRuns } : {}),
         },
     };
 }
