@@ -21,7 +21,8 @@
     "cli": "cross-env ELECTRON_RUN_AS_NODE=1 electron ./node_modules/tsx/dist/cli.mjs apps/cli/index.ts",
     "server": "tsx apps/server/index.ts",
     "package": "npm run build && electron-builder",
-    "setup": "node setup/setup.mjs"
+    "setup": "node setup/setup.mjs",
+    "doctor": "node setup/doctor.mjs"
   },
   "dependencies": {
     "@google-cloud/opentelemetry-cloud-monitoring-exporter": "file:./vendor/otel-cloud-monitoring",
