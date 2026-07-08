@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { homedir } from 'node:os';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MIN_NODE_MAJOR = 18;
@@ -34,12 +35,18 @@ chromium.status === 0
     : failCheck('Playwright Chromium not installed', 'Run: npx playwright install chromium (Linux: add --with-deps)');
 
 const envPath = join(ROOT, '.env');
-if (!existsSync(envPath)) {
-    failCheck('.env missing', 'Run: npm run setup, then set GOOGLE_API_KEY in .env');
-} else if (/^\s*(GOOGLE_API_KEY|GEMINI_API_KEY|DOMIA_LLM_API_KEY)\s*=\s*\S+/m.test(readFileSync(envPath, 'utf8'))) {
-    pass('.env has an LLM API key');
+const envText = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';
+const hasApiKey = /^\s*(GOOGLE_API_KEY|GEMINI_API_KEY|DOMIA_LLM_API_KEY)\s*=\s*\S+/m.test(envText);
+const adcFromEnv = envText.match(/^\s*GOOGLE_APPLICATION_CREDENTIALS\s*=\s*(\S+)/m)?.[1] ?? process.env.GOOGLE_APPLICATION_CREDENTIALS;
+const adcDropIn = join(homedir(), '.domia', 'gcp-credentials.json');
+if (hasApiKey) {
+    pass('Gemini auth: API key in .env');
+} else if (adcFromEnv && existsSync(adcFromEnv)) {
+    pass(`Gemini auth: service account (${adcFromEnv})`);
+} else if (existsSync(adcDropIn)) {
+    pass(`Gemini auth: service account (${adcDropIn})`);
 } else {
-    failCheck('.env has no LLM API key', 'Set GOOGLE_API_KEY=<your key> — https://aistudio.google.com/apikey');
+    failCheck('No Gemini credentials', `Set GOOGLE_API_KEY in .env (https://aistudio.google.com/apikey), or save a GCP service-account JSON as ${adcDropIn}`);
 }
 
 process.env.ELECTRON_RUN_AS_NODE

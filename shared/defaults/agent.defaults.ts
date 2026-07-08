@@ -31,3 +31,4 @@ export const RunSummaryDefaults = {
     UnknownFailure: 'Unknown error',
     UnknownOutcome: 'Unknown outcome',
 } as const;
+export const DEFAULT_VERTEX_LOCATION = 'us-central1';

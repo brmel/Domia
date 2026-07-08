@@ -9,10 +9,18 @@ export class GeminiLlmFactory implements IAdkLlmFactory {
     constructor(@inject('IRetryPolicy') private readonly retry: IRetryPolicy) {}
 
     create(input: AdkLlmFactoryInput): BaseLlm {
-        if (!input.apiKey) {
-            throw new Error('Gemini factory requires an API key. Set GOOGLE_API_KEY, GEMINI_API_KEY, or DOMIA_LLM_API_KEY.');
+        return withLlmRetry(this.buildLlm(input), this.retry);
+    }
+
+    private buildLlm(input: AdkLlmFactoryInput): BaseLlm {
+        const { auth } = input;
+        switch (auth.mode) {
+            case 'api_key':
+                return new Gemini({ model: input.model, apiKey: auth.apiKey });
+            case 'adc':
+                return new Gemini({ model: input.model, vertexai: true, project: auth.project, location: auth.location });
+            case 'none':
+                throw new Error(auth.reason);
         }
-        const llm = new Gemini({ model: input.model, apiKey: input.apiKey });
-        return withLlmRetry(llm, this.retry);
     }
 }

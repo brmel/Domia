@@ -73,7 +73,7 @@ function resolveLlm(deps: AdkSessionDeps): LlmSetup | Error {
     const llmConfig = deps.llmConfigResolver.resolve();
     const model = llmConfig.model || DEFAULT_LLM_MODEL;
     try {
-        return { llm: deps.llmFactory.create({ model, apiKey: llmConfig.apiKey }), thinkingBudget: llmConfig.thinkingBudget };
+        return { llm: deps.llmFactory.create({ model, auth: llmConfig.auth }), thinkingBudget: llmConfig.thinkingBudget };
     } catch (err) {
         return err instanceof Error ? err : new Error(String(err));
     }
