@@ -31,12 +31,11 @@ jobs:
         run: npm run package
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Code signing (macOS)
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          # Code signing (Windows)
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          # Unsigned builds until real certificates exist. To sign: remove this
+          # flag and set CSC_LINK/CSC_KEY_PASSWORD (macOS) and WIN_CSC_LINK/
+          # WIN_CSC_KEY_PASSWORD (Windows) as repository secrets — empty secrets
+          # break electron-builder, so only add them when they have values.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       
       - name: Upload to release
         uses: softprops/action-gh-release@v1
