@@ -22,7 +22,8 @@
     "server": "tsx apps/server/index.ts",
     "package": "npm run build && electron-builder",
     "setup": "node setup/setup.mjs",
-    "doctor": "node setup/doctor.mjs"
+    "doctor": "node setup/doctor.mjs",
+    "package:smoke": "node scripts/package-smoke.mjs"
   },
   "dependencies": {
     "@google-cloud/opentelemetry-cloud-monitoring-exporter": "file:./vendor/otel-cloud-monitoring",

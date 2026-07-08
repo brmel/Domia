@@ -10,6 +10,7 @@ import { DEFAULT_WORKFLOWS_QUERY_LIMIT } from '@shared/defaults';
 import { dbOp, pickDefined } from './dbOp';
 import { rowToWorkflowDefinition, rowToWorkflowRun, rowToWorkflowStepRun } from './workflowRowMappers';
 import { commitAtomicWorkflowTransition as runAtomicTransition } from './workflowAtomicTransition';
+import { packBlob } from './blob';
 
 export class SQLiteWorkflowRepository {
     constructor(
@@ -26,8 +27,8 @@ export class SQLiteWorkflowRepository {
                     description: definition.description ?? null,
                     status: definition.status,
                     version: definition.version,
-                    platform_config_json: JSON.stringify(definition.platformConfig),
-                    steps_json: JSON.stringify(definition.steps),
+                    platform_config_json: packBlob(definition.platformConfig),
+                    steps_json: packBlob(definition.steps),
                     created_at: definition.createdAt,
                     updated_at: definition.updatedAt
                 })
@@ -36,8 +37,8 @@ export class SQLiteWorkflowRepository {
                     description: definition.description ?? null,
                     status: definition.status,
                     version: definition.version,
-                    platform_config_json: JSON.stringify(definition.platformConfig),
-                    steps_json: JSON.stringify(definition.steps),
+                    platform_config_json: packBlob(definition.platformConfig),
+                    steps_json: packBlob(definition.steps),
                     updated_at: definition.updatedAt
                 }))
                 .execute(),

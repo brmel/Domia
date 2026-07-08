@@ -9,9 +9,11 @@ import { createIPCHandler } from 'trpc-electron/main';
 import { appRouter } from './ipc/router';
 import { ContainerBuilder } from '@backend/container/ContainerBuilder';
 import { ELECTRON_DEBUG_PORT, AGENT_VIEW_WIDTH, AGENT_VIEW_HEIGHT } from '@shared/defaults';
+import { configureBrowserPath, ensureChromium } from './browserBootstrap';
 
 export const AGENT_VIEW_MARKER = 'domia-agent-view';
 
+configureBrowserPath();
 registerCoreServices();
 new ContainerBuilder().initializePlatformProviders();
 
@@ -105,4 +107,7 @@ app.on('activate', () => {
   }
 });
 
-app.whenReady().then(createWindow);
+app.whenReady()
+    .then(ensureChromium)
+    .then(createWindow)
+    .catch(() => app.quit());

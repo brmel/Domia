@@ -21,6 +21,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Conventional commit check
+        if: github.event_name == 'pull_request'
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: .commitlintrc.json
+
       - name: Type check
         run: npm run typecheck
 

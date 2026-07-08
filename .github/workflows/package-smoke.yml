@@ -1,0 +1,28 @@
+name: Package Smoke
+
+# Proves the packaged app boots with its bundled runtime modules —
+# the one failure mode dev and CI test runs can never catch.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install chromium
+
+      - name: Package and boot the app
+        run: npm run package:smoke
