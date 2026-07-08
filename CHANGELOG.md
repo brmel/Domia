@@ -1,0 +1,77 @@
+# Changelog
+
+## 1.0.0 (2026-07-08)
+
+
+### Features
+
+* agentic capability upgrades, durability/observability hardening, doc consolidation ([7faa78d](https://github.com/brmel/Domia/commit/7faa78d8c22748d501667a84ba341b2a0d54131c))
+* **agent:** meta-agent loop with iterate + parallel sub-runs ([784fa27](https://github.com/brmel/Domia/commit/784fa27a8e264ae8756762817a01465a52f1ea6c))
+* **cli:** surface Run ID in human output; retarget live web checks ([5aa7091](https://github.com/brmel/Domia/commit/5aa709182ecbcb8d01a1d747dce29d1f389f7451))
+* **electron:** working executable-launch mode + cdpPort plumbing ([1f0fa5b](https://github.com/brmel/Domia/commit/1f0fa5b3724834ea731920d99bce16985a5ae0d2))
+* enrich activity log and trace with screenshots, tool I/O, and deduped thought ([1b337e5](https://github.com/brmel/Domia/commit/1b337e51b47b528cd42aa728c34300b9a1a47ff3))
+* **execution:** inject evaluator context into replanning prompts ([40e08f9](https://github.com/brmel/Domia/commit/40e08f9c30f134fe721de232405fa2b01978a789))
+* **hitl:** add operator action override path for active runs ([ba2e0cf](https://github.com/brmel/Domia/commit/ba2e0cfcafa2dcf1c1f1710ec1482e8ef139aae7))
+* **phase1-task1:** add execution graph domain contracts ([b7c4d9a](https://github.com/brmel/Domia/commit/b7c4d9a9974ea00363cc6eb6f0b092f4f4aa2f4f))
+* **phase1-task2:** enforce confidence-evidence evaluation contract ([19c1bbb](https://github.com/brmel/Domia/commit/19c1bbb5368b9cf81bd538ba4bb1d9045e0e1752))
+* **phase1-task3:** add verification policy gating in step execution ([a0e4cc6](https://github.com/brmel/Domia/commit/a0e4cc6be4c39da702575bd0f1b6b0c1cedfbac9))
+* **phase1-task4:** enforce strict evaluator tool arguments ([e027f00](https://github.com/brmel/Domia/commit/e027f007ecc302b985f57cf58c6e3ed5e1a2b44c))
+* **phase2-task1:** add deterministic graph scheduler service ([c157a1d](https://github.com/brmel/Domia/commit/c157a1d9e144770a93ab3370876f24b4702e4666))
+* **phase2-task2:** switch run orchestration to graph scheduler loop ([02312e5](https://github.com/brmel/Domia/commit/02312e5f8bd8d314a0528c8ed619f50c911996c9))
+* **phase2-task3:** add proactive rolling-horizon replanning ([9b62bfe](https://github.com/brmel/Domia/commit/9b62bfe5f4bbcd85f242041aa67018062cc07187))
+* **phase2-task4:** add selective branch scope to replanning ([7315e9e](https://github.com/brmel/Domia/commit/7315e9e23376fd29e413af73017b8496e8776876))
+* **phase3-task1:** add checkpoint lineage metadata ([eb38800](https://github.com/brmel/Domia/commit/eb388008ef2b2fd63acbe42888f6d3a892c6183b))
+* **phase3-task2:** scope replay idempotency to branch nodes ([740e087](https://github.com/brmel/Domia/commit/740e0873ef57a59815e4568e702876dc6588a996))
+* **phase3-task3:** add branch rollback boundaries ([a6addd5](https://github.com/brmel/Domia/commit/a6addd54854b1d9e5e380881bb0c02d54d274975))
+* **phase4-task1:** schedule workflow steps via execution graph ([62c0b24](https://github.com/brmel/Domia/commit/62c0b24e8ec8705378b742d2c21b2f74789b10a2))
+* **phase4-task2:** enforce platform capability negotiation ([fabab0a](https://github.com/brmel/Domia/commit/fabab0a11c70d68a542ddcfbcda7c10e1dea4ba7))
+* **plugins:** add approval-gated adapter execution in gateway ([364cda5](https://github.com/brmel/Domia/commit/364cda5d57f8fa27ad7a61c58b8b9368e902b075))
+* **plugins:** harden approval artifacts for escalated capabilities ([be35b2a](https://github.com/brmel/Domia/commit/be35b2a0f968540915ef16e501076b0e8baea71d))
+* **point2:** apply branch rollback boundaries in recovery bootstrap ([d622ea0](https://github.com/brmel/Domia/commit/d622ea0e8b4dae2c1ba4e7e88277818c7c605a0b))
+* **point3:** route replanning through selective patch service ([bff82a0](https://github.com/brmel/Domia/commit/bff82a0c91124874095d138d959f721ff730fe73))
+* **readiness:** add profile baselines and CI release gate command ([9e8ec97](https://github.com/brmel/Domia/commit/9e8ec97161c526daafc9a1f8df202cad8622a76d))
+* **release:** proven packaging, versioned blobs, release automation ([bc89b14](https://github.com/brmel/Domia/commit/bc89b1417a626b9469f09190e4f9242c4f296e9e))
+* **rollout:** add agentic runtime flags and SLO gates ([c3d2e2c](https://github.com/brmel/Domia/commit/c3d2e2caa28793e50310a38c29db260541a2a14f))
+* **runtime:** add evidence blackboard memory across step execution ([8e6d6e9](https://github.com/brmel/Domia/commit/8e6d6e914599d7e389008a3c12eafee5e4b9a195))
+* **runtime:** enforce objective completion contract at run terminalization ([7f5ffef](https://github.com/brmel/Domia/commit/7f5ffef10411f9a4b38173724b94e19b1fd4a319))
+* **server:** add apps/server read-only HTTP entry (clean-boundary proof) ([3e14655](https://github.com/brmel/Domia/commit/3e1465521c0aa1395ba8db248411b151a6a8cda2))
+* **skills:** execute routed skills via bounded runtime plan ([49b72b8](https://github.com/brmel/Domia/commit/49b72b86c4da99410452fbc32ccfc5b9ed771d15))
+* **skills:** route planning through bounded skill execution graphs ([309beb4](https://github.com/brmel/Domia/commit/309beb43e604755333ddcfaaa7ccc974009ea39b))
+* **storage:** add temporal timeline retention pruning policy ([938d365](https://github.com/brmel/Domia/commit/938d365fd3dd2c3360db6be7779f136b3e146c39))
+* **temporal:** add adaptive burst signals and enforce capture budgets ([e3c0184](https://github.com/brmel/Domia/commit/e3c01846661ab8d4692e4d87008100135da05b7c))
+* **temporal:** enforce per-run timeline byte budget eviction ([15ad8c0](https://github.com/brmel/Domia/commit/15ad8c05218baabc620e0499a76c94382854903e))
+* **tools:** agent-controlled timeouts + page readiness informant ([b16ef25](https://github.com/brmel/Domia/commit/b16ef25c289823a7f3172a2102271c748f6afb1d))
+* **tools:** wire meta-tools (list_categories / expand_category) into the catalog ([2f37c7d](https://github.com/brmel/Domia/commit/2f37c7d9390207d0f06ae6c650010228512459b9))
+* **trajectory:** add filtered trajectory export pipeline ([4908a93](https://github.com/brmel/Domia/commit/4908a938db15b88ea24ba54b400d7b85819b25d5))
+* **ui:** tag unavailable sections in navigation and placeholders ([e53b813](https://github.com/brmel/Domia/commit/e53b8136b6d03fbb2242cb919fdab469f7538e7d))
+* unified capture-control API — add observe tool, capture/captureDelayMs params to all action tools ([ddaf71c](https://github.com/brmel/Domia/commit/ddaf71c9e73206c021bb2f46dfef88cbfd802e80))
+* **workflow:** share platform session across workflow steps ([60ad51c](https://github.com/brmel/Domia/commit/60ad51c93abb5a8b0e0550ba531dacc401aa9021))
+* **workflow:** support platform-aware workflow authoring and draft updates ([dc4b3f4](https://github.com/brmel/Domia/commit/dc4b3f4e4935ebb660c3b448d53a95124ee354af))
+
+
+### Bug Fixes
+
+* close known limitations — sub-run isolation, db restore, UI ([b1b92e6](https://github.com/brmel/Domia/commit/b1b92e60de5feabe9ab0a586bec0e3f131484e90))
+* **config:** remove committed api key and enforce env-first secret handling ([7bf0c89](https://github.com/brmel/Domia/commit/7bf0c89ca35f18bfbdd35986269aa922f59d70ec))
+* **electron:** correct env typing in launchElectronApp (tsc) ([1d9fd7c](https://github.com/brmel/Domia/commit/1d9fd7c65158e1a16fa64f31e3c6ecc4e41837f8))
+* **electron:** make switch_window actually move the automation + perception ([83ba394](https://github.com/brmel/Domia/commit/83ba394719780d254dddf7bc822beee143a29c85))
+* **electron:** make the electron dogfood/test path robust to run-as-node ([cd41c8a](https://github.com/brmel/Domia/commit/cd41c8a8d98ad92663012c495378cf0663aba91d))
+* **execution:** block repeated ineffective actions in language validation loop ([15fd2f4](https://github.com/brmel/Domia/commit/15fd2f46b4635eed6344b6fa9f98a8133230e838))
+* **frontend:** handle suspended + observation run events in the run store ([4498e2a](https://github.com/brmel/Domia/commit/4498e2afc2e1924d07ff742ea45c4262e969b75e))
+* **frontend:** stop node builtins leaking into the renderer (blank UI) ([4368a31](https://github.com/brmel/Domia/commit/4368a3124ee45cae681360e174057bd7acc2bae4))
+* make feat/agentic-capability compile + pass (it was never built/tested) ([b40fbdc](https://github.com/brmel/Domia/commit/b40fbdc00588c6d452d83e6b577cbf786a830a02))
+* **persistence:** finish JSON.parse-through-Result on workflow + skill reads ([b0cda5b](https://github.com/brmel/Domia/commit/b0cda5b404dc28f2adf3ff51ad2087e0cb95b518))
+* **persistence:** route row-mapping JSON.parse through the Result channel ([3fcb8e1](https://github.com/brmel/Domia/commit/3fcb8e1d16e0837aa5590d1b9dc26d290d9a108b))
+* populate thought & trace data in Step Inspector ([0ed561a](https://github.com/brmel/Domia/commit/0ed561a2ecbeff07e1787a68ac95547bf358863e))
+* **prompts:** ESM-safe module dir in promptDefaults (CLI run path was broken) ([90977d6](https://github.com/brmel/Domia/commit/90977d6d2c9d27f521848c3fea583a1f9f0bcf80))
+* **runs:** persist terminal status before yielding terminal event ([5f5254e](https://github.com/brmel/Domia/commit/5f5254e88f5c7bc45b31ec8404d864275bc81d6b))
+* **runs:** stop swallowing run-persistence failures ([28998f9](https://github.com/brmel/Domia/commit/28998f980221350cda221088c3174ffc72c74ba2))
+* **security:** localhost-bound server + clamped agent-view bounds ([67ea807](https://github.com/brmel/Domia/commit/67ea807241a97b4b79903148d7eb43cd9f15fa0c))
+* step inspector multi-run state reset, accessibility retry, base64 log truncation ([c7346df](https://github.com/brmel/Domia/commit/c7346dfed17821d5b5f85c5febc223bad765ee8b))
+* **tools:** gate by adapter reality, not platform lists ([3eed917](https://github.com/brmel/Domia/commit/3eed9170b4d584186ec22b10490b09e472e4400e))
+* **web-driver:** CLI must not use embedded CDP mode (electron-run-as-node) ([a682ab0](https://github.com/brmel/Domia/commit/a682ab01f384e5e16193abb34c98a26d3f703e7f))
+
+
+### Performance Improvements
+
+* **runtime:** trim execution context and dedupe checkpoint writes ([b4223bd](https://github.com/brmel/Domia/commit/b4223bd3f8a4af63078af69fc662ae344caf4bc2))
