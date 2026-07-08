@@ -1,9 +1,13 @@
 name: Release
 
+# Note: release-please tags with the workflow token, which cannot trigger
+# other workflows — after merging a release PR, re-push the tag or run this
+# manually from the Actions tab.
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   release:
