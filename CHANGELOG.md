@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/brmel/Domia/compare/v1.0.0...v1.1.0) (2026-07-08)
+
+
+### Features
+
+* **llm:** dual Gemini auth — API key or GCP service account (ADC) ([55f806c](https://github.com/brmel/Domia/commit/55f806cf7bbd9e088c6f0e15055ddc4e8f5a5821))
+
 ## 1.0.0 (2026-07-08)
 
 

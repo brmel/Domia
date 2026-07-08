@@ -1,7 +1,7 @@
 {
   "name": "domia",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "LLM agent that drives real apps (web + Electron) to complete goals autonomously",
   "author": {
     "name": "Brahim Redouane Mellah",
