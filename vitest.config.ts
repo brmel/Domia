@@ -12,6 +12,18 @@ export default defineConfig({
         // Real-browser/DB e2e: run files serially so concurrent Chromium instances don't
         // contend (a parallel run starved the LongWait observation stream's timer -> flake).
         fileParallelism: false,
+        coverage: {
+            provider: 'v8',
+            include: ['domain/**', 'backend/**', 'infrastructure/**', 'shared/**'],
+            reporter: ['text-summary', 'html'],
+            // Regression floor just under the measured baseline (61/70/55) — raise as coverage grows.
+            thresholds: {
+                lines: 55,
+                branches: 62,
+                functions: 48,
+                statements: 55,
+            },
+        },
     },
     resolve: {
         alias: {

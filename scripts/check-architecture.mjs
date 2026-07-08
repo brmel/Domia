@@ -116,6 +116,16 @@ function applyFatConstructorRule(filePath, content) {
     }
 }
 
+// Headroom above today's max (PlaywrightAdapter ≈ 340) so it guards regression, not style.
+const MAX_SOURCE_FILE_LINES = 400;
+
+function applyFileSizeRule(filePath, content) {
+    const lineCount = content.split('\n').length;
+    if (lineCount > MAX_SOURCE_FILE_LINES) {
+        violations.push(`[god-file] ${filePath} has ${lineCount} lines (max ${MAX_SOURCE_FILE_LINES}) — split by concern before it grows further`);
+    }
+}
+
 async function walkFiles(dir) {
     let entries;
     try {
@@ -260,6 +270,7 @@ async function main() {
         applyLayerRules(relativePath, imports);
         applyRuntimeMarkerRules(relativePath, content);
         applyFatConstructorRule(relativePath, content);
+        applyFileSizeRule(relativePath, content);
 
         const edges = imports
             .map((spec) => resolveImport(spec, relativePath, fileSet))

@@ -34,8 +34,9 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       # Replay-LLM e2e (deterministic) — includes the CLI + IPC smokes.
+      # Coverage thresholds in vitest.config.ts are the regression floor.
       - name: Tests
-        run: npm run test
+        run: npm run test:coverage
 
       # The live LLM-driven CLI scenarios (`npm run test:cli`) need a real
       # GOOGLE_API_KEY and are non-deterministic, so they are NOT part of the
