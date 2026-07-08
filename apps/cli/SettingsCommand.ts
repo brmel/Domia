@@ -3,9 +3,41 @@ import { container } from 'tsyringe';
 import chalk from 'chalk';
 import type { IConfigService } from '@domain/ports/platform/IConfigService';
 import type { IPromptOverrideStore } from '@domain/ports/agent/IPromptService';
+import type { DomiaConfig } from '@shared/contracts/config';
 
 const getConfig = () => container.resolve<IConfigService>('IConfigService');
 const getPrompts = () => container.resolve<IPromptOverrideStore>('IPromptOverrideStore');
+
+const SETTING_WRITERS: Record<string, (config: DomiaConfig, value: string) => Partial<DomiaConfig>> = {
+    headless: (_config, value) => ({ headless: value === 'true' }),
+    maxSteps: (config, value) => ({ limits: { ...config.limits, maxSteps: parseInt(value, 10) } }),
+    model: (config, value) => ({ ai: { ...config.ai, model: value } }),
+    vision: (config, value) => ({ ai: { ...config.ai, visionEnabled: value === 'true' } }),
+    screenshots: (config, value) => ({ ai: { ...config.ai, debugScreenshots: value === 'true' } }),
+};
+
+function printOverridableSection(title: string, entries: [string, string][], overrides: Record<string, string> | undefined): void {
+    console.log(chalk.bold(`\n${title}:`));
+    console.log('--------------------------------------------------');
+    for (const [key, text] of entries) {
+        const marker = overrides?.[key] ? chalk.yellow(' [customized]') : '';
+        const preview = text.slice(0, 80).replace(/\n/g, ' ');
+        console.log(`  ${chalk.cyan(key)}${marker}`);
+        console.log(`    ${chalk.gray(preview)}${text.length > 80 ? '…' : ''}`);
+    }
+}
+
+function classifyPromptKey(store: IPromptOverrideStore, key: string): 'prompt' | 'tool' | null {
+    if (key in store.getAllPrompts()) return 'prompt';
+    if (key in store.getAllToolDescriptions()) return 'tool';
+    return null;
+}
+
+function reportUnknownKey(store: IPromptOverrideStore, key: string): void {
+    console.error(chalk.red(`Unknown prompt key: ${key}`));
+    console.log(chalk.gray(`Available: ${Object.keys(store.getAllPrompts()).join(', ')}`));
+    console.log(chalk.gray(`Tools: ${Object.keys(store.getAllToolDescriptions()).sort().join(', ')}`));
+}
 
 export class SettingsCommand {
     static register(program: Command): void {
@@ -20,7 +52,6 @@ export class SettingsCommand {
                 console.log('--------------------------------------------------');
                 console.log(`Headless: ${config.headless}`);
                 console.log(`Max Steps: ${config.limits.maxSteps}`);
-                console.log(`Delay Between Steps: ${config.limits.delayBetweenSteps}ms`);
                 console.log(`AI Provider: ${config.ai.provider}`);
                 console.log(`AI Model: ${config.ai.model}`);
                 console.log(`Vision Enabled: ${config.ai.visionEnabled}`);
@@ -31,34 +62,16 @@ export class SettingsCommand {
             });
 
         settings.command('set <key> <value>')
-            .description('Update a setting (headless, maxSteps, model, vision, screenshots)')
+            .description(`Update a setting (${Object.keys(SETTING_WRITERS).join(', ')})`)
             .action((key: string, value: string) => {
-                const configService = getConfig();
-
-                const config = configService.get();
-
-                switch (key) {
-                    case 'headless':
-                        configService.update({ headless: value === 'true' });
-                        break;
-                    case 'maxSteps':
-                        configService.update({ limits: { ...config.limits, maxSteps: parseInt(value, 10) } });
-                        break;
-                    case 'model':
-                        configService.update({ ai: { ...config.ai, model: value } });
-                        break;
-                    case 'vision':
-                        configService.update({ ai: { ...config.ai, visionEnabled: value === 'true' } });
-                        break;
-                    case 'screenshots':
-                        configService.update({ ai: { ...config.ai, debugScreenshots: value === 'true' } });
-                        break;
-                    default:
-                        console.error(chalk.red(`Unknown setting: ${key}`));
-                        console.log(chalk.gray('Available: headless, maxSteps, model, vision, screenshots'));
-                        return;
+                const writer = SETTING_WRITERS[key];
+                if (!writer) {
+                    console.error(chalk.red(`Unknown setting: ${key}`));
+                    console.log(chalk.gray(`Available: ${Object.keys(SETTING_WRITERS).join(', ')}`));
+                    return;
                 }
-
+                const configService = getConfig();
+                configService.update(writer(configService.get(), value));
                 console.log(chalk.green(`Updated ${key} = ${value}`));
             });
 
@@ -68,50 +81,29 @@ export class SettingsCommand {
             .description('List all prompt templates and their override status')
             .action(() => {
                 const promptService = getPrompts();
-                const allPrompts = promptService.getAllPrompts();
-                const allTools = promptService.getAllToolDescriptions();
-                const overrides = promptService.getOverrides();
+                const overrides = promptService.getOverrides() as { prompts?: Record<string, string>; toolDescriptions?: Record<string, string> };
 
-                const overridesObj = overrides as { prompts?: Record<string, string>; toolDescriptions?: Record<string, string> };
-
-                console.log(chalk.bold('\nAgent Prompts:'));
-                console.log('--------------------------------------------------');
-                for (const [key, value] of Object.entries(allPrompts)) {
-                    const isOverridden = !!overridesObj.prompts?.[key];
-                    const marker = isOverridden ? chalk.yellow(' [customized]') : '';
-                    const preview = value.slice(0, 80).replace(/\n/g, ' ');
-                    console.log(`  ${chalk.cyan(key)}${marker}`);
-                    console.log(`    ${chalk.gray(preview)}${value.length > 80 ? '…' : ''}`);
-                }
-
-                console.log(chalk.bold('\nTool Descriptions:'));
-                console.log('--------------------------------------------------');
-                for (const [name, desc] of Object.entries(allTools).sort(([a], [b]) => a.localeCompare(b))) {
-                    const isOverridden = !!overridesObj.toolDescriptions?.[name];
-                    const marker = isOverridden ? chalk.yellow(' [customized]') : '';
-                    const preview = desc.slice(0, 80).replace(/\n/g, ' ');
-                    console.log(`  ${chalk.cyan(name)}${marker}`);
-                    console.log(`    ${chalk.gray(preview)}${desc.length > 80 ? '…' : ''}`);
-                }
+                printOverridableSection('Agent Prompts', Object.entries(promptService.getAllPrompts()), overrides.prompts);
+                printOverridableSection(
+                    'Tool Descriptions',
+                    Object.entries(promptService.getAllToolDescriptions()).sort(([a], [b]) => a.localeCompare(b)),
+                    overrides.toolDescriptions,
+                );
             });
 
         prompts.command('get <key>')
             .description('Show the full text of a prompt or tool description')
             .action((key: string) => {
                 const promptService = getPrompts();
-                const allPrompts = promptService.getAllPrompts();
-                const allTools = promptService.getAllToolDescriptions();
-
-                if (key in allPrompts) {
+                const kind = classifyPromptKey(promptService, key);
+                if (kind === 'prompt') {
                     console.log(chalk.bold(`\n${key}:`));
-                    console.log(allPrompts[key as keyof typeof allPrompts]);
-                } else if (key in allTools) {
+                    console.log(promptService.getAllPrompts()[key as keyof ReturnType<IPromptOverrideStore['getAllPrompts']>]);
+                } else if (kind === 'tool') {
                     console.log(chalk.bold(`\nTool: ${key}`));
-                    console.log(allTools[key]!);
+                    console.log(promptService.getAllToolDescriptions()[key]!);
                 } else {
-                    console.error(chalk.red(`Unknown prompt key: ${key}`));
-                    console.log(chalk.gray(`Available: ${Object.keys(allPrompts).join(', ')}`));
-                    console.log(chalk.gray(`Tools: ${Object.keys(allTools).sort().join(', ')}`));
+                    reportUnknownKey(promptService, key);
                 }
             });
 
@@ -119,13 +111,11 @@ export class SettingsCommand {
             .description('Override a prompt or tool description')
             .action((key: string, value: string) => {
                 const promptService = getPrompts();
-                const allPrompts = promptService.getAllPrompts();
-                const allTools = promptService.getAllToolDescriptions();
-
-                if (key in allPrompts) {
+                const kind = classifyPromptKey(promptService, key);
+                if (kind === 'prompt') {
                     promptService.setPromptOverride(key as Parameters<typeof promptService.setPromptOverride>[0], value);
                     console.log(chalk.green(`Updated prompt: ${key}`));
-                } else if (key in allTools) {
+                } else if (kind === 'tool') {
                     promptService.setToolDescriptionOverride(key, value);
                     console.log(chalk.green(`Updated tool description: ${key}`));
                 } else {
@@ -137,20 +127,16 @@ export class SettingsCommand {
             .description('Reset a prompt to default, or reset all if no key given')
             .action((key?: string) => {
                 const promptService = getPrompts();
-
                 if (!key) {
                     promptService.resetAll();
                     console.log(chalk.green('All prompts reset to defaults.'));
                     return;
                 }
-
-                const allPrompts = promptService.getAllPrompts();
-                const allTools = promptService.getAllToolDescriptions();
-
-                if (key in allPrompts) {
+                const kind = classifyPromptKey(promptService, key);
+                if (kind === 'prompt') {
                     promptService.resetPrompt(key as Parameters<typeof promptService.resetPrompt>[0]);
                     console.log(chalk.green(`Reset prompt: ${key}`));
-                } else if (key in allTools) {
+                } else if (kind === 'tool') {
                     promptService.resetToolDescription(key);
                     console.log(chalk.green(`Reset tool description: ${key}`));
                 } else {

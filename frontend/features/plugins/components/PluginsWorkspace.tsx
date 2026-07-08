@@ -1,4 +1,4 @@
-import { trpc } from '@frontend/api/trpc';
+import { useSettingsConfig } from '@frontend/lib/useSettingsConfig';
 import type { DomiaConfig } from '@shared/contracts/config';
 
 interface PluginCardProps {
@@ -63,13 +63,7 @@ function PluginCard({ icon, name, description, tools, enabled, onToggle, saving 
 }
 
 export function PluginsWorkspace(): JSX.Element {
-    const utils = trpc.useUtils();
-    const { data: config, isLoading } = trpc.settings.get.useQuery();
-    const updateMutation = trpc.settings.update.useMutation({
-        onSuccess: () => {
-            utils.settings.get.invalidate();
-        },
-    });
+    const { config, isLoading, updateMutation } = useSettingsConfig();
 
     const handleToggleShell = (enabled: boolean): void => {
         if (!config) return;

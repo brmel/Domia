@@ -4,55 +4,42 @@ import { ActionType } from '@domain/enums';
 import type { ToolSpec } from '../ToolSpec';
 import { unwrapResult } from '../toolResult';
 
+const pointParams = z.object({
+    x: z.number().describe('Viewport X coordinate in pixels.'),
+    y: z.number().describe('Viewport Y coordinate in pixels.'),
+});
+
+const point = (args: Record<string, unknown>): [number, number] => [args['x'] as number, args['y'] as number];
+
 export function createMouseTools(automation: IAppAutomation): ToolSpec[] {
     return ([
         {
             name: 'mouse_move',
             description: 'Move the mouse pointer to absolute viewport coordinates without clicking. Use for hover effects, tooltips, dropdown previews, or positioning before another mouse action. Returns { status: "success" } on success or { status: "error", error: string } on failure.',
             actionType: ActionType.MOUSE_MOVE,
-            parameters: z.object({
-                x: z.number().describe('Viewport X coordinate in pixels.'),
-                y: z.number().describe('Viewport Y coordinate in pixels.'),
-            }),
-            execute: async (args) => unwrapResult(
-                await automation.mouseMove(args['x'] as number, args['y'] as number),
-            ),
+            parameters: pointParams,
+            execute: async (args) => unwrapResult(await automation.mouseMove(...point(args))),
         },
         {
             name: 'mouse_click_left',
             description: 'Left-click at absolute viewport pixel coordinates. Use when ref-based click is unavailable — e.g. canvas elements, SVG graphics, maps, or custom widgets without ARIA handles. Returns { status: "success" } or { status: "error", error: string }.',
             actionType: ActionType.MOUSE_CLICK_LEFT,
-            parameters: z.object({
-                x: z.number().describe('Viewport X coordinate in pixels.'),
-                y: z.number().describe('Viewport Y coordinate in pixels.'),
-            }),
-            execute: async (args) => unwrapResult(
-                await automation.mouseClick(args['x'] as number, args['y'] as number, 'left'),
-            ),
+            parameters: pointParams,
+            execute: async (args) => unwrapResult(await automation.mouseClick(...point(args), 'left')),
         },
         {
             name: 'mouse_click_right',
             description: 'Right-click (context menu) at absolute viewport pixel coordinates. Use to open application context menus. Returns { status: "success" } or { status: "error", error: string }.',
             actionType: ActionType.MOUSE_CLICK_RIGHT,
-            parameters: z.object({
-                x: z.number().describe('Viewport X coordinate in pixels.'),
-                y: z.number().describe('Viewport Y coordinate in pixels.'),
-            }),
-            execute: async (args) => unwrapResult(
-                await automation.mouseClick(args['x'] as number, args['y'] as number, 'right'),
-            ),
+            parameters: pointParams,
+            execute: async (args) => unwrapResult(await automation.mouseClick(...point(args), 'right')),
         },
         {
             name: 'mouse_double_click',
             description: 'Double-click at absolute viewport pixel coordinates. Typically used to select a word of text, activate an editable field, or trigger double-click handlers. Returns { status: "success" } or { status: "error", error: string }.',
             actionType: ActionType.MOUSE_DOUBLE_CLICK,
-            parameters: z.object({
-                x: z.number().describe('Viewport X coordinate in pixels.'),
-                y: z.number().describe('Viewport Y coordinate in pixels.'),
-            }),
-            execute: async (args) => unwrapResult(
-                await automation.mouseDoubleClick(args['x'] as number, args['y'] as number),
-            ),
+            parameters: pointParams,
+            execute: async (args) => unwrapResult(await automation.mouseDoubleClick(...point(args))),
         },
         {
             name: 'mouse_drag',

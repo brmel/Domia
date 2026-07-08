@@ -19,7 +19,6 @@ export class WorkflowLifecycleManager {
         @inject('ILogger') private readonly logger: ILogger,
     ) {}
 
-    /** Creates the workflow run row. Returns the new id or an error message. */
     async begin(definition: WorkflowDefinition): Promise<Result<string, string>> {
         const workflowRunId = randomUUID();
         const result = await this.persistence.saveWorkflowRun({
@@ -32,7 +31,6 @@ export class WorkflowLifecycleManager {
         return result.isErr() ? err(result.error.message) : ok(workflowRunId);
     }
 
-    /** Creates the step run row. Returns the new id or an error message. */
     async beginStep(workflowRunId: string, step: WorkflowStepDefinition, stepIndex: number): Promise<Result<string, string>> {
         const stepRunId = randomUUID();
         const result = await this.persistence.saveWorkflowStepRun({

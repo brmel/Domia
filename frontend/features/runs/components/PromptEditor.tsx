@@ -63,6 +63,29 @@ export function PromptEditor({ disabled = false }: { disabled?: boolean }): JSX.
         ? Object.keys(prompts).filter((k) => !allGroupedKeys.has(k))
         : [];
 
+    const renderPromptGroup = (title: string, entries: [string, string][]): JSX.Element => (
+        <div key={title}>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                {title}
+            </p>
+            <div className="space-y-2">
+                {entries.map(([key, value]) => (
+                    <PromptField
+                        key={key}
+                        label={PROMPT_LABELS[key] ?? key}
+                        value={value}
+                        variables={PROMPT_VARIABLES[key]}
+                        isOverridden={!!promptOverrides?.[key]}
+                        disabled={disabled}
+                        onSave={(v) => setPromptMutation.mutate({ key, value: v })}
+                        onReset={() => resetPromptMutation.mutate({ key })}
+                        saving={setPromptMutation.isPending}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -96,49 +119,11 @@ export function PromptEditor({ disabled = false }: { disabled?: boolean }): JSX.
                             .filter((k) => prompts && k in prompts)
                             .map((k) => [k, (prompts as Record<string, string>)[k]] as [string, string]);
                         if (groupEntries.length === 0) return null;
-                        return (
-                            <div key={group.title}>
-                                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                                    {group.title}
-                                </p>
-                                <div className="space-y-2">
-                                    {groupEntries.map(([key, value]) => (
-                                        <PromptField
-                                            key={key}
-                                            label={PROMPT_LABELS[key] ?? key}
-                                            value={value}
-                                            variables={PROMPT_VARIABLES[key]}
-                                            isOverridden={!!promptOverrides?.[key]}
-                                            disabled={disabled}
-                                            onSave={(v) => setPromptMutation.mutate({ key, value: v })}
-                                            onReset={() => resetPromptMutation.mutate({ key })}
-                                            saving={setPromptMutation.isPending}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        );
+                        return renderPromptGroup(group.title, groupEntries);
                     })}
 
-                    {ungroupedKeys.length > 0 && prompts && (
-                        <div>
-                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Other</p>
-                            <div className="space-y-2">
-                                {ungroupedKeys.map((key) => (
-                                    <PromptField
-                                        key={key}
-                                        label={PROMPT_LABELS[key] ?? key}
-                                        value={(prompts as Record<string, string>)[key] ?? ''}
-                                        isOverridden={!!promptOverrides?.[key]}
-                                        disabled={disabled}
-                                        onSave={(v) => setPromptMutation.mutate({ key, value: v })}
-                                        onReset={() => resetPromptMutation.mutate({ key })}
-                                        saving={setPromptMutation.isPending}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                    {ungroupedKeys.length > 0 && prompts &&
+                        renderPromptGroup('Other', ungroupedKeys.map((key) => [key, (prompts as Record<string, string>)[key] ?? '']))}
                 </div>
             </CollapsibleSection>
 

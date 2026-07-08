@@ -9,6 +9,18 @@ import { buildPlatformConfig } from '../platformUtils';
 import { stepRecordToInput, readStepsFile } from './workflowStepsFile';
 import { unwrapOr } from '../cliResult';
 
+function withDefinitionOptions(command: Command): Command {
+    return command
+        .requiredOption('-n, --name <name>', 'Workflow name')
+        .requiredOption('--steps-file <path>', 'Path to JSON file containing workflow steps')
+        .option('-d, --description <description>', 'Workflow description')
+        .option('-u, --url <url>', 'Target URL for web workflows')
+        .option('--cdp-url <cdpUrl>', 'CDP URL for Electron workflows')
+        .option('--executable-path <path>', 'Path to Electron executable')
+        .option('--launch-args <args...>', 'Launch arguments for Electron (space-separated)')
+        .option('--window-title <title>', 'Target Electron window title');
+}
+
 export function registerWorkflowDefinitionCommands(workflow: Command): void {
     workflow
         .command('list')
@@ -65,17 +77,9 @@ export function registerWorkflowDefinitionCommands(workflow: Command): void {
             });
         });
 
-    workflow
+    withDefinitionOptions(workflow
         .command('create')
-        .description('Create a draft workflow definition')
-        .requiredOption('-n, --name <name>', 'Workflow name')
-        .requiredOption('--steps-file <path>', 'Path to JSON file containing workflow steps')
-        .option('-d, --description <description>', 'Workflow description')
-        .option('-u, --url <url>', 'Target URL for web workflows')
-        .option('--cdp-url <cdpUrl>', 'CDP URL for Electron workflows')
-        .option('--executable-path <path>', 'Path to Electron executable')
-        .option('--launch-args <args...>', 'Launch arguments for Electron (space-separated)')
-        .option('--window-title <title>', 'Target Electron window title')
+        .description('Create a draft workflow definition'))
         .action(async (options) => {
             const definitionService = container.resolve(WorkflowDefinitionService);
 
@@ -99,17 +103,9 @@ export function registerWorkflowDefinitionCommands(workflow: Command): void {
             console.log(chalk.green(`Created workflow draft: ${created.id}`));
         });
 
-    workflow
+    withDefinitionOptions(workflow
         .command('update <workflowDefinitionId>')
-        .description('Update an existing draft workflow definition')
-        .requiredOption('-n, --name <name>', 'Workflow name')
-        .requiredOption('--steps-file <path>', 'Path to JSON file containing workflow steps')
-        .option('-d, --description <description>', 'Workflow description')
-        .option('-u, --url <url>', 'Target URL for web workflows')
-        .option('--cdp-url <cdpUrl>', 'CDP URL for Electron workflows')
-        .option('--executable-path <path>', 'Path to Electron executable')
-        .option('--launch-args <args...>', 'Launch arguments for Electron (space-separated)')
-        .option('--window-title <title>', 'Target Electron window title')
+        .description('Update an existing draft workflow definition'))
         .action(async (workflowDefinitionId: string, options) => {
             const definitionService = container.resolve(WorkflowDefinitionService);
             const persistence = container.resolve<IPersistenceAdapter>('IPersistenceAdapter');

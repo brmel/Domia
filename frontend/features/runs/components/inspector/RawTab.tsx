@@ -6,6 +6,36 @@ import type { StepTrace } from '@domain/ports/reporting/ITraceService';
 import { JsonTreeView } from '../JsonTreeView';
 import { SectionLabel } from './inspectorPrimitives';
 
+const KEY_TONES = {
+    gray: 'bg-gray-100 text-gray-600',
+    green: 'bg-green-50 text-green-700',
+    blue: 'bg-blue-50 text-blue-700',
+} as const;
+
+function KeyValueRow({ label, value, tone }: { label: string; value: unknown; tone: keyof typeof KEY_TONES }): JSX.Element {
+    return (
+        <div className="flex items-start gap-3">
+            <span className={`text-xs font-mono px-2 py-1 rounded shrink-0 min-w-25 ${KEY_TONES[tone]}`}>
+                {label}
+            </span>
+            <span className="text-sm text-gray-800 break-all font-mono">
+                {typeof value === 'string' ? value : JSON.stringify(value)}
+            </span>
+        </div>
+    );
+}
+
+function ScrollPanel({ label, children }: { label: string; children: React.ReactNode }): JSX.Element {
+    return (
+        <div>
+            <SectionLabel>{label}</SectionLabel>
+            <div className="max-h-60 overflow-auto rounded-lg border border-gray-100 bg-gray-50 p-2">
+                {children}
+            </div>
+        </div>
+    );
+}
+
 export function RawTab({ trace, stepDetail, afterArtifacts }: {
     trace: (Record<string, unknown> & Partial<StepTrace>) | undefined;
     stepDetail: Step | undefined;
@@ -25,24 +55,10 @@ export function RawTab({ trace, stepDetail, afterArtifacts }: {
                 <CollapsibleSection title="Tool Call" badge={toolCall.name} badgeColor="green" defaultOpen>
                     <div className="grid gap-2">
                         {toolCall.durationMs !== undefined && (
-                            <div className="flex items-start gap-3">
-                                <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-1 rounded shrink-0 min-w-25">
-                                    durationMs
-                                </span>
-                                <span className="text-sm text-gray-800 break-all font-mono">
-                                    {toolCall.durationMs}ms
-                                </span>
-                            </div>
+                            <KeyValueRow label="durationMs" value={`${toolCall.durationMs}ms`} tone="gray" />
                         )}
                         {Object.entries(toolCall.input).map(([key, value]) => (
-                            <div key={key} className="flex items-start gap-3">
-                                <span className="text-xs font-mono bg-green-50 text-green-700 px-2 py-1 rounded shrink-0 min-w-25">
-                                    {key}
-                                </span>
-                                <span className="text-sm text-gray-800 break-all font-mono">
-                                    {typeof value === 'string' ? value : JSON.stringify(value)}
-                                </span>
-                            </div>
+                            <KeyValueRow key={key} label={key} value={value} tone="green" />
                         ))}
                     </div>
                 </CollapsibleSection>
@@ -52,14 +68,7 @@ export function RawTab({ trace, stepDetail, afterArtifacts }: {
                 <CollapsibleSection title="Tool Result" badge={toolCall.name} badgeColor="blue" defaultOpen>
                     <div className="grid gap-2">
                         {Object.entries(toolCall.result).map(([key, value]) => (
-                            <div key={key} className="flex items-start gap-3">
-                                <span className="text-xs font-mono bg-blue-50 text-blue-700 px-2 py-1 rounded shrink-0 min-w-25">
-                                    {key}
-                                </span>
-                                <span className="text-sm text-gray-800 break-all font-mono">
-                                    {typeof value === 'string' ? value : JSON.stringify(value)}
-                                </span>
-                            </div>
+                            <KeyValueRow key={key} label={key} value={value} tone="blue" />
                         ))}
                     </div>
                 </CollapsibleSection>
@@ -104,28 +113,19 @@ export function RawTab({ trace, stepDetail, afterArtifacts }: {
                             </div>
                         )}
                         {afterArtifacts.dom && (
-                            <div>
-                                <SectionLabel>DOM Snapshot</SectionLabel>
-                                <div className="max-h-60 overflow-auto rounded-lg border border-gray-100 bg-gray-50 p-2">
-                                    <JsonTreeView data={afterArtifacts.dom} name="DOM" />
-                                </div>
-                            </div>
+                            <ScrollPanel label="DOM Snapshot">
+                                <JsonTreeView data={afterArtifacts.dom} name="DOM" />
+                            </ScrollPanel>
                         )}
                         {afterArtifacts.accessibility && (
-                            <div>
-                                <SectionLabel>Accessibility Tree</SectionLabel>
-                                <div className="max-h-60 overflow-auto rounded-lg border border-gray-100 bg-gray-50 p-2">
-                                    <pre className="text-xs font-mono text-gray-700 whitespace-pre-wrap">{afterArtifacts.accessibility}</pre>
-                                </div>
-                            </div>
+                            <ScrollPanel label="Accessibility Tree">
+                                <pre className="text-xs font-mono text-gray-700 whitespace-pre-wrap">{afterArtifacts.accessibility}</pre>
+                            </ScrollPanel>
                         )}
                         {afterArtifacts.trace && (
-                            <div>
-                                <SectionLabel>Trace</SectionLabel>
-                                <div className="max-h-60 overflow-auto rounded-lg border border-gray-100 bg-gray-50 p-2">
-                                    <JsonTreeView data={afterArtifacts.trace} name="Trace" />
-                                </div>
-                            </div>
+                            <ScrollPanel label="Trace">
+                                <JsonTreeView data={afterArtifacts.trace} name="Trace" />
+                            </ScrollPanel>
                         )}
                     </div>
                 </CollapsibleSection>

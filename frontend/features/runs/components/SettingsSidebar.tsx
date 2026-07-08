@@ -1,4 +1,4 @@
-import { trpc } from '@frontend/api/trpc';
+import { useSettingsConfig } from '@frontend/lib/useSettingsConfig';
 import type { DomiaConfig } from '@shared/contracts/config';
 import { Button } from '@frontend/ui/Button';
 import { FieldLabel } from '@frontend/ui/FieldLabel';
@@ -13,13 +13,7 @@ interface SettingsSidebarProps {
 const REPORT_FORMATS = ['none', 'junit', 'html', 'all'] as const;
 
 export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarProps): JSX.Element {
-    const utils = trpc.useUtils();
-    const { data: config, isLoading } = trpc.settings.get.useQuery();
-    const updateMutation = trpc.settings.update.useMutation({
-        onSuccess: () => {
-            utils.settings.get.invalidate();
-        }
-    });
+    const { config, isLoading, updateMutation } = useSettingsConfig();
 
     const handleUpdate = (newConfig: DomiaConfig): void => {
         updateMutation.mutate(newConfig);
@@ -110,7 +104,6 @@ export function SettingsSidebar({ onClose, disabled = false }: SettingsSidebarPr
                     <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-3">Execution Limits</h3>
                     <div className="space-y-4">
                         <NumberField label="Max Steps" value={cfg.limits.maxSteps} onChange={(maxSteps) => updateRuntime({ limits: { maxSteps } })} disabled={disabled} />
-                        <NumberField label="Delay Between Steps (ms)" value={cfg.limits.delayBetweenSteps} onChange={(delayBetweenSteps) => updateRuntime({ limits: { delayBetweenSteps } })} disabled={disabled} />
                     </div>
                 </section>
 
