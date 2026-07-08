@@ -50,7 +50,9 @@ function createAgentView(): void {
 }
 
 ipcMain.handle('agent-view:set-bounds', (_event, bounds: { x: number; y: number; width: number; height: number }) => {
-  if (agentView) agentView.setBounds(bounds);
+  if (!agentView) return;
+  const finite = (n: unknown): number => (typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0);
+  agentView.setBounds({ x: finite(bounds?.x), y: finite(bounds?.y), width: finite(bounds?.width), height: finite(bounds?.height) });
 });
 
 ipcMain.handle('agent-view:clear', () => {

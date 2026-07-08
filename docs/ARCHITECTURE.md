@@ -148,6 +148,13 @@ Clean layered hexagon: pure `domain/`, real DI seam (`backend/container/`), port
 - `.claude/skills/` — focused skill briefs (TypeScript-strict, Playwright, the agent loop).
 - `.claude/commands/` — slash commands (`/check`).
 
+## Security posture (entry points)
+
+- **Renderer**: `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true` on both the main window and the agent WebContentsView. Preload exposes exactly two things: the tRPC bridge and `agentView.setBounds/clear` (bounds are clamped to finite non-negative integers in the main process).
+- **IPC**: every parameterized tRPC procedure validates with a Zod schema from `shared/contracts`; `Result` errors are unwrapped to plain messages (`unwrap.ts`) — no stack traces or objects cross the wire. Destructive UI actions (history clear) require an explicit confirm.
+- **HTTP server** (`apps/server`): read-only queries, binds `127.0.0.1` unless `DOMIA_SERVER_HOST` is set.
+- **CDP port** (`remote-debugging-port` on the desktop app): required by design — the embedded web driver attaches to the agent view through it. Chromium binds it to localhost only; any local process could attach, which is the accepted trade-off for embedded mode.
+
 ## Validation before claiming done
 
 ```bash
