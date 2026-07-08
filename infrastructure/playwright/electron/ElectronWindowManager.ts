@@ -18,6 +18,7 @@ export class ElectronWindowManager {
     private static readonly TAG = '[ElectronWindowManager]';
 
     private windows = new Map<string, ElectronWindow>();
+    private readonly trackedPages = new Set<Page>();
     private activeWindowId: string | null = null;
     private windowIdCounter = 0;
 
@@ -25,11 +26,17 @@ export class ElectronWindowManager {
 
     async registerWindow(page: Page): Promise<Result<string, Error>> {
         try {
+            const existing = this.findWindowByPage(page);
+            if (existing) return ok(existing.id);
+
             const windowId = this.generateWindowId();
             const title = await page.title().catch(() => 'Untitled');
             const url = page.url();
 
             this.windows.set(windowId, { id: windowId, page, title, url });
+            this.trackedPages.add(page);
+            page.on('close', () => this.unregister(windowId, page));
+            page.on('load', () => { void this.refreshWindow(windowId); });
 
             if (!this.activeWindowId) {
                 this.activeWindowId = windowId;
@@ -40,6 +47,27 @@ export class ElectronWindowManager {
         } catch (error) {
             return err(new Error(`Failed to register window: ${error}`));
         }
+    }
+
+    private findWindowByPage(page: Page): ElectronWindow | null {
+        for (const win of this.windows.values()) {
+            if (win.page === page) return win;
+        }
+        return null;
+    }
+
+    private unregister(windowId: string, page: Page): void {
+        this.windows.delete(windowId);
+        this.trackedPages.delete(page);
+        if (this.activeWindowId === windowId) this.activeWindowId = null;
+        this.logger.debug(`${ElectronWindowManager.TAG} Window closed: ${windowId}`);
+    }
+
+    private async refreshWindow(windowId: string): Promise<void> {
+        const win = this.windows.get(windowId);
+        if (!win || win.page.isClosed()) return;
+        const title = await win.page.title().catch(() => win.title);
+        this.windows.set(windowId, { ...win, title, url: win.page.url() });
     }
 
     getActiveWindow(): ElectronWindow | null {
@@ -97,6 +125,7 @@ export class ElectronWindowManager {
 
     reset(): void {
         this.windows.clear();
+        this.trackedPages.clear();
         this.activeWindowId = null;
         this.windowIdCounter = 0;
         this.logger.debug(`${ElectronWindowManager.TAG} Reset`);
