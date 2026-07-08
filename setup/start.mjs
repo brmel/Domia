@@ -36,5 +36,5 @@ const env = { ...process.env };
 if (target === 'desktop') delete env.ELECTRON_RUN_AS_NODE;
 
 // npm is npm.cmd on Windows — shell:true resolves it.
-const r = spawnSync('npm', args, { cwd: ROOT, stdio: 'inherit', shell: true, env });
+const r = spawnSync('npm', args, { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32', env });
 process.exit(r.status ?? 1);

@@ -21,7 +21,7 @@ const fail = (m) => { log(`${c.red}✗ ${m}${c.reset}`); process.exit(1); };
 
 // npm/npx are .cmd shims on Windows — shell:true lets spawn resolve them.
 function run(cmd, args) {
-    const r = spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit', shell: true, env: process.env });
+    const r = spawnSync(cmd, args, { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32', env: process.env });
     if (r.status !== 0) fail(`\`${cmd} ${args.join(' ')}\` failed (exit ${r.status ?? 'signal'}).`);
 }
 
