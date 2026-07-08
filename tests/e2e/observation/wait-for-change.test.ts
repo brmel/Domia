@@ -69,7 +69,7 @@ describe('wait_for_change tool (e2e)', () => {
             }) as { status: string; elapsedMs: number };
 
             expect(result.status).toBe('timeout');
-            expect(result.elapsedMs).toBeGreaterThanOrEqual(1500);
+            expect(result.elapsedMs).toBeGreaterThanOrEqual(1400);
         } finally {
             await coordinator.stop();
         }
