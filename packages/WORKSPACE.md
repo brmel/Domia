@@ -3,7 +3,7 @@
 Not code yet — the shape of the buildable monorepo root, so the scaffold is
 ready to become real.
 
-## `Dev/package.json` (workspaces root)
+## `package.json` (workspaces root)
 
 ```jsonc
 {
@@ -20,7 +20,7 @@ ready to become real.
 }
 ```
 
-## `Dev/tsconfig.base.json` (strict + path aliases)
+## `tsconfig.base.json` (strict + path aliases)
 
 ```jsonc
 {
@@ -50,7 +50,7 @@ Each package has its own `tsconfig.json` extending base with `references` to its
 runtime deps — but only `contracts` and `kernel` may be referenced by everyone;
 domain packages reference only those two (enforced below).
 
-## `Dev/scripts/check-modules.mjs` (CI boundary guard — the D1–D7 rules)
+## `scripts/check-modules.mjs` (CI boundary guard — the D1–D7 rules)
 
 Fails the build on:
 

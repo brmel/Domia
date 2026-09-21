@@ -31,8 +31,7 @@
 
 Companion documents: **[JOURNEYS.md](./JOURNEYS.md)** (every user journey with
 failure/recovery paths), **[ECOSYSTEM.md](./ECOSYSTEM.md)** (MCP, playwright-mcp,
-AI SDK, Agent Skills — what we adopt and why), **[PLAN.md](./PLAN.md)** (per-class
-build map + the adopted R-series improvements), **[packages/DECISIONS.md](./packages/DECISIONS.md)**
+AI SDK, Agent Skills — what we adopt and why), **[packages/DECISIONS.md](../packages/DECISIONS.md)**
 (every design fix, D1 onwards).
 
 ---

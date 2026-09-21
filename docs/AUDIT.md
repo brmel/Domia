@@ -153,7 +153,7 @@ Plugins load through the same `ModuleHost` as built-ins, so no core changes are 
 for phase 0.
 
 ```
-Dev/packages/plugins/audit/
+packages/plugins/audit/
   domia-plugin.json          name, version, entry
   src/module.ts              registers EP.MetaTool (+ EP.ToolProvider in phase 1)
   src/findings.ts            Finding shape, dedup, severity, standard mapping

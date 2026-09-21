@@ -23,7 +23,7 @@ npm install
 
 ## 3. Provide a model key
 
-Either export it, or drop it in `Dev/.env` (gitignored):
+Either export it, or drop it in `.env` (gitignored):
 
 ```bash
 # .env
@@ -144,7 +144,7 @@ Mount that command in Claude Code, Codex, or another Domia: the host gets
 | Symptom | Fix |
 |---|---|
 | `node:sqlite unavailable` | Upgrade to Node 22+ (doctor reports this) |
-| `model api key: none` | Export the key or add `Dev/.env`; re-run `doctor` |
+| `model api key: none` | Export the key or add `.env`; re-run `doctor` |
 | `failed to reach MCP server` | Is the mount running? For crawl4ai: `docker ps`, then curl `http://localhost:11235/mcp/schema` |
 | `chromium: not installed` | `npx playwright install chromium` — the agent has nothing to drive without it |
 | `ExperimentalWarning: SQLite` | Cosmetic (Node flags `node:sqlite` as experimental); safe to ignore |
@@ -153,4 +153,4 @@ Mount that command in Claude Code, Codex, or another Domia: the host gets
 
 - Runs / cases / plans / spans → `~/.domia/domia.db`
 - Trace stream + artifacts → `~/.domia/artifacts/`
-- Persona prompts (behavior, editable, no rebuild) → `Dev/prompts/personas/`
+- Persona prompts (behavior, editable, no rebuild) → `prompts/personas/`

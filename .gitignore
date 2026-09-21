@@ -1,2 +1,9 @@
 node_modules/
 .DS_Store
+.domia/
+*.tsbuildinfo
+.playwright-mcp/
+.env
+out/
+dist/
+release/

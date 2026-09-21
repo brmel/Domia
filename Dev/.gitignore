@@ -1,8 +1,0 @@
-node_modules/
-.domia/
-*.tsbuildinfo
-.playwright-mcp/
-.env
-out/
-dist/
-release/

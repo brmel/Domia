@@ -25,13 +25,13 @@ One agentic loop: no hardcoded steps, no phases, no workflows to author. The age
 owns task structure; the system owns lifetimes, mediation and provenance.
 
 - **Install a build** → [INSTALL.md](./INSTALL.md) (macOS · Windows · Linux · CLI)
-- **Work in the repo** → [Dev/QUICKSTART.md](./Dev/QUICKSTART.md)
-- **How it is built** → [Dev/README.md](./Dev/README.md) · architecture in
-  [Dev/DESIGN.md](./Dev/DESIGN.md) · every design fix in
-  [Dev/packages/DECISIONS.md](./Dev/packages/DECISIONS.md)
+- **Work in the repo** → [docs/QUICKSTART.md](./docs/QUICKSTART.md)
+- **How it is built** → [CONTRIBUTING.md](./CONTRIBUTING.md) · architecture in
+  [docs/DESIGN.md](./docs/DESIGN.md) · every design fix in
+  [packages/DECISIONS.md](./packages/DECISIONS.md)
 
 ```sh
-cd Dev && npm install
+npm install
 npx tsx packages/cli/src/index.ts doctor
 npx tsx packages/cli/src/index.ts run "Click 'More information' and report the title" --url https://example.com
 npm run app        # the desktop app
@@ -45,3 +45,13 @@ signed builds with auto-update (those need a paid certificate).
 Your runs stay on your machine. What the agent sees — page snapshots, extracted text,
 screenshots it chooses to take — goes to **your** model provider so the model can pick
 the next step. Domia sends nothing anywhere else.
+
+## Where things are
+
+| | |
+|---|---|
+| `packages/` | The system, one folder per job. Start at `packages/README.md`. |
+| `prompts/` | The agent's personas and skills, as Markdown. Editable without a rebuild. |
+| `tests/` | Integration and conformance suites that run against real browsers. |
+| `scripts/` | The module-boundary gate CI runs. |
+| `docs/` | How it is designed and why — start with `docs/DESIGN.md`. |

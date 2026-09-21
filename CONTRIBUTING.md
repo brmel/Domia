@@ -19,15 +19,13 @@ This is a **living monorepo** — the backend + desktop app are built and tested
 (`packages/*`), alongside the design docs that are its contract. The previous V1
 app was retired after a parity audit (`packages/DECISIONS.md` D33–D36). **DOMIA runs
 single-host** (one process; distribution is deferred, see DESIGN §17). Build/slice
-state: `packages/DECISIONS.md` and `PLAN.md` §3. The documents:
+state: `packages/DECISIONS.md`. The documents:
 
-- **[DESIGN.md](./DESIGN.md)** — the architecture story: V1 autopsy, design
+- **[docs/DESIGN.md](./docs/DESIGN.md)** — the architecture story: V1 autopsy, design
   philosophy, the agentic research + decision (§4), module map, connections,
   user journeys with data flow, data model, roadmap.
-- **[MODULES.md](./MODULES.md)** — the API reference: every module's functions,
+- **[docs/MODULES.md](./docs/MODULES.md)** — the API reference: every module's functions,
   contexts vs results, sync vs async, journeys, implementation notes, file trees.
-- **[PLAN.md](./PLAN.md)** — the build map: every class per package, build-order
-  slices, definition of done.
 
 The **[packages/](./packages/)** folder is the physical scaffold: one
 `INTERFACE.md` per package with authoritative TypeScript signatures + file

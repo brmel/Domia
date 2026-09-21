@@ -7,7 +7,7 @@ export const AUDIT_SNAPSHOT_LABEL = 'audit-findings.json';
 export const AUDIT_REPORT_LABEL = 'audit-report.md';
 
 /**
- * D1–D12 of AUDIT-DESIGN.md. Ids are stable wire values: reports, baselines and
+ * Ids are stable wire values: reports, baselines and
  * stored findings from older audits must keep resolving.
  */
 export type Dimension =

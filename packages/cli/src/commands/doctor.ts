@@ -30,7 +30,7 @@ export async function doctor(json: boolean): Promise<number> {
 
   // after boot: bootHeadless() loads .env into the environment
   const key = ['GOOGLE_GENERATIVE_AI_API_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'OPENAI_COMPATIBLE_BASE_URL'].find((k) => process.env[k]);
-  checks.push({ name: 'model api key', ok: Boolean(key), detail: key ? `${key} set` : 'none — set GOOGLE_GENERATIVE_AI_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, or OPENAI_COMPATIBLE_BASE_URL (or put it in Dev/.env)' });
+  checks.push({ name: 'model api key', ok: Boolean(key), detail: key ? `${key} set` : 'none — set GOOGLE_GENERATIVE_AI_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, or OPENAI_COMPATIBLE_BASE_URL (or put it in .env)' });
 
   checks.push({ name: 'prompts dir', ok: existsSync(config.promptsDir), detail: config.promptsDir });
   checks.push({ name: 'data dir writable', ok: writable(config.dataDir), detail: config.dataDir });

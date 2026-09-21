@@ -9,9 +9,6 @@ concurrency:
   group: check-${{ github.ref }}
   cancel-in-progress: true
 
-defaults:
-  run:
-    working-directory: Dev
 
 jobs:
   check:
@@ -24,7 +21,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: Dev/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - run: npm ci
 

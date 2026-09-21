@@ -678,7 +678,7 @@ Chromium playwright-mcp drives is installed, with the command to fix it.
 
 ### D38 — auditing is a feature of the loop, not a second engine
 
-First slice of the audit product (design: `AUDIT-DESIGN.md`). An audit is a normal run
+First slice of the audit product. An audit is a normal run
 with the `auditor` persona: the agent plans its own coverage and calls a belt —
 `audit.dimensions | finding | coverage | score | report`. No audit pipeline exists in
 code, which is the same non-negotiable as everywhere else.

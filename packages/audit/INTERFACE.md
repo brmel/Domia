@@ -7,8 +7,7 @@ findings, evidence, scores), the scoring maths, and the report renderer — noth
 
 **Kind.** K1 service (`EP.AuditService`) + belt tools (`EP.MetaTool`).
 
-Design in [AUDIT-DESIGN.md](../../AUDIT-DESIGN.md); the market case in
-[AUDIT.md](../../AUDIT.md).
+The case for it is in [docs/AUDIT.md](../../docs/AUDIT.md).
 
 ---
 
