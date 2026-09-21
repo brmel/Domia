@@ -1,0 +1,36 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: Dev
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Dev/package-lock.json
+
+      - run: npm ci
+
+      - name: Install the browser playwright-mcp drives
+        run: npx playwright install --with-deps chromium
+
+      # xvfb gives the headed-flip tests (F7) a display, so they run instead of skipping.
+      - name: typecheck + module gate + integration suite
+        run: xvfb-run -a npm run check

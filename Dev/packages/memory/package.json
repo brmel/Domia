@@ -1,0 +1,8 @@
+{
+  "name": "@domia/memory",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": { "@domia/contracts": "*", "@domia/kernel": "*", "nanoid": "^5.0.9", "zod": "^3.24.1" }
+}

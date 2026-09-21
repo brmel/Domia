@@ -1,0 +1,50 @@
+{
+  "name": "domia",
+  "private": true,
+  "version": "2.0.0-beta.1",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*",
+    "packages/hosts/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "typecheck:ui": "tsc --noEmit -p packages/ui/tsconfig.json",
+    "typecheck:desktop": "tsc --noEmit -p packages/hosts/desktop/tsconfig.json",
+    "check:modules": "node scripts/check-modules.mjs",
+    "cli": "tsx packages/cli/src/index.ts",
+    "app": "npm --prefix packages/hosts/desktop run dev",
+    "check": "npm run typecheck && npm run typecheck:ui && npm run typecheck:desktop && npm run check:modules && npm test",
+    "test": "vitest run",
+    "build:cli": "node scripts/build-cli.mjs",
+    "package:desktop": "npm --prefix packages/hosts/desktop run package",
+    "package": "npm run build:cli && npm run package:desktop"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.12",
+    "@ai-sdk/google": "^4.0.12",
+    "@ai-sdk/openai": "^2.0.114",
+    "@ai-sdk/openai-compatible": "^1.0.46",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@playwright/mcp": "^0.0.78",
+    "ai": "^7.0.22",
+    "commander": "^14.0.0",
+    "mitt": "^3.0.1",
+    "nanoid": "^5.0.9",
+    "neverthrow": "^8.1.1",
+    "pino": "^9.6.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.7"
+  }
+}

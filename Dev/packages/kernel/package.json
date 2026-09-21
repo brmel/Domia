@@ -1,0 +1,8 @@
+{
+  "name": "@domia/kernel",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": { "@domia/contracts": "*", "mitt": "^3.0.1", "pino": "^9.6.0", "neverthrow": "^8.1.1" }
+}

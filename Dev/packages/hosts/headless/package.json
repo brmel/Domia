@@ -1,0 +1,24 @@
+{
+  "name": "@domia/hosts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@domia/contracts": "*",
+    "@domia/kernel": "*",
+    "@domia/trace": "*",
+    "@domia/store": "*",
+    "@domia/tools": "*",
+    "@domia/agent": "*",
+    "@domia/case": "*",
+    "@domia/memory": "*",
+    "@domia/skills": "*",
+    "@domia/plan": "*",
+    "@domia/loop": "*",
+    "@domia/api": "*",
+    "neverthrow": "^8.1.1",
+    "@domia/domia-mcp": "*",
+    "@domia/audit": "*"
+  }
+}

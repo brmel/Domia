@@ -1,0 +1,61 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: Dev
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Dev/package-lock.json
+
+      - run: npm ci
+
+      - name: Build the CLI bundle
+        run: npm run build:cli
+
+      - name: Build the desktop app
+        run: npm run package:desktop
+
+      - name: Collect the installers
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          cp packages/hosts/desktop/release/*.{dmg,zip,exe,AppImage} artifacts/ 2>/dev/null || true
+          tar -czf "artifacts/domia-cli-${{ matrix.os }}.tar.gz" -C dist domia.mjs prompts node_modules
+          ls -lh artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: domia-${{ matrix.os }}
+          path: Dev/artifacts/*
+
+      - name: Attach to the GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || \
+            gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --notes-file ../INSTALL.md --prerelease
+          gh release upload "${GITHUB_REF_NAME}" artifacts/* --clobber

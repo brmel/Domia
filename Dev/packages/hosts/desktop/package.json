@@ -1,0 +1,27 @@
+{
+  "name": "@domia/hosts-desktop",
+  "version": "2.0.0-beta.1",
+  "private": true,
+  "type": "module",
+  "main": "./out/main/index.cjs",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "package": "electron-vite build && electron-builder --config electron-builder.yml",
+    "package:dir": "electron-vite build && electron-builder --config electron-builder.yml --dir"
+  },
+  "dependencies": {
+    "@domia/contracts": "*",
+    "@domia/kernel": "*",
+    "@domia/api": "*",
+    "@domia/hosts": "*"
+  },
+  "devDependencies": {
+    "electron-vite": "^2.3.0",
+    "@vitejs/plugin-react": "^4.3.4"
+  },
+  "description": "Domia \u2014 an LLM agent that drives real web and Electron apps to accomplish a request.",
+  "author": "Brahim Redouane",
+  "license": "UNLICENSED"
+}

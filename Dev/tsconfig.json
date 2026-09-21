@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "paths": {
+      "@domia/contracts": ["./packages/contracts/src/index.ts"],
+      "@domia/kernel": ["./packages/kernel/src/index.ts"],
+      "@domia/trace": ["./packages/trace/src/index.ts"],
+      "@domia/store": ["./packages/store/src/index.ts"],
+      "@domia/tools": ["./packages/tools/src/index.ts"],
+      "@domia/agent": ["./packages/agent/src/index.ts"],
+      "@domia/case": ["./packages/case/src/index.ts"],
+      "@domia/plan": ["./packages/plan/src/index.ts"],
+      "@domia/memory": ["./packages/memory/src/index.ts"],
+      "@domia/skills": ["./packages/skills/src/index.ts"],
+      "@domia/loop": ["./packages/loop/src/index.ts"],
+      "@domia/api": ["./packages/api/src/index.ts"],
+      "@domia/domia-mcp": ["./packages/domia-mcp/src/index.ts"],
+      "@domia/conformance": ["./packages/conformance/src/index.ts"],
+      "@domia/hosts": ["./packages/hosts/headless/src/index.ts"]
+    }
+  },
+  "include": ["packages/**/src/**/*.ts", "scripts/**/*.mjs"],
+  "exclude": ["packages/ui/**", "packages/hosts/desktop/**"]
+}

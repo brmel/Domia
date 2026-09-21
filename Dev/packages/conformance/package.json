@@ -1,0 +1,8 @@
+{
+  "name": "@domia/conformance",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": { "@domia/contracts": "*", "@domia/kernel": "*" }
+}

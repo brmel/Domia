@@ -1,0 +1,15 @@
+{
+  "name": "@domia/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "domia": "src/index.ts"
+  },
+  "main": "src/index.ts",
+  "dependencies": {
+    "@domia/contracts": "*",
+    "@domia/hosts": "*",
+    "commander": "^14.0.0"
+  }
+}
