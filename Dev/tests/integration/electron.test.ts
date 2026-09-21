@@ -17,11 +17,6 @@ function electronBinary(): string | null {
   }
 }
 
-/** Electron needs a display to become debuggable; a bare Linux runner has none. */
-function headless(): boolean {
-  return process.platform === 'linux' && !process.env.DISPLAY;
-}
-
 const FIXTURE = join(import.meta.dirname, '..', 'fixtures', 'electron-app');
 const binary = electronBinary();
 
@@ -35,7 +30,7 @@ describe.skipIf(!binary)('electron target (real app over CDP)', () => {
     await h?.dispose();
   });
 
-  it.skipIf(headless())('launches the app, attaches over CDP, and drives its real DOM', async () => {
+  it('launches the app, attaches over CDP, and drives its real DOM', async () => {
     h = await bootTest();
     // Electron is launched via its binary with the fixture app as its argument.
     const target: TargetSpec = { kind: 'electron', appPath: binary!, args: [FIXTURE] };
