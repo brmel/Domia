@@ -46,6 +46,51 @@ Your runs stay on your machine. What the agent sees — page snapshots, extracte
 screenshots it chooses to take — goes to **your** model provider so the model can pick
 the next step. Domia sends nothing anywhere else.
 
+## What it looks like
+
+The deterministic pass needs no model and no browser, so it runs on a clean
+checkout with no API key:
+
+```console
+$ domia audit https://example.com --sweep-only
+
+▶ sweep: https://example.com  (deterministic pass — no model)
+
+  11 requests in 215ms → 20 findings
+
+  ▲ serious  security       No Content-Security-Policy
+    verified · security.csp-missing · fix (S): Ship a CSP, starting in report-only mode to find violations without breaking the site.
+  ▲ serious  security       No HSTS
+    verified · security.hsts-missing · fix (S): Send HSTS with a long max-age once https is confirmed working everywhere.
+  ▲ serious  security       http:// is not redirected to https://
+    verified · security.no-https-upgrade · fix (S): Return a 301 from http to the https origin.
+  ● moderate files          No robots.txt
+    verified · files.robots-txt · fix (S): Publish /robots.txt.
+  ● moderate seo            No meta description
+    verified · seo.description-missing · fix (S): Add a meta description of 120–160 characters.
+  · minor    agentic        No /llms.txt
+    verified · agentic.llms-txt · fix (S): Publish /llms.txt.
+  …
+```
+
+Every finding is marked `verified`, carries the rule that produced it, and comes
+with the fix and its size. The agent is only spent on what this pass leaves open.
+
+`doctor` tells you what is and is not ready before you start:
+
+```console
+$ domia doctor
+
+✓ node >= 22           v24.8.0 (node:sqlite needs 22+)
+✓ node:sqlite          built-in available
+✓ playwright-mcp       node_modules/@playwright/mcp/cli.js
+✗ chromium             not installed — run `npx playwright install chromium`
+✓ kernel               modules loaded (trace-first)
+✗ model api key        none — set GOOGLE_GENERATIVE_AI_API_KEY, ANTHROPIC_API_KEY, …
+✓ prompts dir          prompts
+✓ data dir writable    ~/.domia
+```
+
 ## Where things are
 
 | | |
