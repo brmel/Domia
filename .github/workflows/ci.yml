@@ -28,6 +28,15 @@ jobs:
       - name: Install the browser playwright-mcp drives
         run: npx playwright install --with-deps chromium
 
+      # Electron ships chrome-sandbox unprivileged inside node_modules. Chromium
+      # checks it before the app's JavaScript runs and aborts rather than drop
+      # sandboxing, so the CDP test never gets a window. Root-owned and 4755 is
+      # what the error message asks for, and it keeps the sandbox on.
+      - name: Let Electron's sandbox helper run
+        run: |
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+
       # xvfb gives the headed-flip tests (F7) a display, so they run instead of skipping.
       - name: typecheck + module gate + integration suite
         run: xvfb-run -a npm run check
