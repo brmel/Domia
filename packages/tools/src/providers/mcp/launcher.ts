@@ -51,6 +51,9 @@ export async function attachToCdp(port: number): Promise<ModuleResult<LaunchedAp
  * Apps that don't cooperate never become debuggable, and we say so plainly rather
  * than hanging. Use `attach` mode for apps you start yourself.
  */
+/** Enough of the child's stderr to explain a failure, not enough to flood a log. */
+const STDERR_KEEP = 4000;
+
 export async function launchElectron(appPath: string, extraArgs: readonly string[], port: number): Promise<ModuleResult<LaunchedApp>> {
   let child: ChildProcess;
   try {
@@ -58,7 +61,10 @@ export async function launchElectron(appPath: string, extraArgs: readonly string
     // is often set by surrounding tooling — strip it so we always get a real app.
     const env: NodeJS.ProcessEnv = { ...process.env, ELECTRON_REMOTE_DEBUGGING_PORT: String(port) };
     delete env['ELECTRON_RUN_AS_NODE'];
-    child = spawn(appPath, [...extraArgs], { stdio: 'ignore', detached: false, env });
+    // stderr is piped, not ignored: when the app dies instead of opening its
+    // debugging port, its own message is the only thing that says why, and
+    // discarding it is how this failure stayed unexplained on CI.
+    child = spawn(appPath, [...extraArgs], { stdio: ['ignore', 'ignore', 'pipe'], detached: false, env });
   } catch (e) {
     return resultErr(domiaError(TOOLS, 'TARGET_UNREACHABLE', `failed to launch '${appPath}'`, { cause: e }));
   }
@@ -69,6 +75,8 @@ export async function launchElectron(appPath: string, extraArgs: readonly string
   child.on('error', (e) => { spawnError = e.message; });
   let exited: number | null = null;
   child.on('exit', (code) => { exited = code ?? 0; });
+  let stderr = '';
+  child.stderr?.on('data', (c: Buffer) => { stderr = (stderr + c.toString()).slice(-STDERR_KEEP); });
 
   // Give a failed spawn a tick to surface before committing to the full wait.
   await new Promise((r) => setTimeout(r, 50));
@@ -76,8 +84,9 @@ export async function launchElectron(appPath: string, extraArgs: readonly string
   if (!ready) {
     child.kill('SIGKILL');
     const reason = spawnError ?? (exited !== null ? `the app exited with code ${exited}` : `no CDP on port ${port} after ${READY_TIMEOUT_MS}ms`);
+    const said = stderr.trim() ? ` It wrote: ${stderr.trim()}` : '';
     return resultErr(domiaError(TOOLS, 'TARGET_UNREACHABLE',
-      `electron app did not become debuggable: ${reason}. The app must forward ELECTRON_REMOTE_DEBUGGING_PORT via app.commandLine.appendSwitch('remote-debugging-port', port).`));
+      `electron app did not become debuggable: ${reason}. The app must forward ELECTRON_REMOTE_DEBUGGING_PORT via app.commandLine.appendSwitch('remote-debugging-port', port).${said}`));
   }
 
   return resultOk({

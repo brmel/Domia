@@ -17,14 +17,6 @@ function electronBinary(): string | null {
   }
 }
 
-/**
- * Launching a real Electron window does not work on the CI runner: the app
- * starts, never opens its remote-debugging port, and exits 0. Unresolved, so the
- * one test that needs a live window is skipped there. The rest of the file -
- * both failure paths - runs everywhere.
- */
-const CI = Boolean(process.env.CI);
-
 const FIXTURE = join(import.meta.dirname, '..', 'fixtures', 'electron-app');
 const binary = electronBinary();
 
@@ -38,7 +30,7 @@ describe.skipIf(!binary)('electron target (real app over CDP)', () => {
     await h?.dispose();
   });
 
-  it.skipIf(CI)('launches the app, attaches over CDP, and drives its real DOM', async () => {
+  it('launches the app, attaches over CDP, and drives its real DOM', async () => {
     h = await bootTest();
     // Electron is launched via its binary with the fixture app as its argument.
     const target: TargetSpec = { kind: 'electron', appPath: binary!, args: [FIXTURE] };
