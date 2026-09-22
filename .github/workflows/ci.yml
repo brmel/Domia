@@ -32,8 +32,11 @@ jobs:
       # checks it before the app's JavaScript runs and aborts rather than drop
       # sandboxing, so the CDP test never gets a window. Root-owned and 4755 is
       # what the error message asks for, and it keeps the sandbox on.
+      # The require() first is not decoration: electron fetches its binary
+      # lazily, so dist/ does not exist until something asks for it.
       - name: Let Electron's sandbox helper run
         run: |
+          node -e "require('electron')"
           sudo chown root:root node_modules/electron/dist/chrome-sandbox
           sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
 
